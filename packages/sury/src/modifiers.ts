@@ -63,8 +63,8 @@ import {
  unit
 } from "./primitives";
 import {
- unionChanges,
  unionFactory,
+ unionPlaceEmpty,
  unionWrap
 } from "./union";
 
@@ -139,8 +139,7 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 
       if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        const at = newAnyOf.findIndex((arm) => unionChanges(arm, unitSchema.type));
-        at < 0 ? newAnyOf.push(unitSchema) : newAnyOf.splice(at, 0, unitSchema);
+        unionPlaceEmpty(newAnyOf, unitSchema);
       }
 
       mut.anyOf = newAnyOf;

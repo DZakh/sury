@@ -470,7 +470,12 @@ export type Internal = {
   // alphabet recoding still sees it after `S.trim`. A carrier packing into a
   // bytes target looks the codec up off its `storedAs`.
   bytesCodec?: BytesCodec;
+  // Every tag the union may take, through nested unions, so `undefined` behind
+  // one still makes it optional. A ref counts as `unknown`.
   has?: Partial<Record<Tag, boolean>>;
+  // Try order, not the type's: a wrapper puts its own empty arm ahead of any
+  // arm that would change it (`unionWrap`), so what prints the type lists
+  // `null` and `undefined` last.
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
@@ -688,10 +693,9 @@ export const isLiteral = (schema: Internal): boolean => "const" in schema;
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
-// The arm an unset entry (a form field, a search param, an env var) reads
-// through: a direct `undefined` arm, else a direct `null` one. A direct arm,
-// not `has`: a nested union's own empty arm carries a default or conversion
-// the entry readers would skip, and S.union's refusal reads an env the same way.
+// What an unset form field, search param or env var reads through, and how
+// S.union's refusal reads an env. Direct arms, not `has`: a nested union's own
+// empty arm carries a default or conversion the entry readers would skip.
 export const emptyArm = (schema: Internal): Internal | undefined => {
   const arms = schema.anyOf || [schema];
   return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
@@ -802,9 +806,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // may intentionally run more than once), but not to the expression. Deduping
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
-    // is not a member count. `null`/`undefined` print last, as TypeScript prints
-    // them: a wrapper may put its own empty arm ahead of the rest (`unionWrap`),
-    // and that order is not the type's.
+    // is not a member count.
     const seen: string[] = [];
     const add = (s: Internal): void => {
       if (s.anyOf !== U && !s.name && !s.expression) s.anyOf.forEach(add);
@@ -1240,8 +1242,6 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
   return root as unknown as TValue;
 }
 
-// A nested union adds what it holds, so `undefined` behind one still makes its
-// parent optional. A ref's contents are unknown here.
 export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
   if (member.has !== U) Object.assign(has, member.has);
   else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;

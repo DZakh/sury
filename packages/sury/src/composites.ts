@@ -533,7 +533,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
         !(tagFlags[itemSchema.type]! & (1 | 16 | 32 | 256 | 512)) &&
         itemSchema.format !== "json";
       if (absent) {
-        // A nested union holding `undefined` keeps its own arm the same way.
         const keepAbsent = (union: Internal): Internal => {
           const target = copySchema(union);
           target.anyOf = union.anyOf!.map((variant) =>
@@ -743,9 +742,6 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
-  // Optional field: leave `undefined` as-is (None), or read it the way the
-  // field reads `undefined` when that arm converts (a default). Required
-  // field: reject.
   let absentBody = "";
   let async = presentOut.f & 1;
   if (!unsetIsInput && readsAbsent(target)) {
@@ -777,10 +773,10 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// Whether a missing key has to go through the field's own decode: anything
-// but a plain `S.optional(x)`, whose first arm to take `undefined` keeps it as
-// is. A ref may be optional behind its name, a nested union holds its own
-// `undefined` arm, and an `unknown` or `any` with work to do takes it first.
+// Whether an optional field's missing key goes through the field's own decode
+// rather than staying `undefined`. A ref may be optional behind its name, a
+// nested union holds its own `undefined` arm, and an `unknown` or `any` with
+// work to do reaches `undefined` before the plain arm.
 const readsAbsent = (s: Internal): boolean => {
   if (s.type === refTag) return true;
   if (!isOptional(s)) return false;

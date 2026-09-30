@@ -1881,7 +1881,9 @@ const unionResolveToUnion = (
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
-export const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
+// Leans to "changes": a member that only may convert the value counts, so a
+// wrapper's own empty arm is surely tried ahead of it.
+const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
   if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
   if (s.type === anyOfTag) {
     if (s.to !== U || s.parser !== U) return true;
@@ -1909,12 +1911,13 @@ export const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean 
 // first-member-wins between the parent's own members is untouched.
 export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   const arms = unionIsTransparent(inner) ? inner.anyOf!.slice() : [inner];
-  for (let idx = 0; idx < empties.length; idx++) {
-    const empty = empties[idx]!;
-    const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
-    at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
-  }
+  for (const empty of empties) unionPlaceEmpty(arms, empty);
   return unionFactory(arms);
+};
+
+export const unionPlaceEmpty = (arms: Internal[], empty: Internal): void => {
+  const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
+  at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
 };
 
 export const unionFactory = (schemas: Internal[]): Internal => {
@@ -1972,10 +1975,8 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
 // counted, so nothing valid is refused.
 const unionReplaces = (s: Internal, tag: Tag, refs?: Internal[]): boolean | undefined => {
   if (s.type === tag) return s.to !== U;
-  // An env var is never null, keeps unset as `undefined` on its own, and
-  // otherwise reads it through its target's `emptyArm`, rejecting it without
-  // one. What that arm decodes to decides; an empty value past the target's
-  // own `.to` can't be told.
+  // The way `S.env` reads an unset var (`emptyArm`). An env var is never null,
+  // and past the target's own `.to` what the empty arm decodes to can't be told.
   if (s.format === "env") {
     const target = s.to;
     if (tag !== undefinedTag) return U;

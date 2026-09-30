@@ -737,7 +737,11 @@ Pass a fallback as the second argument to replace the absent case:
 S.parseOrThrow(S.nullable(S.string, "fallback"), null); // => "fallback"
 ```
 
-The same holds for `null`: `S.nullable(S.nullable(S.string, "fallback"))` reads `null` as `null`.
+The outer `S.nullable` owns `null` the same way:
+
+```ts
+S.parseOrThrow(S.nullable(S.nullable(S.string, "fallback")), null); // => null
+```
 
 ## Nullish
 

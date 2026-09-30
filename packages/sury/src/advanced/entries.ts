@@ -125,7 +125,6 @@ export const armCode = (item: Val, source: Internal, target: Internal): string =
 
 export const absentArm = (schema: Internal): Internal => emptyArm(schema) || schema;
 
-// A missing entry that reads as `undefined`, kept as it is.
 export const keepsUndefined = (schema: Internal): boolean => {
   const arm = emptyArm(schema);
   return arm?.type === undefinedTag && arm.to === U;
