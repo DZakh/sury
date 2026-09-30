@@ -72,6 +72,15 @@ test("a union reads an env member's unset var the way the env does", () => {
   );
 });
 
+test("a union keeps undefined an env member hands back through its null arm", () => {
+  const nullableToOptional = S.nullable(S.string).with(S.to, S.optional(S.string));
+  expect(S.parseOrThrow(undefined, S.union([S.env.with(S.to, nullableToOptional), S.optional(S.number)]))).toBe(undefined);
+  expect(S.parseOrThrow(undefined, S.union([S.env.with(S.to, (S as any).$nullAsOption(S.string)), S.optional(S.number)]))).toBe(
+    undefined,
+  );
+  expect(() => S.union([S.optional(S.number, 3), S.env])).toThrow("can't keep undefined");
+});
+
 test("a union refuses undefined a default replaces behind a .to or a ref", () => {
   expect(() => S.union([S.optional(S.string, "0").with(S.to, S.number), S.optional(S.boolean)])).toThrow(
     "an earlier member decodes it to number",
