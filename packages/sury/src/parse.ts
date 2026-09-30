@@ -345,12 +345,14 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
   const lift: { a?: boolean } = {};
   const lifted = (value: string) => (flag & 1 && !(flag & 512) ? `Promise.resolve(${value})` : value);
   let x: NonNullable<BGlobal["x"]> & { k?: 1 }, failure: string, list: string | undefined;
+  let named = false;
   if (flag & 128) {
     list = g.k = B_varWithoutAllocation(g);
     g.l = [];
     failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
-    x = (record) =>
-      `return ${failure}(${record ? `[${g.ku ? list : ""},${record(true)}]` : list})`;
+    // Always onto the list: an exit emitted before a collecting child can
+    // still run after it, the next time round a loop.
+    x = (record) => ((named = true), `return ${failure}(${record ? `[${list},${record(true)}]` : list})`);
     // Tagged so a container knows its children collect (builder.ts `B_field`).
     x.k = 1;
     g.y = () => `return ${failure}(${list})`;
@@ -390,7 +392,7 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       // `safe(() => ...)` wrapper can never make.
       if (code)
         body = `try{${body}}catch(${errVar}){return ${list ? failOf(errVar) : lifted(failOf(errVar))}}`;
-      const names = g.ku ? [list, ...g.l!] : g.l || [];
+      const names = g.ku || named ? [list, ...g.l!] : g.l || [];
       return names.length ? `let ${[...new Set(names)]};${body}` : body;
     },
   };
