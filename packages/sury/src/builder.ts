@@ -298,6 +298,11 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
+// An async coder's rejection handler, spelled once: the parse loop finds it in
+// `cp` by this exact text (see `rj`).
+export const B_rejection = (raise: string, path: string): string =>
+  path ? `x=>${raise}(x${path})` : raise;
+
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
   B_embed(b, (a: TArg, p?: Path) => {
     B_throw(fn(a, p));
@@ -867,10 +872,10 @@ export const B_conversion = (
     // so both raise and share one site; a sync one's may jump.
     const conversionFail = B_conversionFail(input, target);
     const raise = isAsync && B_raiser(output, conversionFail);
-    const path = raise && B_pathArg(output);
+    const path = raise ? B_pathArg(output) : "";
     const failure = raise ? `${raise}(x${path})` : B_fail(output, conversionFail, `x`);
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      raise ? `.catch(${(output.rj = path ? `x=>${failure}` : raise)})` : ""
+      raise ? `.catch(${(output.rj = B_rejection(raise, path))})` : ""
     }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so

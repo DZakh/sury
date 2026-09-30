@@ -23,6 +23,7 @@ import {
   B_next,
   B_pathArg,
   B_raiser,
+  B_rejection,
   B_readOnce,
   B_rejectUnsettled,
   B_reverseReading,
@@ -81,7 +82,7 @@ const read = (input: Val, call: string, schema: Internal): Val => {
     ? U
     : B_raiser(input, fail);
   const pathArg = failFn === U ? "" : B_pathArg(input);
-  const rj = failFn === U ? U : pathArg ? `x=>${failFn}(x${pathArg})` : failFn;
+  const rj = failFn === U ? U : B_rejection(failFn, pathArg);
   const output = B_computed(
     input,
     `${input.v()}${call}${rj === U ? `` : `.catch(${rj})`}`,
