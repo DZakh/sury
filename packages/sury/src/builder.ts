@@ -299,7 +299,8 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
 };
 
 // A call returning a promise, caught both ways: the call throwing and the
-// promise rejecting raise the same failure.
+// promise rejecting raise the same failure, so both share one site that always
+// raises (a sync coder's failure may jump instead).
 export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
   const rj = path ? `x=>${raise}(x${path})` : raise;
   const cp = (settle: string) =>
@@ -862,8 +863,6 @@ export const B_conversion = (
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    // An async coder's failure lands in its `.catch` as often as in the `catch`,
-    // so both raise and share one site; a sync one's may jump.
     const conversionFail = B_conversionFail(input, target);
     const call = `${embeddedFn}(${inputValue})`;
     if (isAsync) B_asyncTry(output, call, B_raiser(output, conversionFail), B_pathArg(output));

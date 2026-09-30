@@ -640,7 +640,8 @@ export type Val = {
   // loop's continuation runs inside the coder's `try`, one promise hop fewer.
   // Equivalent only because H always throws: a `.then` second argument never
   // sees a throw from the first, and neither did the `.catch` ahead of it.
-  // @as("fu") - fuse
+  // It rebuilds `cp` from what first built it, so anything written onto `cp`
+  // after that is lost. @as("fu") - fuse
   fu?: (then: string) => string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
