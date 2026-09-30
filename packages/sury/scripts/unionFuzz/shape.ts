@@ -38,7 +38,6 @@ export const admitsUndefined = (node: Shape): boolean =>
   (node.name === "nullable" && admitsUndefined(node.args[0]!)) ||
   (node.name === "union" && node.args.some(admitsUndefined));
 
-// `optional(x, d)` / `nullable(x, d)`: the absent values the default replaces.
 // A default takes every arm that decodes to `undefined`, `x`'s own included.
 export const defaultTakes = (node: Shape): string[] =>
   node.args.length !== 2
