@@ -26,15 +26,6 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 
 // ---- predicates the known-bug registry is written in ----------------------
 
-// `optional(x, d)` / `nullable(x, d)`: the default is the second argument.
-export const hasDefault = (shape: Shape): boolean =>
-  (shape.name === "optional" || shape.name === "nullable") && shape.args.length === 2;
-
-// The nodes that compile to a union over their arguments.
-const UNION_LIKE = new Set(["union", "optional", "nullable", "nullish"]);
-export const unionMembers = (node: Shape): Shape[] =>
-  UNION_LIKE.has(node.name) ? (node.name === "union" ? node.args : node.args.slice(0, 1)) : [];
-
 // `env` reads an unset variable, so its input admits `undefined` too.
 export const admitsUndefined = (node: Shape): boolean =>
   node.name === "optional" ||
@@ -46,6 +37,17 @@ export const admitsUndefined = (node: Shape): boolean =>
   node.name === "unknown" ||
   (node.name === "nullable" && admitsUndefined(node.args[0]!)) ||
   (node.name === "union" && node.args.some(admitsUndefined));
+
+// `optional(x, d)` / `nullable(x, d)`: the absent values the default replaces.
+// A default takes every arm that decodes to `undefined`, `x`'s own included.
+export const defaultTakes = (node: Shape): string[] =>
+  node.args.length !== 2
+    ? []
+    : node.name === "optional"
+      ? ["undefined"]
+      : node.name === "nullable"
+        ? admitsUndefined(node.args[0]!) ? ["null", "undefined"] : ["null"]
+        : [];
 
 const ANY = new Set(["any", "unknown"]);
 

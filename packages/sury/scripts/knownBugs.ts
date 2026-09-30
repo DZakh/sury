@@ -19,10 +19,9 @@
 import {
   absorbs,
   admitsUndefined,
-  hasDefault,
+  defaultTakes,
   type Shape,
   some,
-  unionMembers,
 } from "./unionFuzz/shape";
 
 export type Fuzzer = "eq" | "codec" | "union";
@@ -45,9 +44,6 @@ export type Known = {
   fuzzers: Fuzzer[];
   matches: (finding: Finding) => boolean;
 };
-
-const inUnionWithDefault = (shape: Shape): boolean =>
-  some(shape, (node) => unionMembers(node).some(hasDefault));
 
 export const KNOWN_BUGS: Known[] = [
   {
@@ -78,18 +74,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-defaulted-member",
-    kind: "bug",
-    summary:
-      "A union member that carries a default takes over the union: `S.union([S.nullable(S.boolean, false), " +
-      "S.string])` rejects `\"x\"`. `S.nullable(S.optional(x, d))` is the same bug, since nullable is a union.",
-    spec: "union-defaulted-member",
-    fuzzers: ["codec", "union"],
-    matches: (f) =>
-      (f.fuzzer === "union" ? f.property === "acceptance" : ["conformance", "round-trip"].includes(f.property)) &&
-      inUnionWithDefault(f.shape),
-  },
-  {
     id: "union-never-member",
     kind: "bug",
     summary:
@@ -111,6 +95,37 @@ export const KNOWN_BUGS: Known[] = [
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
       some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+  },
+  {
+    id: "default-shadows-outer-absent",
+    kind: "limitation",
+    summary:
+      "A member whose default replaces an absent value is tried before the same absent value a wrapper " +
+      "around it adds: `S.nullable(S.nullable(x, d))` decodes `null` to `d`, so the outer `null`, which " +
+      "encode passes through, reads back as `d`. The first member that accepts a value wins, which is the " +
+      "documented rule; the round trip cannot tell that from a bug.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "round-trip" &&
+      some(f.shape, (node) =>
+        (node.name === "union" ? node.args : node.args.slice(0, 1)).some((member, idx, members) =>
+          defaultTakes(member).some(
+            (v) =>
+              f.detail.includes(`${v} encoded to ${v} and decoded back`) &&
+              (node.name === "nullish" ||
+                node.name === (v === "undefined" ? "optional" : "nullable") ||
+                (node.name === "union" &&
+                  members.some(
+                    (other, j) =>
+                      j !== idx &&
+                      (v === "undefined"
+                        ? admitsUndefined(other)
+                        : other.name === "null" || other.name === "nullable" || other.name === "nullish"),
+                  ))),
+          ),
+        ),
+      ),
   },
 ];
 

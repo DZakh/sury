@@ -836,15 +836,23 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
   }
 
-  // A ref to a union has no narrow to guard its case, so once no later group
-  // shares a type with it, it stops falling through and would shadow them all.
+  // A ref to a union has no narrow to guard its case, and neither has a nested
+  // union whose arms convert (a defaulted `S.nullable` carries its default, so
+  // it stays whole): only a union of checks folds into one condition. Once no
+  // later group shares a type with it, it stops falling through and would
+  // shadow them all.
   // It runs after the groups it shares no type with instead - order between
   // disjoint groups is unobservable - and before the first one it does share
   // a type with. It still falls, into that group or the union's own failure,
   // so a value it refuses is reported against the whole union.
   for (let i = plan.length; i--; ) {
     const group = plan[i]!;
-    if (group.a[1] || group.a[0]!.n.type !== refTag || group.m === ~0) continue;
+    const head = group.a[0]!;
+    if (
+      group.a[1] ||
+      !(head.n.type === refTag || (head.n.type === anyOfTag && !unionIsNoop(head.s))) ||
+      group.m === ~0
+    ) continue;
     group.f |= 8 | 2;
     let to = i;
     while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;

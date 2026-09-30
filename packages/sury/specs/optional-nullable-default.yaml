@@ -15,7 +15,7 @@ vs:
   zod: z.boolean().nullable().transform((value) => value ?? false).optional().transform((value) => value ?? false)
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}throw e[0](i)}break}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{let v0;for(;;){if(i===void 0){i=false;break}l1:{for(;;){if(typeof i==="boolean")break;if(i===null){i=false;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
     examples:
       "true":
         input: "true"
@@ -23,13 +23,14 @@ operations:
       null-becomes-the-default:
         input: "null"
         output: "false"
-      # FIXME: #473 the outer default never sees undefined
       undefined-becomes-the-default:
         input: undefined
-        error: Expected boolean | null, received undefined
+        output: "false"
       string-is-rejected:
         input: '"true"'
-        error: Expected boolean | null, received "true"
+        error: |-
+          Expected boolean | null | undefined, received "true"
+          - Expected boolean | null, received "true"
   decode: eq-to-parse
   encode:
     expression: i=>{try{typeof i==="boolean"||e[0](i);return i}catch(v0){e[1](v0)}}
