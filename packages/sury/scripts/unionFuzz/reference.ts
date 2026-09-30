@@ -38,7 +38,7 @@ export const variantsOf = (unionSchema: unknown): unknown[] => {
   return [unionSchema];
 };
 
-const tryEachParser = (
+export const tryEachParser = (
   S: Sury,
   variants: readonly unknown[],
   input: unknown,

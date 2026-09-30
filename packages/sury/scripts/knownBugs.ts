@@ -84,6 +84,35 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
   },
   {
+    id: "union-json-recursive-member",
+    kind: "bug",
+    summary:
+      "Under `S.json`, a union whose first member is a recursive object compiles to that member alone: " +
+      "every value gets its error, and the members after it never run.",
+    spec: "codec-json-union-recursive-member",
+    fuzzers: ["union"],
+    matches: (f) =>
+      f.fuzzer === "union" &&
+      f.shape.name === "jsonTo" &&
+      f.property === "acceptance" &&
+      f.shape.args[0]!.args[0]!.name === "recursive" &&
+      f.shape.args[0]!.args[0]!.form !== "union",
+  },
+  {
+    id: "union-json-document-member",
+    kind: "limitation",
+    summary:
+      "Under `S.json`, a `S.jsonString` member meets the value whole, as a string to check, where its own link " +
+      "would write the value's JSON text (CONTENT_CODEC_SPEC.md: a carrier's reading stops at a union target). " +
+      "The member-by-member reference reads each member through its own link, so it cannot tell that from a bug.",
+    fuzzers: ["union"],
+    matches: (f) =>
+      f.fuzzer === "union" &&
+      f.shape.name === "jsonTo" &&
+      f.property === "acceptance" &&
+      some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
+  },
+  {
     id: "union-overlapping-members",
     kind: "limitation",
     summary:
