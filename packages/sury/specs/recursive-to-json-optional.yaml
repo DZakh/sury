@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("T", (n) => S.schema({ v: S.string, kid: S.optional(n) })).with(S.to, S.json)'
+  input: unknown
+  output: JSON
+  instantiations: 8074
+jsonSchema:
+  input: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/T" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
+  output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare T. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);e[1](v0);return v0}catch(v1){e[2](v1)}}
+    examples:
+      # FIXME: the same shape spelled without `S.recursive` converts, leaving
+      # the absent `kid` out; here it reaches the JSON conversion as
+      # `undefined` and is rejected, at every depth.
+      flat:
+        input: '{ v: "a" }'
+        error: "Failed at kid: Expected JSON, received undefined"
+      nested:
+        input: '{ v: "a", kid: { v: "b" } }'
+        error: "Failed at kid.kid: Expected JSON, received undefined"
+  decode:
+    expression: i=>{try{e[0](i);e[1](i);return i}catch(v0){e[2](v0)}}
+    examples:
+      flat:
+        input: '{ v: "a" }'
+        output: '{ v: "a" }'
+  encode:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      # FIXME: the reverse reads the absent `kid` as `null`.
+      flat:
+        input: '{ v: "a" }'
+        error: "Failed at kid: Expected { v: string; kid: T | undefined; }, received null"

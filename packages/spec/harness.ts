@@ -2264,7 +2264,7 @@ export const checkZodExamples = async (spec: Spec): Promise<string[]> => {
 // itself) and on -0 (equal to 0) - `isDeepStrictEqual` splits both the other
 // way. An absent key and an `undefined` one are one value: a schema reads an
 // optional property the same either way.
-const structurallyEqual = (a: unknown, b: unknown): boolean => {
+const structurallyEqual = (a: unknown, b: unknown, blindToUndefined?: boolean): boolean => {
   if (a === b) return true;
   if (a !== a) return b !== b;
   if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
@@ -2278,7 +2278,7 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
   if (Array.isArray(a) || (ArrayBuffer.isView(a) && typeof (a as unknown as ArrayLike<unknown>).length === "number")) {
     const n = (a as unknown as ArrayLike<unknown>).length;
     if (n !== (b as unknown as ArrayLike<unknown>).length) return false;
-    for (let i = 0; i < n; i++) if (!structurallyEqual(ao[i], bo[i])) return false;
+    for (let i = 0; i < n; i++) if (!structurallyEqual(ao[i], bo[i], blindToUndefined)) return false;
     return true;
   }
   // The built-ins whose value is their content rather than their identity.
@@ -2308,12 +2308,15 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
   // `{b: undefined}` would pass every value comparison a lenient walk makes.
   // For a dict or an unknown position the keys ARE the content, which is the
   // rule `dictFn` and `deepEqual` follow. A declared-optional property is the
-  // one place absent and `undefined` are one value, and no pair here turns on
-  // it: these are values an operation produced, and an operation writes the
-  // property either way.
-  const keys = Object.keys(ao);
-  if (keys.length !== Object.keys(bo).length) return false;
-  for (const key of keys) if (!(key in bo) || !structurallyEqual(ao[key], bo[key])) return false;
+  // one place absent and `undefined` are one value, which a schema-blind walk
+  // can't tell apart from a dict key: `blindToUndefined` drops such keys, so a
+  // pair that differs only there is one the oracle has no answer for.
+  const own = (o: Record<string, unknown>) =>
+    blindToUndefined ? Object.keys(o).filter((key) => o[key] !== undefined) : Object.keys(o);
+  const keys = own(ao);
+  if (keys.length !== own(bo).length) return false;
+  for (const key of keys)
+    if (!(key in bo) || !structurallyEqual(ao[key], bo[key], blindToUndefined)) return false;
   return true;
 };
 
@@ -2436,6 +2439,9 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
         const a = left.make();
         const b = right.make();
         const want = structurallyEqual(a, b);
+        // Parse writes an absent optional property as `undefined` and decode
+        // passes it through absent, so two outputs can differ only there.
+        if (!want && structurallyEqual(a, b, true)) continue;
         const pair =
           i === j ? `${left.where} against a fresh copy of itself` : `${left.where} vs ${right.where}`;
         // Every comparison here has to reach the structural path. The emit

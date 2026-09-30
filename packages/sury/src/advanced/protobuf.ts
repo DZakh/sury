@@ -83,13 +83,9 @@ type Message = {
   unwrap?: boolean;
 };
 
-type Defs = Record<string, Internal>;
-
-// One compile of a message tree. `defs` are the definitions `S.recursive` left
-// on the refs walked so far, and `messages` the message per object, so a message
-// used twice compiles once and a cycle closes on the one it started.
+// One compile of a message tree. `messages` is the message per object, so a
+// message used twice compiles once and a cycle closes on the one it started.
 type Ctx = {
-  defs: Defs;
   // Per object, not the last name a walk passed: `toProtoOrThrow` resolves the
   // wire object in one walk and compiles it in another.
   names: Map<Internal, string | undefined>;
@@ -106,19 +102,15 @@ type Ctx = {
 };
 
 const newCtx = (): Ctx => ({
-  defs: Object.create(null),
   names: new Map(),
   messages: new Map(),
   stack: [],
 });
 
-// A `$ref` stands for its definition. `S.recursive` puts every definition on
-// the outermost ref's `$defs`, and a nested one on its own, so a walk collects
-// them as it passes. Only the refs the user built are walked - the standins
-// `recurse` makes are handed to `parse`, never resolved again here.
+// A `$ref` stands for its definition. Only the refs the user built are walked -
+// the standins `recurse` makes are handed to `parse`, never resolved again here.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
-  if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
-  const def = ctx.defs[ref["$ref"]!.slice(8)];
+  const def = ref.definition?.();
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;
@@ -349,7 +341,7 @@ const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
       const standin = baseSchema(refTag, false, ctx.dec!);
       standin["$ref"] = defsPath + message.name;
       standin.name = message.name;
-      standin.definition = definition;
+      standin.definition = () => definition;
       return standin;
     };
     message.rec = [ref(message.raw), ref(message.schema)];

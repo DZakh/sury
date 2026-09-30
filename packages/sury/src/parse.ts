@@ -72,14 +72,6 @@ export const parse = (input: Val): Val => {
 
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
-    const defs = loopInput.e["$defs"];
-    // Copied, never adopted: a second `$defs` in the same operation - two
-    // independent `S.recursive` schemas in one object - would otherwise merge
-    // into the first schema's own record and leave it holding definitions that
-    // are not its own for the rest of the program. Null prototype because the
-    // keys are the names the caller gave `S.recursive`.
-    if (defs) loopInput.g.d = Object.assign(loopInput.g.d || Object.create(null), defs);
-
     // The val is a promise, so the rest of the chain has to run inside a
     // `.then`. The flag alone is the right guard: a second condition could only
     // have been "and there is something to wrap", which is not knowable before
@@ -311,12 +303,12 @@ export const compileDecoder = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
-  defs: Record<string, Internal> | undefined,
   node?: OpNode
 ): (input: unknown) => unknown => {
-  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
-  // A nested compile (recursive.ts) answers with its value, so it raises.
-  if (!defs) input.g.x = emitExit?.(input, flag);
+  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag);
+  // A nested compile (recursive.ts, the one caller with a node) answers with
+  // its value, so it raises.
+  if (!node) input.g.x = emitExit?.(input, flag);
 
   const output = parse(input);
   const code = B_merge(output);
@@ -326,7 +318,7 @@ export const compileDecoder = (
     node.t = output.t === true;
   }
 
-  const body = emitTail(input, code, output.i, isAsync, flag, !!defs);
+  const body = emitTail(input, code, output.i, isAsync, flag, !!node);
   if (!body) return noopOperation;
   const fn = new Function("e", "s", `return ${operationArgVar}=>{${body}}`)(input.g.e, s);
   fn.embedded = input.g.e;
@@ -416,6 +408,11 @@ Object.defineProperty(schemaPrototype, reversedKey, {
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"]) mut["$defs"] = reverseDict(mut["$defs"]);
+      // Resolved when a compile asks, not here: the definition holds this ref,
+      // so reversing it now would come back to this node before its reverse is
+      // cached, and without end.
+      const definition = mut.definition;
+      if (definition) mut.definition = () => definition()?.r;
       reversedHead = mut;
       current = next;
     }
@@ -454,19 +451,7 @@ export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | unde
 // container keeps its items' transforms inside itself, so its tail is still the
 // Input form (#452).
 export const setDefault = (owner: Internal, original: Internal, v: unknown): void => {
-  let output = reverse(original);
-  // `S.recursive`'s definitions, while its definer is still running. A nested
-  // `S.recursive` hands back a bare `$ref`, so an item reached inside a definer
-  // names definitions the check would not otherwise see. They ride on the copy
-  // it compiles against, and `parse` merges them for the whole operation, so a
-  // ref inside a union resolves too. Only once the record holds something: an
-  // empty one names nothing, and a copy would miss the operation cached on the
-  // item itself.
-  const building = globalConfig.d;
-  if (building !== U && output["$defs"] === U && Object.keys(building).length) {
-    output = copySchema(output);
-    output["$defs"] = building;
-  }
+  const output = reverse(original);
   const decode = decodeOutput(output);
   if (decode) {
     try {
@@ -621,7 +606,7 @@ const compileChain = (
   // this is where they become an exception. Free: `getOp` reaches this on a
   // memo miss only, so a compile pays for the `try` and nothing else does.
   try {
-    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag, U) as (
+    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag) as (
       from: unknown,
     ) => unknown;
   } catch (thrown) {

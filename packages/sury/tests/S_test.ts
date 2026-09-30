@@ -3284,16 +3284,19 @@ test("the equality compiler follows the definition a ref carries, not the name",
   const carried = S.recursive("Node", (self) =>
     S.schema({ v: S.string, kids: S.array(self) }),
   );
-  // The record says compare `v` and `kids`; the definition carried says `v`.
-  (carried as unknown as { definition: unknown }).definition = S.schema({ v: S.string });
+  // `$defs` says compare `v` and `kids`; the definition carried says `v`.
+  const only = S.schema({ v: S.string });
+  (carried as unknown as { definition: unknown }).definition = () => only;
 
   const a = { v: "a", kids: ["x"] };
   const b = { v: "a", kids: ["y"] };
   t.expect(S.isEqualInput(carried, a, b)).toBe(true);
 
-  // The same schema with nothing carried resolves by name and sees `kids`.
+  // The same schema left as built sees `kids`, and compares them as nodes.
   const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
-  t.expect(S.isEqualInput(named, a, b)).toBe(false);
+  const nodeA = { v: "a", kids: [{ v: "x", kids: [] }] };
+  const nodeB = { v: "a", kids: [{ v: "y", kids: [] }] };
+  t.expect(S.isEqualInput(named, nodeA, nodeB)).toBe(false);
 
   // Either way a ref is a call, which `compare` has no order for.
   t.expect(() => S.compareInput(carried, a, b)).toThrow("Can't compare Node");

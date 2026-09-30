@@ -328,13 +328,11 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 
 // Mode 0 describes produced output, 1 a member's accepted input, and 2 the
 // declared source (whose root ref may expose a bounded input tag).
-// A self-describing boundary's definition: what `$ref` + `$defs` resolve to
-// (`S.json`'s recursive union), or undefined for everything else.
+// A self-describing boundary's definition (`S.json`'s recursive union): a ref
+// that publishes `$defs` of its own, not one reached inside a definition.
 const unionRefDef = (schema: Internal): Internal | undefined => {
-  const defs = schema["$defs"], ref = schema["$ref"];
-  if (defs === U || ref === U) return U;
-  const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
-  return resolved !== U && resolved !== schema ? resolved : U;
+  const resolved = schema["$defs"] && schema.definition?.();
+  return resolved !== schema ? resolved : U;
 };
 
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
@@ -555,8 +553,7 @@ const unionAnalyze = (
   sourceTag: number,
   variants: Internal[],
   source: Internal,
-  nan: number,
-  defs: Record<string, Internal> | undefined
+  nan: number
 ): UnionMember[] => {
   const out: UnionMember[] = [];
   const unknownSource = sourceTag & 1;
@@ -577,7 +574,7 @@ const unionAnalyze = (
     // member claims every type, so `S.optional(self)` tried the recursive call
     // on `undefined` and caught its throw at every leaf of a tree. The case
     // still calls through the ref, so the definition compiles once.
-    const def = s.type === refTag ? s.definition || unionRefDef(s) || defs?.[s["$ref"]!.slice(8)] : U;
+    const def = s.type === refTag ? s.definition?.() : U;
     const defTag = def === U ? 0 : tagFlags[def.type]!;
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
@@ -1613,7 +1610,7 @@ export const unionDecoder: Builder = (input: Val) => {
       input,
       self,
       expected,
-      unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan, input.g.d)),
+      unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
       toPerCase,
       trustedSelf
     );

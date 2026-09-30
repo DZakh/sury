@@ -187,8 +187,7 @@ export const B_hoistDecl = (owner: Val, decl: string): void => {
 export const B_operationArg = (
   schema: Internal,
   expected: Internal,
-  flag: Flag,
-  defs: Record<string, Internal> | undefined
+  flag: Flag
 ): Val => {
   // Every Val literal in the codegen path lists the same fields in the same
   // order (undefined where unset) so V8 gives them all ONE hidden class -
@@ -214,7 +213,6 @@ export const B_operationArg = (
     t: U,
     path: pathEmpty,
     g: {
-      d: defs,
       o: flag,
       e: [],
       v: -1,

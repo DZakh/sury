@@ -349,6 +349,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, jsonDecoderFn, 
   const defs: Record<string, Internal> = {};
   defs[jsonName] = jsonDef;
   s["$defs"] = defs;
+  s.definition = jsonRef.definition = () => jsonDef;
 });
 
 // Anything but a bare accessor needs parenthesizing before it can sit between
