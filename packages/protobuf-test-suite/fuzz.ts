@@ -275,10 +275,6 @@ const received = (value: unknown): string => {
   return "";
 };
 
-// One leaf of a valid value swapped for one its writer refuses. The encode must
-// throw, and the error's path must lead from the value it was handed to the
-// leaf: every segment an own property of the value so far, and the reason's
-// "received" the leaf, or, for a map key, the key.
 const corruptionFinding = (r: Random, encode: (v: unknown) => Uint8Array, fields: FieldDef[], value: Record<string, unknown>, seed: number): Finding | undefined => {
   const input = structuredClone(value);
   const sites = sitesOf(fields, input, [], []).filter((s) => (s.role === "map key" ? s.type !== "string" && s.type !== "bool" : REFUSED[s.type].length));
@@ -580,8 +576,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
   let checks = 0;
   for (let seed = from; seed < from + seeds; seed++) {
     const { r, fields } = graphOf(seed);
-    // Its own stream, so the draws the round trips and mutants make stay the
-    // ones a seed has always named.
+    // Its own stream: a new check must not shift the draws a seed replays.
     const cr = rng(seed ^ 0x5bd1e995);
     findings.push(...wellKnownFindings(rng(-seed), seed, values));
     checks += values * wellKnownCases.length;
@@ -619,7 +614,6 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
         const suryOk = !(sury instanceof Error);
         const esOk = !(es instanceof Error);
         if (suryOk !== esOk) {
-          // Sury's reason, without the path its message puts in front.
           const reason = suryOk ? (es as Error).message : ((sury as S.Error).reason ?? (sury as Error).message);
           findings.push({
             kind: `acceptance: ${suryOk ? "only sury" : "only protobuf-es"} accepts (${reason.replace(/[\d]+/g, "#").replace(/ at .*/, "")})`,

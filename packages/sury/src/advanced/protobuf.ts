@@ -1562,8 +1562,7 @@ const mapKey = (key: string, min: number | bigint, max: number | bigint): number
 // The one frame of a message encoder: `f` is the index of the field it was
 // writing, `j` its loop counter, `a` a map's keys. A failure its own write threw
 // gets its reason here; one a nested encoder already settled only gets the
-// field and element in front. A message that unwraps to its one field's value
-// has no key to add.
+// field and element in front.
 const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
   if (x instanceof ProtobufFailure) {
     const field = msg.fields[f]!;
@@ -1979,9 +1978,7 @@ const protobufDecoder = (input: Val): Val => {
   return output;
 };
 
-// A wire or value failure surfaces as a Sury conversion error at the
-// operation's path followed by the field it hit. It has no `cause`: nothing the
-// user wrote threw. Anything else - a getter's throw - is reported the way
+// A wire or value failure has no `cause`: nothing the user wrote threw. Anything else - a getter's throw - is reported the way
 // B_conversion reports a coder's. In a union either one is what hands the value
 // to the next case.
 const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
