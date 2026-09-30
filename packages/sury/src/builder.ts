@@ -485,11 +485,19 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       // Type-narrows hoist only when they can't strand a decl the lifted
       // check reads: a transforming val is safe iff this val has no
       // codeFromPrev of its own and prev is non-transforming (stable input
-      // var) or the scope the chain starts from, whose var the enclosing
-      // code declared - else the lifted check runs before that producer (the
-      // str->to(option(int)) "v0 is not defined" bug class).
-      const prev = val.prev;
-      if (out && (!val.t || val.cp === "" && (!prev!.t || prev!.b !== U && prev!.cp === ""))) {
+      // var) - else the lifted check runs before that producer (the
+      // str->to(option(int)) "v0 is not defined" bug class). A union's own
+      // narrow also lifts off the scope it dispatches, whose var the
+      // enclosing code declared: a member's check there stays a reason in
+      // the union's error, but a nested union with no narrow to offer ends
+      // its parent's chain.
+      const prev = val.prev!;
+      if (
+        out &&
+        (!val.t ||
+          (val.cp === "" &&
+            (!prev.t || (tagFlags[val.e.type]! & 256 && prev.b !== U && prev.cp === ""))))
+      ) {
         const inputVar = (current || val).v();
         const checks = val.vc;
         let hoisted = "";
