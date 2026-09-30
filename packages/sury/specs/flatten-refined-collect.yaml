@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object((s) => s.flatten(S.schema({ a: S.string }).with(S.refine, (v) => v.a.length > 0)))"
+  input: "{ [x: string]: unknown; }"
+  output: "{ a: string; }"
+  instantiations: 5703
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  fromInputType: "{ a: string; }"
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.a;typeof v0==="string"||e[0](v0);let v1={a:v0};e[1](v1)||e[2](v1);e[3](v1)||e[4](v1);return v1}catch(v2){e[6](v2)}}
+    examples:
+      valid:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      field-invalid:
+        input: "{ a: null }"
+        error: "Failed at a: Expected string, received null"
+        issues:
+          - "Failed at a: Expected string, received null"
+          - "TypeError: Cannot read properties of null (reading 'length')"
+  decode:
+    expression: i=>{try{let v0={a:i.a};e[0](v0)||e[1](v0);e[2](v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}
+    examples:
+      valid:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+  encode:
+    expression: i=>{try{e[0](i)||e[1](i);return {a:i.a}}catch(v0){e[2](v0)}}
+    examples:
+      valid:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
