@@ -636,12 +636,11 @@ export type Val = {
   // @as("cp") - codeFromPrev
   cp: string;
   // An async coder's rejection handler, already in `cp` as the `.catch` on its
-  // promise. The parse loop's `.then` over that promise takes it as its second
-  // argument and drops the `.catch`, one promise hop fewer. Equivalent only
+  // promise. The parse loop turns that `.catch` into its own `.then`, with the
+  // handler as the second argument, one promise hop fewer. Equivalent only
   // because the handler always throws: a `.then` second argument never sees a
   // throw from the first, and neither did the `.catch` ahead of it. Anything
-  // else reading the promise leaves `cp` alone. The one field the Val literals
-  // leave out, since only an async coder's val sets it. @as("rj") - rejection
+  // else reading the promise leaves `cp` alone. @as("rj") - rejection
   rj?: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
