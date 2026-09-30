@@ -535,30 +535,25 @@ const scratch = /* @__PURE__ */ new Uint8Array(8);
 const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
 
 // A protobuf failure before it is a Sury error: no stack, which only the error
-// the operation throws needs. `path` is where in the message it hit: each frame
-// it unwinds through prepends its field, and `guarded` joins it to the
-// operation's own path.
-//
-// An encode failure is thrown with no reason yet, only the slot of the field it
-// hit (`slotIn`), the value, the element of a packed list, and whether it is a
-// oneof member set beside another. A write can't name its field - a message's
-// encoder is shared by every field that holds it - so whatever catches it
-// settles the rest. The fields are `declare`d, since an initializer would cost
-// a define per field per throw.
+// the operation throws needs. An encode failure is thrown with no reason and
+// only its field's slot: a write can't name its field - a message's encoder is
+// shared by every field that holds it - so whatever catches it settles the
+// rest. The fields are `declare`d, since an initializer would cost a define per
+// field per throw.
 class ProtobufFailure {
   declare reason: string | undefined;
   declare path: (string | number)[];
-  declare s: number | undefined;
-  declare v: unknown;
-  declare i: number | undefined;
-  declare o: boolean | undefined;
+  declare slot: number | undefined;
+  declare value: unknown;
+  declare index: number | undefined;
+  declare oneof: boolean | undefined;
   constructor(reason?: string, slot?: number, value?: unknown, index?: number, oneof?: boolean) {
     this.reason = reason;
     this.path = [];
-    this.s = slot;
-    this.v = value;
-    this.i = index;
-    this.o = oneof;
+    this.slot = slot;
+    this.value = value;
+    this.index = index;
+    this.oneof = oneof;
   }
 }
 
@@ -1126,11 +1121,13 @@ export class Writer {
     this.buf.set(value, this.pos);
     this.pos += n;
   }
-  // `slot` is left off by a well-known codec, which writes only strings.
-  string(v: string, slot?: number): void {
+  string(v: string, slot: number): void {
     // Otherwise a non-string fails deep in the length arithmetic, as a
     // `RangeError` that names nothing.
-    if (typeof v !== "string") fieldFailure(slot!, v);
+    if (typeof v !== "string") fieldFailure(slot, v);
+    this.text(v);
+  }
+  text(v: string): void {
     const len = v.length;
     if (len < 32) {
       let i = 0;
@@ -1390,7 +1387,7 @@ const writeStruct = (w: Writer, value: unknown): void => {
     w.varint32(10);
     const entry = w.begin();
     w.varint32(10);
-    w.string(keys[i]!);
+    w.text(keys[i]!);
     w.varint32(18);
     const item = w.begin();
     writeValue(w, (value as Record<string, unknown>)[keys[i]!]);
@@ -1418,7 +1415,7 @@ const writeValue = (w: Writer, value: unknown): void => {
     w.float64(value);
   } else if (typeof value === "string") {
     w.varint32(26);
-    w.string(value);
+    w.text(value);
   } else if (typeof value === "boolean") {
     w.varint32(32);
     w.varint32(value ? 1 : 0);
@@ -1496,15 +1493,13 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Messa
   return msg;
 };
 
-// A decode failure's frame: the field's key, then the element a repeated field
-// was on, or the entry of a map once its key is read. `lists` are the message's
-// repeated fields in field order, and the length a list has reached is the
-// index of the element being read, whole elements going in before a failure.
+// `lists` are the message's repeated fields in field order, as `decodeFnSource`
+// passes them, and the length a list has reached is the index of the element
+// being read: whole elements go in before a failure.
 //
 // A number the message does not declare adds nothing: an unknown field under
 // `S.strict` and a field number of zero name the number themselves, and there
-// is no property to put in a path. `tag` is -1 until the loop has read one
-// whole, so bytes that are not one are located by the field that contained them.
+// is no property to put in a path.
 const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): never => {
   const number = tag >>> 3;
   const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
@@ -1513,14 +1508,17 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
     if (field.repeated) path.unshift(lists[msg.fields.filter((f) => f.repeated).indexOf(field)]!.length);
     // An entry whose value failed before its key was read has nowhere in the
     // value to be: it fails at the map.
-    else if (field.map !== U) key === U ? (path.length = 0) : path.unshift("" + key);
-    path.unshift(field.key);
+    else if (field.map !== U) {
+      if (key === U) path.length = 0;
+      else path.unshift("" + key);
+    }
+    if (!msg.unwrap) path.unshift(field.key);
   }
   throw failure;
 };
 
-// `S.strict`'s refusal. A number the message declares only gets here under a
-// wire type its field can't hold, which is what it says instead.
+// A number the message declares only gets here under a wire type its field
+// can't hold, which is what it says instead.
 const unknownField = (msg: Message, tag: number): never => {
   const number = tag >>> 3;
   const wire = tag & 7;
@@ -1539,8 +1537,8 @@ const oneofConflict = (slot: number): never => {
   throw new ProtobufFailure(U, slot, U, U, true);
 };
 
-// A value its field's type holds, or the failure. The bounds are the type the
-// value must have: a 64-bit field holds a bigint, the rest an integer number.
+// The bounds' own type is the one the value must have: a 64-bit field holds a
+// bigint, the rest an integer number.
 const checked = <T>(value: T, min: number | bigint, max: number | bigint, slot: number, index?: number): T => {
   if (typeof value !== typeof min || (typeof value === "number" && !Number.isInteger(value)) || (value as number) < min || (value as number) > max) {
     fieldFailure(slot, value, index);
@@ -1548,8 +1546,8 @@ const checked = <T>(value: T, min: number | bigint, max: number | bigint, slot: 
   return value;
 };
 
-// A map key travels as a string property name. The key the failure names is
-// that string, not what `+` or `BigInt` made of it.
+// The key a failure names is the property name, not what `+` or `BigInt` made
+// of it.
 const mapKey = (key: string, min: number | bigint, max: number | bigint, slot: number): number | bigint => {
   try {
     return checked(typeof min === "number" ? +key : BigInt(key), min, max, slot);
@@ -1558,35 +1556,32 @@ const mapKey = (key: string, min: number | bigint, max: number | bigint, slot: n
   }
 };
 
-// One field, or its map key, as an encode failure names it.
-type Slot = { field: Field; key: boolean };
+// A field, or a map's key, as an encode failure names it. `at` is the path the
+// field adds: none for the one field of a message that unwraps to its value.
+// `framed` once `encodeBody` wraps the field's writes in a frame, which then
+// adds it along with the element or entry.
+type Slot = { field: Field; isKey: boolean; at: string[]; framed: boolean };
 
-// Whether a field's writes run inside a frame (`encodeFrame`), which names the
-// element or entry they were on, as `encodeBody` places them: everything but a
-// scalar written once and a packed run whose writer knows its own element.
-const framed = (field: Field): boolean =>
-  field.map !== U ||
-  field.type === "message" ||
-  (field.repeated && !(field.packed && (varintKind(field.type) ?? fixedKind(field.type)) !== U));
+const slotOf = (slots: Slot[], msg: Message, field: Field, isKey = false): number => {
+  const found = slots.findIndex((slot) => slot.field === field && slot.isKey === isKey);
+  return found < 0 ? slots.push({ field, isKey, at: msg.unwrap ? [] : [field.key], framed: false }) - 1 : found;
+};
 
-// Gives an encode failure its reason and the field it hit. A framed field's
-// key is its frame's to put in front.
 const settle = (x: unknown, slots: Slot[]): unknown => {
   if (x instanceof ProtobufFailure && x.reason === U) {
-    const { field, key } = slots[x.s!]!;
-    x.reason = x.o ? `Protobuf oneof "${field.oneof}" has more than one member set`
-      : `Expected ${key ? `${field.map} key` : field.type}, received ${stringify(x.v)}`;
-    if (!framed(field)) x.path = x.i === U ? [field.key] : [field.key, x.i];
+    const { field, isKey, at, framed } = slots[x.slot!]!;
+    x.reason = x.oneof ? `Protobuf oneof "${field.oneof}" has more than one member set`
+      : `Expected ${isKey ? `${field.map} key` : field.type}, received ${stringify(x.value)}`;
+    if (!framed) x.path = x.index === U ? [...at] : [...at, x.index];
   }
   return x;
 };
 
-// `item` is the element index or the entry's key.
 const encodeFrame = (slots: Slot[]) => (x: unknown, slot: number, item?: string | number): never => {
   if (settle(x, slots) instanceof ProtobufFailure) {
     const path = (x as ProtobufFailure).path;
     if (item !== U) path.unshift(item);
-    path.unshift(slots[slot]!.field.key);
+    path.unshift(...slots[slot]!.at);
   }
   throw x;
 };
@@ -1599,16 +1594,11 @@ const writeVarint32 = (expr: string): string =>
 
 // The helpers an encode body calls. `use` names one where the body is emitted:
 // a param of a hoisted message encoder, an `e[N]` embed in the operation body
-// made on first use. `slot` numbers a field, or its map key, for the failure
-// that names it (`settle`).
+// made on first use.
 const encodeHelpers = (slots: Slot[]) => ({ check: checked, key: mapKey, oneof: oneofConflict, at: encodeFrame(slots) });
 type Helper = keyof ReturnType<typeof encodeHelpers>;
-type Encoding = {
-  use: (helper: Helper) => string;
-  slot: (field: Field, key?: boolean) => number;
-};
+type Encoding = { use: (helper: Helper) => string; slots: Slot[] };
 
-// The range `checked` holds an integer type to, as generated code spells it.
 const bounds = (type: ProtobufType): [string, string] => {
   const unsigned = type[0] === "u" || type[0] === "f";
   return type.includes("64")
@@ -1628,7 +1618,6 @@ const writeCall = (type: ProtobufType, v: string, enc: Encoding, slot: number): 
   if (type === "int64" || type === "uint64") return `w.varint64(${check(v)})`;
   if (type.includes("64")) return `w.bits64(${check(v)})`;
   if (type.includes("fixed")) return `w.bits32(${check(v)})`;
-  // A 32-bit varint is checked inline, the call only made on a failure.
   const test = `s=${v};if(s<${min}||s>${max})${check("s")};`;
   if (type === "uint32") return test + writeVarint32("s");
   if (type === "sint32") return `${test}s=((s<<1)^(s>>31))>>>0;${writeVarint32("s")}`;
@@ -1742,16 +1731,18 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
   };
   // A write whose failure its field can't name alone - a nested message's, a
   // list element's, a map entry's - runs inside a frame that does.
-  const framed = (code: string, slot: number, item?: string): string =>
-    `try{${code}}catch(x){${enc.use("at")}(x,${slot}${item === U ? "" : `,${item}`})}`;
+  const framed = (code: string, slot: number, item?: string): string => {
+    enc.slots[slot]!.framed = true;
+    return `try{${code}}catch(x){${enc.use("at")}(x,${slot}${item === U ? "" : `,${item}`})}`;
+  };
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
-    const slot = enc.slot(field);
+    const slot = slotOf(enc.slots, msg, field);
     const { expr: src, numeric } = read(field.key);
     if (field.map !== U) {
       const keyType = field.map;
-      const keySlot = enc.slot(field, true);
+      const keySlot = slotOf(enc.slots, msg, field, true);
       const entryTag = writeTag(field.number * 8 + 2);
       const keyPart = `${keyToWire(keyType, enc, keySlot)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, keySlot)}`;
       const valuePart = field.type === "message"
@@ -1795,14 +1786,8 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
 // Message codecs are built once per operation with `Function` and embedded
 // as values, so the operation body calls a top-level function instead of
 // allocating a closure per call.
-const slotIn = (slots: Slot[]) => (field: Field, key = false): number => {
-  const found = slots.findIndex((slot) => slot.field === field && slot.key === key);
-  return found < 0 ? slots.push({ field, key }) - 1 : found;
-};
-
 const compileEncoders = (root: Message, fns: Map<Message, string>, slots: Slot[]): Record<string, Function> => {
   let src = "";
-  // A well-known type's codec is passed in under the name its message has.
   const helpers = encodeHelpers(slots);
   const params: string[] = Object.keys(helpers);
   const args: Function[] = Object.values(helpers);
@@ -1818,7 +1803,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, slots: Slot[]
       args.push(codecs[msg.wellKnown!]![1]);
     } else {
       const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
-      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, read, { use: (helper) => helper, slot: slotIn(slots) })}}`;
+      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o;${encodeBody(msg, fns, read, { use: (helper) => helper, slots })}}`;
     }
   });
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
@@ -1992,7 +1977,7 @@ const protobufDecoder = (input: Val): Val => {
   };
   const helpers = encodeHelpers(slots);
   const embeds: Partial<Record<Helper, string>> = {};
-  const enc: Encoding = { use: (helper) => (embeds[helper] ??= B_embed(input, helpers[helper])), slot: slotIn(slots) };
+  const enc: Encoding = { use: (helper) => (embeds[helper] ??= B_embed(input, helpers[helper])), slots };
   const body = encodeBody(message, names, readRoot, enc);
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);

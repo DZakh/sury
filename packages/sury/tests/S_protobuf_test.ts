@@ -370,8 +370,6 @@ test("protobuf reports wire and value failures as Sury errors", (t) => {
   const Wrapped = S.schema({ inner: Message.with(S.protobufField, 1) });
   const nested = invalid(() => S.decodeOrThrow(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255])));
   t.expect(nested.code).toBe("invalid_conversion");
-  // The field it hit is the error's path, the way a parse failure's is, not
-  // words in its reason.
   t.expect(nested.path).toEqual(["inner", "s"]);
   t.expect(nested.reason).toBe("Protobuf string is not valid UTF-8");
   const Listed = S.schema({
@@ -632,8 +630,6 @@ test("a recursive message decodes 100 levels and refuses 101, and encoding has n
   // Encoding is what those bytes came from, so the limit is the reader's alone.
   const overLimit = S.parseOrThrow(codec, nest(101));
   t.expect(overLimit.length).toBeGreaterThan(hundred.length);
-  // The path is data, so it names every level rather than the ones that fit
-  // on a line.
   const error = (() => {
     try {
       S.encodeOrThrow(codec, overLimit);

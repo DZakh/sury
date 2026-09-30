@@ -40,10 +40,10 @@ operations:
         output: new Uint8Array([10, 11, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 18, 11, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 26, 3, 10, 1, 120, 34, 2, 8, 1, 42, 5, 13, 0, 0, 0, 63, 50, 3, 10, 1, 1, 58, 2, 8, 1, 58, 2, 8, 2])
       value-beyond-its-type-fails-at-the-field:
         input: "{ count: 1099511627776, counts: [] }"
-        error: "Failed at count.value: Expected int32, received 1099511627776"
+        error: "Failed at count: Expected int32, received 1099511627776"
       element-beyond-its-type-fails-at-the-element:
         input: "{ counts: [1, 1099511627776] }"
-        error: "Failed at counts[1].value: Expected int32, received 1099511627776"
+        error: "Failed at counts[1]: Expected int32, received 1099511627776"
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.counts;return v0}catch(v3){e[3](v3)}}
     examples:
@@ -67,4 +67,4 @@ operations:
         output: "{ counts: [], count: 0 }"
       bad-value-fails-at-the-field:
         input: new Uint8Array([26, 3, 10, 1, 255])
-        error: "Failed at label.value: Protobuf string is not valid UTF-8"
+        error: "Failed at label: Protobuf string is not valid UTF-8"

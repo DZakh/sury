@@ -37,10 +37,10 @@ operations:
         output: new Uint8Array([10, 25, 10, 23, 10, 1, 97, 18, 18, 42, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 16, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 3, 26, 1, 97, 26, 8, 10, 1, 97, 10, 3, 98, 46, 99, 34, 3, 10, 1, 120, 42, 0])
       mask-path-not-a-string:
         input: '{ meta: {}, tags: [], mask: ["a", 1], masks: [] }'
-        error: "Failed at mask.paths[1]: Expected string, received 1"
+        error: "Failed at mask[1]: Expected string, received 1"
       masks-path-not-a-string:
         input: '{ meta: {}, tags: [], mask: [], masks: [["a"], ["b", 1]] }'
-        error: "Failed at masks[1].paths[1]: Expected string, received 1"
+        error: "Failed at masks[1][1]: Expected string, received 1"
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.meta,v3=v0.tags,v5=v0.mask,v7=v0.masks;return v0}catch(v11){e[3](v11)}}
     examples:
@@ -64,4 +64,4 @@ operations:
         output: "{ meta: { a: null }, tags: [], mask: [], masks: [] }"
       mask-path-invalid-utf8:
         input: new Uint8Array([26, 6, 10, 1, 97, 10, 1, 255])
-        error: "Failed at mask.paths[1]: Protobuf string is not valid UTF-8"
+        error: "Failed at mask[1]: Protobuf string is not valid UTF-8"
