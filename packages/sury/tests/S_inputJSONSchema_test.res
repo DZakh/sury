@@ -664,6 +664,35 @@ test("Transformed schema schema uses default with correct type", t => {
   )
 })
 
+test("An option around a defaulted option advertises no default", t => {
+  let schema = S.object(s => s.field("darkMode", S.option(S.option(S.bool)->S.Option.getOr(false))))
+
+  t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(~to=schema), None)
+  // FIXME: undefined reads None, yet the inner default is still advertised
+  t->Assert.deepEqual(
+    schema->S.toInputJSONSchemaOrThrow,
+    %raw(`{
+      "type": "object",
+      "properties": {"darkMode": {"default": false, "type": "boolean"}},
+    }`),
+  )
+})
+
+test("A null-as-option around a nullable default advertises no default", t => {
+  let schema = S.object(s => s.field("seen", S.nullAsOption(S.nullAsOption(S.bool)->S.Option.getOr(false))))
+
+  t->Assert.deepEqual(%raw(`{"seen": null}`)->S.parseOrThrow(~to=schema), None)
+  // FIXME: null reads None, yet the inner default is still advertised
+  t->Assert.deepEqual(
+    schema->S.toInputJSONSchemaOrThrow,
+    %raw(`{
+      "type": "object",
+      "properties": {"seen": {"default": false, "anyOf": [{"type": "boolean"}, {"type": "null"}]}},
+      "required": ["seen"],
+    }`),
+  )
+})
+
 test("Currently Option.getOrWith is not reflected on JSON schema", t => {
   let schema = S.nullAsOption(S.bool)->S.Option.getOrWith(() => true)
 
