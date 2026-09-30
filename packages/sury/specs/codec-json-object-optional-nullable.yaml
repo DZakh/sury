@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ a: S.optional(S.nullable(S.string)) }))"
+  input: JSON
+  output: "{ a?: string | null | undefined; }"
+  instantiations: 6418
+jsonSchema:
+  input: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "null" }] } }, additionalProperties: false }'
+  fromInputType: "{ a?: string | null | undefined; }"
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "null" }] } } }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { a: { type: "string", nullable: true } }, additionalProperties: false }'
+    output: '{ type: "object", properties: { a: { type: "string", nullable: true } } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=(i.a??null);for(;;){if(typeof v0==="string")break;if(v0===null)break;throw e[0](v0)}return {a:v0}}catch(v1){e[2](v1)}}
+    examples:
+      # FIXME: an absent key reads as null, where S.parseOrThrow(inner) keeps it undefined (#470)
+      absent:
+        input: "{}"
+        output: "{ a: null }"
+      "null":
+        input: "{ a: null }"
+        output: "{ a: null }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      wrong-type:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected string | null | undefined, received 1"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v1=i.a;let v0={};if(v1!==void 0){v0.a=v1}return v0}
+    examples:
+      absent:
+        input: "{}"
+        output: "{}"
+      undefined:
+        input: "{ a: undefined }"
+        output: "{}"
+      "null":
+        input: "{ a: null }"
+        output: "{ a: null }"
