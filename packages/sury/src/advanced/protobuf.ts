@@ -1688,10 +1688,8 @@ const fieldLive = (field: Field, numeric: boolean): string =>
 type Read = (key: string) => { expr: string; numeric: boolean };
 
 // `f=` before a field's writes is what the message's frame (`encodeFrame`)
-// reads to name the field a failure hit. It is left off a bool or double field,
-// single or repeated, with no oneof check: `writeCall` and the packed writers
-// check neither type. Returns the body, and whether any field can fail.
-const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): [string, boolean] => {
+// reads to name the field a failure hit.
+const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
   const body: string[] = [];
   // proto3 lets at most one member of a oneof be set, and decode enforces it
   // by clearing the siblings. Encode is handed a value the schema cannot
@@ -1720,15 +1718,12 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
     return (first.get(name!) === field ? "" : `${test}&&${enc("oneof")}();`) +
       (last.get(name!) === field ? "" : `o|=${bit};`);
   };
-  let fails = false;
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
     const { expr: src, numeric } = read(field.key);
     const oneof = guard(field);
-    const at = field.map !== U || (field.type !== "bool" && field.type !== "double") || oneof.includes("&&")
-      ? (fails = true, `f=${idx};`)
-      : "";
+    const at = `f=${idx};`;
     if (field.map !== U) {
       const keyType = field.map;
       const entryTag = writeTag(field.number * 8 + 2);
@@ -1759,7 +1754,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc)}}`);
     }
   }
-  return [(bits.size ? "o=0;" : "") + body.join(";"), fails];
+  return (bits.size ? "o=0;" : "") + body.join(";");
 };
 
 const nameMessages = (message: Message, fns: Map<Message, string>): void => {
@@ -1792,8 +1787,8 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
       args.push(codecs[msg.wellKnown!]![1]);
     } else {
       const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
-      const [body, fails] = encodeBody(msg, fns, read, (helper) => helper);
-      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o${fails ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
+      const body = encodeBody(msg, fns, read, (helper) => helper);
+      src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o${msg.fields.length ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
     }
   });
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
@@ -1965,7 +1960,8 @@ const protobufDecoder = (input: Val): Val => {
       : { expr: readKey(input.v(), key), numeric: false };
   };
   const embeds: Partial<Record<Helper, string>> = {};
-  const [body, fails] = encodeBody(message, names, readRoot, (helper) => (embeds[helper] ??= B_embed(input, encodeHelpers[helper])));
+  const body = encodeBody(message, names, readRoot, (helper) => (embeds[helper] ??= B_embed(input, encodeHelpers[helper])));
+  const fails = message.fields.length > 0;
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
