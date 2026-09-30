@@ -11,7 +11,6 @@ import {
   instanceTag,
   type Internal,
   openApi30,
-  type Path,
   tagFlags,
   U,
   type Val
@@ -23,8 +22,8 @@ import {
   B_markAsync,
   B_next,
   B_pathArg,
+  B_raiser,
   B_readOnce,
-  B_throw,
   B_rejectUnsettled,
   B_reverseReading,
   B_unsupportedDecode
@@ -80,9 +79,7 @@ const read = (input: Val, call: string, schema: Internal): Val => {
   const fail = B_conversionFail(input, schema);
   const failFn = input.g.o & 4
     ? U
-    : B_embed(input, (cause: unknown, path?: Path) => {
-        B_throw(fail(cause, path));
-      });
+    : B_raiser(input, fail);
   const pathArg = failFn === U ? "" : B_pathArg(input);
   const rj = failFn === U ? U : pathArg ? `x=>${failFn}(x${pathArg})` : failFn;
   const output = B_computed(

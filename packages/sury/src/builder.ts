@@ -298,15 +298,19 @@ export const B_detached = <T>(g: BGlobal, body: () => T): T => {
   }
 };
 
+// The embedded function that raises a failure. Handed on bare where a callback
+// takes it, since a caller passes only the cause and the path is optional.
+export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
+  B_embed(b, (a: TArg, p?: Path) => {
+    B_throw(fn(a, p));
+  });
+
 // A failure as the expression that raises it.
 export const B_failWithArg = <TArg>(
   b: Val,
   fn: (arg: TArg, path?: Path) => ErrorDetails,
   arg: string,
-): string =>
-  `${B_embed(b, (a: TArg, p?: Path) => {
-    B_throw(fn(a, p));
-  })}(${arg}${B_pathArg(b)})`;
+): string => `${B_raiser(b, fn)}(${arg}${B_pathArg(b)})`;
 
 // Record a raise that reaches generated code without an embed behind it - the
 // bare `throw` a loop wrapper re-raises a nested error with. Union codegen
@@ -863,10 +867,12 @@ export const B_conversion = (
     // do escape a union are a getter's, which never enter this try.
     // An async coder's failure lands in its `.catch` as often as in the `catch`,
     // so both raise and share one site; a sync one's may jump.
-    const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
-    const failure = isAsync ? B_detached(input.g, fail) : fail();
+    const conversionFail = B_conversionFail(input, target);
+    const raise = isAsync && B_raiser(output, conversionFail);
+    const path = raise && B_pathArg(output);
+    const failure = raise ? `${raise}(x${path})` : B_fail(output, conversionFail, `x`);
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(${(output.rj = `x=>${failure}`)})` : ""
+      raise ? `.catch(${(output.rj = path ? `x=>${failure}` : raise)})` : ""
     }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
