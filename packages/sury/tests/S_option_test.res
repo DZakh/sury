@@ -288,39 +288,60 @@ module CoderToOption = {
   test("Option over a coder to option parses undefined as None", t => {
     let schema = S.option(blankToNone)
 
-    t->U.assertThrowsMessage(
-      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
-      `Expected string, received undefined`,
-    )
-    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
     t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(Some(Some("a"))->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"a"`))
   })
 
   test("Option over a coder to option in an absent object field", t => {
     let schema = S.object(s => s.field("a", S.option(blankToNone)))
 
-    t->U.assertThrowsMessage(
-      () => %raw(`{}`)->S.parseOrThrow(~to=schema),
-      `Failed at a: Expected string, received undefined`,
-    )
+    t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(~to=schema), None)
   })
 
   test("Option over a coder to option with getOrWith", t => {
     let schema = S.option(blankToNone)->S.Option.getOrWith(() => None)
 
-    t->U.assertThrowsMessage(
-      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
-      `Expected string, received undefined`,
-    )
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some("a"))
   })
 
   test("nullAsOption over a coder to option parses null as None", t => {
     let schema = S.nullAsOption(blankToNone)
 
-    t->U.assertThrowsMessage(
-      () => %raw(`null`)->S.parseOrThrow(~to=schema),
-      `Expected string, received null`,
+    t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  })
+
+  test("Nested option over a coder to option", t => {
+    let schema = S.option(S.option(blankToNone))
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(Some(None)))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some(Some("a"))))
+    t->Assert.deepEqual(Some(Some(None))->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  })
+
+  test("Option over a coder whose input is already optional keeps undefined as None", t => {
+    let schema = S.option(
+      S.option(S.string)->S.to(
+        S.option(S.string),
+        ~custom={
+          decode: Sync(o => o == Some("") ? None : o),
+          encode: Sync(o => o),
+        },
+      ),
     )
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
   })
 
   test("Option over a coder to a union parses undefined as None", t => {
@@ -331,9 +352,8 @@ module CoderToOption = {
       ),
     )
 
-    t->U.assertThrowsMessage(
-      () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
-      `Expected string, received undefined`,
-    )
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`"1"`)->S.parseOrThrow(~to=schema), Some(1))
+    t->Assert.deepEqual(Some(2)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"2"`))
   })
 }
