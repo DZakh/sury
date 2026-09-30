@@ -46,6 +46,7 @@ import {
   B_next,
   B_nextConst,
   B_nextVar,
+  B_collects,
   B_refine,
   B_rejectUnsettled,
   B_reverseReading,
@@ -499,6 +500,10 @@ export const jsonString = /* @__PURE__ */ (() => {
         container &&
         !container.to!.space &&
         !(input.g.o & 1) &&
+        // The aggregate validates while it renders, so it has no child scope
+        // for a failure to leave: an operation that collects every failure
+        // keeps the container, whose decoder gives each child one.
+        !B_collects(input.g) &&
         (item !== U
           ? !(item.to === U && (tagFlags[item.type]! & ((2 | 8) | 32)))
           : raw &&

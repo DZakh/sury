@@ -113,7 +113,11 @@ for (let c = 0; c < cases * seeds; c++) {
   } catch (error) {
     // Without both validators there is no side to sample or hold an answer
     // against, and a refusal that denied them is the schema's own contract.
-    if (!refused(error)) findings.push(`${id}: setup: ${reason(error)}`);
+    if (
+      !refused(error) &&
+      !running.some(([name]) => knownFor(name as "issues", member.shape, "setup", reason(error)))
+    )
+      findings.push(`${id}: setup: ${reason(error)}`);
     continue;
   }
 

@@ -460,6 +460,19 @@ left on the table:
   and a label per child; a child whose only failure is its last statement needs
   neither the break nor the label.
 
+- **`S.compactColumns` rows report one failure.** Its fields are compiled by
+  its own loop, not through `B_field`, so a row stops at its first failing
+  field. Consistent across outcomes; routing its fields through `B_field` is
+  what would make it collect.
+- **A tuple's issue path spells its index as a string** (`["0"]`) where an
+  array's is a number (`[0]`). Pre-existing, now visible because a tuple
+  reports every slot.
+- **An async coder's failure inside a union case has no path** (`{ message:
+  "taken" }` rather than `path: ["a"]`). Same on main.
+- **The collecting code is snapshotted by one inline test.** Specs pin the
+  throwing expression, so a regression in the labelled emit shows as an
+  `issues:` diff, never as code.
+
 ### Pre-existing bugs surfaced by the failure exit work
 
 - **A throwing async operation leaves a started child's rejection unhandled.**

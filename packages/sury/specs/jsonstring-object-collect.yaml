@@ -30,16 +30,13 @@ operations:
       one-field-invalid:
         input: '[{ a: "ok", b: "x" }]'
         error: 'Failed at [0].b: Expected number, received "x"'
-        issues:
-          - 'Failed at [0].b: Expected number, received "x"'
-          - 'Failed at [0].b: Expected JSON, received "x"'
       every-field-invalid:
         input: '[{ a: 1, b: "x" }, 2, { a: "ok", b: 3 }]'
         error: "Failed at [0].a: Expected string, received 1"
         issues:
           - "Failed at [0].a: Expected string, received 1"
           - 'Failed at [0].b: Expected number, received "x"'
-          - 'Failed at [0].b: Expected JSON, received "x"'
+          - "Failed at [1]: Expected { a: string; b: number; }, received 2"
   decode:
     expression: i=>{try{let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];let v3=v2.b;v1+=(v0?",":"")+"{\"a\":"+e[0](v2.a)+",\"b\":"+(Number.isFinite(v3)?v3:e[1](v3,[v0,"b"]))+"}"}return "["+v1+"]"}catch(v4){e[2](v4)}}
     examples:

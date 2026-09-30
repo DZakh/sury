@@ -112,6 +112,35 @@ export const KNOWN_BUGS: Known[] = [
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
       some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
   },
+  {
+    id: "jsonstring-fieldor-refined-url-encode",
+    kind: "bug",
+    summary:
+      "`S.object((s) => ({ f: s.fieldOr(\"f\", S.nullable(S.url.with(S.refine, check)), null) })).with(S.to, S.jsonString)` " +
+      "crashes the encode compile (`isOutput`, `encodeOrThrow`) with a TypeError from `B_merge` instead of building it.",
+    spec: "jsonstring-fieldor-refined-url",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "setup" &&
+      f.detail.includes("reading 't'") &&
+      some(f.shape, (node) => node.name === "fieldOr"),
+  },
+  {
+    id: "conversion-after-failed-container",
+    kind: "limitation",
+    summary:
+      "A conversion over a whole container - `.with(S.to, S.jsonString)` rendering an `unknown` field - " +
+      "runs only once every field passed, as a refine or transform does, so its failure for one field is " +
+      "reported alone but not beside another field's. The skip is the documented rule; the property that " +
+      "breaks one field and then all of them cannot tell it from a lost issue.",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "independent" &&
+      f.shape.name === "with" &&
+      f.shape.raw === "to",
+  },
 ];
 
 const matched = new Set<string>();
