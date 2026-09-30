@@ -703,8 +703,9 @@ export const traverseDefinition = (
 
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
 // not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
-// key against an optional target stays absent (None); against a required
-// target it fails - not the string `"undefined"`.
+// key against an optional target is parsed as the target's own `undefined`
+// (None, or its default); against a required target it fails - not the
+// string `"undefined"`.
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
@@ -722,8 +723,6 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
-  // Optional field: the target reads the absent key as its own `undefined`
-  // (None, or a default it fills in). Required field: reject.
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   let absentBody = "";
   if (noAbsentCheck && !unsetIsInput) {

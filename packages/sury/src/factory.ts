@@ -137,8 +137,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.parser = (input: Val) => {
     const v = input.v();
     const source = input.s;
-    // An absent key reaches here as `unit` (objectDecoder's missing-key read);
-    // a JSON document never holds `undefined`, anything else may.
+    // An absent key reaches here as `unit` (objectDecoder's missing-key read).
     if (source === unit) {
       const output = B_nextVarOutput(input, v, item, item);
       output.cp = `${v}=${B_inlineConst(input, Literal_parse(or))};`;
@@ -154,6 +153,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
     const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
+    // A JSON document never holds `undefined`, so there is no default check to emit.
     if (source.flags & 16) {
       output.cp = presentBody;
       return output;

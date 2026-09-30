@@ -23,11 +23,12 @@
 //                is caught against itself.
 //   absent       a key a JSON document leaves out reads through `S.json` the
 //                way `parse` reads it - `undefined`, or the field's default -
-//                never as `null` (#470). Only that position is compared: the
+//                never as `null`. Only that position is compared: the
 //                carrier's other spellings (`null` for an optional field) are
-//                its own rules. Besides the drawn schema's own keys, the schema
-//                itself is left out as a field, bare and under `S.shape`, whose
-//                parser is what an absent key reaches instead of a dispatch.
+//                its own rules. Besides the drawn schema's own keys, the
+//                check also leaves out a field holding the schema, bare and
+//                under `S.shape`: an absent key reaches that field's parser
+//                directly instead of going through a dispatch.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are

@@ -21,9 +21,9 @@ operations:
   parse:
     expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="number"&&v0==v0)break;for(;;){if(typeof v0==="string")break;if(v0===null){v0="d";break}throw e[0](v0)}break}return {a:v0}}catch(v1){e[2](v1)}}
     examples:
-      # FIXME: known bug json-absent-nested-undefined (scripts/knownBugs.ts). The
-      # field's `undefined` belongs to the defaulted member, so the absent key
-      # never reaches its default: S.parseOrThrow reads `{}` as `{ a: "d" }`.
+      # FIXME: known bug json-absent-nested-undefined. The field's `undefined`
+      # belongs to the defaulted member, so the absent key never reaches its
+      # default. Without S.json, parse reads `{}` as `{ a: "d" }`.
       absent:
         input: "{}"
         error: "Failed at a: Expected string | undefined, received undefined"
