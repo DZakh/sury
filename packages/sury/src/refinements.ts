@@ -26,6 +26,7 @@ import {
   B_contentDiffers,
   B_conversion,
   B_embed,
+  B_embedPure,
   B_failWithErrorMessage,
   B_next,
   B_readOnce,
@@ -861,11 +862,13 @@ const stringFormat = (
     if (flag) {
       s.flags = s.flags | 32;
     }
+    // Every test is the library's own and none raises on a string, so the
+    // embed doesn't count toward the `try` a union case would otherwise keep.
     s.refiner = (input) => {
       return [
         {
           c: (inputVar) =>
-            `${B_embed(input, re)}${re instanceof RegExp ? ".test" : ""}(${inputVar})`,
+            `${B_embedPure(input, re)}${re instanceof RegExp ? ".test" : ""}(${inputVar})`,
           f: B_failWithErrorMessage("format"),
         },
       ];

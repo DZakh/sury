@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (value) => value }, encode: (value) => value }) }).with(S.to, S.number, { decode: (object) => { if (object.a === "bad") throw new Error("nope"); return object.a.length }, encode: (length) => ({ a: "x".repeat(length) }) })'
+  input: "{ a: string; }"
+  output: number
+  instantiations: 5637
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "number" }'
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i.a;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0});return Promise.all([v2]).then(([v2])=>{let v3;try{v3=e[4]({a:v2})}catch(x){e[5](x)}typeof v3==="number"&&v3==v3||e[6](v3);return v3}).catch(e[8])}catch(v4){return e[9](v4)}}
+    examples:
+      valid:
+        input: '{ a: "abc" }'
+        output: "3"
+      coder-throws-after-await:
+        input: '{ a: "bad" }'
+        error: nope
+      field-not-a-string:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected string, received 1"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[0](i.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v1=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0});return Promise.all([v1]).then(([v1])=>{let v2;try{v2=e[3]({a:v1})}catch(x){e[4](x)}typeof v2==="number"&&v2==v2||e[5](v2);return v2}).catch(e[6])}catch(v3){return e[7](v3)}}
+    examples:
+      valid:
+        input: '{ a: "abc" }'
+        output: "3"
+      coder-throws-after-await:
+        input: '{ a: "bad" }'
+        error: nope
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.a;typeof v2==="string"||e[5](v2);let v1;try{v1=e[2](v2)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return {a:v1}}catch(v3){e[7](v3)}}
+    examples:
+      valid:
+        input: "3"
+        output: '{ a: "xxx" }'

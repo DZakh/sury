@@ -56,15 +56,15 @@ jobs:
         working-directory: packages/sury
 
       # The only check that the union compiler's dispatch matches a sequential
-      # try of each member (CLAUDE.md, "Changing the union compiler"). Fixed
-      # seed so a red run reproduces locally with the same command. Shares
-      # scripts/knownBugs.ts with fuzz:schema.
+      # try of each member (.claude/skills/fuzz). Fixed seed so a red run
+      # reproduces locally with the same command. Shares scripts/knownBugs.ts
+      # with fuzz:schema.
       - run: pnpm fuzz:union --seed=1
         working-directory: packages/sury
 
       # A spec pins one schema's code and the values it writes down, and says
-      # nothing about the branch no spec reaches (CLAUDE.md, "Fuzzing a single
-      # schema"). The default invocation is the gate: forty seeds, both families.
+      # nothing about the branch no spec reaches (.claude/skills/fuzz). The
+      # default invocation is the gate: forty seeds, both families.
       # It fails on a finding scripts/knownBugs.ts does not list, and on an
       # entry there it no longer reaches. Fixed range so a red run reproduces
       # locally with the same command. ~25s.
@@ -72,7 +72,7 @@ jobs:
         working-directory: packages/sury
 
       # A form field's reading depends on its wrapper as much as its type, and
-      # a spec covers one schema (CLAUDE.md, "Changing the form codec"). This
+      # a spec covers one schema (.claude/skills/fuzz). This
       # crosses the two and checks what a golden cannot: that a field works in
       # both directions or neither, that an encode leaves its input alone, that
       # a value survives an encode and the decode of it, and that every entry
@@ -83,7 +83,7 @@ jobs:
 
       # Which reading a link takes - pack or unpack - is written down by a slot,
       # a field position or a declared payload and mirrored by `reverse`, and a
-      # spec pins one link (CLAUDE.md, "Changing the content codec"). This
+      # spec pins one link (.claude/skills/fuzz). This
       # crosses every source with every target and slot and checks that a link
       # compiles both directions or neither, that its reverse reads the same
       # values, that a value survives decode, encode, decode, and that a slot

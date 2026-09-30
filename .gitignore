@@ -20,3 +20,6 @@ spec-perf-comment.md
 
 # Timing charts, published to the `benchmarks` branch rather than committed.
 packages/benchmarks/.charts/
+
+# The ship skill's per-branch ledger: contract and decision log.
+.ship/
