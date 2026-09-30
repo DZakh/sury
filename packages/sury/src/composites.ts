@@ -736,12 +736,27 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
-  // Optional field: leave `undefined` as-is (None). Required field: reject.
+  // Optional field: leave `undefined` as-is (None), or read it the way the
+  // field reads `undefined` when that arm converts (a default). Required
+  // field: reject.
+  const absent = absentArmOf(target);
+  let absentBody = "";
+  if (!unsetIsInput && absent !== U && absent.to !== U) {
+    const absentIn = B_scope(input);
+    absentIn.io = false;
+    absentIn.s = unknown;
+    absentIn.e = target;
+    const absentOut = parse(absentIn);
+    absentBody = B_merge(absentOut) + (absentOut.i === v ? "" : `${v}=${absentOut.i};`);
+  }
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
   const presentBody = presentCode + presentAssign;
-  output.cp =
-    presentBody === ""
+  output.cp = absentBody
+    ? presentBody === ""
+      ? `if(${v}===void 0){${absentBody}}`
+      : `if(${v}!==void 0){${presentBody}}else{${absentBody}}`
+    : presentBody === ""
       ? noAbsentCheck
         ? ""
         : B_failInvalidInput(input, target, `${v}!==void 0`)
@@ -751,6 +766,17 @@ const missingKeyEncoder: Encoder = (input, target) => {
           ? `if(${v}!==void 0){${presentBody}}`
           : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
+};
+
+// The arm that reads `undefined`: the first one typed so, through nested unions.
+const absentArmOf = (s: Internal): Internal | undefined => {
+  if (s.type === undefinedTag) return s;
+  if (s.type !== anyOfTag || s.to !== U) return U;
+  for (const arm of s.anyOf!) {
+    const found = absentArmOf(arm);
+    if (found !== U) return found;
+  }
+  return U;
 };
 
 const wrapDictMissingKeyLight = (s: Internal): Internal => {

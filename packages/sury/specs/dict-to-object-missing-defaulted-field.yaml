@@ -18,22 +18,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a,v3=i.b;return {a:v2,b:v3}}catch(v4){e[2](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a,v3=i.b;if(v2===void 0){for(;;){if(typeof v2==="string")break;if(v2===void 0){v2="d";break}throw e[1](v2)}}if(v3===void 0){let v4;for(;;){if(typeof v3==="boolean")break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="e";break}v4=[v4,e[2](v3)];break l5}break}throw e[3](v3,v4)}}return {a:v2,b:v3}}catch(v6){e[5](v6)}}
     examples:
-      # FIXME: a missing key skips the field's default
       missing:
         input: "{}"
-        output: "{ a: undefined, b: undefined }"
+        output: '{ a: "d", b: "e" }'
       present:
         input: '{ a: "x", b: "y" }'
         output: '{ a: "x", b: "y" }'
   decode:
-    expression: i=>{let v1=i.a,v2=i.b;return {a:v1,b:v2}}
+    expression: i=>{try{let v1=i.a,v2=i.b;if(v1===void 0){for(;;){if(typeof v1==="string")break;if(v1===void 0){v1="d";break}throw e[0](v1)}}if(v2===void 0){let v3;for(;;){if(typeof v2==="boolean")break;l4:{for(;;){if(typeof v2==="string")break;if(v2===void 0){v2="e";break}v3=[v3,e[1](v2)];break l4}break}throw e[2](v2,v3)}}return {a:v1,b:v2}}catch(v5){e[3](v5)}}
     examples:
-      # FIXME: a missing key skips the field's default
       missing:
         input: "{}"
-        output: "{ a: undefined, b: undefined }"
+        output: '{ a: "d", b: "e" }'
       present:
         input: '{ a: "x", b: "y" }'
         output: '{ a: "x", b: "y" }'
