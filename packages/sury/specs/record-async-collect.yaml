@@ -27,7 +27,7 @@ operations:
           - "Failed at a: taken"
           - "Failed at b: taken"
       sync-and-async-invalid:
-        input: '{ a: "t", b: 1 }'
+        input: '{ b: 1, a: "t" }'
         error: "Failed at b: Expected string, received 1"
         issues:
           - "Failed at b: Expected string, received 1"

@@ -651,3 +651,34 @@ test("generated declarations go through B_let", () => {
   }
   expect(spelled).toEqual({ "builder.ts": 3, "parse.ts": 1 });
 });
+
+// An async entry that starts before a sync one fails. A test rather than a spec
+// example: the spec harness also runs the throwing outcome, which leaves the
+// started entry's rejection unhandled (IDEAS.md, pre-existing), while the
+// collecting outcomes wait for it.
+test("a collecting outcome waits for an async child started before a sync failure", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const taken = S.string.with(S.to, S.string, {
+      decode: { async: (v: string) => (v === "t" ? Promise.reject(new Error("taken")) : Promise.resolve(v)) },
+      encode: (v: string) => v,
+    });
+    const record = S.record(taken);
+    const nested = S.schema({ r: record, n: S.number });
+    const expected = [
+      { message: "Expected string, received 1", path: ["b"] },
+      { message: "taken", path: ["a"] },
+    ];
+    expect((await S.parseAsResultPromise(record, { a: "t", b: 1 })).issues).toEqual(expected);
+    expect((await record["~standard"].validate({ a: "t", b: 1 })).issues).toEqual(expected);
+    expect((await S.parseAsResultPromise(nested, { r: { a: "t", b: 1 }, n: 1 })).issues).toEqual(
+      expected.map((issue) => ({ ...issue, path: ["r", ...issue.path] })),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});

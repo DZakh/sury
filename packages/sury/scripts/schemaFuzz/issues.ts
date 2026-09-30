@@ -80,7 +80,7 @@ const check = (ctx: Ctx): void => {
     const alone: string[] = [];
     for (const key of keys) {
       const one = run(broken(key));
-      if (one && !one.success && String(one.issues?.[0]?.path?.[0]) === key) alone.push(said(one.issues[0]!));
+      if (one && !one.success && String(one.issues?.[0]?.path?.[0]) === key) alone.push(said(one.issues![0]!));
     }
     const all = run(broken());
     // Only where the container itself stayed an object the schema reads field
