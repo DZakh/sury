@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.union([S.meta(S.optional(S.string), { description: "maybe" }), S.number]) })'
+  input: "{ a?: string | number | undefined; }"
+  output: "{ a?: string | number | undefined; }"
+  instantiations: 3122
+# FIXME: the optional inside the union is not seen, so the field fails as JSON
+jsonSchema:
+  input: "Failed at a: Expected JSON, received string | undefined"
+  output: "Failed at a: Expected JSON, received string | undefined"
+isEqual: (a,b)=>a===b||a.a===b.a
+compare: "throws: [Sury] Can't compare { a: string | number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.object({ a: z.union([z.string().optional().describe("maybe"), z.number()]) })'
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;((typeof v0==="string"||v0===void 0)||typeof v0==="number"&&v0==v0)||e[0](v0);return {a:v0}}catch(v1){e[2](v1)}}
+    examples:
+      missing:
+        input: "{}"
+        output: "{ a: undefined }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      number:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+      boolean:
+        input: "{ a: true }"
+        error: "Failed at a: Expected string | number | undefined, received true"
+  decode: identity
+  encode: identity
