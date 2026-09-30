@@ -483,11 +483,13 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 
     if (val.vc) {
       // Type-narrows hoist only when they can't strand a decl the lifted
-      // check reads: a transforming val is safe iff prev is non-transforming
-      // (stable input var) and this val has no codeFromPrev of its own -
-      // else the lifted check runs before that producer (the
+      // check reads: a transforming val is safe iff this val has no
+      // codeFromPrev of its own and prev is non-transforming (stable input
+      // var) or the scope the chain starts from, whose var the enclosing
+      // code declared - else the lifted check runs before that producer (the
       // str->to(option(int)) "v0 is not defined" bug class).
-      if (out && (!val.t || !val.prev!.t && val.cp === "")) {
+      const prev = val.prev;
+      if (out && (!val.t || val.cp === "" && (!prev!.t || prev!.b !== U && prev!.cp === ""))) {
         const inputVar = (current || val).v();
         const checks = val.vc;
         let hoisted = "";

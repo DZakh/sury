@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.jsonString.with(S.to, S.union([S.union([S.boolean, S.string]).with(S.meta, { description: "d" }), S.number]))'
+  input: string
+  output: string | number | boolean
+  instantiations: 6701
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ anyOf: [{ type: "boolean" }, { type: "string" }, { type: "number" }] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { anyOf: [{ anyOf: [{ type: "boolean" }, { type: "string" }], description: "d" }, { type: "number" }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual: strictEqual
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare boolean | string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}((typeof v0==="boolean"||typeof v0==="string")||typeof v0==="number"&&v0==v0)||e[1](v0);return v0}catch(v1){e[3](v1)}}
+    examples:
+      number-member:
+        input: '"1"'
+        output: "1"
+      boolean:
+        input: '"true"'
+        output: "true"
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}((typeof v0==="boolean"||typeof v0==="string")||typeof v0==="number"&&v0==v0)||e[1](v0);return v0}catch(v1){e[2](v1)}}
+    examples:
+      number:
+        input: "1"
+        output: "1"
+  encode:
+    creationError: 'SuryError: Ambiguous string -> JSON string. Should the text be packed or unpacked? Choose with S.to and "pack" or "unpack"'
