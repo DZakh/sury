@@ -6,13 +6,15 @@
 //                 failure both find before the two diverge.
 //   standard      `~standard.validate` answers what `parseAsResult` does: a
 //                 Result is a Standard Schema result, so they are one operation.
-//   independent   for an object value, breaking fields one at a time and then
-//                 all together reports each field's own issue in the combined
-//                 answer. A container collects its children; it does not let
+//   independent   for an object or array value, breaking fields (items) one at
+//                 a time and then all together reports each one's own issue in
+//                 the combined answer. A container collects its children; it does not let
 //                 one child's failure decide what another reports.
 //
-// The values are the Input samples and each of them broken: a plain object with
-// every own field in turn replaced by a symbol no leaf schema accepts.
+// The values are the Input samples and each of them broken: a plain object or
+// array with every own field or item in turn replaced by a symbol no leaf
+// schema accepts. The grammar draws no async member, so the async join is held
+// by specs alone.
 
 import { show } from "../unionFuzz/sample";
 import { type Ctx, type Family, reason } from "./context";
@@ -66,15 +68,21 @@ const check = (ctx: Ctx): void => {
 
   for (const [value] of inputs) {
     run(value);
-    if (!isPlain(value)) continue;
+    const isArray = Array.isArray(value);
+    if (!isPlain(value) && !isArray) continue;
     const keys = Object.keys(value);
     if (keys.length < 2) continue;
+    const broken = (only?: string): unknown => {
+      const copy: any = isArray ? [...(value as unknown[])] : { ...(value as object) };
+      for (const key of only === undefined ? keys : [only]) copy[key] = junk;
+      return copy;
+    };
     const alone: string[] = [];
     for (const key of keys) {
-      const one = run({ ...value, [key]: junk });
-      if (one && !one.success && one.issues?.[0]?.path?.[0] === key) alone.push(said(one.issues[0]!));
+      const one = run(broken(key));
+      if (one && !one.success && String(one.issues?.[0]?.path?.[0]) === key) alone.push(said(one.issues[0]!));
     }
-    const all = run(Object.fromEntries(keys.map((key) => [key, junk])));
+    const all = run(broken());
     // Only where the container itself stayed an object the schema reads field
     // by field: a failure at the root (a union, a refine over the whole value)
     // is one answer about all of them.

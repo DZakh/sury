@@ -561,7 +561,10 @@ export const objectDecoder = (unknownInput: Val): Val => {
       };
       const wrap = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
       const code = itemOutput.t!
-        ? itemMerge + B_addKey(output2, keyVar, itemOutput)
+        ? itemMerge +
+          (itemOutput.f & 1 && B_collects(input.g) && input.g.k
+            ? `${output2.v()}[${keyVar}]=${B_settle(output2, itemOutput.i)}`
+            : B_addKey(output2, keyVar, itemOutput))
         : input.g.t + input.g.j === failCountBefore
           ? ""
           : itemMerge;
@@ -580,12 +583,24 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const asyncParseResultVar = B_varWithoutAllocation(output2.g);
       const counterVar = B_varWithoutAllocation(output2.g);
       const outputVar = output2.v();
-      output = B_asyncVal(
-        output2,
-        // `if(!counter)` first: with no keys the loop never runs, so nothing
-        // would ever resolve the promise.
-        `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;if(!${counterVar}){${resolveVar}(${outputVar})}for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
-      );
+      const g = input.g, k = B_collects(g) && g.k;
+      // `if(!counter)` first: with no keys the loop never runs, so nothing
+      // would ever resolve the promise.
+      let all = `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;if(!${counterVar}){${resolveVar}(${outputVar})}for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`;
+      if (k) {
+        let failed = "0";
+        if (output2.k) {
+          failed = B_varWithoutAllocation(g);
+          output2.cp = B_let(g, failed, k) + output2.cp;
+          failed = `${k}!==${failed}`;
+        }
+        const entries = B_varWithoutAllocation(g);
+        all += `.then(${entries}=>{${B_join(output2, failed, `Object.values(${entries})`)}return ${entries}})`;
+        // The join answers for the sync entries too, and it has to run to see
+        // the async ones.
+        output2.k = U;
+      }
+      output = B_asyncVal(output2, all);
     } else {
       output = output2;
     }

@@ -602,7 +602,8 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       }
     }
 
-    // Hoisted decls land after this val's checks.
+    // Hoisted decls land after this val's checks. `hd` is filled only outside
+    // a collecting child (`B_hoistDecl`), so it can stay a `let`.
     if (val.hn) val.g.l!.push(...val.hn);
     if (val.hd) currentCode += `let ${val.hd};`;
     if (val.ha) currentCode += val.ha;

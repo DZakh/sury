@@ -23,6 +23,15 @@ operations:
       every-entry-invalid:
         input: '{ a: "t", b: "t" }'
         error: "Failed at a: taken"
+        issues:
+          - "Failed at a: taken"
+          - "Failed at b: taken"
+      sync-and-async-invalid:
+        input: '{ a: "t", b: 1 }'
+        error: "Failed at b: Expected string, received 1"
+        issues:
+          - "Failed at b: Expected string, received 1"
+          - "Failed at a: taken"
   decode:
     isAsync: true
     expression: i=>{try{let v2={};for(let v0 in i){let v1;try{v1=e[0](i[v0]).catch(x=>{e[1](x,[v0])})}catch(x){e[1](x,[v0])}v2[v0]=v1.then(v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1})}return new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}}).catch(e[3])}catch(v7){return e[4](v7)}}

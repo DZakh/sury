@@ -453,6 +453,10 @@ left on the table:
 - **A union is one failure.** A case a later case may still accept fails
   fast, so a union whose members overlap reports the union's aggregate. A case
   only its own dispatch reaches already collects.
+- **A recursive schema reports one failure per recursive call.** The nested
+  compile raises, and the call site records that one raise.
+- **A throwing getter on a field ends collection.** A child gets its `catch`
+  only where its code counted a raise; a getter reads as a plain property.
 - **An async join settles every child with an extra `.then`.** Measured at
   +100-200ns per async field on the valid path of a collecting operation. The
   child's own last `.then` could take the settling arm instead.
