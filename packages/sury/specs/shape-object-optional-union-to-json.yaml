@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.union([S.object((s) => ({ a: s.field("a", S.string), b: s.field("b", S.optional(S.string)) })).with(S.shape, (v) => ({ TAG: "Wrap" as const, _0: v })), S.number.with(S.shape, (v) => ({ TAG: "N" as const, _0: v }))])).with(S.to, S.json)'
+  input: '{ TAG: "Wrap"; _0: { a: string; b: string | undefined; }; } | { TAG: "N"; _0: number; }'
+  output: JSON
+  instantiations: 6946
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "Wrap" }, _0: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "N" }, _0: { type: "number" } }, additionalProperties: false, required: ["TAG", "_0"] }] }'
+  fromInputType: '{ TAG: "Wrap"; _0: { a: string; b?: string | undefined; }; } | { TAG: "N"; _0: number; }'
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "number" }] }'
+  fromOutputType: "number | { a: string; b?: string | undefined; }"
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["Wrap"] }, _0: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["N"] }, _0: { type: "number" } }, additionalProperties: false, required: ["TAG", "_0"] }] }'
+isEqual:
+  input: (a,b)=>a===b||(a.TAG==="Wrap"?b.TAG==="Wrap"&&a._0.a===b._0.a&&a._0.b===b._0.b:b.TAG==="N"&&a._0===b._0)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { TAG: \"Wrap\"; _0: { a: string; b: string | undefined; }; } | { TAG: \"N\"; _0: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a,v2=v0.b;typeof v1==="string"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v3.b=v2}i=v3;break}if(i.TAG==="N"){let v4=i._0;typeof v4==="number"&&v4==v4||e[3](v4);i=v4;break}throw e[4](i)}}else{throw e[4](i)}return i}catch(v5){e[5](v5)}}
+    examples:
+      none:
+        input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
+        error: "ReferenceError: v3 is not defined"
+        divergence:
+          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
+          check: true
+      some:
+        input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
+        error: "ReferenceError: v3 is not defined"
+        divergence:
+          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
+          check: true
+      other-member:
+        input: '{ TAG: "N", _0: 1 }'
+        output: "1"
+  decode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;if(v0.b!==void 0){v1.b=v0.b}i=v1;break}if(i.TAG==="N"){i=i._0;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
+    examples:
+      none:
+        input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
+        error: "ReferenceError: v1 is not defined"
+      some:
+        input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
+        error: "ReferenceError: v1 is not defined"
+      other-member:
+        input: '{ TAG: "N", _0: 1 }'
+        output: "1"
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a,v1=(i.b??null);typeof v0==="string"||e[0](v0);for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}throw e[1](v1)}i={TAG:"Wrap",_0:{a:v0,b:v1}};break}if(typeof i==="number"&&i==i){i={TAG:"N",_0:i};break}throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      none:
+        input: '{ a: "x" }'
+        output: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
+      other-member:
+        input: "1"
+        output: '{ TAG: "N", _0: 1 }'
