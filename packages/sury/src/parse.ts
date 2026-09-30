@@ -85,7 +85,7 @@ export const parse = (input: Val): Val => {
     // have been "and there is something to wrap", which is not knowable before
     // parsing the remainder - so the decision lives below, where the recursive
     // parse has already answered it, and an empty remainder refines instead of
-    // wrapping.
+    // wrapping, as does one an async coder takes into its own `.then` (`fu`).
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
@@ -94,9 +94,10 @@ export const parse = (input: Val): Val => {
         B_merge((operationOutput = parse(operationInput))),
       );
       const then = `.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
+      const fused = loopInput.fz ? U : loopInput.fu?.(then);
       result =
         (operationInput.i === operationOutput.i && operationCode === "") ||
-        (loopInput.fu && !loopInput.fz && (loopInput.cp = loopInput.fu(then)))
+        (fused !== U && (loopInput.cp = fused))
           ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
           : B_next(loopInput, `${operationInputVar}${then})`, operationOutput.s, operationOutput.e);
       result.f |= 1;

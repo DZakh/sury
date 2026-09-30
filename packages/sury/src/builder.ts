@@ -302,8 +302,8 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   const rj = path ? `x=>${raise}(x${path})` : raise;
   const cp = (settle: string) =>
     `let ${output.i};try{${output.i}=${call}${settle}}catch(x){${raise}(x${path})}`;
-  output.cp = cp(`.catch(${rj})`);
-  output.fu = (then) => cp(`${then},${rj})`);
+  const built = (output.cp = cp(`.catch(${rj})`));
+  output.fu = (then) => output.cp === built ? cp(`${then},${rj})`) : U;
 };
 
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
