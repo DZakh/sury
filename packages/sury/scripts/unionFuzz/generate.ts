@@ -233,13 +233,23 @@ const tupleMember = (S: Sury, rng: Rng): MemberSpec => {
   };
 };
 
+// `S.union` refuses a later member's null/undefined that an earlier member's
+// default already replaces. That draw keeps the first member alone; any other
+// refusal still throws.
 const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   const a = memberAt(S, rng, depth + 1);
   const b = memberAt(S, rng, depth + 1);
+  let schema: unknown;
+  try {
+    schema = S.union([a.schema, b.schema]);
+  } catch (error) {
+    if (!(error as Error).message.startsWith("[Sury] S.union can't keep")) throw error;
+    return a;
+  }
   return {
     id: `union(${a.id},${b.id})`,
     shape: node("union", a.shape, b.shape),
-    schema: S.union([a.schema, b.schema]),
+    schema,
     lossy: a.lossy || b.lossy,
   };
 };

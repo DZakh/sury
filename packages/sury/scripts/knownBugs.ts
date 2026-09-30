@@ -19,7 +19,6 @@
 import {
   absorbs,
   admitsUndefined,
-  defaultTakes,
   type Shape,
   some,
 } from "./unionFuzz/shape";
@@ -95,33 +94,6 @@ export const KNOWN_BUGS: Known[] = [
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
       some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
-  },
-  {
-    id: "union-default-shadows-empty-member",
-    kind: "bug",
-    summary:
-      "In `S.union`, a member whose default replaces an empty value is tried before a later member " +
-      "that passes the same value through, so that value is an Output decode never produces and does not " +
-      "round-trip: `S.union([S.nullable(x, d), S.null])` encodes `null` to `null`, which decodes to `d`.",
-    spec: "union-nullable-default-shadow",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "round-trip" &&
-      some(f.shape, (node) =>
-        node.name === "union" &&
-        node.args.some((member, idx) =>
-          defaultTakes(member).some(
-            (v) =>
-              f.detail.includes(`${v} encoded to ${v} and decoded back`) &&
-              node.args.slice(idx + 1).some((later) =>
-                v === "undefined"
-                  ? admitsUndefined(later)
-                  : later.name === "null" || later.name === "nullable" || later.name === "nullish",
-              ),
-          ),
-        ),
-      ),
   },
 ];
 

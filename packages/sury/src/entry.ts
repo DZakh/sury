@@ -69,6 +69,7 @@ import {
  unit
 } from "./primitives";
 import {
+ unionCheckEmpties,
  unionFactory,
  unionWrap
 } from "./union";
@@ -251,7 +252,8 @@ export { outputExpression as toOutputExpression } from "./parse";
 export const schemaOf = () => schemaFactory;
 
 // @__NO_SIDE_EFFECTS__
-export const union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
+export const union = (values: unknown[]) =>
+  unionCheckEmpties(unionFactory(values.map(definitionToSchema)));
 // The JSON Schema spelling of the same thing. A re-export rather than
 // `const anyOf = union`, which would shed the purity annotation above.
 export { union as anyOf };

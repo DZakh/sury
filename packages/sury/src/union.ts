@@ -72,7 +72,7 @@ import {
   type HoistCond,
   operationArgVar,
 } from "./builder";
-import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
+import { nestedLoc, never_, outputExpression, parse, typeCheckCond } from "./parse";
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -1932,4 +1932,35 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.encoder = unionEncoder;
   mut.has = has;
   return mut;
+};
+
+// A member that passes `null`/`undefined` through, behind one that already
+// turns it into something else, is an Output decode never produces, so the
+// union could not read back what it writes. Only a written `S.union` can order
+// its members that way: a wrapper puts its own empty arm first.
+export const unionCheckEmpties = (schema: Internal): Internal => {
+  const anyOf = schema.anyOf || [];
+  const replaced: Partial<Record<Tag, Internal>> = {};
+  for (let idx = 0; idx < anyOf.length; idx++) {
+    for (const tag of [nullTag, undefinedTag]) {
+      const arm = unionEmptyArm(anyOf[idx]!, tag);
+      if (arm === U) continue;
+      if (arm.to !== U) replaced[tag] ||= anyOf[idx];
+      else if (replaced[tag]) {
+        panic(
+          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag]!)}. Drop ${tag} from the later member, or wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
+        );
+      }
+    }
+  }
+  return schema;
+};
+
+// The arm that handles `tag` first: the arm itself, or through nested unions
+// the first arm that takes it, as long as that one is the literal.
+const unionEmptyArm = (s: Internal, tag: Tag): Internal | undefined => {
+  if (s.type === tag) return s;
+  if (s.type !== anyOfTag || s.to !== U) return U;
+  const arm = s.anyOf!.find((arm) => unionMask(arm, 1, 0) & tagFlags[tag]!);
+  return arm && unionEmptyArm(arm, tag);
 };

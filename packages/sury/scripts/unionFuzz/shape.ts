@@ -38,16 +38,6 @@ export const admitsUndefined = (node: Shape): boolean =>
   (node.name === "nullable" && admitsUndefined(node.args[0]!)) ||
   (node.name === "union" && node.args.some(admitsUndefined));
 
-// A default takes every arm that decodes to `undefined`, `x`'s own included.
-export const defaultTakes = (node: Shape): string[] =>
-  node.args.length !== 2
-    ? []
-    : node.name === "optional"
-      ? ["undefined"]
-      : node.name === "nullable"
-        ? admitsUndefined(node.args[0]!) ? ["null", "undefined"] : ["null"]
-        : [];
-
 const ANY = new Set(["any", "unknown"]);
 
 // A member that takes every value of its kind, so a later member's value is
