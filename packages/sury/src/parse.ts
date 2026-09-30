@@ -95,22 +95,19 @@ export const parse = (input: Val): Val => {
       const operationCode = B_detached(loopInput.g, () =>
         B_merge((operationOutput = parse(operationInput))),
       );
-      // Claims the coder's `.catch` (see `rj`). Its `cp` is still unemitted:
-      // the merge above stops at the scope, which has no `prev`, so it is
-      // written out from `result` after this. The replace is the check that
-      // `cp` still carries the `.catch`.
+      // The coder's own `.catch` (see `rj`) becomes this `.then`, so the
+      // continuation runs inside the coder's `try` - an answer that isn't a
+      // promise still fails as the conversion. Its `cp` is still unemitted: the
+      // merge above stops at the scope, which has no `prev`, so it is written
+      // out from `result` after this. The replace is the check that `cp` still
+      // carries the `.catch`; a function, since `cp` may hold a `$`.
       const { cp, rj } = loopInput;
+      const then = `.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
       result =
-        operationInput.i !== operationOutput.i || operationCode !== ""
-          ? B_next(
-              loopInput,
-              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}${
-                rj && cp !== (loopInput.cp = cp.replace(`.catch(${rj})`, "")) ? `,${rj}` : ""
-              })`,
-              operationOutput.s,
-              operationOutput.e,
-            )
-          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+        (operationInput.i === operationOutput.i && operationCode === "") ||
+        (rj && cp !== (loopInput.cp = cp.replace(`.catch(${rj})`, () => `${then},${rj})`)))
+          ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
+          : B_next(loopInput, `${operationInputVar}${then})`, operationOutput.s, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {
