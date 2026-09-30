@@ -13,8 +13,8 @@
 //   sound         the other direction: breaking one field of an accepted value
 //                 reports nothing under another field, and every issue of the
 //                 all-broken answer is one some field reports alone. A root
-//                 union is exempt from the first half: breaking its tag picks
-//                 another case, which answers about its own fields.
+//                 union is exempt: breaking its tag picks another case, which
+//                 answers about its own fields.
 //
 // The values are the Input samples and each of them broken: a plain object or
 // array with every own field or item in turn replaced by a symbol no leaf
@@ -38,6 +38,7 @@ const check = (ctx: Ctx): void => {
   const orThrow = compile<Op>("first", () => S.parseOrThrow(schema));
   const asResult = compile<Op>("first", () => S.parseAsResult(schema));
   if (!orThrow || !asResult) return;
+  const union = ctx.shape.name === "union";
   const validate = (schema as { "~standard": { validate: Op } })["~standard"].validate;
 
   const run = (value: unknown): Result | undefined => {
@@ -91,7 +92,7 @@ const check = (ctx: Ctx): void => {
       for (const issue of one.issues ?? []) {
         reported.add(said(issue));
         const head = issue.path?.[0];
-        if (whole?.success && ctx.shape.name !== "union" && head !== undefined && String(head) !== key) {
+        if (whole?.success && !union && head !== undefined && String(head) !== key) {
           report("sound", `breaking only ${key} of ${show(value)} reports ${said(issue)}`);
         }
       }
@@ -108,7 +109,7 @@ const check = (ctx: Ctx): void => {
       }
     }
     for (const issue of combined) {
-      if (!reported.has(issue)) {
+      if (!union && !reported.has(issue)) {
         report("sound", `${issue} is reported with every field of ${show(value)} broken but by no field alone`);
       }
     }
