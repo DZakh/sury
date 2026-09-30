@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "(S as any).$Option_getOr((S as any).$Option_getOr((S as any).$option((S as any).$option((S as any).$option(S.string))), { BS_PRIVATE_NESTED_SOME_NONE: 0 }), undefined) as S.Schema<string | undefined, string | undefined>"
+  input: string | undefined
+  output: string | undefined
+  instantiations: 275
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: "Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | string | string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i=e[0];break}break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      # FIXME: the first default is a Some(None) marker, and the second getOr doesn't peel it, so it reads as a value of neither type
+      undefined-becomes-the-first-default:
+        input: undefined
+        output: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      none-encodes-to-undefined:
+        input: undefined
+        output: undefined
