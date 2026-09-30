@@ -11,9 +11,9 @@
 //                encode one its `isInput` accepts. It needs no oracle - the
 //                schema is asked about its own answer - and a half-applied
 //                transform always breaks it. The decode half is skipped for a
-//                lossy member: `isOutput` answers whether the value encodes,
-//                and the grammar's `v => v.length` coder encodes 36 to "36",
-//                which the uuid it was decoded from never was.
+//                lossy member, whose `isOutput` asks whether the value encodes
+//                back: a uuid decoded through `v => v.length` is 36, which
+//                encodes to "36", no uuid.
 //   agreement    `parse` and `decode` answer the same thing for an input the
 //                Input side accepts. They differ only in whether they validate,
 //                so a transform one runs and the other skips shows here and

@@ -142,8 +142,8 @@ export const recursiveDecoder: Builder = (input) => {
   output.fz = U;
   output.prev = input;
 
-  // The call's result is the ref's Output, and what it was handed its Input:
-  // `output.prev`, which is where B_markOutput reads input checks.
+  // Input checks go on `output`, not `input`: B_markOutput emits them against
+  // `valInput.prev`, and that is `input` here.
   return B_markOutput(output, output);
 };
 
