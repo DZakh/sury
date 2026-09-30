@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.record(S.string).with(S.to, S.schema({ a: S.schema(undefined), b: S.optional(S.string).with(S.refine, (v) => v !== undefined) }))"
+  input: "{ [x: string]: string; }"
+  output: "{ a?: undefined; b?: string | undefined; }"
+  instantiations: 7196
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: "Failed at a: Expected JSON, received undefined"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.b===b.b
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: undefined; b: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  # FIXME: the missing-key reader crashes on a field typed undefined
+  parse:
+    creationError: "TypeError: Cannot read properties of undefined (reading 'find')"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.b;e[0](v0)||e[1](v0);(typeof v0==="string"||v0===void 0)||e[2](v0);let v1={a:"undefined"};if(v0!==void 0){v1.b=v0}return v1}catch(v2){e[3](v2)}}
+    examples:
+      values:
+        input: '{ a: undefined, b: "x" }'
+        output: '{ a: "undefined", b: "x" }'
