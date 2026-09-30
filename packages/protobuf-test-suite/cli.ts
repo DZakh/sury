@@ -45,7 +45,8 @@ Commands:
   bundle     Minified+gzip size of one message's codec per library, and of a
              decode-only entry.
   fuzz       Generated message graphs, round-tripped and mutated against
-             protobufjs and protobuf-es. --seeds=N widens it (default 600),
+             protobufjs and protobuf-es, and encoded with one leaf corrupted
+             to check the error's path leads to it. --seeds=N widens it (default 600),
              --from=N starts elsewhere; a finding names the seed that replays it.
   hillclimb  Frozen ruler. Median of 7 on tiny/typical/large/common vs protobufjs.
 
@@ -95,7 +96,7 @@ if (cmd === "fuzz") {
   };
   const seeds = flag("seeds", DEFAULT_SEEDS);
   const from = flag("from", 1);
-  const { findings, checks } = runFuzz({ seeds, from, values: 4, mutants: 12 });
+  const { findings, checks } = runFuzz({ seeds, from, values: 4, mutants: 12, corruptions: 3 });
   const { text, ok } = reportFuzz(findings, from === 1 && seeds >= DEFAULT_SEEDS);
   if (text) console.log(text);
   const summary = `protobuf fuzz: ${seeds} graphs, ${checks} checks, ${findings.length} finding(s)`;
