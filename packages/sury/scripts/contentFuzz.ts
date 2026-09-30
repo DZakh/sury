@@ -62,7 +62,7 @@ const SOURCES: Record<string, Source> = {
 // Every shape a target can take on the axis: the document with and without a
 // declared payload, behind a nullish arm, the document itself, plain types,
 // bytes and their text form, a union holding the document, and a document read
-// into a variant, whose optional field is written only when present (#471).
+// into a variant.
 const TARGETS: Record<string, unknown> = {
   "json-string": S.jsonString,
   "json-string-doc": S.jsonString.with(S.to, doc),
@@ -82,7 +82,7 @@ const TARGETS: Record<string, unknown> = {
   "field-string": S.jsonString.with(S.to, S.schema({ f: S.string })),
   "field-bytes": S.jsonString.with(S.to, S.schema({ f: S.uint8Array })),
   "field-optional-json-string": S.jsonString.with(S.to, S.schema({ f: S.optional(S.jsonString) })),
-  "shaped-doc": S.schema({ a: S.number, b: S.optional(S.string) }).with(S.shape, (v: unknown) => ({ TAG: "W", _0: v })),
+  "shaped-doc-optional-field": S.schema({ a: S.number, b: S.optional(S.string) }).with(S.shape, (v: unknown) => ({ TAG: "W", _0: v })),
 };
 
 const SLOTS = ["", "unpack", "pack"] as const;
