@@ -541,7 +541,9 @@ const scratchView = /* @__PURE__ */ new DataView(scratch.buffer);
 // no reason, only the value, the element of a packed list, and `kind` (1 a map
 // key, 2 a oneof member set beside another): a write can't name its field - a
 // message's encoder is shared by every field that holds it - so the frame of
-// the encoder it unwinds through settles the rest (`encodeFrame`).
+// the encoder it unwinds through settles the rest (`encodeFrame`). An unsited
+// record already reads as an S.Error, so nothing between a throw and `guarded`
+// may catch Sury errors.
 const unsited = /* @__PURE__ */ conversionSite(U as never, U as never);
 
 type Failure = SuryErrorRecord & { value?: unknown; index?: number; kind?: number };
@@ -1568,7 +1570,8 @@ const mapKey = (key: string, min: number | bigint, max: number | bigint): number
 // The one frame of a message encoder: `f` is the index of the field it was
 // writing, `j` its loop counter, `a` a map's keys. A failure its own write threw
 // gets its reason here; one a nested encoder already settled only gets the
-// field and element in front.
+// field and element in front. `encodeBody` sets `f` before any write that can
+// throw.
 const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
   if (isFailure(x)) {
     const field = msg.fields[f]!;
