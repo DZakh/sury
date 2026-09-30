@@ -704,6 +704,13 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
+The outer `S.optional` owns `undefined`, even around a schema that would read it on its own:
+
+```ts
+S.parseOrThrow(S.optional(S.optional(S.string, "tuna")), undefined); // => returns undefined
+S.parseOrThrow(S.optional(S.optional(S.string, "tuna"), "salmon"), undefined); // => returns "salmon"
+```
+
 The default is what parsing returns, so it is written in the schema's output shape, even when the schema transforms:
 
 ```ts
@@ -729,6 +736,8 @@ Pass a fallback as the second argument to replace the absent case:
 ```ts
 S.parseOrThrow(S.nullable(S.string, "fallback"), null); // => "fallback"
 ```
+
+The same holds for `null`: `S.nullable(S.nullable(S.string, "fallback"))` reads `null` as `null`.
 
 ## Nullish
 
@@ -983,6 +992,16 @@ An union represents a logical OR relationship. You can apply this concept to you
 The schema function `union` creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
 
 > 🧠 Members are matched in the order they are passed to `S.union` - the first one that fits the value wins.
+
+So a member can't keep `null` or `undefined` that an earlier member's default already replaces, and `S.union` refuses it:
+
+```ts
+S.union([S.optional(S.string, "none"), S.optional(S.number)]);
+// throws: S.union can't keep undefined: an earlier member decodes it to string. Drop undefined
+// from the later member, or wrap the union: S.optional(S.union([...]), default)
+
+S.optional(S.union([S.string, S.number]), "none"); // ✅
+```
 
 It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
