@@ -807,17 +807,14 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
-    const seen: string[] = [];
+    const seen = new Set<string>();
     const add = (s: Internal): void => {
-      if (s.anyOf !== U && !s.name && !s.expression) s.anyOf.forEach(add);
-      else {
-        const e = inputExpression(s);
-        seen.includes(e) || seen.push(e);
-      }
+      s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
     };
     schema.anyOf.forEach(add);
-    const rank = (e: string): number => (e === "null" ? 1 : e === "undefined" ? 2 : 0);
-    return seen.sort((a, b) => rank(a) - rank(b)).join(" | ");
+    // Re-adding moves an entry to the end of a Set.
+    ["null", "undefined"].forEach((e) => seen.delete(e) && seen.add(e));
+    return [...seen].join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
     // produces both at once today, but the shape is representable, and the
