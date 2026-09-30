@@ -647,7 +647,12 @@ const shapedSerializer: Builder = (input: Val) => {
   const targetSchema = input.e.to!;
   const output = getShapedSerializerOutput(input, acc, targetSchema, pathEmpty);
   output.t = true;
-  output.prev = input;
+  // The output may already carry a chain of its own - an object that
+  // completes with optional fields declares itself one val back - so `input`
+  // goes under its head, not in place of it (#471).
+  let head = output;
+  while (head.prev !== U) head = head.prev;
+  head.prev = input;
   return output;
 }
 

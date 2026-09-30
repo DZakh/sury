@@ -22,32 +22,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a,v2=v0.b;typeof v1==="string"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);if(v2!==void 0){v3.b=v2}i=v3;break}if(i.TAG==="N"){let v4=i._0;typeof v4==="number"&&v4==v4||e[3](v4);i=v4;break}throw e[4](i)}}else{throw e[4](i)}return i}catch(v5){e[5](v5)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.a,v2=v0.b;typeof v1==="string"||e[0](v1);(typeof v2==="string"||v2===void 0)||e[1](v2);let v3={a:v1};if(v2!==void 0){v3.b=v2}i=v3;break}if(i.TAG==="N"){let v4=i._0;typeof v4==="number"&&v4==v4||e[3](v4);i=v4;break}throw e[4](i)}}else{throw e[4](i)}return i}catch(v5){e[5](v5)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
-        error: "ReferenceError: v3 is not defined"
-        divergence:
-          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
-          check: true
+        output: '{ a: "x" }'
       some:
         input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
-        error: "ReferenceError: v3 is not defined"
-        divergence:
-          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
-          check: true
+        output: '{ a: "x", b: "y" }'
       other-member:
         input: '{ TAG: "N", _0: 1 }'
         output: "1"
   decode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;if(v0.b!==void 0){v1.b=v0.b}i=v1;break}if(i.TAG==="N"){i=i._0;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;let v1={a:v0.a};if(v0.b!==void 0){v1.b=v0.b}i=v1;break}if(i.TAG==="N"){i=i._0;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
-        error: "ReferenceError: v1 is not defined"
+        output: '{ a: "x" }'
       some:
         input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
-        error: "ReferenceError: v1 is not defined"
+        output: '{ a: "x", b: "y" }'
       other-member:
         input: '{ TAG: "N", _0: 1 }'
         output: "1"

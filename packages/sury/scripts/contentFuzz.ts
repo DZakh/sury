@@ -38,7 +38,7 @@ const doc = S.schema({ a: S.number });
 // One source per way a value relates to a document: plain text (the one that is
 // both), a format or a literal (a value), a number (no text), bytes and their
 // text forms (a representation of another kind), an entry (text that is a
-// representation), and the document format itself.
+// representation), and the document format itself, as text and as a value.
 const SOURCES: Record<string, Source> = {
   string: { schema: S.string, inputs: ["hi", '{"a":1}', '"x"', "42", "", '{"f":"aGk="}'] },
   trimmed: { schema: S.string.with(S.trim), inputs: [' {"a":1} ', "hi"] },
@@ -56,11 +56,13 @@ const SOURCES: Record<string, Source> = {
   file: { schema: S.file, inputs: [new File(['{"a":1}'], "a.json"), new File(["hi"], "b.txt")] },
   blob: { schema: S.blob, inputs: [new Blob(['{"f":"aGk="}']), new Blob(["hi"])] },
   "json-string": { schema: S.jsonString, inputs: ['{"a":1}', '"x"', "42"] },
+  json: { schema: S.json, inputs: [{ a: 1 }, { a: 1, b: "x" }, "x", 42] },
 };
 
 // Every shape a target can take on the axis: the document with and without a
 // declared payload, behind a nullish arm, the document itself, plain types,
-// bytes and their text form, and a union holding the document.
+// bytes and their text form, a union holding the document, and a document read
+// into a variant, whose optional field is written only when present (#471).
 const TARGETS: Record<string, unknown> = {
   "json-string": S.jsonString,
   "json-string-doc": S.jsonString.with(S.to, doc),
@@ -80,6 +82,7 @@ const TARGETS: Record<string, unknown> = {
   "field-string": S.jsonString.with(S.to, S.schema({ f: S.string })),
   "field-bytes": S.jsonString.with(S.to, S.schema({ f: S.uint8Array })),
   "field-optional-json-string": S.jsonString.with(S.to, S.schema({ f: S.optional(S.jsonString) })),
+  "shaped-doc": S.schema({ a: S.number, b: S.optional(S.string) }).with(S.shape, (v: unknown) => ({ TAG: "W", _0: v })),
 };
 
 const SLOTS = ["", "unpack", "pack"] as const;

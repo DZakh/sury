@@ -22,29 +22,23 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.TAG,v1=i._0;v0==="Wrap"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1.a,v3=v1.b;typeof v2==="string"||e[1](v2);(typeof v3==="string"||v3===void 0)||e[2](v3);if(v3!==void 0){v4.b=v3}return v4}catch(v5){e[5](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.TAG,v1=i._0;v0==="Wrap"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1.a,v3=v1.b;typeof v2==="string"||e[1](v2);(typeof v3==="string"||v3===void 0)||e[2](v3);let v4={a:v2};if(v3!==void 0){v4.b=v3}return v4}catch(v5){e[5](v5)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
-        error: "ReferenceError: v4 is not defined"
-        divergence:
-          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
-          check: true
+        output: '{ a: "x" }'
       some:
         input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
-        error: "ReferenceError: v4 is not defined"
-        divergence:
-          reason: "FIXME: #471 the JSON object the optional field is written into is never declared"
-          check: true
+        output: '{ a: "x", b: "y" }'
   decode:
-    expression: i=>{let v0=i._0;if(v0.b!==void 0){v1.b=v0.b}return v1}
+    expression: i=>{let v0=i._0;let v1={a:v0.a};if(v0.b!==void 0){v1.b=v0.b}return v1}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'
-        error: "ReferenceError: v1 is not defined"
+        output: '{ a: "x" }'
       some:
         input: '{ TAG: "Wrap", _0: { a: "x", b: "y" } }'
-        error: "ReferenceError: v1 is not defined"
+        output: '{ a: "x", b: "y" }'
   encode:
     expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.a,v1=(i.b??null);typeof v0==="string"||e[0](v0);for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}throw e[1](v1)}return {TAG:"Wrap",_0:{a:v0,b:v1}}}catch(v2){e[3](v2)}}
     examples:
