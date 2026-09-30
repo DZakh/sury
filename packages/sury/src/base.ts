@@ -593,6 +593,14 @@ export type BGlobal = {
   // if it answered the first failure.
   k?: string;
   ku?: boolean;
+  // @as("kj") - how many failures children collected, `j`'s twin: read the
+  // difference, never the value.
+  kj?: number;
+  // @as("y") - where code that must not run after a container's children
+  // collected goes instead: out of the innermost collecting child, or out of
+  // the operation. Not `x()`: inside a union case `x` is the case's exit, and
+  // leaving by it would fail the union a second time.
+  y?: () => string;
   // @as("l") - the declaration sink of the scope the code lands in (`B_let`):
   // the operation body, an item loop's body, a callback's. `c` counts the
   // collecting children open around the code being emitted: a child's code

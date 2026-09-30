@@ -62,6 +62,7 @@ import {
   B_unsupportedDecode,
   B_neverSlot,
   B_markOutput,
+  B_collects,
   B_merge,
   B_pathArg,
   B_pathSnap,
@@ -1010,6 +1011,11 @@ const unionEmit = (
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
     recorded ? toEnd(error) : error ? outer?.(error) : final();
+  // Before any case has recorded, a failure is the case's own and goes out
+  // through `outer`, so a container in the case collects if `outer` does.
+  const collects = B_collects(g);
+  (fail as { k?: () => boolean }).k = () => collects && !recorded;
+  const collected = g.kj;
   const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
@@ -1467,6 +1473,9 @@ const unionEmit = (
   } else {
     out = output;
   }
+  // A case whose children collected still hands its value on: nothing after
+  // the union may read it (builder.ts `B_merge`).
+  if (g.kj !== collected) out.k = true;
   const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
   out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
   if (toPerCase !== U) {

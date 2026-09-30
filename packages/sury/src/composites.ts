@@ -113,15 +113,18 @@ export const B_unrecognizedKeys = (
     );
   };
   // Collecting, each key is a child of its own: the scan carries on past it.
-  const label = container && B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
+  const collected = input.g.kj;
+  const wrap = container && B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
   let cond = "";
   for (let idx = 0; idx < keys.length; idx++) {
     if (idx) cond += "&&";
     cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
   }
   const body = (cond ? `if(${cond})` : "") + fail;
-  if (label) container!.k = true;
-  return `for(${decl}${keyVar} in ${input.v()})` + (label ? `${label}:{${body}}` : body + ";");
+  if (!wrap) return `for(${decl}${keyVar} in ${input.v()})${body};`;
+  const code = wrap(body, input);
+  if (input.g.kj !== collected) container!.k = true;
+  return `for(${decl}${keyVar} in ${input.v()})${code === body ? body + ";" : code}`;
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
@@ -374,7 +377,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
       B_narrowJsonSourcedJsonString(itemInput);
-      let itemOutput!: Val, output2!: Val, itemLabel: string | undefined;
+      let itemOutput!: Val, output2!: Val;
+      const collected = input.g.kj;
       const itemCode = B_sink(input.g, () => {
         let itemMerge = "";
         const emit = () => {
@@ -385,7 +389,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
             : B_refine(input, expectedSchema);
           itemMerge = B_merge(itemOutput);
         };
-        itemLabel = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
+        const wrap = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
         const code = itemOutput.t!
           ? itemMerge +
             (itemOutput.f & 1 && B_collects(input.g) && input.g.k
@@ -394,7 +398,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           : input.g.t + input.g.j === failCountBefore
             ? ""
             : itemMerge;
-        return itemLabel && code ? `${itemLabel}:{${code}}` : code;
+        return wrap ? wrap(code, itemOutput) : code;
       });
       const hasTransform = itemOutput.t!;
 
@@ -404,7 +408,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
       }
 
-      if (itemLabel) output2.k = true;
+      if (input.g.kj !== collected) output2.k = true;
       if ((itemOutput.f & 1)) {
         const g = input.g, k = B_collects(g) && g.k;
         let all = `Promise.all(${output2.i})`;
@@ -543,7 +547,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const failCountBefore = input.g.t + input.g.j;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
-    let itemOutput!: Val, output2!: Val, itemLabel: string | undefined;
+    let itemOutput!: Val, output2!: Val;
+    const collected = input.g.kj;
     const itemCode = B_sink(input.g, () => {
       let itemMerge = "";
       const emit = () => {
@@ -554,20 +559,20 @@ export const objectDecoder = (unknownInput: Val): Val => {
           : B_refine(input, expectedSchema);
         itemMerge = B_merge(itemOutput);
       };
-      itemLabel = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
+      const wrap = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
       const code = itemOutput.t!
         ? itemMerge + B_addKey(output2, keyVar, itemOutput)
         : input.g.t + input.g.j === failCountBefore
           ? ""
           : itemMerge;
-      return itemLabel && code ? `${itemLabel}:{${code}}` : code;
+      return wrap ? wrap(code, itemOutput) : code;
     });
     const hasTransform = itemOutput.t!;
 
     if (hasTransform || itemCode !== "") {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
     }
-    if (itemLabel) output2.k = true;
+    if (input.g.kj !== collected) output2.k = true;
 
     if ((itemOutput.f & 1)) {
       const resolveVar = B_varWithoutAllocation(output2.g);

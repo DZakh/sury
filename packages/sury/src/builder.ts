@@ -323,30 +323,52 @@ const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"
     const jump = `break ${(label.l ||= `c${++g.v}`)}`;
     if (!record) return jump;
     g.ku = true;
+    g.kj = (g.kj || 0) + 1;
     return `{${g.k}=[${g.k},${record(true)}];${jump}}`;
   }) as NonNullable<BGlobal["x"]> & { k?: 1 };
   exit.k = 1;
   return exit;
 };
 
-export const B_collects = (g: BGlobal): boolean => !!(g.x as { k?: 1 } | undefined)?.k;
+// A union case a value can reach only through its own dispatch fails to the
+// exit around the union, so its children collect when that one does: the
+// case's exit answers `k` as a function (union.ts).
+export const B_collects = (g: BGlobal): boolean => {
+  const k = (g.x as { k?: 1 | (() => boolean) } | undefined)?.k;
+  return typeof k === "function" ? k() : !!k;
+};
 
-// Runs a child's parse and merge under its own collecting exit, and answers
-// the label its code has to be wrapped in, if any failure took it. The parse
-// runs inside as well as the merge: a decoder emits some of its code while it
-// parses.
-export const B_child = (g: BGlobal, emit: () => void): string | undefined => {
+// Runs a child's parse and merge under its own collecting exit, and answers how
+// to wrap its code: in the label its failures leave, and - where the code can
+// still raise (a recursive schema's operation, a refiner's own throw, a union
+// that can't jump) - in a `catch` that records the raise, so its siblings still
+// run. The parse runs inside as well as the merge: a decoder emits some of its
+// code while it parses.
+export const B_child = (g: BGlobal, emit: () => void): ((code: string, val: Val) => string) => {
   const x = g.x;
+  const y = g.y;
+  const raises = g.t;
   const label: { l?: string } = {};
   g.x = B_childExit(g, label);
+  g.y = () => `break ${(label.l ||= `c${++g.v}`)}`;
   g.c = (g.c || 0) + 1;
   try {
     emit();
   } finally {
     g.x = x;
+    g.y = y;
     g.c!--;
   }
-  return label.l;
+  return (code, val) => {
+    if (!code) return code;
+    if (g.t !== raises) {
+      g.ku = true;
+      g.kj = (g.kj || 0) + 1;
+      const e = B_varWithoutAllocation(g);
+      code = `try{${code}}catch(${e}){${g.k}=[${g.k},${B_embedPure(val, B_errorOf(val))}(${e})]}`;
+    }
+    return label.l ? `${label.l}:{${code}}` : code;
+  };
 };
 
 // A failure's statement where a block goes: an exit's is one already
@@ -358,12 +380,13 @@ export const B_block = (statement: string): string =>
 // can't leave. The parse of what goes there has to run inside it as well as the
 // merge - a decoder emits some of its code while it parses.
 export const B_detached = (g: BGlobal, body: () => string): string => {
-  const x = g.x;
-  g.x = U;
+  const x = g.x, y = g.y;
+  g.x = g.y = U;
   try {
     return B_sink(g, body);
   } finally {
     g.x = x;
+    g.y = y;
   }
 };
 
@@ -594,9 +617,9 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
     // PROTOTYPE: a container whose children collected a failure has no value
     // for what follows it to read, so that code runs only if they added none.
     const k = val.g.k;
-    if (val.k && k && code !== "" && val.g.x) {
+    if (val.k && k && code !== "" && val.g.y) {
       const m = B_varWithoutAllocation(val.g);
-      code = B_let(val.g, m, k) + val.cp + currentCode + `if(${k}!==${m})${val.g.x()!};` + code;
+      code = B_let(val.g, m, k) + val.cp + currentCode + `if(${k}!==${m})${val.g.y()};` + code;
     } else code = val.cp + currentCode + code;
   }
 
@@ -882,14 +905,14 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 // container is then marked (`Val.k`), so what reads its value afterwards is
 // skipped (`B_merge`).
 export const B_field = (container: Val, location: string, produce: () => Val): void => {
-  const emit = () => B_addObjectField(container, location, produce());
-  if (!B_collects(container.g)) return emit();
-  const start = container.cp.length;
-  const label = B_child(container.g, emit);
-  if (label) {
-    container.cp = container.cp.slice(0, start) + `${label}:{${container.cp.slice(start)}}`;
-    container.k = true;
-  }
+  let val!: Val;
+  const emit = () => B_addObjectField(container, location, (val = produce()));
+  const g = container.g;
+  if (!B_collects(g)) return emit();
+  const start = container.cp.length, collected = g.kj;
+  const wrap = B_child(g, emit);
+  container.cp = container.cp.slice(0, start) + wrap(container.cp.slice(start), val);
+  if (g.kj !== collected) container.k = true;
 };
 
 export const B_addKey = (objVal: Val, key: string, value: Val): string =>

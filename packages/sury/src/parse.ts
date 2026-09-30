@@ -358,6 +358,7 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       `return ${failure}(${record ? `[${g.ku ? list : ""},${record(true)}]` : list})`;
     // Tagged so a container knows its children collect (builder.ts `B_field`).
     x.k = 1;
+    g.y = () => `return ${failure}(${list})`;
   } else if (flag & 4096) {
     failure = "false";
     const no = `return ${lifted(failure)}`;
