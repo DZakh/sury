@@ -94,7 +94,7 @@ export const parse = (input: Val): Val => {
         B_merge((operationOutput = parse(operationInput))),
       );
       const then = `.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
-      const fused = loopInput.fz ? U : loopInput.fu?.(then);
+      const fused = loopInput.fu?.(then);
       result =
         (operationInput.i === operationOutput.i && operationCode === "") ||
         (fused !== U && (loopInput.cp = fused))
