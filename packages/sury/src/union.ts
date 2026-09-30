@@ -1442,6 +1442,8 @@ const unionEmit = (
     // since the chain already raises on the same values.
     const fused = unionOr(cases.filter((c) => !(c.f & 16)));
     guard.vc = [{ c: () => fused, f: failInvalidType }];
+    // Union-typed on purpose: B_merge recognises a union's own narrow by it
+    // and lets that one lift off a transformed case scope.
     guard.e = expectedSchema;
     if (!pure) (guard.e = copySchema(expectedSchema)).noValidation = true;
   }
