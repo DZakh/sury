@@ -399,8 +399,9 @@ type UnionMember = {
   i: number;
   s: Internal;
   m: number;
-  // What the member's own arms accept. Under a union source `m` is what can
-  // reach it, which for a nested union or a ref is only the coercion guess.
+  // What the member itself accepts. Under a union source `m` is what can reach
+  // it, which for a nested union, or a ref not dispatched as its definition, is
+  // only the coercion guess.
   t: number;
   // Whether the member produces a value at all: `mode 0` masks are zero for
   // exactly one reason, a `never` output, and nothing reads more than that.

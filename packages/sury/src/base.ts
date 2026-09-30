@@ -812,7 +812,6 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
       s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
     };
     schema.anyOf.forEach(add);
-    // Re-adding moves an entry to the end of a Set.
     ["null", "undefined"].forEach((e) => seen.delete(e) && seen.add(e));
     return [...seen].join(" | ");
   } else if (schema.type === objectTag) {

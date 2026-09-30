@@ -22,7 +22,7 @@ operations:
       list:
         input: '{ head: "x", next: { head: "y" } }'
         output: '{ head: "x", next: { head: "y", next: undefined } }'
-      # FIXME: known bug union-json-recursive-member - the recursive member takes every value, and the email member never runs
+      # FIXME: known bug union-json-recursive-member
       email:
         input: '"a@b.co"'
         error: 'Expected { head: string; next: R | undefined; }, received "a@b.co"'

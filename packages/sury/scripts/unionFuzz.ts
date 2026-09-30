@@ -159,7 +159,6 @@ const main = async (): Promise<void> => {
     stats.skipped += result.skipped;
     const label = describeMembers(members);
     const shape = asShape(members);
-    // The JSON pass compiles `S.json.with(S.to, union)`, so that is its shape.
     const linked = node("jsonTo", shape);
     for (const diff of result.diffs) {
       stats.diffs += 1;

@@ -12,8 +12,8 @@ import {
 import type { DiffClass, Outcome, Sury } from "./types";
 import { JUNK, NO_WITNESS, witnessOf } from "./witness";
 
-// The directions past `encode` compare an answering outcome to the same
-// compile's `parseOrThrow`, not to the reference: see `outcomeDiffs`.
+// `is`, `result`, `validate` and `promise` compare an answering outcome to the
+// same compile's `parseOrThrow`, not to the reference: see `outcomeDiffs`.
 export type Direction = "parse" | "encode" | "json" | "is" | "result" | "validate" | "promise";
 
 export type Comparison = {
@@ -157,8 +157,7 @@ export const diffsForUnion = async (
 
 // Under `S.json` the planner reads what reaches each member off the source's
 // types rather than `unknown`'s, and the first member whose own link accepts
-// still wins. Each member is also handed the JSON its link writes, so an arm
-// reached only by coercion (a bigint from its text) is exercised.
+// still wins.
 const jsonDiffs = (
   S: Sury,
   unionSchema: unknown,
@@ -182,6 +181,8 @@ const jsonDiffs = (
   const inputs = new Map<string, unknown>();
   const isJson = S.isInput(S.json);
   for (const value of values) if (isJson(value)) inputs.set(show(value), value);
+  // The JSON each member's link writes joins the inputs, so an arm reached
+  // only by coercion (a bigint from its text) is exercised.
   for (const link of links) {
     try {
       const output = witnessOf(S.reverse(link));

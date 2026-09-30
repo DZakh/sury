@@ -88,7 +88,7 @@ export const KNOWN_BUGS: Known[] = [
     kind: "bug",
     summary:
       "Under `S.json`, a union whose first member is a recursive object compiles to that member alone: " +
-      "every value gets its error, and the members after it never run.",
+      "a value it rejects gets its error, and the members after it never run.",
     spec: "codec-json-union-recursive-member",
     fuzzers: ["union"],
     matches: (f) =>
@@ -102,9 +102,10 @@ export const KNOWN_BUGS: Known[] = [
     id: "union-json-document-member",
     kind: "limitation",
     summary:
-      "Under `S.json`, a `S.jsonString` member meets the value whole, as a string to check, where its own link " +
-      "would write the value's JSON text (CONTENT_CODEC_SPEC.md: a carrier's reading stops at a union target). " +
-      "The member-by-member reference reads each member through its own link, so it cannot tell that from a bug.",
+      "Under `S.json`, a union meets the value whole, so a `S.jsonString` anywhere in a member checks a string " +
+      "where the member's own link would write the value's JSON text (CONTENT_CODEC_SPEC.md: a carrier's reading " +
+      "stops at a union target). The member-by-member reference reads each member through its own link, so it " +
+      "cannot tell that from a bug.",
     fuzzers: ["union"],
     matches: (f) =>
       f.fuzzer === "union" &&
