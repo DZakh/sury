@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[6](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[1](v3,[v1]);v4[v1]=v2}v0=v4;break}if(Array.isArray(v0)){let v8=new Array(v0.length);for(let v5=0;v5<v0.length;++v5){let v7=v0[v5];typeof v7==="string"||e[4](v7,[v5]);let v6;try{v6=BigInt(v7)}catch(_){e[3](v7,[v5])}v6||v7.trim()||e[3](v7,[v5]);v8[v5]=v6}v0=v8;break}e[5](v0)}return v0}catch(v9){e[7](v9)}}
+    expression: i=>{try{typeof i==="string"||e[8](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[3](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[2](v3,[v1]);v4[v1]=v2}v0=v4;break}if(Array.isArray(v0)){let v8=new Array(v0.length);for(let v5=0;v5<v0.length;++v5){let v7=v0[v5];typeof v7==="string"||e[6](v7,[v5]);let v6;try{v6=BigInt(v7)}catch(_){e[4](v7,[v5])}v6||v7.trim()||e[5](v7,[v5]);v8[v5]=v6}v0=v8;break}throw e[7](v0)}return v0}catch(v9){e[9](v9)}}
     examples:
       dict-values-coerce:
         input: '"{\"a\":\"42\",\"b\":\"7\"}"'
@@ -32,13 +32,13 @@ operations:
         input: '"{\"a\":true}"'
         error: "Failed at a: Expected string, received true"
   decode:
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[2](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[1](v3,[v1]);v4[v1]=v2}v0=v4;break}if(Array.isArray(v0)){let v8=new Array(v0.length);for(let v5=0;v5<v0.length;++v5){let v7=v0[v5];typeof v7==="string"||e[4](v7,[v5]);let v6;try{v6=BigInt(v7)}catch(_){e[3](v7,[v5])}v6||v7.trim()||e[3](v7,[v5]);v8[v5]=v6}v0=v8;break}e[5](v0)}return v0}catch(v9){e[6](v9)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v4={};for(let v1 in v0){let v3=v0[v1];typeof v3==="string"||e[3](v3,[v1]);let v2;try{v2=BigInt(v3)}catch(_){e[1](v3,[v1])}v2||v3.trim()||e[2](v3,[v1]);v4[v1]=v2}v0=v4;break}if(Array.isArray(v0)){let v8=new Array(v0.length);for(let v5=0;v5<v0.length;++v5){let v7=v0[v5];typeof v7==="string"||e[6](v7,[v5]);let v6;try{v6=BigInt(v7)}catch(_){e[4](v7,[v5])}v6||v7.trim()||e[5](v7,[v5]);v8[v5]=v6}v0=v8;break}throw e[7](v0)}return v0}catch(v9){e[8](v9)}}
     examples:
       valid:
         input: '"{\"a\":\"42\"}"'
         output: "{ a: 42n }"
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 of Object.keys(i)){v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}i="{"+v1+"}";break}if(Array.isArray(i)){let v3="";for(let v2=0;v2<i.length;++v2){v3+=(v2?",":"")+"\""+i[v2]+"\""}i="["+v3+"]";break}e[1](i)}return i}catch(v4){e[2](v4)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v1="";for(let v0 of Object.keys(i)){v1+=(v1?",":"")+e[0](v0)+":\""+i[v0]+"\""}i="{"+v1+"}";break}if(Array.isArray(i)){let v3="";for(let v2=0;v2<i.length;++v2){v3+=(v2?",":"")+"\""+i[v2]+"\""}i="["+v3+"]";break}throw e[1](i)}return i}catch(v4){e[2](v4)}}
     examples:
       dict:
         input: "{ a: 42n }"

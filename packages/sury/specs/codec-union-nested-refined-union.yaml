@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.union([z.string(), z.number()]).refine((value) => value !== ""), z.boolean()])
 operations:
   parse:
-    expression: i=>{try{for(;;){if((typeof i==="string"||typeof i==="number"&&i==i)){e[0](i)||e[1](i);break}if(typeof i==="boolean")break;e[2](i)}return i}catch(v0){e[3](v0)}}
+    expression: i=>{try{for(;;){if((typeof i==="string"||typeof i==="number"&&i==i)){e[0](i)||e[1](i);break}if(typeof i==="boolean")break;throw e[2](i)}return i}catch(v0){e[3](v0)}}
     examples:
       string:
         input: '"abc"'

@@ -31,7 +31,7 @@ operations:
         input: "[123n]"
         output: '["123"]'
   encode:
-    expression: i=>{try{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3,[v1])}v2||v3.trim()||e[0](v3,[v1]);v4[v1]=v2}return v4}catch(v5){e[1](v5)}}
+    expression: i=>{try{let v4=new Array(i.length);for(let v1=0;v1<i.length;++v1){let v3=i[v1];let v2;try{v2=BigInt(v3)}catch(_){e[0](v3,[v1])}v2||v3.trim()||e[1](v3,[v1]);v4[v1]=v2}return v4}catch(v5){e[2](v5)}}
     examples:
       valid:
         input: '["123"]'

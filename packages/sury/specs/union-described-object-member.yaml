@@ -13,7 +13,7 @@ vs:
   zod: 'z.union([z.union([z.object({ a: z.string() }), z.number()]).describe("d"), z.boolean()])'
 operations:
   parse:
-    expression: i=>{try{for(;;){if((typeof i==="object"&&i&&!Array.isArray(i)||typeof i==="number"&&i==i)){for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="string"||e[0](v0);i={a:v0};break}if(typeof i==="number"&&i==i)break;e[1](i)};break}if(typeof i==="boolean")break;e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if((typeof i==="object"&&i&&!Array.isArray(i)||typeof i==="number"&&i==i)){for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="string"||e[0](v0);i={a:v0};break}if(typeof i==="number"&&i==i)break;throw e[1](i)}break}if(typeof i==="boolean")break;throw e[2](i)}return i}catch(v1){e[3](v1)}}
     examples:
       boolean-member:
         input: "true"
