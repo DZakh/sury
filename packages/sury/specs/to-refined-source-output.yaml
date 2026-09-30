@@ -32,7 +32,7 @@ operations:
         input: '"00000000-0000-0000-0000-000000000000"'
         output: "36"
   is:
-    expression: i=>{try{typeof i==="number"&&i==i||e[2](i);let v0=""+i;e[0].test(v0)||e[1](v0);return true}catch(v1){return false}}
+    expression: i=>{try{if(!(typeof i==="number"&&i==i))return false;let v0=""+i;if(!(e[0].test(v0)))return false;return true}catch(v1){return false}}
     examples:
       a-decoded-length:
         input: "36"
