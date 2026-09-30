@@ -1012,8 +1012,10 @@ const unionEmit = (
   const fail = (error?: Failure): string | undefined =>
     recorded ? toEnd(error) : error ? outer?.(error) : final();
   // Before any case has recorded, a failure is the case's own and goes out
-  // through `outer`, so a container in the case collects if `outer` does.
-  const collects = B_collects(g);
+  // through `outer`, so a container in the case collects if `outer` does - and
+  // only if there is an `outer`: a dispatch wrapped in an async function
+  // raises, and its code can't leave by the labels around it.
+  const collects = outer !== U && B_collects(g);
   (fail as { k?: () => boolean }).k = () => collects && !recorded;
   const collected = g.kj;
   const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));

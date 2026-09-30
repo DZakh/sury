@@ -37,6 +37,7 @@ import {
   _var,
   B_addObjectField,
   B_field,
+  B_unlessCollected,
   B_inlineConst,
   B_invalidOperation,
   B_markOutput,
@@ -490,7 +491,8 @@ const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      input.cp = input.cp + B_merge(flattenedVal);
+      const merged = flattenedVal;
+      input.cp = input.cp + B_unlessCollected(input.g, () => B_merge(merged));
     }
     input.fv = flattenedVals;
   }

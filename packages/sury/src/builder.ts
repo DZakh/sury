@@ -844,6 +844,9 @@ const settle = (thrown: unknown): Settled =>
   (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
 export const B_settle = (val: Val, promise: string): string =>
   `${promise}.then(void 0,${B_embedPure(val, settle)})`;
+// `syncFailed` compares the list with its snapshot, so a sibling that
+// collected in between reads as this container failing too: harmless, since the
+// list is not empty either way and the operation fails with it.
 export const B_join = (val: Val, syncFailed: string, slots: string): string =>
   `${B_embedPure(val, (was: unknown, values: unknown[]) => {
     let found: unknown[] | undefined;
@@ -892,6 +895,22 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   objectVal.cp += B_merge(val);
   objectVal.d![location] = val;
 }
+
+// Code that reads a container's value but lands inside the container's own
+// segment, ahead of the guard `B_merge` puts after it (a flattened member's
+// refine or transform): run only while nothing has been collected. Its
+// declarations go to the sink, since the `if` is a block.
+export const B_unlessCollected = (g: BGlobal, emit: () => string): string => {
+  if (!g.k || !B_collects(g)) return emit();
+  g.c = (g.c || 0) + 1;
+  g.ku = true;
+  try {
+    const code = emit();
+    return code ? `if(!${g.k}){${code}}` : code;
+  } finally {
+    g.c!--;
+  }
+};
 
 // A container's child, in its own scope when the operation collects: a failure
 // anywhere in it leaves only this child's code. `produce` is a thunk because

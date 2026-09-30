@@ -23,9 +23,6 @@ operations:
       field-invalid:
         input: "{ a: null }"
         error: "Failed at a: Expected string, received null"
-        issues:
-          - "Failed at a: Expected string, received null"
-          - "TypeError: Cannot read properties of null (reading 'length')"
   decode:
     expression: i=>{try{let v0={a:i.a};e[0](v0)||e[1](v0);e[2](v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}
     examples:
