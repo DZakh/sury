@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.union([S.protobuf.with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }).with(S.strict)), S.protobuf.with(S.to, S.schema({ b: S.int32.with(S.protobufField, 2) }))])"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ a: string; } | { b: number; }"
+  instantiations: 8907
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["b"] }] }'
+isEqual:
+  input: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[3](a,b):b instanceof e[1]&&e[2](a,b))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; } | { b: int32; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[3]){l2:{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);{v1=[v1,e[2],x];break l2}}}i=v0;break}catch(x){v1=[v1,e[8](x)]}}}if(i instanceof e[7]){l4:{try{let v3;{let r;try{r=e[5].acquire(i);v3=e[4](r,0);r.busy=false}catch(x){r&&(r.busy=false);{v1=[v1,e[6],x];break l4}}}i=v3;break}catch(x){v1=[v1,e[8](x)]}}}throw e[9](i,v1)}return i}catch(v5){e[10](v5)}}
+    examples:
+      first-member:
+        input: new Uint8Array([10, 1, 97])
+        output: '{ a: "a" }'
+      wire-failure-falls-through:
+        input: new Uint8Array([16, 5])
+        output: "{ b: 5 }"
+      neither-member:
+        input: new Uint8Array([16, 128])
+        error: |-
+          Expected Uint8Array, received invalid Uint8Array
+          - Unrecognized protobuf field 2
+          - At b: Truncated protobuf message
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.a,v3;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}for(v3 in i)if(v3!=="a"){v1=[v1,e[1],v3];break l2};let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[2](x,e[3],f,j,a);{v1=[v1,e[5],x];break l2}}}i=v4;break}l6:{try{let v5=i.b;if(!(typeof v5==="number"&&v5<=2147483647&&v5>=-2147483648&&v5%1==0)){v1=[v1,e[6],v5];break l6}let v7;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[10].acquire();f=0;v=v5;if(v){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=Number(v);if(s<-2147483648||s>2147483647)e[7](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v7=w.finish()}catch(x){w&&(w.busy=false);x=e[8](x,e[9],f,j,a);{v1=[v1,e[11],x];break l6}}}i=v7;break}catch(x){v1=[v1,e[12](x)]}}}throw e[13](i,v1)}return i}catch(v8){e[14](v8)}}
+    examples:
+      second-member:
+        input: "{ b: 5 }"
+        output: new Uint8Array([16, 5])
