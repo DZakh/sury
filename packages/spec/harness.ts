@@ -2320,7 +2320,7 @@ const structurallyEqual = (a: unknown, b: unknown, blindToUndefined?: boolean): 
   return true;
 };
 
-type EqValue = { where: string; make: () => unknown };
+type EqValue = { where: string; op: OpName; make: () => unknown };
 
 // Only values the SCHEMA produced, never ones an author wrote: a parse input
 // may carry a key the schema strips, or a spelling it coerces, so two of them
@@ -2353,7 +2353,7 @@ const equalityPools = (spec: Spec): Record<"input" | "output", EqValue[]> => {
       } catch {
         continue; // an unevaluatable golden is reported by the checks above
       }
-      pools[side].push({ where: `operations.${opName}.examples.${exName}.output`, make });
+      pools[side].push({ where: `operations.${opName}.examples.${exName}.output`, op: opName, make });
     }
   }
   return pools;
@@ -2440,8 +2440,10 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
         const b = right.make();
         const want = structurallyEqual(a, b);
         // Parse writes an absent optional property as `undefined` and decode
-        // passes it through absent, so two outputs can differ only there.
-        if (!want && structurallyEqual(a, b, true)) continue;
+        // passes it through absent, so outputs of two operations can differ
+        // only there. One operation writes it one way, so its own pairs keep
+        // the strict answer - which is what holds a dict to its keys.
+        if (!want && left.op !== right.op && structurallyEqual(a, b, true)) continue;
         const pair =
           i === j ? `${left.where} against a fresh copy of itself` : `${left.where} vs ${right.where}`;
         // Every comparison here has to reach the structural path. The emit
