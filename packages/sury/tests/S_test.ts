@@ -1557,7 +1557,7 @@ test("Every construction path keeps a schema recognizable to operation dispatch"
   // `S.assertInputOrThrow(data, schema)` only finds the schema in the second slot when
   // the schema still has one of the two schema prototypes, so every way of
   // making a schema has to preserve it.
-  type Node = { id: string; next?: Node };
+  type Node = { id: string; next?: Node | undefined };
   const recursed = S.recursive<Node, Node>("Node", (self) =>
     S.schema({ id: S.string, next: S.optional(self) }),
   );
