@@ -1946,15 +1946,18 @@ export const unionFactory = (schemas: Internal[]): Internal => {
 // would change it (`unionWrap`).
 export const unionCheckEmpties = (schema: Internal): Internal => {
   const anyOf = schema.anyOf || [];
-  const replaced: Partial<Record<Tag, Internal>> = {};
+  // The first member to take the value settles it: once one passes it through
+  // (`true`), a later one that keeps it too is not shadowed.
+  const replaced: Partial<Record<Tag, Internal | true>> = {};
   for (let idx = 0; idx < anyOf.length; idx++) {
     for (const tag of [nullTag, undefinedTag]) {
       const arm = unionEmptyArm(anyOf[idx]!, tag);
       if (arm === U) continue;
       if (arm.to !== U) replaced[tag] ||= anyOf[idx];
-      else if (replaced[tag]) {
+      else if (replaced[tag] === U) replaced[tag] = true;
+      else if (replaced[tag] !== true) {
         panic(
-          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag]!)}. Drop ${tag} from the later member, or wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
+          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag] as Internal)}. Drop ${tag} from the later member, or wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
         );
       }
     }

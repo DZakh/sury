@@ -54,6 +54,14 @@ test("a union refuses undefined an earlier env link reads as its default", () =>
   expect(S.parseOrThrow(undefined, S.union([S.env.with(S.to, S.port), S.optional(S.number)]))).toBe(undefined);
 });
 
+test("a union keeps an empty value an earlier member already keeps", () => {
+  expect(S.parseOrThrow(null, S.union([S.nullable(S.nullable(S.boolean, false)), S.nullable(S.string)]))).toBe(null);
+  expect(S.parseOrThrow(undefined, S.union([S.optional(S.optional(S.number, 0)), S.optional(S.string)]))).toBe(
+    undefined,
+  );
+  expect(S.parseOrThrow(null, S.union([S.nullish(S.nullable(S.number, 0)), S.nullable(S.string)]))).toBe(null);
+});
+
 test("the fixes the refusal names construct", () => {
   expect(S.parseOrThrow(undefined, S.optional(S.union([S.string, S.number]), "none"))).toBe("none");
   expect(S.parseOrThrow(null, S.union([S.nullable(S.boolean, false), S.string]))).toBe(false);
