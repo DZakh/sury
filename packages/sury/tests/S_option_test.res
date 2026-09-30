@@ -333,14 +333,33 @@ module CoderToOption = {
       S.option(S.string)->S.to(
         S.option(S.string),
         ~custom={
-          decode: Sync(o => o == Some("") ? None : o),
+          decode: Sync(o =>
+            switch o {
+            | Some("") => None
+            | _ => o
+            }
+          ),
           encode: Sync(o => o),
         },
       ),
     )
 
     t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
-    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+  })
+
+  test("Option over a coder whose input takes undefined hands it to the coder", t => {
+    let schema = S.option(
+      S.option(S.string)->S.to(
+        S.union([S.literal(1), S.literal(2)]),
+        ~custom={
+          decode: Sync(o => o->Option.isNone ? 1 : 2),
+          encode: Sync(i => i === 1 ? None : Some("x")),
+        },
+      ),
+    )
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Some(1))
+    t->Assert.deepEqual(%raw(`"x"`)->S.parseOrThrow(~to=schema), Some(2))
   })
 
   test("Option over a coder to a union parses undefined as None", t => {

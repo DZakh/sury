@@ -15,6 +15,7 @@ import {
   globalConfig,
   inputExpression,
   type Internal,
+  isOptional,
   objectTag,
   panic,
   pathEmpty,
@@ -24,6 +25,7 @@ import {
   U,
   undefinedTag,
   unknown,
+  unknownTag,
   updateOutput,
   type Val,
   valKey,
@@ -125,8 +127,13 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
     const anyOf = out.anyOf;
     const has = out.has;
     // A coder's input never reaches its output union, so the unit joins at the
-    // input, and an undefined the coder returns reads back as Some(None).
-    const isCoder = item.to !== U;
+    // input, and an undefined the coder returns reads back as Some(None). An
+    // input that already takes undefined keeps handing it to the coder.
+    const isCoder =
+      item.to !== U &&
+      !isOptional(item) &&
+      item.type !== unknownTag &&
+      !(item.has !== U && unknownTag in item.has);
     const optioned = updateOutput<Internal>(item, (mut) => {
       const schemas = anyOf!;
       const mutHas = { ...has! };
