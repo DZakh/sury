@@ -569,9 +569,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     // An absent key of a JSON document reaches an optional field as absent,
     // not as `null`: read as `null` it would clear a `T | null | undefined`
-    // field instead of skipping it, and skip a default. A field with a parser
-    // (`s.fieldOr`) reads the absent key there, unless jsonEncoderFn converts
-    // a stored variant first - that conversion knows only `null`.
+    // field instead of skipping it, and skip a default.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
@@ -582,11 +580,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (
-        isJsonParent &&
-        isOptional(schema) &&
-        (!schema.parser || schema.anyOf!.some((variant) => variant.storedAs !== U))
-      ) {
+      if (isJsonParent && isOptional(schema)) {
         itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
       if (fused !== U && !(isUnion && isLiteral(schema))) {
@@ -722,26 +716,17 @@ const missingKeyEncoder: Encoder = (input, target) => {
   const presentIn = B_scope(input);
   presentIn.io = false;
   presentIn.s = item;
-  // The pipeline runs a target's parser (`s.fieldOr`) after this encoder
-  // whether the key was present or not, so the present branch leaves it out.
-  if (target.parser) {
-    presentIn.e = copySchema(target);
-    presentIn.e.parser = U;
-  } else {
-    presentIn.e = target;
-  }
+  presentIn.e = target;
   presentIn.u = !unsetIsInput;
   const presentOut = parse(presentIn);
   const presentCode = B_merge(presentOut);
   const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
 
   // Optional field: the target reads the absent key as its own `undefined`
-  // (None, or a default it fills in). Required field: reject. A target with a
-  // parser (`s.fieldOr`) runs it after this encoder and reads the absent key
-  // there, so reading it here too would feed it its own default.
+  // (None, or a default it fills in). Required field: reject.
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   let absentBody = "";
-  if (noAbsentCheck && !unsetIsInput && !target.parser) {
+  if (noAbsentCheck && !unsetIsInput) {
     const absentIn = B_scope(input);
     absentIn.io = false;
     absentIn.s = unit;
@@ -749,7 +734,9 @@ const missingKeyEncoder: Encoder = (input, target) => {
     const absentOut = parse(absentIn);
     absentBody = B_merge(absentOut) + (absentOut.i === v ? "" : `${v}=${absentOut.i};`);
   }
-  const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
+  // Both branches ran the whole target, parser and `.to` included, so the
+  // output is final - pointing it at the target would run them again.
+  const output = B_nextVarOutput(input, v, getOutputSchema(target));
   const presentBody = presentCode + presentAssign;
   output.cp =
     presentBody === "" && absentBody === ""

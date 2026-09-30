@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.schema({ a: S.union([S.number, S.optional(S.string, "d")]) }))'
+  input: JSON
+  output: "{ a: string | number; }"
+  instantiations: 6522
+jsonSchema:
+  input: '{ type: "object", properties: { a: { anyOf: [{ type: "number" }, { type: "string" }] } }, additionalProperties: false, required: ["a"] }'
+  fromInputType: "{ a: string | number; }"
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "number" }, { type: "string" }] } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number | string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="number"&&v0==v0)break;for(;;){if(typeof v0==="string")break;if(v0===null){v0="d";break}throw e[0](v0)}break}return {a:v0}}catch(v1){e[2](v1)}}
+    examples:
+      # FIXME: known bug json-absent-nested-undefined (scripts/knownBugs.ts). The
+      # field's `undefined` belongs to the defaulted member, so the absent key
+      # never reaches its default: S.parseOrThrow reads `{}` as `{ a: "d" }`.
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected string | undefined, received undefined"
+      number:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.a;(typeof v0==="number"&&v0==v0||typeof v0==="string")||e[0](v0);return i}catch(v1){e[1](v1)}}
+    examples:
+      value:
+        input: "{ a: 1 }"
+        output: "{ a: 1 }"

@@ -25,7 +25,9 @@
 //                way `parse` reads it - `undefined`, or the field's default -
 //                never as `null` (#470). Only that position is compared: the
 //                carrier's other spellings (`null` for an optional field) are
-//                its own rules.
+//                its own rules. Besides the drawn schema's own keys, the schema
+//                itself is left out as a field, bare and under `S.shape`, whose
+//                parser is what an absent key reaches instead of a dispatch.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
@@ -43,8 +45,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const has = (value: unknown, key: unknown): boolean => isRecord(value) && String(key) in value;
 
-const at = (value: unknown, path: unknown[]): unknown =>
-  path.reduce<unknown>((v, key) => (isRecord(v) ? v[key as string] : undefined), value);
+const at = (value: unknown, path: string[]): unknown =>
+  path.reduce<unknown>((v, key) => (isRecord(v) ? v[key] : undefined), value);
 
 // The first key the document leaves out that `parse` and `S.json` answer
 // differently, walked only while all three keep one shape.
@@ -121,10 +123,10 @@ const check = (ctx: Ctx): void => {
       try {
         read = viaJson(document);
       } catch (error) {
-        const path = (error as { path?: unknown }).path;
-        const parent = Array.isArray(path) && path.length ? path.slice(0, -1) : undefined;
-        const key = parent && path![parent.length];
-        if (parent && isRecord(at(document, parent)) && !has(at(document, parent), key) && has(at(parsed, parent), key)) {
+        const path = (error as { path?: string[] }).path ?? [];
+        const parent = path.slice(0, -1);
+        const key = path[parent.length];
+        if (key !== undefined && isRecord(at(document, parent)) && !has(at(document, parent), key) && has(at(parsed, parent), key)) {
           report("absent", `parse accepted ${show(document)} but S.json threw at the absent ${path.join(".")} - ${reason(error)}`);
         }
         continue;
@@ -134,6 +136,31 @@ const check = (ctx: Ctx): void => {
       if (path) {
         report("absent", `the absent ${path.join(".")} of ${show(document)} read as ${show(at(read, path))} through S.json and as ${show(at(parsed, path))} by parse`);
       }
+    }
+  }
+
+  for (const [field, build] of [
+    ["field", () => S.schema({ a: schema })],
+    ["shaped field", () => S.schema({ a: S.shape(schema, (v: unknown) => ({ v })) })],
+  ] as const) {
+    let parsed: unknown;
+    let holder: unknown;
+    try {
+      holder = build();
+      parsed = S.parseOrThrow(holder)({});
+    } catch {
+      continue;
+    }
+    if (!settled(parsed)) continue;
+    const read = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, holder)));
+    if (!read) continue;
+    try {
+      const answer = read({});
+      if (settled(answer) && !structural(answer, parsed)) {
+        report("absent", `parse read {} as ${show(parsed)} and S.json as ${show(answer)} with the schema as a ${field}`);
+      }
+    } catch (error) {
+      report("absent", `parse read {} as ${show(parsed)} but S.json threw with the schema as a ${field} - ${reason(error)}`);
     }
   }
 

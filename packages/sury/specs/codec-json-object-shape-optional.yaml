@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ a: S.shape(S.optional(S.string), (v) => ({ v })) }))"
+  input: JSON
+  output: "{ a: { v: string | undefined; }; }"
+  instantiations: 6040
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false }'
+  fromInputType: "{ a?: string | undefined; }"
+  output: '{ type: "object", properties: { a: { type: "object", properties: { v: { type: "string" } } } }, required: ["a"] }'
+  fromOutputType: "{ a: { v?: string | undefined; }; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a.v===b.a.v
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: { v: string | undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;if(v0!==void 0){for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[0](v0)}v0={v:v0};}else{v0={v:v0};}return {a:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ a: { v: undefined } }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: { v: "x" } }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v0=i.a;let v1={};if(v0.v!==void 0){v1.a=v0.v}return v1}
+    examples:
+      absent:
+        input: "{ a: { v: undefined } }"
+        output: "{}"
+      string:
+        input: '{ a: { v: "x" } }'
+        output: '{ a: "x" }'

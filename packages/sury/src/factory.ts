@@ -136,7 +136,14 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
 
   mut.parser = (input: Val) => {
     const v = input.v();
-    const defCode = B_inlineConst(input, Literal_parse(or));
+    const source = input.s;
+    // An absent key reaches here as `unit` (objectDecoder's missing-key read);
+    // a JSON document never holds `undefined`, anything else may.
+    if (source === unit) {
+      const output = B_nextVarOutput(input, v, item, item);
+      output.cp = `${v}=${B_inlineConst(input, Literal_parse(or))};`;
+      return output;
+    }
     const itemInput = B_scope(input);
     itemInput.io = false;
     itemInput.s = unknown;
@@ -145,8 +152,13 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
+    const output = B_nextVarOutput(input, v, item, item);
+    if (source.flags & 16) {
+      output.cp = presentBody;
+      return output;
+    }
+    const defCode = B_inlineConst(input, Literal_parse(or));
     output.cp =
       presentBody === ""
         ? `if(${v}===void 0)${v}=${defCode};`

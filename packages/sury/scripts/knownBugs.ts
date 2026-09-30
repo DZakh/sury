@@ -90,6 +90,27 @@ export const KNOWN_BUGS: Known[] = [
       inUnionWithDefault(f.shape),
   },
   {
+    id: "json-absent-nested-undefined",
+    kind: "bug",
+    summary:
+      "Read through `S.json`, an absent key misreads a field whose `undefined` is held by something other " +
+      "than an `undefined` member of its own union - a member that carries a default, `S.env`, `S.any`, " +
+      "`S.unknown`, a recursive ref over `S.void` - where parse reads it as the default or `undefined`: " +
+      "`S.union([S.number, S.optional(S.string, \"d\")])` rejects `{}`.",
+    spec: "codec-json-object-absent-nested-undefined",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "absent" &&
+      (inUnionWithDefault(f.shape) ||
+        some(
+          f.shape,
+          (node) =>
+            ["env", "any", "unknown"].includes(node.name) ||
+            (node.name === "recursive" && admitsUndefined(node.args[0]!)),
+        )),
+  },
+  {
     id: "union-never-member",
     kind: "bug",
     summary:
