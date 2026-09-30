@@ -92,9 +92,8 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
-// One option level deeper: every Some(None) marker the schema can output counts
-// one more Some. Recurses into a coder member, whose output union a flattened
-// union doesn't expose.
+// Recurses into a coder member, whose output union a flattened union doesn't
+// expose.
 const bumpNested = (schema: Internal): Internal => {
   const out = getOutputSchema(schema);
   const nestedSchema = out.properties?.[nestedLoc];

@@ -275,7 +275,6 @@ test("Option with transformed unknown", t => {
   )
 })
 
-// https://github.com/DZakh/sury/issues/469
 module CoderToOption = {
   let blankToNone = S.string->S.to(
     S.option(S.string),
