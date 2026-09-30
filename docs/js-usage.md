@@ -1002,7 +1002,7 @@ So a member can't keep `null` or `undefined` that an earlier member's default al
 ```ts
 S.union([S.optional(S.string, "none"), S.optional(S.number)]);
 // throws: [Sury] S.union can't keep undefined: an earlier member decodes it to string. Drop
-// undefined from the later member, or wrap the union: S.optional(S.union([...]), default)
+// undefined from the later member, or from both and wrap the union: S.optional(S.union([...]), default)
 
 S.optional(S.union([S.string, S.number]), "none"); // ✅
 ```

@@ -5,10 +5,10 @@ ts:
   output: boolean
   instantiations: 548
 jsonSchema:
-  input: '{ default: false, anyOf: [{ default: true, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }'
+  input: '{ default: false, anyOf: [{ anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }'
   output: '{ type: "boolean" }'
   openapi-3.0:
-    input: '{ default: true, type: "boolean", nullable: true }'
+    input: '{ default: false, type: "boolean", nullable: true }'
 isEqual: strictEqual
 compare:
   input: "throws: [Sury] Can't compare boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

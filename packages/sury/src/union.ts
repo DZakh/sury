@@ -399,6 +399,9 @@ type UnionMember = {
   i: number;
   s: Internal;
   m: number;
+  // What the member's own arms accept. Under a union source `m` is what can
+  // reach it, which for a nested union or a ref is only the coercion guess.
+  t: number;
   // Whether the member produces a value at all: `mode 0` masks are zero for
   // exactly one reason, a `never` output, and nothing reads more than that.
   o: boolean;
@@ -644,6 +647,7 @@ const unionAnalyze = (
                     : sourceMask
             : sourceMask
         : 0,
+      t: inputMask,
       o: !!accepts && output.type !== neverTag,
       e: effect,
       f:
@@ -856,8 +860,9 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       group.m === ~0
     ) continue;
     group.f |= 8 | 2;
+    const m = group.m | head.t;
     let to = i;
-    while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
+    while (plan[to + 1] && !(plan[to + 1]!.m & m)) to++;
     plan.splice(to, 0, ...plan.splice(i, 1));
   }
 
@@ -1961,7 +1966,7 @@ export const unionCheckEmpties = (schema: Internal): Internal => {
       else if (replaced[tag] === U) replaced[tag] = true;
       else if (replaced[tag] !== true) {
         panic(
-          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag] as Internal)}. Drop ${tag} from the later member, or wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
+          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag] as Internal)}. Drop ${tag} from the later member, or from both and wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
         );
       }
     }

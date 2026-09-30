@@ -31,7 +31,7 @@ test("a default the refinement accepts is kept", () => {
 
 test("a union refuses null that an earlier member's default replaces", () => {
   expect(() => S.union([S.nullable(S.boolean, false), null])).toThrow(
-    "[Sury] S.union can't keep null: an earlier member decodes it to boolean. Drop null from the later member, or wrap the union: S.nullable(S.union([...]), default)",
+    "[Sury] S.union can't keep null: an earlier member decodes it to boolean. Drop null from the later member, or from both and wrap the union: S.nullable(S.union([...]), default)",
   );
   expect(() => S.union([S.nullable(S.boolean, () => false), S.nullable(S.string)])).toThrow(
     "an earlier member decodes it to boolean",
@@ -43,7 +43,7 @@ test("a union refuses null that an earlier member's default replaces", () => {
 
 test("a union refuses undefined that an earlier member's default replaces", () => {
   expect(() => S.union([S.optional(S.string, "none"), S.optional(S.number)])).toThrow(
-    "[Sury] S.union can't keep undefined: an earlier member decodes it to string. Drop undefined from the later member, or wrap the union: S.optional(S.union([...]), default)",
+    "[Sury] S.union can't keep undefined: an earlier member decodes it to string. Drop undefined from the later member, or from both and wrap the union: S.optional(S.union([...]), default)",
   );
 });
 

@@ -553,16 +553,17 @@ const internalToJSONSchemaBase = (
 
     const anyOf = schema.anyOf!;
     const ordered = anyOf.filter((child) => child.type !== nullTag);
+    const optionalSlot =
+      parent.type === objectTag ||
+      (parent.type === arrayTag &&
+        typeof parent.additionalItems === "object" &&
+        parent.items!.includes(schema));
+    // A nested member's default is never read past the union's own default or
+    // its own absent arm.
+    let dead = schema.default !== U;
     ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {
-      // Filter out undefined to support optional fields - no `else` branch
-      // needed, this variant is simply skipped.
-      if (
-        childSchema.type === undefinedTag &&
-        (parent.type === objectTag ||
-          (parent.type === arrayTag &&
-            typeof parent.additionalItems === "object" &&
-            parent.items!.includes(schema)))
-      ) {
+      if (childSchema.type === undefinedTag && optionalSlot) {
+        dead = true;
         return;
       }
       // A union nested in a field's union answers to the same field, so its
@@ -571,6 +572,7 @@ const internalToJSONSchemaBase = (
         childSchema.type === anyOfTag && parent.type === objectTag
           ? internalToJSONSchema(childSchema, path, defs, parent, target)
           : js(childSchema, path);
+      if (dead && childSchema.type === anyOfTag) delete childJsonSchema.default;
       // Collapse structurally-identical members (e.g. variants coercing to
       // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
       const key = JSON.stringify(childJsonSchema);

@@ -5,11 +5,10 @@ ts:
   output: "{ a: string; c: boolean; b?: string | undefined; }"
   instantiations: 3475
 jsonSchema:
-  # FIXME: each field advertises its inner default, not the one a missing key reads
-  input: '{ type: "object", properties: { a: { default: "tuna", type: "string" }, b: { default: "tuna", type: "string" }, c: { default: false, anyOf: [{ type: "boolean" }, { type: "null" }] } } }'
+  input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, anyOf: [{ type: "boolean" }, { type: "null" }] } } }'
   output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "boolean" } }, required: ["a", "c"] }'
   openapi-3.0:
-    input: '{ type: "object", properties: { a: { default: "tuna", type: "string" }, b: { default: "tuna", type: "string" }, c: { default: false, type: "boolean", nullable: true } } }'
+    input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, type: "boolean", nullable: true } } }'
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c
 compare:
   input: "throws: [Sury] Can't compare { a: string | undefined; b: string | undefined; c: boolean | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
