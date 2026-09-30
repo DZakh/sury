@@ -30,6 +30,8 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _var,
   B_addObjectField,
   B_dynamicScope,
@@ -166,7 +168,7 @@ const readCheckbox = (input: Val, target: Internal): Val => {
   const out = B_varWithoutAllocation(input.g);
   const output = B_next(input, out, bool, target);
   output.v = _var;
-  output.cp = `let ${out}=${v}==="on"||${v}==="true";${B_failInvalidInput(input, target, `${out}||${v}==="false"||!${v}`)}`;
+  output.cp = `${B_let(input.g, out, `${v}==="on"||${v}==="true"`)}${B_failInvalidInput(input, target, `${out}||${v}==="false"||!${v}`)}`;
   return output;
 };
 
@@ -218,8 +220,10 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     const itemVal = B_dynamicScope(val, iterVar);
     // On a scope of the item, not the item: the same val in both would emit a
     // union's dispatch `let` twice.
-    const appendCode = appendValue(B_scope(itemVal), fdVar, keyText, true);
-    const itemCode = B_merge(itemVal) + appendCode;
+    const itemCode = B_sink(val.g, () => {
+      const appendCode = appendValue(B_scope(itemVal), fdVar, keyText, true);
+      return B_merge(itemVal) + appendCode;
+    });
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
@@ -252,7 +256,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     detached.prev = U;
     detached.io = false;
     const converted = parse(detached);
-    return `let ${tmp}=${val.i};` + B_merge(converted) + `${fdVar}.append(${keyText},${converted.i});`;
+    return B_let(val.g, tmp, val.i) + B_merge(converted) + `${fdVar}.append(${keyText},${converted.i});`;
   }
   val.io = false;
   val.e = string;
@@ -263,7 +267,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
 const objectToFormData = (input: Val): Val => {
   const fdVar = B_varWithoutAllocation(input.g);
   const properties = input.s.properties!;
-  let code = `let ${fdVar}=new ${B_embed(input, input.e.class)}();`;
+  let code = B_let(input.g, fdVar, `new ${B_embed(input, input.e.class)}()`);
   for (const key in properties) {
     const field = valGet(input, key);
     code += appendValue(field, fdVar, inlinedValueFromString(key));
@@ -287,7 +291,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
   const objectVal = makeObjectVal(input);
 
   const entriesVar = B_varWithoutAllocation(input.g);
-  B_hoistDecl(input, `${entriesVar}=${B_embed(input, readEntries)}(${input.v()})`);
+  B_hoistDecl(input, entriesVar, `${B_embed(input, readEntries)}(${input.v()})`);
   const properties = target.properties!;
   let listRead = "";
   for (const key in properties) {
@@ -301,9 +305,10 @@ const formDataToObject = (input: Val, target: Internal): Val => {
     const slot = `${entriesVar}.get(${keyText})`;
     B_hoistDecl(
       input,
+      readVar,
       list
-        ? `${readVar}=${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${readVar}=${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
+        ? `${(listRead ||= B_embed(input, asList))}(${slot})`
+        : `${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
     );
 
     // Canonical Val field order (see B_operationArg in builder.ts). Hung off

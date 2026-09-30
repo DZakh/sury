@@ -26,6 +26,7 @@ import {
   type Val
 } from "./base";
 import {
+ B_let,
  B_embedPure,
  B_errorOf,
  B_varWithoutAllocation,
@@ -144,6 +145,7 @@ const operationExit: Exit = (input, flag) => {
   if (collects(flag)) {
     const g = input.g;
     const k = (g.k = B_varWithoutAllocation(g));
+    g.l = [];
     let embedded = "";
     const exit = ((record) =>
       `return ${(embedded ||= B_embedPure(input, collectedFailure(B_errorOf(input))))}(${
@@ -171,7 +173,7 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   if (flag & 2048) {
     if (input.g.r) {
       value = B_varWithoutAllocation(input.g);
-      code = `let ${value}=${operationArgVar};${code}`;
+      code = B_let(input.g, value, operationArgVar) + code;
     } else {
       value = operationArgVar;
     }
@@ -205,7 +207,7 @@ const operationTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
   if (k && collects(flag)) {
     const collected = B_embedPure(input, collectedFailure(B_errorOf(input)));
     const body = `${code}if(${k})return ${collected}(${k});return ${success}`;
-    return `let ${k};` + (code ? `try{${body}}catch(${errVar}){return ${collected}(${k},1,${errVar})}` : body);
+    return `let ${[k, ...new Set(input.g.l)]};` + (code ? `try{${body}}catch(${errVar}){return ${collected}(${k},1,${errVar})}` : body);
   }
   const body = isAsync
     ? // Inlined into the promise chain the operation already builds, rather

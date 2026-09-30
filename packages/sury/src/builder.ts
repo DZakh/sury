@@ -55,7 +55,7 @@ const _linkVar = function (this: Val): string {
 export function _notVarBeforeValidation(this: Val): string {
   const val = this;
   const v = B_varWithoutAllocation(val.g);
-  val.cp = `let ${v}=${val.i};`;
+  val.cp = B_let(val.g, v, val.i, val);
   val.i = v;
   val.v = _var;
   return v;
@@ -77,7 +77,7 @@ export function _notVarAtParent(this: Val): string {
     return val.i;
   }
   const v = B_varWithoutAllocation(val.g);
-  B_hoistDecl(parent, `${v}=${val.i}`);
+  B_hoistDecl(parent, v, val.i);
   val.v = _var;
   val.i = v;
   return v;
@@ -112,15 +112,15 @@ export function _notVar(this: Val): string {
     if (val.i === "") {
       // No inline value yet (assigned by code that already reads this val):
       // declare ahead of the existing producing code.
-      val.cp = `let ${v};` + val.cp;
+      val.cp = B_let(val.g, v, U, val) + val.cp;
     } else {
       // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
-      val.cp += `let ${v}=${val.i};`;
+      val.cp += B_let(val.g, v, val.i, val);
     }
   } else {
     // No prev to anchor to; hoist onto the val itself (its own segment
     // outlives the materialization).
-    B_hoistDecl(val, val.i === "" ? v : `${v}=${val.i}`);
+    B_hoistDecl(val, v, val.i === "" ? U : val.i);
   }
   val.v = _var;
   val.i = v;
@@ -174,6 +174,34 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
 
 export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 
+// Every declaration the compiler emits. Outside collecting mode it is the
+// `let` itself, where it is written. In collecting mode a child's code sits in
+// a label block, which would scope a `let` away from the sibling or container
+// that reads it, so the name goes to the sink (`BGlobal.l`) and only the
+// assignment stays. With an `owner` the name waits for the owner's merge: a
+// var materialized late is read from one stretch and declared by another.
+export const B_let = (g: BGlobal, name: string, init?: string, owner?: Val): string => {
+  if (!g.l) return `let ${name}${init === U ? "" : `=${init}`};`;
+  (owner ? (owner.hn ||= []) : g.l).push(name);
+  return init === U ? "" : `${name}=${init};`;
+};
+
+// A scope whose code runs more than once or on its own - an item loop's body,
+// a callback's - declares what it holds at its head, so each run gets fresh
+// bindings: a bare declaration reads `undefined` again, and a closure keeps its
+// own iteration's value.
+export const B_sink = (g: BGlobal, emit: () => string): string => {
+  const outer = g.l;
+  if (!outer) return emit();
+  const l: string[] = (g.l = []);
+  try {
+    const code = emit();
+    return code && l.length ? `let ${[...new Set(l)]};${code}` : code;
+  } finally {
+    g.l = outer;
+  }
+};
+
 // Append a `let` declaration to a still-open owner val, emitted after the
 // owner's checks in `merge`. The owner is the materialized val's immediate
 // context (its `prev`, its `parent` for a field read, or itself); since the
@@ -181,8 +209,12 @@ export const B_varWithoutAllocation = (g: BGlobal): string => `v${++g.v}`;
 // its dependent code - that immediate owner already dominates and outlives
 // every use, so no separate scope-tree is needed. The owner must be
 // unfinalized; `_notVarAtParent` guards this explicitly.
-export const B_hoistDecl = (owner: Val, decl: string): void => {
-  owner.hd += (owner.hd && ",") + decl;
+// In collecting mode `hd` holds the assignments as statements instead, the
+// names having gone to the owner's sink.
+export const B_hoistDecl = (owner: Val, name: string, init?: string): void => {
+  owner.hd += owner.g.l
+    ? B_let(owner.g, name, init, owner)
+    : (owner.hd && ",") + (init === U ? name : `${name}=${init}`);
 }
 
 export const B_operationArg = (
@@ -317,11 +349,11 @@ export const B_block = (statement: string): string =>
 // Emits `body` with the exit cleared: it lands inside a callback, which a jump
 // can't leave. The parse of what goes there has to run inside it as well as the
 // merge - a decoder emits some of its code while it parses.
-export const B_detached = <T>(g: BGlobal, body: () => T): T => {
+export const B_detached = (g: BGlobal, body: () => string): string => {
   const x = g.x;
   g.x = U;
   try {
-    return body();
+    return B_sink(g, body);
   } finally {
     g.x = x;
   }
@@ -545,7 +577,8 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
 
     // Hoisted decls land after this val's checks (the old varsAllocation
     // slot).
-    if (val.hd) currentCode += `let ${val.hd};`;
+    if (val.hn) val.g.l!.push(...val.hn);
+    if (val.hd) currentCode += val.g.l ? val.hd : `let ${val.hd};`;
 
     // Now emitted: a later cached-bond materialization can't hoist onto it.
     val.fz = true;
@@ -554,7 +587,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
     const k = val.g.k;
     if (val.k && k && code !== "" && val.g.x) {
       const m = B_varWithoutAllocation(val.g);
-      code = `let ${m}=${k};` + val.cp + currentCode + `if(${k}!==${m})${val.g.x()!};` + code;
+      code = B_let(val.g, m, k) + val.cp + currentCode + `if(${k}!==${m})${val.g.x()!};` + code;
     } else code = val.cp + currentCode + code;
   }
 
@@ -769,8 +802,8 @@ export const B_computed = (
   // failed conversion instead of escaping as whatever the platform raised.
   output.cp =
     failure === U
-      ? `let ${output.i}=${code};`
-      : `let ${output.i};try{${output.i}=${code}}catch(x){${failure}}`;
+      ? B_let(input.g, output.i, code)
+      : `${B_let(input.g, output.i)}try{${output.i}=${code}}catch(x){${failure}}`;
   return output;
 };
 
@@ -885,7 +918,7 @@ export const B_conversion = (
     const inputValue = input.vc ? input.v() : input.i;
     const unionContext = input.g.o & 4; // 4
     if (unionContext && isAsync) {
-      output.cp = `let ${output.i}=${B_embed(input, fn)}(${inputValue});`;
+      output.cp = B_let(input.g, output.i, `${B_embed(input, fn)}(${inputValue})`);
       return output;
     }
     // Called inside the `try` below, so nothing it raises gets past it.
@@ -900,7 +933,7 @@ export const B_conversion = (
     // so both raise and share one site; a sync one's may jump.
     const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
     const failure = isAsync ? B_detached(input.g, fail) : fail();
-    output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
+    output.cp = `${B_let(input.g, output.i)}try{${output.i}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>{${failure}})` : ""
     }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`

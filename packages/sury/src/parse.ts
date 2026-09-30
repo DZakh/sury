@@ -326,11 +326,8 @@ export const compileDecoder = (
     node.t = output.t === true;
   }
 
-  let body = emitTail(input, code, output.i, isAsync, flag, !!defs);
+  const body = emitTail(input, code, output.i, isAsync, flag, !!defs);
   if (!body) return noopOperation;
-  // PROTOTYPE ONLY (measurement hack): a collecting operation wraps children
-  // in labelled blocks, so every declaration goes function-scoped.
-  if (input.g.k) body = body.replace(/\blet /g, "var ");
   const fn = new Function("e", "s", `return ${operationArgVar}=>{${body}}`)(input.g.e, s);
   fn.embedded = input.g.e;
   // What the throw boundary's stack capture cuts at. Handed over after the

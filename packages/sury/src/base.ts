@@ -590,6 +590,11 @@ export type BGlobal = {
   // PROTOTYPE: the collected failure list's var, set when the operation
   // collects every failure instead of answering the first.
   k?: string;
+  // @as("l") - the declaration sink collecting mode routes every `let` into
+  // (`B_let`): names declared once at the head of the scope the code lands in -
+  // the operation body, an item loop's body, a callback's. Absent outside
+  // collecting mode, where each declaration stays where it is written.
+  l?: string[];
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,
@@ -664,6 +669,11 @@ export type Val = {
   // PROTOTYPE: a container whose children may have collected a failure, so
   // whatever reads its value afterwards is gated on the list not growing.
   k?: boolean;
+  // @as("hn") - names this val's own code assigns but, in collecting mode,
+  // leaves to a sink to declare. Routed when the val merges rather than when
+  // the var was materialized: a late `.v()` runs in whatever stretch reads the
+  // value, not the one its code lands in.
+  hn?: string[];
 }
 
 // Shared `undefined` for every value-position use across the implementation:

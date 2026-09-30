@@ -49,6 +49,7 @@ import {
   type Val
 } from "./base";
 import {
+  B_let,
   _notVar,
   _var,
   B_block,
@@ -1438,7 +1439,7 @@ const unionEmit = (
     );
   } else if (!noop) {
     let dispatch = emitChain(cases, true);
-    if (failures) dispatch = `let ${failures};${dispatch}`;
+    if (failures) dispatch = B_let(input.g, failures) + dispatch;
     if (asyncDispatch) {
       const itemVar = input.v();
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
