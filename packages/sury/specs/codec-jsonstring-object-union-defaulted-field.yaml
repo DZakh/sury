@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ a: S.union([S.optional(S.boolean, false), S.boolean.with(S.to, S.string)]) }))"
+  input: string
+  output: "{ a: string | boolean; }"
+  instantiations: 6801
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "boolean" }, { type: "string" }] } }, required: ["a"] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { a: { anyOf: [{ default: false, type: "boolean" }, { type: "boolean" }] } } }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { a: boolean | string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.a??null);let v2;for(;;){if(typeof v1==="boolean"){v1=""+(v0.a??null);break}l3:{for(;;){if(typeof v1==="boolean")break;if(v1===null){v1=false;break}v2=[v2,e[1](v1)];break l3}break}throw e[2](v1,v2)}return {a:v1}}catch(v4){e[5](v4)}}
+    examples:
+      # FIXME: the defaulted member is moved behind the boolean codec, so true is read as a string
+      boolean-keeps-its-member:
+        input: '"{\"a\":true}"'
+        output: '{ a: "true" }'
+      absent-takes-the-default:
+        input: '"{}"'
+        output: "{ a: false }"
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=(v0.a??null);let v2;for(;;){if(typeof v1==="boolean"){v1=""+(v0.a??null);break}l3:{for(;;){if(typeof v1==="boolean")break;if(v1===null){v1=false;break}v2=[v2,e[1](v1)];break l3}break}throw e[2](v1,v2)}return {a:v1}}catch(v4){e[4](v4)}}
+    examples:
+      # FIXME: the defaulted member is moved behind the boolean codec, so true is read as a string
+      boolean-keeps-its-member:
+        input: '"{\"a\":true}"'
+        output: '{ a: "true" }'
+      absent-takes-the-default:
+        input: '"{}"'
+        output: "{ a: false }"
+  encode:
+    expression: i=>{try{let v1=i.a;for(;;){if(typeof v1==="string"){let v0;(v0=v1==="true")||v1==="false"||e[0](v1);v1=v0;break}if(typeof v1==="boolean")break;throw e[1](v1)}for(;;){if(typeof v1==="boolean"){v1=""+v1;break}throw e[2](v1)}return "{\"a\":"+v1+"}"}catch(v2){e[3](v2)}}
+    examples:
+      boolean:
+        input: "{ a: false }"
+        output: '"{\"a\":false}"'
+      string-converts-back:
+        input: '{ a: "true" }'
+        output: '"{\"a\":true}"'

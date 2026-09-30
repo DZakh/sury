@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.optional(S.optional(S.string, "tuna"), "salmon"), b: S.optional(S.optional(S.string, "tuna")), c: S.optional(S.nullable(S.boolean, false), true) })'
+  input: "{ a?: string | undefined; b?: string | undefined; c?: boolean | null | undefined; }"
+  output: "{ a: string; c: boolean; b?: string | undefined; }"
+  instantiations: 3475
+jsonSchema:
+  # FIXME: each field advertises its inner default, not the one a missing key reads
+  input: '{ type: "object", properties: { a: { default: "tuna", type: "string" }, b: { default: "tuna", type: "string" }, c: { default: false, anyOf: [{ type: "boolean" }, { type: "null" }] } } }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "boolean" } }, required: ["a", "c"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { a: { default: "tuna", type: "string" }, b: { default: "tuna", type: "string" }, c: { default: false, type: "boolean", nullable: true } } }'
+isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; b: string | undefined; c: boolean | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; b: string | undefined; c: boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.a,v3=i.b,v6=i.c;let v1;for(;;){if(v0===void 0){v0="salmon";break}l2:{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="tuna";break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}let v4;for(;;){if(v3===void 0)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="tuna";break}v4=[v4,e[2](v3)];break l5}break}throw e[3](v3,v4)}let v7;for(;;){if(v6===void 0){v6=true;break}l8:{for(;;){if(typeof v6==="boolean")break;if(v6===null){v6=false;break}v7=[v7,e[4](v6)];break l8}break}throw e[5](v6,v7)}return {a:v0,b:v3,c:v6}}catch(v9){e[7](v9)}}
+    examples:
+      absent:
+        input: "{}"
+        output: '{ a: "salmon", b: undefined, c: true }'
+      nulls:
+        input: "{ a: undefined, b: undefined, c: null }"
+        output: '{ a: "salmon", b: undefined, c: false }'
+      present:
+        input: '{ a: "x", b: "y", c: false }'
+        output: '{ a: "x", b: "y", c: false }'
+  decode:
+    expression: i=>{try{let v0=i.a,v3=i.b,v6=i.c;let v1;for(;;){if(v0===void 0){v0="salmon";break}l2:{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="tuna";break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}let v4;for(;;){if(v3===void 0)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="tuna";break}v4=[v4,e[2](v3)];break l5}break}throw e[3](v3,v4)}let v7;for(;;){if(v6===void 0){v6=true;break}l8:{for(;;){if(typeof v6==="boolean")break;if(v6===null){v6=false;break}v7=[v7,e[4](v6)];break l8}break}throw e[5](v6,v7)}return {a:v0,b:v3,c:v6}}catch(v9){e[6](v9)}}
+    examples:
+      absent:
+        input: "{}"
+        output: '{ a: "salmon", b: undefined, c: true }'
+  encode:
+    expression: i=>{try{let v0=i.a,v1=i.b,v2=i.c;typeof v0==="string"||e[0](v0);(v1===void 0||typeof v1==="string")||e[1](v1);typeof v2==="boolean"||e[2](v2);return i}catch(v3){e[3](v3)}}
+    examples:
+      present:
+        input: '{ a: "x", c: false }'
+        output: '{ a: "x", c: false }'
+      b-absent:
+        input: '{ a: "x", b: undefined, c: true }'
+        output: '{ a: "x", b: undefined, c: true }'

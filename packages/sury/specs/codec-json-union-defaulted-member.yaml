@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.nullable(S.number, 1), S.number.with(S.to, S.string)]))
+  input: JSON
+  output: string | number
+  instantiations: 5881
+jsonSchema:
+  input: '{ type: "number" }'
+  fromInputType: number
+  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i){i=""+i;break}l1:{for(;;){if(typeof i==="number"&&i==i)break;if(i===null){i=1;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      # FIXME: the defaulted member is moved behind the number codec, so a number is read as a string
+      number-keeps-its-member:
+        input: "5"
+        output: '"5"'
+      # FIXME: an S.json link's input document drops the null its target reads
+      null-takes-the-default:
+        input: "null"
+        output: "1"
+        divergence:
+          reason: the input document of an S.json link lists number only
+          ajv: "input: data must be number"
+      other:
+        input: '"x"'
+        error: |-
+          Expected number | null, received "x"
+          - Expected number | null, received "x"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}if(typeof i==="number"&&i==i)break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      default:
+        input: "1"
+        output: "1"
+      string-converts-back:
+        input: '"7"'
+        output: "7"
