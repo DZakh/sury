@@ -197,7 +197,7 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}if(i.BS_PRIVATE_NESTED_SOME_NONE===1){i=void 0;break}throw e[0](i)};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}if(i.BS_PRIVATE_NESTED_SOME_NONE===1){i=void 0;break}throw e[0](i)}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 

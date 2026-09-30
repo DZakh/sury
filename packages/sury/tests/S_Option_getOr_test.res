@@ -282,7 +282,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0}else{throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
+    `i=>{try{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;}else{throw e[2](i)}return i}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -358,7 +358,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;try{v3=BigInt(i)}catch(_){{v1=[v1,e[1],i];break l4}}if(!(v3||i.trim())){v1=[v1,e[2],i];break l4}i=v3;break}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}throw e[3](i,v1)}return i}catch(v5){e[4](v5)}}`,
+    `i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;try{v3=BigInt(i)}catch(_){v1=[v1,e[1],i];break l4}if(!(v3||i.trim())){v1=[v1,e[2],i];break l4}i=v3;break}}if(typeof i==="boolean")break;if(i===void 0){i=true;break}throw e[3](i,v1)}return i}catch(v5){e[4](v5)}}`,
   )
 
   t->U.assertCompiledCode(

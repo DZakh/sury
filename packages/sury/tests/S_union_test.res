@@ -94,7 +94,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;for(;;){if(typeof i==="string"){l1:{if(!(i.length===2)){v0=[v0,e[0],i];break l1};break}}if(typeof i==="boolean")break;l3:{let v2;try{v2=e[1](i)}catch(x){v0=[v0,e[2],x];break l3}i=v2;break}if(typeof i==="number"&&i==i)break;if(typeof i==="bigint")break;throw e[3](i,v0)}return i}catch(v4){e[4](v4)}}`,
+    `i=>{try{let v0;for(;;){if(typeof i==="string"){l1:{if(!(i.length===2)){v0=[v0,e[0],i];break l1}break}}if(typeof i==="boolean")break;l3:{let v2;try{v2=e[1](i)}catch(x){v0=[v0,e[2],x];break l3}i=v2;break}if(typeof i==="number"&&i==i)break;if(typeof i==="bigint")break;throw e[3](i,v0)}return i}catch(v4){e[4](v4)}}`,
   )
 })
 
@@ -382,7 +382,7 @@ test("Array stays disjoint from object even if it's later in the union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.foo;typeof v0==="string"||e[0](v0);i=[v0];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){let v2=i[v1];typeof v2==="string"||e[1](v2,[v1]);};break}throw e[2](i)}return i}catch(v3){e[3](v3)}}`,
+    `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.foo;typeof v0==="string"||e[0](v0);i=[v0];break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){let v2=i[v1];typeof v2==="string"||e[1](v2,[v1]);}break}throw e[2](i)}return i}catch(v3){e[3](v3)}}`,
   )
 })
 
@@ -700,7 +700,7 @@ module CrazyUnion = {
       ~op=#Parse,
       ~embedded=[("Crazy", 0)],
       `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){let v0=i.nested;Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["nested",v1,...v3.path];throw v3}v4[v1]=v2}i={TAG:"A",_0:v4};break}if(i.type==="Z"){let v5=i.nested;Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[2](v5[v6]);}catch(v8){v8.path=["nested",v6,...v8.path];throw v8}v9[v6]=v7}i={TAG:"Z",_0:v9};break}throw e[4](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[4](i)}return i}`,
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){let v0=i.nested;Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["nested",v1,...v3.path];throw v3}v4[v1]=v2}i={TAG:"A",_0:v4};break}if(i.type==="Z"){let v5=i.nested;Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[2](v5[v6]);}catch(v8){v8.path=["nested",v6,...v8.path];throw v8}v9[v6]=v7}i={TAG:"Z",_0:v9};break}throw e[4](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[4](i)}return i}`,
     )
   })
 
@@ -708,7 +708,7 @@ Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.ty
     S.global({})
     let reversed = schema->S.reverse
     let code = `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
-Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}v4[v1]=v2}i={type:"A",nested:v4};break}if(i.TAG==="Z"){let v5=i._0;let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[1](v5[v6]);}catch(v8){v8.path=["_0",v6,...v8.path];throw v8}v9[v6]=v7}i={type:"Z",nested:v9};break}throw e[2](i)};break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[2](i)}return i}`
+Crazy: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){v3.path=["_0",v1,...v3.path];throw v3}v4[v1]=v2}i={type:"A",nested:v4};break}if(i.TAG==="Z"){let v5=i._0;let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[1](v5[v6]);}catch(v8){v8.path=["_0",v6,...v8.path];throw v8}v9[v6]=v7}i={type:"Z",nested:v9};break}throw e[2](i)}break}if(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))break;throw e[2](i)}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
@@ -864,7 +864,7 @@ test("Union of strings with different refinements", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{if(!(e[0].test(i))){v0=[v0,e[1],i];break l1};break}l2:{if(!(e[2].test(i))){v0=[v0,e[3],i];break l2};break}break l3};break}}throw e[4](i,v0)}return i}catch(v4){e[5](v4)}}`,
+    `i=>{try{let v0;for(;;){l3:{if(typeof i==="string"){for(;;){l1:{if(!(e[0].test(i))){v0=[v0,e[1],i];break l1}break}l2:{if(!(e[2].test(i))){v0=[v0,e[3],i];break l2}break}break l3}break}}throw e[4](i,v0)}return i}catch(v4){e[5](v4)}}`,
   )
 })
 
@@ -892,7 +892,7 @@ test("Objects with the same discriminant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){l2:{let v0=i.value;if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){v1=[v1,e[0],v0];break l2}i={TAG:"Ok",_0:v0};break}l4:{let v3=i.value;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={TAG:"Error",_0:v3};break}}break l5};break}}throw e[2](i,v1)}return i}catch(v6){e[3](v6)}}`,
+    `i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="A"){l2:{let v0=i.value;if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){v1=[v1,e[0],v0];break l2}i={TAG:"Ok",_0:v0};break}l4:{let v3=i.value;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={TAG:"Error",_0:v3};break}}break l5}break}}throw e[2](i,v1)}return i}catch(v6){e[3](v6)}}`,
   )
 })
 

@@ -51,6 +51,7 @@ import {
 import {
   _notVar,
   _var,
+  B_block,
   B_embed,
   B_embedPure,
   B_markThrow,
@@ -209,11 +210,8 @@ const unionIsNoop = (schema: Internal): boolean => {
 
 // ── Emission ─────────────────────────────────────────────────────────────────
 
-// One emitted alternative. `c` selects it, `b` runs it, `q` is its dispatch cond
-// in mergeable form. `th` - the body can throw; `ft` - a later alternative could
-// still accept a value this one fails on; `df` - it accepts with no code and
-// nothing later would do anything different with the same value, so its
-// condition can be deferred into the chain's final acceptance test.
+// One emitted alternative. `c` selects it and `b` runs it - whole statements,
+// so an arm follows it with `break` directly.
 type UnionCase = {
   c: string;
   b: string;
@@ -1010,9 +1008,7 @@ const unionEmit = (
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
     recorded ? jumpOut(end)(error) : error ? outer?.(error) : final();
-  const block = (statement: string): string =>
-    statement[0] === "{" ? statement : `{${statement}}`;
-  const rethrow = (): string => rethrowEmbed || (rethrowEmbed = B_embed(input, getOrRethrow));
+  const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
   const keep = (error: string): string =>
@@ -1024,7 +1020,7 @@ const unionEmit = (
   // embed (a recursive schema's operation, `S.json`'s walk), an awaited async
   // case. An alternative whose failure is provably terminal hands over nothing
   // and fails with its own precise error instead.
-    const emitChain = (cases: UnionCase[], top?: boolean): string => {
+  const emitChain = (cases: UnionCase[], top?: boolean): string => {
     // The end of a group's chain is the group failing, which is whatever its
     // members' exit is; only the union's own chain ends in the union's failure.
     const ending = top ? final : () => g.x!()!;
@@ -1032,10 +1028,10 @@ const unionEmit = (
       const c = cases[0]!;
       if (c.b === "" && c.c === "") return "";
       if (c.b === "") {
-        return `if(!(${c.c}))${block(ending())}`;
+        return `if(!(${c.c}))${B_block(ending())}`;
       }
-      if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
-      return `if(${c.c}){${c.b}}else${block(ending())}`;
+      if (c.c === "") return c.b;
+      return `if(${c.c}){${c.b}}else${B_block(ending())}`;
     }
 
     let code = "";
@@ -1053,10 +1049,7 @@ const unionEmit = (
     const attempt = (c: UnionCase, idx: number): string => {
       open = false;
       if (c.b === "") return "break";
-      // Skip the `;` where the body already ends in one: `;;break` is a wart in
-      // every golden it reaches.
-      const body = c.b.endsWith(";") ? c.b : `${c.b};`;
-      let arm = `${body}break`;
+      let arm = `${c.b}break`;
       // A `try` is needed when the case can raise and either a later alternative
       // could still accept the value or an earlier one is already relying on the
       // chain to carry its failure forward.
@@ -1277,7 +1270,7 @@ const unionEmit = (
       output.t = true;
       const itemVar = target.v();
       if (async || caseOut.i !== itemVar) {
-        body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
+        body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i};`;
         // The one assignment into the operation's own parameter; `make*`
         // reads this to know the parameter is no longer the value it was given.
         if (itemVar === operationArgVar) input.g.r = true;

@@ -36,7 +36,7 @@ operations:
         error: empty
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;throw e[1](i)};break;}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){e[2](i)||e[3](i);for(;;){if(typeof i==="string")break;throw e[1](i)}break;}return i}catch(v1){e[4](v1)}}
     examples:
       string:
         input: '"a"'

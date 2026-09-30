@@ -34,6 +34,7 @@ import {
   B_addObjectField,
   B_dynamicScope,
   B_embedPure,
+  B_block,
   B_failInvalidInput,
   B_failWithArg,
   B_invalidInputBuilder,
@@ -452,10 +453,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         const output = B_nextVar(input, nextSchema);
         output.io = true;
         const inputVar = input.v();
-        output.cp = `let ${output.i};try{${output.i}=${B_parseCall(inputVar)}}catch(t){${B_failInvalidInput(
-          input,
-          input.s,
-        )}}`;
+        output.cp = `let ${output.i};try{${output.i}=${B_parseCall(inputVar)}}catch(t)${B_block(B_failInvalidInput(input, input.s))}`;
 
         return output;
       }
@@ -1039,7 +1037,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       }
     }
     const output = B_refine(stringVal, expectedSchema);
-    output.cp = `try{${B_parseCall(stringVal.v())}}catch(t){${B_failInvalidInput(stringVal)}}`;
+    output.cp = `try{${B_parseCall(stringVal.v())}}catch(t)${B_block(B_failInvalidInput(stringVal))}`;
     return output;
   };
 

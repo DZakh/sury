@@ -280,6 +280,11 @@ export const B_fail = <TArg>(
   return cond ? `if(!(${cond}))${jump}${jump[0] === "{" ? "" : ";"}` : jump;
 };
 
+// A failure's statement where a block goes: an exit's is one already
+// (`BGlobal.x`), a raise gets the braces.
+export const B_block = (statement: string): string =>
+  statement[0] === "{" ? statement : `{${statement}}`;
+
 // Emits `body` with the exit cleared: it lands inside a callback, which a jump
 // can't leave. The parse of what goes there has to run inside it as well as the
 // merge - a decoder emits some of its code while it parses.
@@ -862,7 +867,7 @@ export const B_conversion = (
     const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
       isAsync ? `.catch(x=>{${failure}})` : ""
-    }}catch(x)${failure[0] === "{" ? failure : `{${failure}}`}`;
+    }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the

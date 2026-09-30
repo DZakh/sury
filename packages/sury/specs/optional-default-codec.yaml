@@ -34,7 +34,7 @@ operations:
         input: "{}"
         output: "{ n: 5 }"
   encode:
-    expression: i=>{try{let v0=i.n;if(typeof v0==="number"&&v0==v0){v0=""+i.n}else{throw e[0](v0)}return {n:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=i.n;if(typeof v0==="number"&&v0==v0){v0=""+i.n;}else{throw e[0](v0)}return {n:v0}}catch(v1){e[1](v1)}}
     examples:
       number:
         input: "{ n: 7 }"

@@ -523,7 +523,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{if(typeof i==="boolean"){i=""+i}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{if(typeof i==="boolean"){i=""+i;}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 

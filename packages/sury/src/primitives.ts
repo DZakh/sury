@@ -24,6 +24,7 @@ import {
 import {
   B_embed,
   B_embedPure,
+  B_block,
   B_failInvalidInput,
   B_inlineConst,
   B_next,
@@ -241,9 +242,7 @@ export const bigintDecoder: Builder = (input: Val) => {
     const inputVar = input.v();
     // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
     // show a digit.
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${B_failInvalidInput(
-      input,
-    )}}${B_failInvalidInput(input, U, `${output.i}||${inputVar}.trim()`)}`;
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_)${B_block(B_failInvalidInput(input))}${B_failInvalidInput(input, U, `${output.i}||${inputVar}.trim()`)}`;
     return output;
   }
   if ((inputTagFlag & 4)) {

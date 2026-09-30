@@ -446,6 +446,20 @@ is set. What is left on the table:
 
 ### Pre-existing bugs surfaced by the failure exit work
 
+- **`fuzz:union --seed=3` reports an unlisted `acceptance` diff.**
+  `S.union([record(R3{head:xid,next?:R3}), {TAG:T2,…}, instance(Error)])`
+  answers `Error(e)` for an `Error`, where the sequential reference lets the
+  record take it first and answers `{}`: instance members dispatch ahead of
+  their position (specs/union3-instance-priority-order.yaml). Same on main
+  3a04716. Either the reference learns the priority rule or `knownBugs.ts`
+  lists it as a limitation; CI only runs seed 1, so nothing gates it today.
+- **`fuzz:union --ref=<commit>` crashes before it prints a changelog.** The
+  ref build throws `Cannot read properties of undefined (reading 'name')` from
+  `inputExpression` inside the `message` getter of a failure it compiled
+  (`scripts/unionFuzz/reference.ts` `compiledParse`). Same on main 3a04716, so
+  the changelog the union-compiler workflow suggests can't run at all.
+  Probably the two library instances meeting (the ref's compile reading a
+  schema the current build made); unverified.
 - **`S.env.with(S.maxLength, n)` throws a `TypeError` on `undefined`.**
   `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
   properties of undefined (reading 'length')` instead of a Sury failure, alone

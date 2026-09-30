@@ -47,6 +47,7 @@ import {
   B_dynamicScope,
   B_detached,
   B_fail,
+  B_block,
   B_failInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
@@ -748,7 +749,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
         ? presentBody
         : noAbsentCheck
           ? `if(${v}!==void 0){${presentBody}}`
-          : `if(${v}!==void 0){${presentBody}}else{${B_failInvalidInput(input, target)}}`;
+          : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
 };
 
