@@ -346,28 +346,23 @@ export const Error: {
   prototype: Error;
 };
 
-// Extract Output/Input by matching only the `~standard` marker instead of the
-// full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
-// instantiate per match). `types` is optional, so the pattern keeps it optional.
 export type Output<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : never;
 
-// Match the `~standard` marker instead of the full `Schema<…>` shape for the
-// same instantiation-cost reason as `Output<T>` above.
 // `-readonly` undoes the `readonly` that a `const T` call site (schema/union)
 // stamps onto every nested property - that marker only exists to keep literal
 // types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : T extends (...args: any[]) => any
@@ -379,7 +374,7 @@ export type UnknownToOutput<T> = T extends {
   : T;
 
 export type UnknownToInput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : T extends (...args: any[]) => any
