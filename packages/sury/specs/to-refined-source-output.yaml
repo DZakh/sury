@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.uuid.with(S.to, S.number, { decode: (v: string) => v.length, encode: "auto" }))'
+  input: number
+  output: string
+  instantiations: 4760
+jsonSchema:
+  input: '{ type: "number" }'
+  output: '{ type: "string", format: "uuid" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="number"&&i==i||e[2](i);e[0].test(i)||e[1](i);return ""+i}catch(v0){e[3](v0)}}
+    examples:
+      a-decoded-length:
+        input: "36"
+        error: Expected uuid, received 36
+  decode:
+    expression: i=>{try{e[0].test(i)||e[1](i);return ""+i}catch(v0){e[2](v0)}}
+    examples:
+      a-decoded-length:
+        input: "36"
+        error: Expected uuid, received 36
+  encode:
+    expression: i=>{try{e[3].test(i)||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);return v0}catch(v1){e[5](v1)}}
+    examples:
+      uuid:
+        input: '"00000000-0000-0000-0000-000000000000"'
+        output: "36"
+  is:
+    expression: i=>{try{if(!(typeof i==="number"&&i==i))return false;if(!(e[0].test(i)))return false;return true}catch(v0){return false}}
+    examples:
+      # FIXME: known bug to-output-keeps-source-refinement (scripts/knownBugs.ts). 36 is a
+      # number, which is all this Input side asks for, so the answer is true. The uuid
+      # pattern that runs over it belongs to the other side.
+      a-decoded-length:
+        input: "36"
+        output: "false"

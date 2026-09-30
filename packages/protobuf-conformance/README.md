@@ -35,8 +35,9 @@ Two pinned sources, and the split is not obvious:
   (Apache-2.0), fetched into a gitignored `.upstream/`. Its `proto/` is what
   `testMessages.ts` is written against, and every run diffs the two field
   number by field number, so a bump that adds a field or retypes one says
-  which rather than leaving a case to fail for reasons nobody can see. The six
-  fields the schema cannot express are listed in `cli.ts` with the reason.
+  which rather than leaving a case to fail for reasons nobody can see. Every
+  field is declared; one the schema could not express would be listed in
+  `cli.ts` with the reason.
   `runner.ts` follows the harness that repo gives each implementation in
   `impl/*/runner.ts`.
 - **The runner.** Google's C++ binary, from the `protobuf-conformance` npm

@@ -34,10 +34,11 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  refTag,
   panic,
   type Path,
   setHas,
-  setContent,
+  type Failure,
   type SuryErrorRecord,
   type Tag,
   tagFlags,
@@ -50,7 +51,11 @@ import {
 import {
   _notVar,
   _var,
+  B_block,
   B_embed,
+  B_embedPure,
+  B_markThrow,
+  B_varWithoutAllocation,
   B_inlineConst,
   B_invalidOperation,
   B_unsupportedDecode,
@@ -63,7 +68,6 @@ import {
   B_refine,
   B_rejectUnsettled,
   B_scope,
-  B_throw,
   failInvalidType,
   type HoistCond,
   operationArgVar,
@@ -206,156 +210,28 @@ const unionIsNoop = (schema: Internal): boolean => {
 
 // ── Emission ─────────────────────────────────────────────────────────────────
 
-// One emitted alternative. `c` selects it, `b` runs it, `q` is its dispatch cond
-// in mergeable form. `th` - the body can throw; `ft` - a later alternative could
-// still accept a value this one fails on; `df` - it accepts with no code and
-// nothing later would do anything different with the same value, so its
-// condition can be deferred into the chain's final acceptance test.
+// One emitted alternative. `c` selects it and `b` runs it - whole statements,
+// so an arm follows it with `break` directly.
 type UnionCase = {
   c: string;
   b: string;
-  // Body can throw (1), must be awaited by fallback dispatch (2), is a
-  // grouped wrapper (4), or may fall through to an overlapping member (8).
+  // Body can throw (1), must be awaited by fallback dispatch (2), can fail by
+  // a jump (4), may fall through to an overlapping member (8), or never runs
+  // (16): its condition is the one the case before it accepted outright.
   f: number;
+  // The label the case's failed checks break out of to reach the next case,
+  // set only where one does.
+  l?: string;
+  // Whether a failure had been handed on before the case was compiled, put
+  // back if the case turns out never to run (`settle`).
+  s: boolean;
 };
-
-type UnionCtx = {
-  // The aggregated union error, given the lazily collected per-case errors.
-  f: (caught: string) => string;
-  // `e[N]` for `getOrRethrow`, embedded on first use and shared by every case:
-  // only a Sury validation error means "this variant didn't match".
-  r: () => string;
-  // The union schema, used to recognize and flatten an inner group's synthetic
-  // "none of these members matched" wrapper without string-inspecting code.
-  s: () => string;
-};
-
-// "none of these matched", built the way every other failure is: the union's
-// own schema is the site's, the value and whatever the members had to say about
-// it are the failure's.
-const unionFail = (
-  site: object,
-  path: Path,
-  input: unknown,
-  ...unionErrors: SuryErrorRecord[]
-): never => B_throw(errorAt(site, path, input, unionErrors.length ? unionErrors : U));
 
 // Whether a stretch of emitted code can raise is read off `g.t` (see
 // `B_markThrow`) by bracketing the emission, not by inspecting the string it
 // produced: `e[N](…)` is the accessor for *every* embed, so a body holding
 // nothing but a total transform was wrapped in a `try` it could never need, and
 // a raise spelled some other way would have silently lost its fallback.
-
-// Emits a linear fallback chain: every alternative that fails hands the value to
-// the next one, and the last failure raises the aggregated union error. An
-// alternative whose failure is provably terminal (`ft === false`) skips the
-// try/catch and throws its own precise error instead.
-const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
-  if (cases.length === 1) {
-    const c = cases[0]!;
-    if (c.b === "" && c.c === "") return "";
-    if (c.b === "") {
-      return `if(!(${c.c})){${ctx.f("")}}`;
-    }
-    if (c.c === "") return c.b.endsWith(";") ? c.b : c.b + ";";
-    return `if(${c.c}){${c.b}}else{${ctx.f("")}}`;
-  }
-
-  let code = "";
-  let caught = false;
-  let exhaustive = false;
-  // Whether the arm just emitted ended in a `try` that hands control onward
-  // rather than a `break`. Set by `attempt`, not read off the arm's first
-  // character: a body that itself opens with `try{JSON.parse` is a closed arm.
-  let open = false;
-
-  // The case's code with its condition taken as given - the shared shape between
-  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
-  // hands control to whatever follows it; every other form breaks, which ends its
-  // block and needs no trailing `;`.
-  const attempt = (c: UnionCase, idx: number): string => {
-    open = false;
-    if (c.b === "") return "break";
-    // Skip the `;` where the body already ends in one: `;;break` is a wart in
-    // every golden it reaches.
-    const body = c.b.endsWith(";") ? c.b : `${c.b};`;
-    // A `try` is needed when the case can raise and either a later alternative
-    // could still accept the value or an earlier one is already relying on the
-    // chain to carry its failure forward.
-    if ((c.f & 1) && ((c.f & 8) || caught)) {
-      caught = open = true;
-      const record =
-        c.f & 4
-          ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
-          : `(r||(r=[])).push(${ctx.r()}(x))`;
-      // A terminal case - one only present because an *earlier* one needs the
-      // chain to carry its failure - records and lets control reach the chain's
-      // own fail, so the error keeps its "Expected A | B | C" framing. Every case
-      // after it is guarded by a condition the value has already been proven not
-      // to satisfy, so reaching them costs a few false tests.
-      //
-      // Unless one of them has no condition at all: that one would run, fail on a
-      // type it was never offered, and add a reason the value could never have
-      // matched - 4.7x on a 24-member union. Only then is the fail worth inlining
-      // here, because a second spread call site in a `catch` is not free: it cost
-      // 6x on the small instance-dispatch schemas when emitted unconditionally.
-      return `try{${body}break}catch(x){${record}${
-        !(c.f & 8) && unconditional > idx
-          ? `;${ctx.f(",...(r||[])")}`
-          : ""
-      }}`;
-    }
-    return `${body}break`;
-  };
-
-  // The last case that runs whatever reaches it, so `attempt` can tell whether
-  // anything after a terminal case would actually execute.
-  let unconditional = -1;
-  for (let idx = 0; idx < cases.length; idx++) {
-    if (cases[idx]!.c === "") unconditional = idx;
-  }
-
-  // The condition of the case just emitted.
-  let last = "";
-
-  for (let idx = 0; idx < cases.length; idx++) {
-    const c = cases[idx]!;
-    // Members that narrow the same way - two variants of one tuple shape, two
-    // objects behind the same discriminant - share the test. Only the case
-    // *immediately* before qualifies: a case in between with a different
-    // condition could accept a value these two also accept, and pulling the
-    // later one back past it would change which member wins.
-    const shared = c.c !== "" && c.c === last;
-    // Behind a condition the previous case already accepted outright, this one
-    // can never run. Dropping it is what removes the unreachable second
-    // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
-    if (shared && !open) continue;
-
-    const arm = attempt(c, idx);
-    last = c.c;
-
-    if (shared) {
-      code = `${code.slice(0, -1)}${arm}}`;
-    } else if (c.c === "") {
-      // Nothing left to test: this alternative accepts every value that reaches
-      // it, so unless it can fail nothing after it is reachable.
-      code += open ? arm : `${arm};`;
-      if (!open) {
-        exhaustive = true;
-        break;
-      }
-    } else {
-      // `if(cond)break;` beats `if(cond){break}` by two characters, and a case
-      // that accepts without running anything is the commonest shape there is.
-      code += arm === "break" ? `if(${c.c})break;` : `if(${c.c}){${arm}}`;
-    }
-  }
-
-  if (!exhaustive) {
-    code += ctx.f(caught ? ",...(r||[])" : "");
-  }
-  return `for(;;){${caught ? "let r;" : ""}${code}}`;
-};
 
 const unionOr = (cs: UnionCase[]): string => {
   const s = cs.map((c) => c.c).join("||");
@@ -369,7 +245,7 @@ const unionOr = (cs: UnionCase[]): string => {
 // a union-using bundle - and `S.optional`/`S.nullable` are unions.
 //
 // One per member, not per group: besides the runtime tag it carries what the
-// member claims about a value of that tag (`content`, its encoder, a string
+// member claims about a value of that tag (its payload kind, its encoder, a string
 // format), and a sibling parsing from it would inherit the claim - a `uuid`
 // next to `jsonString` was `JSON.parse`d before its own test. The group's
 // narrow is its head member's, and `unionEmit` re-labels the narrowed value
@@ -413,8 +289,10 @@ const unionNarrowSchema = (schema: Internal): Internal => {
   // With the encoder, its marker: the narrow is what a carrier's encoder is
   // handed for this arm, and without it the arm reads as carrying no payload -
   // bytes reaching a `S.base64` variant UTF-8-decoded instead of packing.
-  if (schema.content !== U) {
-    setContent(narrow, schema.content);
+  if (schema.flags & 3) {
+    narrow.flags = schema.flags & 3;
+    const stored = schema.bytesCodec ? schema : schema.storedAs;
+    if (stored) narrow.storedAs = stored;
   }
   if (tagFlag & 8192) {
     narrow.class = schema.class;
@@ -429,13 +307,13 @@ const unionNarrowSchema = (schema: Internal): Internal => {
     // null/undefined/nan stay literals so the case body passes through.
     narrow.const = schema.const;
   } else if (tagFlag & 2 && schema.format !== U && schema.format !== "json") {
-    // The member's `format` (which toJSONSchema reads), `formatFlag` and
+    // The member's `format` (which toJSONSchema reads), escape-free bit and
     // `noValidation` ride on the narrow: the case appends the member's format
     // check, so the escape-free splice holds inside it. Not `format: "json"` -
     // jsonString reads that as "already JSON text" (see fieldPiece), where the
-    // bare `content` marker says "claims JSON, unchecked".
+    // bare kind bit says "claims JSON, unchecked".
     narrow.format = schema.format;
-    narrow.formatFlag = schema.formatFlag;
+    if (schema.flags & 32) narrow.flags = narrow.flags | 32;
     narrow.noValidation = schema.noValidation;
   }
   return narrow;
@@ -677,7 +555,8 @@ const unionAnalyze = (
   sourceTag: number,
   variants: Internal[],
   source: Internal,
-  nan: number
+  nan: number,
+  defs: Record<string, Internal> | undefined
 ): UnionMember[] => {
   const out: UnionMember[] = [];
   const unknownSource = sourceTag & 1;
@@ -692,8 +571,17 @@ const unionAnalyze = (
   const numberish = tagFlags[numberTag]! | 2048;
   for (let i = 0; i < variants.length; i++) {
     const s = variants[i]!;
-    const tag = tagFlags[s.type]!;
-    const inputMask = unionMask(s, 1, nan);
+    // A recursive member is dispatched as the definition its ref names, where
+    // the operation can resolve one to a concrete type, and claims what a union
+    // definition's arms accept (`S.json` never takes `undefined`). An opaque
+    // member claims every type, so `S.optional(self)` tried the recursive call
+    // on `undefined` and caught its throw at every leaf of a tree. The case
+    // still calls through the ref, so the definition compiles once.
+    const def = s.type === refTag ? s.definition || unionRefDef(s) || defs?.[s["$ref"]!.slice(8)] : U;
+    const defTag = def === U ? 0 : tagFlags[def.type]!;
+    const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
+    const tag = tagFlags[view.type]!;
+    const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
     const d = unionDiscriminator(s);
     const same = unionRuntimeSame(source, s);
     const discriminatorDisjoint =
@@ -771,8 +659,8 @@ const unionAnalyze = (
             : 2,
       // An env var is `string | undefined`, so it never shares a string
       // group's `typeof` dispatch.
-      k: tag & 8192 ? s.class : s.format === "env" ? s.format : s.type,
-      n: unionNarrowSchema(s),
+      k: tag & 8192 ? view.class : view.format === "env" ? view.format : view.type,
+      n: unionNarrowSchema(view),
       r: tag & (64 | 8192)
         ? 64 | 8192
         : tag & numberish
@@ -948,6 +836,21 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
   }
 
+  // A ref to a union has no narrow to guard its case, so once no later group
+  // shares a type with it, it stops falling through and would shadow them all.
+  // It runs after the groups it shares no type with instead - order between
+  // disjoint groups is unobservable - and before the first one it does share
+  // a type with. It still falls, into that group or the union's own failure,
+  // so a value it refuses is reported against the whole union.
+  for (let i = plan.length; i--; ) {
+    const group = plan[i]!;
+    if (group.a[1] || group.a[0]!.n.type !== refTag || group.m === ~0) continue;
+    group.f |= 8 | 2;
+    let to = i;
+    while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
+    plan.splice(to, 0, ...plan.splice(i, 1));
+  }
+
   const later: (UnionOverlapSummary | undefined)[] = [];
   let laterMask = 0;
   let laterBroad = 0;
@@ -992,10 +895,13 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         }
       }
     }
+    // The narrow's type, not the member's: a recursive member the dispatch
+    // resolved to its definition's type is no longer a boundary to it, and
+    // anything later that could take its value already overlaps above.
     if (
       overlaps ||
       (laterMask &&
-        (tagFlags[head.s.type]! & (1 | 256 | 512 | 4096 | 32768)) &&
+        (tagFlags[head.n.type]! & (1 | 256 | 512 | 4096 | 32768)) &&
         (head.s.to !== U || head.s.parser !== U))
     ) {
       group.f |= 8 | 2;
@@ -1042,22 +948,225 @@ const unionEmit = (
   // returned unawaited, saving the async wrapper.
   const awaitAsync = plan.some((group) => group.f & 2);
   const outputBySource: (Internal | undefined)[] = [];
-  let salvaged = "";
-  let rethrow = "";
-  let expected = "";
-  const ctx: UnionCtx = {
-    f: (caught) => {
-      const pathArg = B_pathArg(input);
+  const salvaged: SuryErrorRecord[] = [];
+  let rethrowEmbed = "";
+  const g = input.g;
+  const wanted = !(g.o & 4096);
+  // Where the union's own failure goes. A dispatch that may end up inside an
+  // async function can't jump out of it, so it raises.
+  const outer = g.o & 1 && awaitAsync ? U : g.x;
+  // The member failures the union's failure lists, named on first use.
+  let failures = "";
+  const failuresVar = (): string => (failures ||= B_varWithoutAllocation(g));
+  // "none of these matched", built the way every other failure is: the union's
+  // own schema is the site's, the value and whatever the members had to say
+  // about it are the failure's.
+  let aggregate = "";
+  const unionFailure = (): string => {
+    if (!aggregate) {
       // Built on the first failure, as every other site is (builder.ts).
       let site: object;
-      const failSite = () => (site ??= errorSite(expectedSchema, unknown));
-      return pathArg
-        ? `${B_embed(input, (v: unknown, p: Path, ...e: SuryErrorRecord[]) => unionFail(failSite(), p, v, ...e))}(${input.v()}${pathArg}${salvaged}${caught})`
-        : `${B_embed(input, (v: unknown, ...e: SuryErrorRecord[]) => unionFail(failSite(), B_pathSnap(input)!, v, ...e))}(${input.v()}${salvaged}${caught})`;
-    },
-    r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
-    s: () => expected || (expected = B_embed(input, expectedSchema)),
+      const snap = B_pathSnap(input);
+      // What the cases found: the records a compile salvaged, then the list the
+      // cases recorded into, newest first, each node led by the one before it
+      // (`keep`) - `[, record]`, or `[, builder, value, path?]` built only now
+      // that it is read.
+      aggregate = B_embedPure(input, (v: unknown, found?: unknown[], path?: Path) => {
+        const errors: unknown[] = [];
+        for (let n = found; n; n = n[0] as unknown[] | undefined) {
+          errors.unshift(n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3]));
+        }
+        errors.unshift(...salvaged);
+        return errorAt(
+          (site ??= errorSite(expectedSchema, unknown)),
+          path ?? snap!,
+          v,
+          (errors.length ? errors : U) as SuryErrorRecord[] | undefined,
+        );
+      });
+    }
+    const path = B_pathArg(input);
+    return `${aggregate}(${input.v()}${failures ? `,${failures}` : path ? ",void 0" : ""}${path})`;
   };
+  // The union's failure, where the chain ends.
+  const final = (): string => {
+    const jump = outer?.(unionFailure);
+    if (jump !== U) return g.j++, jump;
+    B_markThrow(input);
+    return `throw ${unionFailure()}`;
+  };
+  // Leaving a labelled block, with what the case found recorded on the way.
+  // The label is named on first use, so a block nothing leaves carries none.
+  const jumpOut = (label: { l?: string }) => (error?: Failure): string =>
+    `${wanted && error ? `{${keep(error(true))};` : ""}break ${(label.l ||= `l${++g.v}`)}${
+      wanted && error ? "}" : ""
+    }`;
+  // The chain's end, which a failure reaches once a case has recorded what it
+  // found: from then on a failure joins the others under the union's.
+  const end: { l?: string } = {};
+  const toEnd = jumpOut(end);
+  // The exit every case inherits. Nothing recorded yet: a failure is the one
+  // the case found, precisely.
+  const fail = (error?: Failure): string | undefined =>
+    recorded ? toEnd(error) : error ? outer?.(error) : final();
+  const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
+  // What a case that raised does with the error it caught: records it where
+  // the union's failure will read it.
+  const keep = (error: string): string =>
+    wanted ? `${failuresVar()}=[${failures},${error}]` : error;
+  // Emits a linear fallback chain: every alternative that fails hands the value to
+  // the next one, and the last failure is the union's. A failed check hands over by
+  // breaking out of its case's block (`unionEmit`'s `enter`); a `try` is left
+  // only for a case whose code can still raise - a refiner's own throw, an opaque
+  // embed (a recursive schema's operation, `S.json`'s walk), an awaited async
+  // case. An alternative whose failure is provably terminal hands over nothing
+  // and fails with its own precise error instead.
+  const emitChain = (cases: UnionCase[], top?: boolean): string => {
+    // The end of a group's chain is the group failing, which is whatever its
+    // members' exit is; only the union's own chain ends in the union's failure.
+    const ending = top ? final : () => g.x!()!;
+    if (cases.length === 1 && !cases[0]!.l && !(top && end.l)) {
+      const c = cases[0]!;
+      if (c.b === "" && c.c === "") return "";
+      if (c.b === "") {
+        return `if(!(${c.c}))${B_block(ending())}`;
+      }
+      if (c.c === "") return c.b;
+      return `if(${c.c}){${c.b}}else${B_block(ending())}`;
+    }
+
+    let code = "";
+    let caught = false;
+    let exhaustive = false;
+    // Whether the arm just emitted ends in a `try` or a label that hands control
+    // onward rather than a `break`. Set by `attempt`, not read off the arm's first
+    // character: a body that itself opens with `try{JSON.parse` is a closed arm.
+    let open = false;
+
+    // The case's code with its condition taken as given - the shared shape between
+    // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` or
+    // labelled arm hands control to whatever follows it; every other form breaks,
+    // which ends its block and needs no trailing `;`.
+    const attempt = (c: UnionCase, idx: number): string => {
+      open = false;
+      if (c.b === "") return "break";
+      let arm = `${c.b}break`;
+      // A `try` is needed when the case can raise and either a later alternative
+      // could still accept the value or an earlier one is already relying on the
+      // chain to carry its failure forward.
+      if ((c.f & 1) && ((c.f & 8) || caught)) {
+        caught = open = true;
+        // A terminal case - one only present because an *earlier* one needs the
+        // chain to carry its failure - records and lets control reach the chain's
+        // own fail, so the error keeps its "Expected A | B | C" framing. Every case
+        // after it is guarded by a condition the value has already been proven not
+        // to satisfy, so reaching them costs a few false tests.
+        //
+        // Unless one of them has no condition at all: that one would run, fail on a
+        // type it was never offered, and add a reason the value could never have
+        // matched - 4.7x on a 24-member union. Only then is the fail worth inlining
+        // here, because a second spread call site in a `catch` is not free: it cost
+        // 6x on the small instance-dispatch schemas when emitted unconditionally.
+        arm = `try{${arm}}catch(x){${keep(`${rethrow()}(x)`)}${
+          !(c.f & 8) && unconditional > idx ? `;${g.x!()!}` : ""
+        }}`;
+      }
+      if (c.l) {
+        open = true;
+        arm = `${c.l}:{${arm}}`;
+        // A terminal case left by a jump, the way the `try` above is left: the
+        // chain's own fail, where a later case would run with no condition.
+        if (!(c.f & 8) && unconditional > idx) arm += `${g.x!()!};`;
+      }
+      // A case that hands over what it found by a jump carries its failure
+      // forward just as one whose `try` does.
+      if (c.f & 8 && c.f & 4) caught = true;
+      return arm;
+    };
+
+    // The last case that runs whatever reaches it, so `attempt` can tell whether
+    // anything after a terminal case would actually execute.
+    let unconditional = -1;
+    for (let idx = 0; idx < cases.length; idx++) {
+      if (cases[idx]!.c === "") unconditional = idx;
+    }
+
+    // The condition of the case just emitted.
+    let last = "";
+
+    for (let idx = 0; idx < cases.length; idx++) {
+      const c = cases[idx]!;
+      // Members that narrow the same way - two variants of one tuple shape, two
+      // objects behind the same discriminant - share the test. Only the case
+      // *immediately* before qualifies: a case in between with a different
+      // condition could accept a value these two also accept, and pulling the
+      // later one back past it would change which member wins.
+      const shared = c.c !== "" && c.c === last;
+      // Behind a condition the previous case already accepted outright, this one
+      // can never run. Dropping it is what removes the unreachable second
+      // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
+      if (shared && !open) continue;
+
+      const arm = attempt(c, idx);
+      last = c.c;
+
+      if (shared) {
+        code = `${code.slice(0, -1)}${arm}}`;
+      } else if (c.c === "") {
+        // Nothing left to test: this alternative accepts every value that reaches
+        // it, so unless it can fail nothing after it is reachable.
+        code += arm;
+        if (!open) {
+          exhaustive = true;
+          break;
+        }
+      } else {
+        // `if(cond)break;` beats `if(cond){break}` by two characters, and a case
+        // that accepts without running anything is the commonest shape there is.
+        code += arm === "break" ? `if(${c.c})break;` : `if(${c.c}){${arm}}`;
+      }
+    }
+
+    // Read only now: an arm's inlined failure can be the first to reach the end.
+    const label = top ? (end.l || "") : "";
+    const tail = !exhaustive || label ? ending() : "";
+    return `for(;;){${label ? `${label}:{${code}}` : code}${tail[0] === "{" ? tail.slice(1, -1) : tail}}`;
+  };
+  // A case a later one may still accept leaves its own block on failure, so the
+  // next case runs - and so does any case once an earlier one has handed a
+  // failure on, which is what a `try` around it did: a planner that calls a
+  // case terminal is trusted only while nothing has fallen through yet. Set for
+  // the stretch that emits the case and put back by the function `enter`
+  // answers, which names the label if anything left by it. A terminal case
+  // before that keeps the exit it found.
+  const enter = (falls: number): (() => string | undefined) => {
+    const x = g.x, label: { l?: string } = {};
+    if (falls) g.x = jumpOut(label);
+    return () => ((g.x = x), label.l);
+  };
+  // A case that hands over by recording what it found makes every later
+  // failure on the same chain the union's, so it is known before the next case
+  // is emitted. A group's own chain puts it back unless the group hands over
+  // too: a member of a later group never ran after it. Nor does a case the
+  // chain drops (`emitChain`'s `shared && !open`): the same condition as
+  // the last case that runs, which accepted it without handing anything on.
+  let recorded = false;
+  const settle = (c: UnionCase, chain: UnionCase[]): UnionCase => {
+    let last: UnionCase | undefined;
+    for (let i = chain.length; !last && i--; ) if (!(chain[i]!.f & 16)) last = chain[i];
+    if (
+      last &&
+      c.c !== "" &&
+      c.c === last.c &&
+      (last.b === "" || !(last.l || (last.f & 1 && (last.f & 8 || recorded))))
+    ) {
+      c.f |= 16;
+      recorded = c.s;
+    } else if (c.f & 8 && c.f & (1 | 4)) recorded = true;
+    chain.push(c);
+    return c;
+  };
+  g.x = fail;
   // Trusting a case's discriminant requires it to actually discriminate:
   // unique among every member's (two ReScript variants can share their first
   // literal field, e.g. `TAG: "Connective"`, and only differ on a later one),
@@ -1085,9 +1194,13 @@ const unionEmit = (
   const compile = (
     member: UnionMember,
     source: Val,
-    target: Val
+    target: Val,
+    falls: number,
+    // The group's exit already leaves to where this case's own block would.
+    inherit?: boolean
   ): UnionCase | undefined => {
-    const mark = input.g.t;
+    const mark = input.g.t, jumps = g.j, snap = recorded;
+    const leave = inherit ? () => U : enter(falls || +recorded);
     const caseInput = B_scope(source);
     caseInput.u = true;
     caseInput.t = source.t;
@@ -1098,7 +1211,20 @@ const unionEmit = (
     // from. Only when the source still is the group narrow: a typed source
     // passes through it unchanged, and an object group may have restored the
     // source's own variant (below) - both stay.
-    if (source.s === target.e) caseInput.s = member.n;
+    // From a trusted source, a member no other one shares a type with is
+    // proved by the group's narrow, so it parses from itself: a `decode` stays
+    // trusted below it and runs only its refinements. Not a member dispatched
+    // without a narrow, whose own checks are the dispatch, nor a literal, whose
+    // value a `decode` checks even standing alone.
+    const sole =
+      trustedSelf &&
+      !isLiteral(member.s) &&
+      plan.every((group) => group.a.every((m) => m === member || !(m.m & member.m)));
+    // A recursive member parses from what the union was handed, never from a
+    // narrow: its compiled definition is memoized per source schema, and a
+    // fresh narrow per case would compile it anew at every level, forever.
+    if (member.s.type === refTag && member.n.type !== refTag) caseInput.s = sole ? member.s : input.s;
+    else if (source.s === target.e) caseInput.s = sole && source !== input ? member.s : member.n;
     // Trusted source + a field discriminant to dispatch on: the case converts
     // from its own variant instead of re-validating from unknown - what makes
     // `decode` skip member validation the way a typed object does. Restricted
@@ -1122,8 +1248,9 @@ const unionEmit = (
     try {
       caseOut = parse(caseInput);
     } catch (exn) {
-      if (!self.perVariant) throw exn;
-      salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
+      leave();
+      if (!(self.flags & 64)) throw exn;
+      salvaged.push(getOrRethrow(exn));
       return U;
     } finally {
       input.g.o = options;
@@ -1137,13 +1264,14 @@ const unionEmit = (
     // when nothing deeper can fail, and without recording a "reason" for a
     // member the value was never plausibly an instance of.
     let body = B_merge(caseOut, cond);
+    const label = leave();
     const async = caseOut.f & 1;
     output.f |= async;
     if (caseOut.t) {
       output.t = true;
       const itemVar = target.v();
       if (async || caseOut.i !== itemVar) {
-        body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
+        body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i};`;
         // The one assignment into the operation's own parameter; `make*`
         // reads this to know the parameter is no longer the value it was given.
         if (itemVar === operationArgVar) input.g.r = true;
@@ -1170,7 +1298,10 @@ const unionEmit = (
       f:
         (body !== "" && input.g.t !== mark ? 1 : 0) |
         (async && awaitAsync ? 2 : 0) |
-        (member.f & 8),
+        (g.j !== jumps ? 4 : 0) |
+        falls,
+      l: label,
+      s: snap,
     };
   };
 
@@ -1178,16 +1309,27 @@ const unionEmit = (
   for (let i = 0; i < plan.length; i++) {
     const group = plan[i]!;
     if (group.a.length === 1 && group.f & 16) {
-      const c = compile(group.a[0]!, input, input);
+      const c = compile(group.a[0]!, input, input, (group.a[0]!.f | group.f) & 8);
       if (c !== U) {
-        c.f |= group.f & 8;
-        cases.push(c);
+        settle(c, cases);
         if (c.c === "" && c.b === "") break;
       }
       continue;
     }
 
-    const mark = input.g.t;
+    const mark = input.g.t, jumps = g.j, snap = recorded;
+    const labelled = group.f & 8 || +recorded;
+    const leave = enter(labelled);
+    const before: boolean = recorded;
+    // The narrow's own checks run ahead of every member, so they fail with
+    // what was recorded before the group.
+    const mergeNarrow = (val: Val): string => {
+      const members = recorded;
+      recorded = before;
+      const code = B_merge(val, cond);
+      recorded = members;
+      return code;
+    };
     const groupNarrow = group.a[0]!.n;
     const narrowInput = B_scope(input);
     narrowInput.io = false;
@@ -1211,30 +1353,39 @@ const unionEmit = (
     }
     const inner: UnionCase[] = [];
     for (let j = 0; j < group.a.length; j++) {
-      const c = compile(group.a[j]!, narrow, narrowInput);
+      const c = compile(
+        group.a[j]!,
+        narrow,
+        narrowInput,
+        group.a[j]!.f & 8,
+        !!labelled && group.a.length === 1,
+      );
       if (c !== U) {
-        inner.push(c);
+        settle(c, inner);
         if (c.c === "" && c.b === "") break;
       }
     }
-    if (!inner.length) continue;
+    if (!inner.length) {
+      leave();
+      continue;
+    }
 
     const cond: HoistCond = { c: "", h: [] };
     let body: string;
-    let grouped = false;
+    let only: UnionCase | undefined;
     if (inner.every((c) => c.b === "")) {
       if (!inner.some((c) => c.c === "")) {
         const fused = unionOr(inner);
         // A refine, not a push onto `narrow`: when the source already has the
         // group's tag the narrow is the bare scope, and a check on a val with
         // no `prev` has nothing to read its input from.
-        body = B_merge(B_refine(narrow, narrow.s, [{ c: () => fused, f: failInvalidType }]), cond);
+        body = mergeNarrow(B_refine(narrow, narrow.s, [{ c: () => fused, f: failInvalidType }]));
       } else {
-        body = B_merge(narrow, cond);
+        body = mergeNarrow(narrow);
       }
     } else {
-      const narrowCode = B_merge(narrow, cond);
-      const only = inner.length === 1 ? inner[0]! : U;
+      const narrowCode = mergeNarrow(narrow);
+      only = inner.length === 1 ? inner[0]! : U;
       if (only !== U && narrowCode === "") {
         if (only.c !== "") {
           cond.c = cond.c ? `${cond.c}&&${only.c}` : only.c;
@@ -1248,19 +1399,25 @@ const unionEmit = (
           const fused = unionOr(inner);
           cond.c = cond.c ? `${cond.c}&&${fused}` : fused;
         }
-        body = narrowCode + unionEmitChain(inner, ctx);
-        grouped = inner.length > 1;
+        body = narrowCode + emitChain(inner);
       }
     }
-    cases.push({
+    const label = leave();
+    // Whatever the members recorded reaches the next group only through this
+    // group handing over.
+    recorded = before || (recorded && !!(group.f & 8));
+    settle({
       c: cond.c,
       b: body,
       f:
         (body !== "" && input.g.t !== mark ? 1 : 0) |
         (inner.some((c) => c.f & 2) ? 2 : 0) |
-        (group.f & 8) |
-        (grouped ? 4 : 0),
-    });
+        (g.j !== jumps ? 4 : 0) |
+        (group.f & 8),
+      // A lone member that took the group's place brings its own label.
+      l: label || (only && body === only.b ? only.l : U),
+      s: snap,
+    }, cases);
     if (body === "" && cond.c === "") break;
   }
 
@@ -1280,7 +1437,8 @@ const unionEmit = (
       B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], expectedSchema)
     );
   } else if (!noop) {
-    const dispatch = unionEmitChain(cases, ctx);
+    let dispatch = emitChain(cases, true);
+    if (failures) dispatch = `let ${failures};${dispatch}`;
     if (asyncDispatch) {
       const itemVar = input.v();
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
@@ -1360,12 +1518,12 @@ export const unionDecoder: Builder = (input: Val) => {
   // re-validating them is what made `decode` compile the same code as
   // `parse`. The widening below still runs: dispatch needs the runtime
   // narrows, since the value's variant is only known at runtime.
-  // `self.tr` is the same guarantee arriving second-hand: `unionRewrite`
+  // Bit 128 on `self` is the same guarantee arriving second-hand: `unionRewrite`
   // already performed this widening on a union-typed source, so the val no
   // longer names it. Without that, a union serialized as an array item or
   // object field - which reaches the target through `unionEncoder` - would
   // re-validate every field inside the container's loop.
-  const trustedSelf = input.s === self || self.tr;
+  const trustedSelf = input.s === self || !!(self.flags & 128);
   if (
     (initialTagFlag & 256) ||
     (input.s.encoder === U && (initialTagFlag & 512))
@@ -1446,14 +1604,22 @@ export const unionDecoder: Builder = (input: Val) => {
     });
   }
 
-  return unionEmit(
-    input,
-    self,
-    expected,
-    unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan)),
-    toPerCase,
-    trustedSelf
-  );
+  // The union swaps in its own exit while it emits, and a compile that throws
+  // midway must not leave it behind: json.ts catches a failed parse and parses
+  // again on the same operation.
+  const exit = input.g.x;
+  try {
+    return unionEmit(
+      input,
+      self,
+      expected,
+      unionPlan(unionAnalyze(unionMask(source, 2, nan), flags, sourceTag, variants, source, nan, input.g.d)),
+      toPerCase,
+      trustedSelf
+    );
+  } finally {
+    input.g.x = exit;
+  }
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
@@ -1496,11 +1662,10 @@ export const unionRewrite = (
   mut.anyOf = anyOf;
   mut.has = has;
   mut.encoder = unionEncoder;
-  mut.perVariant = input.s.perVariant;
   // The variants above were mapped from `input.s`'s, so the value is already
   // known to satisfy one of them - a fact the `unknown` below throws away. See
-  // `tr` in base.ts: this is the only place allowed to claim it.
-  mut.tr = true;
+  // bit 128 in base.ts: this is the only place allowed to claim it.
+  mut.flags = (input.s.flags & 64) | 128;
   return B_refine(input, unknown, U, mut);
 };
 
@@ -1532,7 +1697,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
   B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
   const variants = unionDropNullish(input.s.anyOf!, target, true);
-  if (target.perVariant && target.anyOf!.length === variants.length) {
+  if (target.flags & 64 && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever
     // the caller appended, so it replaces the variant instead of chaining onto
@@ -1573,7 +1738,7 @@ const unionResolve = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
-  if (source.perVariant) {
+  if (source.flags & 64) {
     return variants.map(() => target);
   }
   if (unionIsTransparent(target)) {

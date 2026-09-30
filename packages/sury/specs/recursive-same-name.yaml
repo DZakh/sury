@@ -26,18 +26,16 @@ operations:
         error: "Failed at x.a: Expected string, received undefined"
       nested-swapped:
         input: '{ x: { a: "s", kid: { b: 2 } }, y: { b: 1 } }'
-        error: |-
-          Failed at x.kid: Expected Node | undefined, received { b: 2; }
-          - At kid.a: Expected string, received undefined
+        error: "Failed at x.kid.a: Expected string, received undefined"
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}return {x:v0,y:v2}}catch(v4){e[2](v4)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}return i}catch(v2){e[2](v2)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
-        output: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
+        output: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
   encode:
-    expression: i=>{try{let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}return {x:v0,y:v2}}catch(v4){e[2](v4)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}return i}catch(v2){e[2](v2)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
-        output: '{ x: { a: "s", kid: { a: "t", kid: undefined } }, y: { b: 1, kid: { b: 2, kid: undefined } } }'
+        output: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'

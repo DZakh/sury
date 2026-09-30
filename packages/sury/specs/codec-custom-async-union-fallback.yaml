@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{return Promise.resolve((async(i)=>{for(;;){let r;if(typeof i==="string"){try{let v0;try{v0=e[0](i).catch(e[1])}catch(x){e[1](x)}i=await v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});break}catch(x){(r||(r=[])).push(e[3](x))}break}e[4](i,...(r||[]))};return i})(i)).catch(e[5])}catch(v1){return e[6](v1)}}
+    expression: i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){if(typeof i==="string"){try{let v0;try{v0=e[0](i).catch(x=>{e[1](x)})}catch(x){e[1](x)}i=await v0.then(v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0});break}catch(x){v1=[v1,e[3](x)]}break}throw e[4](i,v1)};return i})(i)).catch(e[5])}catch(v2){return e[6](v2)}}
     examples:
       custom-arm:
         input: '"abc"'
@@ -30,7 +30,7 @@ operations:
         error: Expected string, received 5
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="string")break;e[3](i)}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0;break}if(typeof i==="string")break;throw e[3](i)}return i}catch(v1){e[4](v1)}}
     examples:
       custom-arm:
         input: "3"

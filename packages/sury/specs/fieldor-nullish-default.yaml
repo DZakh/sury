@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullish(S.number), 2) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ f: number | null | undefined; }"
+  instantiations: 731
+jsonSchema:
+  input: "Failed at f: Expected JSON, received number | undefined | null"
+  output: '{ type: "object", properties: { f: { anyOf: [{ type: "number" }, { type: "null" }] } } }'
+  fromOutputType: "{ f?: number | null | undefined; }"
+  openapi-3.0:
+    output: '{ type: "object", properties: { f: { type: "number", nullable: true } } }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: number | undefined | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number | undefined | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.f;if(v0===void 0){v0=2}else{(typeof v0==="number"&&v0==v0||v0===void 0||v0===null)||e[0](v0);}return {f:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: 2 }"
+      null-stays-null:
+        input: "{ f: null }"
+        output: "{ f: null }"
+      number:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=2}else{(typeof v0==="number"&&v0==v0||v0===void 0||v0===null)||e[0](v0);}return {f:v0}}catch(v1){e[1](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: 2 }"
+  encode:
+    expression: i=>{return {f:i.f}}
+    examples:
+      # FIXME: known bug fieldor-absent-item-output (scripts/knownBugs.ts). The default always
+      # replaces an absent `f`, so `{}` is not an Output value and `isOutput` should
+      # reject it. Encode trusts its input either way, and this one decodes back to
+      # `{ f: 2 }`.
+      absent-field:
+        input: "{}"
+        output: "{ f: undefined }"
+      number:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"

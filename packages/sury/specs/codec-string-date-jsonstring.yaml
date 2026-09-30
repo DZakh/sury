@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.date).with(S.to, S.jsonString)
+  input: string
+  output: string
+  instantiations: 4566
+jsonSchema:
+  input: '{ type: "string", format: "date-time" }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[1](i);let v1;try{v1=v0.toISOString()}catch(_){e[0](v0)}return "\""+v1+"\""}catch(v2){e[3](v2)}}
+    examples:
+      the-chain-continues-past-the-date:
+        input: '"2024-06-15T12:30:45.123Z"'
+        output: '"\"2024-06-15T12:30:45.123Z\""'
+      not-a-date:
+        input: '"nope"'
+        error: Expected Date, received "nope"
+  decode:
+    expression: i=>{try{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[1](i);let v1;try{v1=v0.toISOString()}catch(_){e[0](v0)}return "\""+v1+"\""}catch(v2){e[2](v2)}}
+    examples:
+      the-chain-continues-past-the-date:
+        input: '"2024-06-15T12:30:45.123Z"'
+        output: '"\"2024-06-15T12:30:45.123Z\""'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[3](v0);let v1=new Date(v0);!Number.isNaN(v1.getTime())||e[2](v0);let v2;try{v2=v1.toISOString()}catch(_){e[1](v1)}return v2}catch(v3){e[4](v3)}}
+    examples:
+      back-to-the-date-text:
+        input: '"\"2024-06-15T12:30:45.123Z\""'
+        output: '"2024-06-15T12:30:45.123Z"'

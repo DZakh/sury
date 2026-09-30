@@ -87,12 +87,13 @@ type StringSchema = S.Schema<string, string> & {
   format: S.StringFormat;
 };
 
-// `content` is internal (it marks a bytes carrier), so it is the one field this
-// script has to reach past the public type for. Named rather than an `as any`
-// on the whole schema: everything else here goes through the public API, so a
-// rename of it is a compile error instead of a runtime surprise.
-const contentOf = (schema: StringSchema): unknown =>
-  (schema as unknown as { content?: unknown }).content;
+// The payload kind bits are internal (they mark a bytes carrier), so they are
+// the one field this script has to reach past the public type for. Named
+// rather than an `as any` on the whole schema: everything else here goes
+// through the public API, so a rename of it is a compile error instead of a
+// runtime surprise.
+const contentOf = (schema: StringSchema): number =>
+  ((schema as unknown as { flags?: number }).flags ?? 0) & 3;
 
 const stringFormatSchemas = Object.entries(S as Record<string, unknown>).filter(
   (entry): entry is [string, StringSchema] => {

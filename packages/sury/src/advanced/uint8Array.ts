@@ -8,7 +8,6 @@ import {
   initSchema,
   instanceTag,
   type Internal,
-  setContent,
   tagFlags,
   U,
   type Val
@@ -20,6 +19,7 @@ import {
   B_readOnce,
   B_refine,
   B_rejectUnsettled,
+  B_reverseReading,
   B_unsupportedDecode
 } from "../builder";
 import {
@@ -46,7 +46,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
 
     if ((sourceTagFlag & 2)) {
       const value = input.v();
-      const toBytes = source.content?.bc?.toBytes;
+      const toBytes = (source.bytesCodec ?? source.storedAs?.bytesCodec)?.toBytes;
       return B_next(
         input,
         toBytes
@@ -73,7 +73,9 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
   },
   (s) => {
     s.class = Uint8Array;
-    setContent(s, base64Content);
+    s.flags = 1;
+    s.reverseReading = B_reverseReading;
+    s.storedAs = base64Content;
 
     s.encoder = (input, target) => {
       B_rejectUnsettled(input, target);
@@ -86,7 +88,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
       // A value position (or base64 itself) stores the bytes as base64. The
       // test comes before the string one because a JSON document is a value
       // position without being string-tagged.
-      if (target.content !== U && (target.content.bc || !target.opens)) {
+      if (target.flags & 1 || (target.flags & 2 && !(target.flags & 4))) {
         const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
         const code = `${B_embed(input, fromBytes)}(${input.v()})`;
         // A var when the next stage still runs (jsonString's escape-free splice
@@ -108,7 +110,7 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(
             B_computed(
               input,
               `${B_embed(input, new TextDecoder())}.decode(${input.v()})`,
-              target.content !== U ? openedText(target) : string,
+              target.flags & 3 ? openedText(target) : string,
             )
           )
         : input;
