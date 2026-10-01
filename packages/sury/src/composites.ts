@@ -207,9 +207,11 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val.i);
-      // The join rebinds `val.i` to what the promise resolved to, and the
-      // field vals the promise was built from describe none of it.
-      val.d = U;
+      // The join rebinds `val.i` to what the promise resolved to. A sync
+      // field's var still holds its value in there; an async one's is the
+      // promise, so it goes and is read again off the resolved value.
+      const fields = val.d;
+      for (const k in fields) if (fields[k]!.f & 1) delete fields[k];
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
