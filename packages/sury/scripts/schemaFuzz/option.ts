@@ -1,7 +1,5 @@
-// The option family: the ReScript `S.option`, `S.nullAsOption` and
-// `S.nullableAsOption` over the drawn schema, and over a coder from it to
-// `S.optional(S.json)` - a coder whose output already holds `undefined`,
-// which no other draw makes (#469).
+// The option family. The coder each schema also goes under is one whose output
+// already holds `undefined`, which no other draw makes.
 //
 //   none   the factory's empty value parses to None, unless the item's own Input
 //          side takes it: then the item answers.

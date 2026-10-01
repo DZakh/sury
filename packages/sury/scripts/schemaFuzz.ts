@@ -40,7 +40,7 @@
 //
 // What is known not to hold is `scripts/knownBugs.ts`, shared with `fuzz:union`.
 // A finding it does not cover fails the run. The default invocation is the gate
-// - forty seeds of 1500 schemas, both families - and only the gate also fails
+// - forty seeds of 1500 schemas, every family - and only the gate also fails
 // on an entry nothing matched, since a narrower search reaching less says
 // nothing about a bug. Any of `--seed`, `--seeds`, `--cases` or `--only` makes
 // the run a search rather than the gate. A finding becomes a spec.

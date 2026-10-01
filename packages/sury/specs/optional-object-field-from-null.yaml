@@ -20,7 +20,7 @@ operations:
   parse:
     expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&typeof i.a==="number"&&i.a==i.a){let v1=i.a;v1===null||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}i={a:v0};break}if(i===void 0)break;throw e[3](i)}return i}catch(v2){e[4](v2)}}
     examples:
-      # FIXME: known bug union-object-field-from-null - the union dispatches on the field's Output type, so a valid Input object is rejected; it should read {"a":0}
+      # FIXME: known bug union-object-field-from-null - it should read {"a":0}
       object:
         input: "{ a: null }"
         error: "Expected { a: null; } | undefined, received { a: null; }"

@@ -74,7 +74,7 @@ export const KNOWN_BUGS: Known[] = [
     id: "option-arm-takes-undefined",
     kind: "limitation",
     summary:
-      "An arm that takes `undefined` itself - `any`, `unknown`, `env`, a recursive `void` - answers it before " +
+      "An arm that takes `undefined` itself - `any`, `unknown`, `env`, `void` - answers it before " +
       "the option's own `undefined` arm, so `S.nullAsOption(S.option(S.unknown))` reads `undefined` as the " +
       "inner value rather than Some(None). The first member that accepts a value wins, which is the documented " +
       "rule, and the type cannot tell the two apart either.",
