@@ -35,7 +35,7 @@ export const parseOptions = (parameter: string | undefined): Options => {
   return options;
 };
 
-// The well-known type files `sury/wkt` ships, generated from the same protos,
+// The well-known type files `sury/protobuf/wkt` ships, generated from the same protos,
 // which a generated file imports rather than expecting beside it.
 export const wktFiles = new Set([
   "google/protobuf/any.proto",
@@ -51,7 +51,7 @@ export const wktFiles = new Set([
 ]);
 
 export const wktImport = (file: File, generating: Set<string>): string | undefined =>
-  wktFiles.has(file.proto.name) && !generating.has(file.proto.name) ? "sury/wkt" : undefined;
+  wktFiles.has(file.proto.name) && !generating.has(file.proto.name) ? "sury/protobuf/wkt" : undefined;
 
 export const outputPath = (file: File): string => `${file.name}_pb`;
 
@@ -83,15 +83,23 @@ export const wrapperScalar = (field: Field): Scalar | undefined =>
     ? wrappers[field.element.message.typeName]
     : undefined;
 
-// A Timestamp or Duration keeps protobuf-es's `{ seconds, nanos }` shape, and is
-// declared as the well-known type it is so `S.toProtoOrThrow` imports it
-// rather than declaring a message of its own. The well-known type files declare
-// the message itself.
-export const timeType = (element: Element): string | undefined =>
-  element.kind === "message" &&
-  (element.message.typeName === "google.protobuf.Timestamp" || element.message.typeName === "google.protobuf.Duration")
-    ? element.message.typeName
-    : undefined;
+// The well-known types `S.protobufField` takes by name. A field declares one of
+// them, rather than `message`, so `S.toProtoOrThrow` imports it instead of
+// declaring a copy; the value keeps protobuf-es's shape, which Sury takes as the
+// message written out. Only one imported from `sury/protobuf/wkt` does: inside
+// its own file a message is still being defined.
+const declared = new Set([
+  "google.protobuf.Timestamp",
+  "google.protobuf.Duration",
+  "google.protobuf.Value",
+  "google.protobuf.ListValue",
+  "google.protobuf.FieldMask",
+  "google.protobuf.Empty",
+  ...Object.keys(wrappers),
+]);
+
+export const wellKnownType = (element: Element, imported: boolean): string | undefined =>
+  imported && element.kind === "message" && declared.has(element.message.typeName) ? element.message.typeName : undefined;
 
 // ...and holds a Struct as a JSON object anywhere but inside Value itself.
 export const isStruct = (field: Field, element: Element): boolean =>

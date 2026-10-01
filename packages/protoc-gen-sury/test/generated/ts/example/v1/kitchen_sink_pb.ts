@@ -4,7 +4,7 @@
 
 import * as S from "sury";
 import { type Address, AddressSchema, Currency, CurrencySchema } from "../common/address_pb";
-import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, TimestampSchema, DurationSchema, ValueSchema } from "sury/wkt";
+import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, TimestampSchema, DurationSchema, ValueSchema } from "sury/protobuf/wkt";
 
 const $number = S.union([S.number, S.schema(NaN)]);
 
@@ -358,7 +358,7 @@ export const UserSchema = S.meta(/* @__PURE__ */ S.schemaOf<User>()({
     S.schema({ case: "email", value: S.protobufField(S.string, { number: 8, type: "string" }) }),
     S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 9, type: "int64" }) }),
     S.schema({ case: "mailbox", value: S.protobufField(User_MailboxSchema, { number: 10, type: "message" }) }),
-    S.schema({ case: "boxedInOneof", value: S.protobufField(Int32ValueSchema, { number: 11, type: "message" }) }),
+    S.schema({ case: "boxedInOneof", value: S.protobufField(Int32ValueSchema, { number: 11, type: "google.protobuf.Int32Value" }) }),
     S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
   unpacked: S.protobufField(S.array(S.int32), { number: 12, type: "int32", packed: false }),
@@ -451,8 +451,8 @@ export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
   meta: S.protobufField(S.optional(S.record(S.json)), { number: 5, type: "google.protobuf.Struct" }),
   metas: S.protobufField(S.array(S.record(S.json)), { number: 6, type: "google.protobuf.Struct" }),
   byName: S.protobufField(S.record(S.record(S.json)), { number: 7, type: "google.protobuf.Struct", key: "string" }),
-  value: S.protobufField(S.optional(ValueSchema), { number: 8, type: "message" }),
-  boxedList: S.protobufField(S.array(Int32ValueSchema), { number: 9, type: "message" }),
+  value: S.protobufField(S.optional(ValueSchema), { number: 8, type: "google.protobuf.Value" }),
+  boxedList: S.protobufField(S.array(Int32ValueSchema), { number: 9, type: "google.protobuf.Int32Value" }),
   log: S.protobufField(S.array(TimestampSchema), { number: 10, type: "google.protobuf.Timestamp" }),
   timeouts: S.protobufField(S.record(DurationSchema), { number: 11, type: "google.protobuf.Duration", key: "string" }),
   seen: S.protobufField(S.optional(TimestampSchema), { number: 12, type: "google.protobuf.Timestamp" }),

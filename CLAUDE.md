@@ -73,7 +73,7 @@ base → builder → primitives → parse → union → composites → factory
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
 - The protobuf well-known types are the two exceptions, both written by
-  protoc-gen-sury and never by hand: `src/wkt/` (bundled as `sury/wkt`, a
+  protoc-gen-sury and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
   second entry that imports only `"sury"`) and `src/SuryProtobuf.res`. The
   latter depends on `S`; `S` may never name it, which is a dependency cycle,
   and folding it into `S.res` would build every well-known type at startup
@@ -194,7 +194,7 @@ relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
 
 Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
 regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
-order: the committed goldens (the corpus, `src/wkt`, `SuryProtobuf.res`), that
+order: the committed goldens (the corpus, `src/protobuf/wkt`, `SuryProtobuf.res`), that
 the TypeScript and ReScript compile, that every type equals protoc-gen-es's
 once the differences `docs/js-usage.md` lists are normalized, that values
 round-trip through both libraries in both directions byte for byte from both

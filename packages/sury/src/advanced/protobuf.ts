@@ -1630,12 +1630,15 @@ const secondsNanos: Record<string, StoredField> = {
 };
 
 // A well-known type as the message it is on the wire, one per type and value
-// schema. `{ seconds, nanos }` and Empty compile as the message they spell; a
+// schema. A message written out - `{ seconds, nanos }`, Empty, or the shape
+// protobuf-es holds any of them in - compiles as the message it spells; a
 // wrapper and a FieldMask as the one field they hold; the rest take a codec,
 // whose raw side is the value's schema without the checks the caller put on
 // it, which run when the value is parsed into that schema after.
 const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Message | undefined => {
-  if (shape.type === objectTag && typeof shape.additionalItems !== objectTag) return compileMessage(shape, ctx, type);
+  if ((shape.type === objectTag && typeof shape.additionalItems !== objectTag) || (shape.type === refTag && !(shape.flags & 16))) {
+    return compileMessage(shape, ctx, type);
+  }
   const memo = type + shape.seq;
   let msg = ctx.messages.get(memo);
   if (msg !== U) return msg;

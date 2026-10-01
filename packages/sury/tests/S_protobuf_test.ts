@@ -861,14 +861,25 @@ test("protobufField refuses a value a well-known type doesn't take", (t) => {
   );
   S.array(S.int32).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" });
   t.expect(() => S.optional(secondsNanos).with(S.protobufField, { number: 1, type: "google.protobuf.StringValue" })).toThrow(
-    "[Sury] S.protobufField requires an S.optional string value for google.protobuf.StringValue",
+    "[Sury] S.protobufField requires an S.optional string value, or its message { value }, for google.protobuf.StringValue",
   );
   t.expect(() => S.record(S.string).with(S.protobufField, { number: 1, type: "google.protobuf.Struct" })).toThrow(
-    "[Sury] S.protobufField requires S.record(S.json) for google.protobuf.Struct",
+    "[Sury] S.protobufField requires S.record(S.json), or its message { fields }, for google.protobuf.Struct",
   );
   t.expect(() => S.schema({ a: S.string }).with(S.protobufField, { number: 1, type: "google.protobuf.Empty" })).toThrow(
     "[Sury] S.protobufField requires S.schema({}) for google.protobuf.Empty",
   );
+  // Written out, the message has to be the type's own: its one field, by name
+  // and number.
+  t.expect(() =>
+    S.schema({ value: S.string.with(S.protobufField, 2) }).with(S.protobufField, { number: 1, type: "google.protobuf.StringValue" }),
+  ).toThrow("[Sury] S.protobufField requires an S.optional string value, or its message { value }, for google.protobuf.StringValue");
+  t.expect(() =>
+    S.schema({ paths: S.array(S.string).with(S.protobufField, 1), extra: S.string.with(S.protobufField, 2) }).with(S.protobufField, {
+      number: 1,
+      type: "google.protobuf.FieldMask",
+    }),
+  ).toThrow("[Sury] S.protobufField requires S.array(S.string), or its message { paths }, for google.protobuf.FieldMask");
   t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" as never })).toThrow(
     "[Sury] S.protobufField requires a protobuf type",
   );
@@ -912,4 +923,42 @@ message Event {
 }
 `,
   );
+});
+
+// What protoc-gen-sury writes for a well-known type it keeps in protobuf-es's
+// shape: the message from sury/protobuf/wkt, declared by its name.
+test("A well-known type written out is the message Google declares", async (t) => {
+  const wkt = await import("../src/protobuf/wkt/index");
+  const Holder = S.schema({
+    value: S.protobufField(S.optional(wkt.ValueSchema), { number: 1, type: "google.protobuf.Value" }),
+    list: S.protobufField(S.optional(wkt.ListValueSchema), { number: 2, type: "google.protobuf.ListValue" }),
+    boxed: S.protobufField(S.array(wkt.Int32ValueSchema), { number: 3, type: "google.protobuf.Int32Value" }),
+  });
+  const AsJson = S.schema({
+    value: S.optional(S.json).with(S.protobufField, 1),
+    list: S.optional(S.array(S.json)).with(S.protobufField, { number: 2, type: "google.protobuf.ListValue" }),
+    boxed: S.array(S.int32).with(S.protobufField, { number: 3, type: "google.protobuf.Int32Value" }),
+  });
+  const bytes = S.encodeOrThrow(Holder, S.protobuf)({
+    value: { kind: { case: "numberValue", value: 1.5 } },
+    list: { values: [{ kind: { case: "stringValue", value: "a" } }] },
+    boxed: [{ value: 7 }],
+  });
+  t.expect(bytes).toEqual(S.encodeOrThrow(AsJson, S.protobuf)({ value: 1.5, list: ["a"], boxed: [7] }));
+  t.expect(S.decodeOrThrow(S.protobuf, Holder)(bytes)).toEqual({
+    value: { kind: { case: "numberValue", value: 1.5 } },
+    list: { values: [{ kind: { case: "stringValue", value: "a" } }] },
+    boxed: [{ value: 7 }],
+  });
+  t.expect(S.toProtoOrThrow(Holder, { name: "Holder" })).toBe(`syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+
+message Holder {
+  optional google.protobuf.Value value = 1;
+  optional google.protobuf.ListValue list = 2;
+  repeated google.protobuf.Int32Value boxed = 3;
+}
+`);
 });

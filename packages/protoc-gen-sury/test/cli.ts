@@ -1,7 +1,7 @@
 // The generator's gates, over the corpus in test/proto:
 //
 //   goldens     the generated files, committed under test/generated, and
-//               sury's own src/wkt
+//               sury's own src/protobuf/wkt
 //   compile     tsc over what TypeScript generation wrote, which is where
 //               S.schemaOf holds each schema equal to the type beside it
 //   types       every message and enum type equal to protoc-gen-es's for the
@@ -109,7 +109,7 @@ try {
   // ── goldens ──────────────────────────────────────────────────────────────
   holdGoldens(join(root, "test/generated/ts"), run("target=ts"), "ts golden");
   holdGoldens(join(root, "test/generated/res"), run("target=res"), "res golden");
-  holdGoldens(join(root, "../sury/src/wkt"), generateWkt(), "sury/wkt");
+  holdGoldens(join(root, "../sury/src/protobuf/wkt"), generateWkt(), "sury/protobuf/wkt");
   holdFile(join(root, "../sury/src/SuryProtobuf.res"), generateWktRes(), "SuryProtobuf");
 
   // ── protoc-gen-es, the reference ─────────────────────────────────────────
@@ -284,7 +284,7 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
   );
   shakes(
     "one well-known type",
-    await bundled('import { TimestampSchema } from "sury/wkt";\nconsole.log(TimestampSchema);\n'),
+    await bundled('import { TimestampSchema } from "sury/protobuf/wkt";\nconsole.log(TimestampSchema);\n'),
     ['"Timestamp"', "seconds"],
     ['"Duration"', '"Struct"', '"Value"', "typeUrl", "fileName", "responseStreaming", '"Int32Value"'],
   );

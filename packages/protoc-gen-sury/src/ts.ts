@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, timeType, outputPath, wrapperScalar, wktImport } from "./shared";
+import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, wellKnownType, outputPath, wrapperScalar, wktImport } from "./shared";
 
 const is64 = (scalar: Scalar): boolean => scalar.includes("64");
 
@@ -80,7 +80,7 @@ class Symbols {
   }
 
   jsonObject(): string {
-    return this.use("sury/wkt", "JsonObject", true);
+    return this.use("sury/protobuf/wkt", "JsonObject", true);
   }
 
   header(): string {
@@ -148,7 +148,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     element.kind === "scalar" ? element.scalar
     : element.kind === "enum" ? "enum"
     : isStruct(field, element) ? "google.protobuf.Struct"
-    : timeType(element) ?? "message";
+    : wellKnownType(element, wktImport(messageOf(element).file, generating) !== undefined) ?? "message";
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let opts = `number: ${field.number}, type: ${JSON.stringify(type)}`;

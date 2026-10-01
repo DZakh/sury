@@ -654,6 +654,10 @@ export type ProtobufType =
  * - `FieldMask`: `S.array(S.string)`, `Empty`: `S.schema({})`
  * - the wrappers: an `S.optional` of their scalar, since presence is what a wrapper is for
  *
+ * Each also takes its message written out, as `sury/protobuf/wkt` exports it:
+ * `{ kind }` for a Value, `{ value }` for a wrapper, `{ values }`, `{ fields }`
+ * and `{ paths }` for ListValue, Struct and FieldMask.
+ *
  * An `S.array` or `S.record` of any of these is a repeated or map field of it.
  */
 export type ProtobufWellKnownType =

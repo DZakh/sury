@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, isStruct, timeType, wktFiles, wrapperScalar } from "./shared";
+import { type Options, componentsOf, messageOf, isStruct, wellKnownType, wktFiles, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -73,15 +73,21 @@ export type ResContext = {
   s: string;
   // Where a well-known type another file declares lives.
   wkt: (desc: Message | Enum) => string;
+  // Whether that type is already defined, so a field can declare it by name.
+  imported: (desc: Message) => boolean;
 };
 
 // The well-known types ship in sury as `SuryProtobuf`: a module of its own, so
 // a ReScript program that never names one never loads them.
 export const wktModule = "SuryProtobuf";
 
+const fromWkt = (desc: Message | Enum, generating: Set<string>): boolean =>
+  wktFiles.has(desc.file.proto.name) && !generating.has(desc.file.proto.name);
+
 export const consumerContext = (generating: Set<string>): ResContext => ({
   s: "S.",
-  wkt: (desc) => (wktFiles.has(desc.file.proto.name) && !generating.has(desc.file.proto.name) ? `${wktModule}.${moduleOf(desc)}` : ""),
+  wkt: (desc) => (fromWkt(desc, generating) ? `${wktModule}.${moduleOf(desc)}` : ""),
+  imported: (desc) => fromWkt(desc, generating),
 });
 
 // The modules of a file: each enum and message a module holding its type `t`
@@ -134,11 +140,16 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return field.optional || field.element.kind === "message" ? `option<${element}>` : element;
   };
 
+  const wellKnownTypeOf = (element: Element): string => {
+    const type = element.kind === "message" ? wellKnownType(element, ctx.imported(element.message)) : undefined;
+    return type === undefined ? "#message" : `#"${type}"`;
+  };
+
   const wireType = (field: Field, element: Element): string =>
     element.kind === "scalar" ? `#${element.scalar}`
     : element.kind === "enum" ? "#enum"
     : isStruct(field, element) ? `#"google.protobuf.Struct"`
-    : `#${timeType(element) === undefined ? "message" : `"${timeType(element)}"`}`;
+    : wellKnownTypeOf(element);
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let args = `${field.number}, ~type_=${type}`;

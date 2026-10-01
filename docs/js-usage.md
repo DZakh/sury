@@ -1631,7 +1631,15 @@ const Job = S.schema({
 | `google.protobuf.Int32Value`, `StringValue` and the other wrappers | `S.optional(S.int32)`, `S.optional(S.string)`, ... |
 
 A `Date` holds milliseconds, so use the `{ seconds, nanos }` form when you need
-nanoseconds. Inside `S.array` or `S.record`, a wrapper's item doesn't need
+nanoseconds. Each type also takes its message written out, as
+`sury/protobuf/wkt` exports it:
+
+```ts
+import { ValueSchema } from "sury/protobuf/wkt";
+
+S.optional(ValueSchema).with(S.protobufField, { number: 1, type: "google.protobuf.Value" });
+// { kind: { case: "numberValue", value: 1.5 } } is sent as the JSON 1.5 would be
+``` Inside `S.array` or `S.record`, a wrapper's item doesn't need
 `S.optional`.
 
 ### Generating a `.proto`
@@ -1777,10 +1785,10 @@ The names and types are protoc-gen-es's: `User` and `UserSchema`, a nested
 type `User_Address`, a field's lowerCamelCase property, an enum as a const
 object with its prefix dropped (`PhoneType.MOBILE`), a wrapper field as its
 scalar, a Struct as a JSON object, a map with 32-bit keys still string-keyed.
-A well-known type is imported from `sury/wkt` (`TimestampSchema`,
-`Timestamp`), where the generated code expects it. A Timestamp or Duration
-field keeps protobuf-es's `{ seconds, nanos }` and is declared as the
-well-known type, so `S.toProtoOrThrow` prints it as an import.
+A well-known type is imported from `sury/protobuf/wkt` (`TimestampSchema`,
+`Timestamp`), where the generated code expects it. A field holding one keeps
+protobuf-es's shape and is declared as the well-known type, so
+`S.toProtoOrThrow` prints it as an import.
 
 The options:
 

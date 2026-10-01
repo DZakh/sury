@@ -20,9 +20,9 @@
         // Public JS/TS API + `$`-prefixed exports consumed by S.res (ReScript) at
         // runtime, not via TS imports - anchor them so they aren't flagged.
         "src/entry.ts",
-        // `sury/wkt`, the second public entry: protoc-gen-sury's output for the
+        // `sury/protobuf/wkt`, the second public entry: protoc-gen-sury's output for the
         // well-known types, bundled by scripts/pack.ts.
-        "src/wkt/index.ts",
+        "src/protobuf/wkt/index.ts",
         // Invoked through package.json scripts (build:entry / build).
         "scripts/pack.ts",
         "tests/**/*_test.ts"

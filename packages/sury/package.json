@@ -42,9 +42,9 @@
       "types": "./index.d.ts",
       "import": "./index.mjs"
     },
-    "./wkt": {
-      "types": "./src/wkt/index.ts",
-      "import": "./wkt.mjs"
+    "./protobuf/wkt": {
+      "types": "./src/protobuf/wkt/index.ts",
+      "import": "./protobuf/wkt/index.mjs"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {

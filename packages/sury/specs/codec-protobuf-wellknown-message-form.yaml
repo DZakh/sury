@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ boxed: S.array(S.schema({ value: S.int32.with(S.protobufField, 1) })).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" }), mask: S.optional(S.schema({ paths: S.array(S.string).with(S.protobufField, 1) })).with(S.protobufField, { number: 2, type: "google.protobuf.FieldMask" }), pick: S.union([S.schema({ case: "label", value: S.schema({ value: S.string.with(S.protobufField, 1) }).with(S.protobufField, { number: 3, type: "google.protobuf.StringValue" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
+  input: '{ boxed: { value: number; }[]; pick: { case: "label"; value: { value: string; }; } | { case?: undefined; }; mask?: { paths: string[]; } | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 18633
+jsonSchema:
+  input: "Failed at pick.case: Expected JSON, received undefined"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.boxed,b.boxed)&&(a.mask===void 0?b.mask===void 0:b.mask!==void 0&&e[1](a.mask.paths,b.mask.paths))&&(a.pick.case==="label"?b.pick.case==="label"&&a.pick.value.value===b.pick.value.value:b.pick.case===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { boxed: { value: int32; }[]; mask: { paths: string[]; } | undefined; pick: { case: \"label\"; value: { value: string; }; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[16](i);let v0=i.boxed,v5=i.mask,v9=i.pick;Array.isArray(v0)||e[2](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[1](v2,["boxed",v1]);let v3=v2.value;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[0](v3,["boxed",v1,"value"]);v4[v1]={value:v3}}for(;;){if(typeof v5==="object"&&v5&&!Array.isArray(v5)){let v6=v5.paths;Array.isArray(v6)||e[4](v6);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="string"||e[3](v8,["mask","paths",v7]);}v5={paths:v6};break}if(v5===void 0)break;throw e[5](v5)}if(typeof v9==="object"&&v9&&!Array.isArray(v9)){for(;;){if(v9.case==="label"){let v10=v9.value;typeof v10==="object"&&v10&&!Array.isArray(v10)||e[7](v10);let v11=v10.value;typeof v11==="string"||e[6](v11);v9={case:v9.case,value:{value:v11}};break}if(v9.case===void 0){v9={case:v9.case};break}throw e[8](v9)}}else{throw e[8](v9)}let v12;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[14].acquire();f=0;v=v4;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v[j++]);w.end(h)}};f=1;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[10](w,v);w.end(h)};v=v9;switch(v&&v.case){case "label":f=2;w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[11](w,v.value);w.end(h);break;};v12=w.finish()}catch(x){w&&(w.busy=false);x=e[12](x,e[13],f,j,a);e[15](x)}}return v12}catch(v13){e[17](v13)}}
+    examples:
+      every-position:
+        input: '{ boxed: [{ value: 1 }, { value: 0 }], mask: { paths: ["a.b", "c"] }, pick: { case: "label", value: { value: "" } } }'
+        output: new Uint8Array([10, 2, 8, 1, 10, 0, 18, 8, 10, 3, 97, 46, 98, 10, 1, 99, 26, 0])
+      unset:
+        input: "{ boxed: [], pick: { case: undefined } }"
+        output: new Uint8Array([])
+      wrong-wrapped-value:
+        input: '{ boxed: [{ value: "1" }], pick: { case: undefined } }'
+        error: 'Failed at boxed[0].value: Expected int32, received "1"'
+  decode:
+    expression: i=>{try{let v0=i.boxed;let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v[j++]);w.end(h)}};f=1;v=i.mask;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v=i.pick;switch(v&&v.case){case "label":f=2;w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v.value);w.end(h);break;};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[7](v4)}}
+    examples:
+      every-position:
+        input: '{ boxed: [{ value: 1 }, { value: 0 }], mask: { paths: ["a.b", "c"] }, pick: { case: "label", value: { value: "" } } }'
+        output: new Uint8Array([10, 2, 8, 1, 10, 0, 18, 8, 10, 3, 97, 46, 98, 10, 1, 99, 26, 0])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.boxed,v4=v0.mask;if(v4!==void 0){let v7=v4.paths;}return v0}catch(v10){e[3](v10)}}
+    examples:
+      every-position:
+        input: new Uint8Array([10, 2, 8, 1, 10, 0, 18, 8, 10, 3, 97, 46, 98, 10, 1, 99, 26, 0])
+        output: '{ boxed: [{ value: 1 }, { value: 0 }], pick: { case: "label", value: { value: "" } }, mask: { paths: ["a.b", "c"] } }'
