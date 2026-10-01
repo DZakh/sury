@@ -13,6 +13,8 @@
 //   issues  the Result that reports every failure: its first is the throw's,
 //           `~standard.validate` is the same answer, and a container's fields
 //           report independently of each other.
+//   option  the ReScript options around the schema, and around a coder from it
+//           to an optional: the empty value is None, everything else Some.
 //
 // One more property belongs to the runner, since every family needs it first:
 //
@@ -45,15 +47,16 @@
 
 import * as S from "../index.mjs";
 import { codec } from "./schemaFuzz/codec";
-import { knownFor, staleFor } from "./knownBugs";
+import { type Fuzzer, knownFor, staleFor } from "./knownBugs";
 import { type Ctx, type Family, reason } from "./schemaFuzz/context";
 import { eq } from "./schemaFuzz/eq";
 import { issues } from "./schemaFuzz/issues";
+import { option } from "./schemaFuzz/option";
 import { generateSchema, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { NO_SAMPLE, sample } from "./unionFuzz/sample";
 import type { Sury } from "./unionFuzz/types";
 
-const FAMILIES: Record<string, Family> = { eq, codec, issues };
+const FAMILIES: Record<string, Family> = { eq, codec, issues, option };
 
 const arg = (name: string, fallback: string): number => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -115,7 +118,7 @@ for (let c = 0; c < cases * seeds; c++) {
     // against, and a refusal that denied them is the schema's own contract.
     if (
       !refused(error) &&
-      !running.some(([name]) => knownFor(name as "issues", member.shape, "setup", reason(error)))
+      !running.some(([name]) => knownFor(name as Fuzzer, member.shape, "setup", reason(error)))
     )
       findings.push(`${id}: setup: ${reason(error)}`);
     continue;
@@ -142,7 +145,7 @@ for (let c = 0; c < cases * seeds; c++) {
 
   for (const [name, family] of running) {
     const report = (property: string, detail: string): void => {
-      if (!knownFor(name as "eq" | "codec" | "issues", member.shape, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
+      if (!knownFor(name as Fuzzer, member.shape, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
     };
     const ctx: Ctx = {
       S: sury,
@@ -170,7 +173,7 @@ for (let c = 0; c < cases * seeds; c++) {
   }
 }
 
-if (gate) findings.push(...staleFor(running.map(([name]) => name as "eq" | "codec" | "issues")));
+if (gate) findings.push(...staleFor(running.map(([name]) => name as Fuzzer)));
 
 console.log(
   `${Object.entries(counts)

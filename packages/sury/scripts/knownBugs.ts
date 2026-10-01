@@ -24,7 +24,7 @@ import {
   some,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union" | "issues";
+export type Fuzzer = "eq" | "codec" | "union" | "issues" | "option";
 
 export type Finding = {
   fuzzer: Fuzzer;
@@ -51,6 +51,40 @@ const intoJsonString = (shape: Shape): boolean =>
   shape.name === "with" && shape.raw === "to" && (shape.args[0]?.args.length ?? 0) > 0;
 
 export const KNOWN_BUGS: Known[] = [
+  {
+    id: "union-object-field-from-null",
+    kind: "bug",
+    summary:
+      "A union dispatches an object member on its fields' Output types, so " +
+      "`S.optional(S.schema({ a: S.schema(null).with(S.to, S.number, ...) }))` rejects `{ a: null }`, " +
+      "the one Input the object takes.",
+    spec: "optional-object-field-from-null",
+    fuzzers: ["option"],
+    matches: (f) =>
+      f.fuzzer === "option" &&
+      f.property === "some" &&
+      some(
+        f.shape,
+        (node) =>
+          (node.name === "renamed" || node.name === "field") &&
+          some(node.args[0]!, (leaf) => leaf.name === "fromEmpty"),
+      ),
+  },
+  {
+    id: "option-arm-takes-undefined",
+    kind: "limitation",
+    summary:
+      "An arm that takes `undefined` itself - `any`, `unknown`, `env`, a recursive `void` - answers it before " +
+      "the option's own `undefined` arm, so `S.nullAsOption(S.option(S.unknown))` reads `undefined` as the " +
+      "inner value rather than Some(None). The first member that accepts a value wins, which is the documented " +
+      "rule, and the type cannot tell the two apart either.",
+    fuzzers: ["option"],
+    matches: (f) =>
+      f.fuzzer === "option" &&
+      f.property === "some" &&
+      f.detail.includes("parsed undefined to undefined") &&
+      some(f.shape, (node) => ["any", "unknown", "env", "void"].includes(node.name)),
+  },
   {
     id: "to-output-keeps-source-refinement",
     kind: "bug",

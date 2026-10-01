@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.optional(S.schema({ a: S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }) }))"
+  input: "{ a: null; } | undefined"
+  output: "{ a: number; } | undefined"
+  instantiations: 6305
+jsonSchema:
+  input: "Expected JSON, received { a: null; } | undefined"
+  output: "Expected JSON, received { a: number; } | undefined"
+isEqual:
+  input: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0)
+  output: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)
+compare:
+  input: "throws: [Sury] Can't compare { a: null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&typeof i.a==="number"&&i.a==i.a){let v1=i.a;v1===null||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}i={a:v0};break}if(i===void 0)break;throw e[3](i)}return i}catch(v2){e[4](v2)}}
+    examples:
+      # FIXME: known bug union-object-field-from-null - the union dispatches on the field's Output type, so a valid Input object is rejected; it should read {"a":0}
+      object:
+        input: "{ a: null }"
+        error: "Expected { a: null; } | undefined, received { a: null; }"
+      undefined:
+        input: undefined
+        output: undefined
+      not-null-field:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected null, received 1"
+  decode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i.a===null&&typeof i.a==="number"&&i.a==i.a){let v0;try{v0=e[0](null)}catch(x){e[1](x)}i={a:v0};break}if(i===void 0)break;throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    examples:
+      # FIXME: known bug union-object-field-from-null - decode should read {"a":0}
+      object:
+        input: "{ a: null }"
+        error: "Expected { a: null; } | undefined, received { a: null; }"
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}v0===null||e[2](v0);i={a:v0};break}if(i===void 0)break;throw e[3](i)}return i}catch(v1){e[4](v1)}}
+    examples:
+      object:
+        input: "{ a: 0 }"
+        output: "{ a: null }"
