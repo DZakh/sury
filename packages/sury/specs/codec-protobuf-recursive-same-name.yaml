@@ -5,8 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 12069
 jsonSchema:
-  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["b", "kids"] } } }'
-  fromInputType: "{ x: { b: number; kids: ...[]; }; y: { b: number; kids: ...[]; }; }"
+  input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["a", "kids"] }, Node2: { type: "object", properties: { b: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kids: { items: { $ref: "#/$defs/Node2" }, type: "array" } }, required: ["b", "kids"] } } }'
+  fromInputType: "{ x: { a: string; kids: ...[]; }; y: { b: number; kids: ...[]; }; }"
   output: Expected JSON, received Uint8Array
 isEqual:
   input: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
@@ -19,27 +19,19 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0;try{v0=e[0](i.x);}catch(v1){v1.path=["x",...v1.path];throw v1}let v2;try{v2=e[1](i.y);}catch(v3){v3.path=["y",...v3.path];throw v3}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};f=1;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v4}catch(v5){e[9](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0;try{v0=e[0](i.x);}catch(v1){e[1](v1,["x"])}let v2;try{v2=e[2](i.y);}catch(v3){e[3](v3,["y"])}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};f=1;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v4}catch(v5){e[11](v5)}}
     examples:
-      # FIXME: the two messages are distinct to the codec, which is what this
-      # spec is for, but `toInputJSONSchemaOrThrow` names a definition by the
-      # schema's `name`, so two schemas `S.recursive` gave one name become one
-      # `$defs` entry and the later one wins. Reproduces with plain
-      # `S.recursive` and no protobuf: it is the renderer, not the wire.
       both:
         input: '{ x: { a: "s", kids: [{ a: "t", kids: [] }] }, y: { b: 1, kids: [{ b: 2, kids: [] }] } }'
         output: new Uint8Array([10, 8, 10, 1, 115, 18, 3, 10, 1, 116, 18, 6, 8, 1, 18, 2, 8, 2])
-        divergence:
-          reason: two definitions named "Node" render as one, and the document keeps only the second
-          ajv: "input: data/x must have required property 'b'"
   decode:
-    expression: i=>{try{try{e[0](i.x);}catch(v0){v0.path=["x",...v0.path];throw v0}try{e[1](i.y);}catch(v1){v1.path=["y",...v1.path];throw v1}let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=i.x;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};f=1;v=i.y;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v2}catch(v3){e[8](v3)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){e[1](v0,["x"])}try{e[2](i.y);}catch(v1){e[3](v1,["y"])}let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v=i.x;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};f=1;v=i.y;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[5](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v2}catch(v3){e[10](v3)}}
     examples:
       both:
         input: '{ x: { a: "s", kids: [] }, y: { b: 1, kids: [] } }'
         output: new Uint8Array([10, 3, 10, 1, 115, 18, 2, 8, 1])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.x,v5=v0.y;let v2=v1.kids;for(let v3=0;v3<v2.length;++v3){try{e[3](v2[v3]);}catch(v4){v4.path=["x","kids",v3,...v4.path];throw v4}}let v6=v5.kids;for(let v7=0;v7<v6.length;++v7){try{e[4](v6[v7]);}catch(v8){v8.path=["y","kids",v7,...v8.path];throw v8}}return v0}catch(v9){e[5](v9)}}
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.x,v5=v0.y;let v2=v1.kids;for(let v3=0;v3<v2.length;++v3){try{e[3](v2[v3]);}catch(v4){e[4](v4,["x","kids",v3])}}let v6=v5.kids;for(let v7=0;v7<v6.length;++v7){try{e[5](v6[v7]);}catch(v8){e[6](v8,["y","kids",v7])}}return v0}catch(v9){e[7](v9)}}
     examples:
       both:
         input: new Uint8Array([10, 8, 10, 1, 115, 18, 3, 10, 1, 116, 18, 6, 8, 1, 18, 2, 8, 2])

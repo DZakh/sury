@@ -11,20 +11,21 @@ import {
   instanceTag,
   type Internal,
   openApi30,
-  type Path,
   tagFlags,
   U,
   type Val
 } from "../base";
 import {
+  B_asyncTry,
   B_computed,
   B_embed,
   B_conversionFail,
   B_markAsync,
   B_next,
+  B_nextVar,
   B_pathArg,
+  B_raiser,
   B_readOnce,
-  B_throw,
   B_rejectUnsettled,
   B_reverseReading,
   B_unsupportedDecode
@@ -67,29 +68,23 @@ const fromArrayBuffer =
 const read = (input: Val, call: string, schema: Internal): Val => {
   // Caught the way `B_conversion` catches a coder's failure, both halves: the
   // call itself throws on a value an operation trusted rather than checked, and
-  // the promise rejects when the read fails (the backing file moved, say). A
-  // `TypeError` or `DOMException` escaping either way. Path is an extra
-  // argument when this read sits under a loop; arrays no longer catch-prepend.
+  // the promise rejects when the read fails (the backing file moved, say).
+  // Uncaught, a `TypeError` or `DOMException` escapes either way.
   //
   // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
-  // a case that didn't match, and classifying it as one let the dispatch fall
-  // through to a sibling and hand back the container unread. The cost is the
-  // convention's: a Sury error is what an enclosing object stamps a path onto,
-  // so a rejection under `S.optional(…)` arrives raw where the same field
-  // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
-  const fail = B_conversionFail(input, schema);
-  const failFn = input.g.o & 4
-    ? U
-    : B_embed(input, (cause: unknown, path?: Path) => {
-        B_throw(fail(cause, path));
-      });
-  const pathArg = failFn === U ? "" : B_pathArg(input);
-  const output = B_computed(
-    input,
-    `${input.v()}${call}${failFn === U ? `` : pathArg ? `.catch(x=>${failFn}(x${pathArg}))` : `.catch(${failFn})`}`,
-    schema,
-    failFn === U ? U : `${failFn}(x${pathArg})`,
-  );
+  // a case that didn't match, and classifying it as one would let the dispatch
+  // fall through to a sibling and hand back the container unread. The cost is
+  // the convention's: a Sury error is what an enclosing object stamps a path
+  // onto, so a rejection under `S.optional(…)` arrives raw where the same field
+  // required arrives at `["a"]`.
+  let output: Val;
+  if (input.g.o & 4) output = B_computed(input, `${input.v()}${call}`, schema);
+  else {
+    const raise = B_raiser(input, B_conversionFail(input, schema));
+    const path = B_pathArg(input);
+    const code = `${input.v()}${call}`;
+    B_asyncTry((output = B_nextVar(input, schema, input.e)), code, raise, path);
+  }
   B_markAsync(input, output);
   return output;
 };

@@ -216,6 +216,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
       d: U,
       fv: U,
       cp: "",
+      fu: U,
       hd: "",
       fz: U,
       vc: U,

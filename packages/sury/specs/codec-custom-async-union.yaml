@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=e[0](i);i=v0.then(v0=>{typeof v0==="number"&&v0==v0||e[1](v0);return v0});break}if(typeof i==="number"&&i==i)break;throw e[2](i)}return Promise.resolve(i).catch(e[3])}catch(v1){return e[4](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[3].call(e[0](i),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=v0;break}if(typeof i==="number"&&i==i)break;throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
     examples:
       custom-arm:
         input: '"abc"'

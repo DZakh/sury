@@ -114,12 +114,97 @@ test("a check that names its own message says it without rendering one", () => {
   expect(S.parseAsResult(named, 1).error!.reason).toBe("Give me a string");
 });
 
+test("a chosen stack survives the copy that prepends a path", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const refined = S.schema({
+    a: S.string.with(S.refine, (value: string) => {
+      if (value !== "ok")
+        throw new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
+      return true;
+    }),
+  });
+  try {
+    S.parseOrThrow(refined, { a: "no" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect((error as Error).stack!.split("\n")[1]).toContain("errorStack_test.ts");
+  }
+});
+
+test("an error built by hand keeps what it defined through the copy that prepends a path", () => {
+  // Without an own `stack`, the way SpiderMonkey builds every instance.
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const refined = S.schema({
+    a: S.string.with(S.refine, () => {
+      const error = new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
+      delete (error as { stack?: string }).stack;
+      Object.defineProperty(error, "meta", { value: 1 });
+      throw error;
+    }),
+  });
+  try {
+    S.parseOrThrow(refined, { a: "x" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect((error as { meta?: number }).meta).toBe(1);
+    expect(typeof (error as Error).stack).toBe("string");
+  }
+});
+
+test("a stack the prototype reads off its instance survives the copy that prepends a path", () => {
+  // SpiderMonkey's `stack` is an accessor on `Error.prototype` that reads the
+  // instance, so the copy has to take the value: modelled with a private slot.
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const stacks = new WeakMap<object, string>();
+  class Slotted extends SuryError {
+    constructor(details: unknown) {
+      super(details);
+      delete (this as { stack?: string }).stack;
+      stacks.set(this, "Slotted: nope\n    at thrower");
+    }
+    override get stack(): string | undefined {
+      return stacks.get(this);
+    }
+  }
+  const refined = S.schema({
+    a: S.string.with(S.refine, () => {
+      throw new Slotted({ code: "invalid_operation", path: [], reason: "nope" });
+    }),
+  });
+  try {
+    S.parseOrThrow(refined, { a: "x" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect((error as Error).stack).toBe("Slotted: nope\n    at thrower");
+  }
+});
+
+test("a failure that left an inner operation keeps that operation's stack", () => {
+  const inner = S.parseOrThrow(S.number);
+  function innerCaller(value: unknown) {
+    inner(value);
+  }
+  const outer = S.schema({
+    a: S.unknown.with(S.refine, (value: unknown) => {
+      innerCaller(value);
+      return true;
+    }),
+  });
+  try {
+    S.parseOrThrow(outer, { a: "not a number" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe(`Failed at a: Expected number, received "not a number"`);
+    expect((error as Error).stack!.split("\n")[1]).toContain("innerCaller");
+  }
+});
+
 test("prepending a path keeps what the failing check knew", () => {
   // The inner parse throws a compiled failure; the refiner's wrapper catches it
-  // and rebuilds it with the outer path prepended. That copy used to be a
-  // spread, which takes own properties only - so everything the site prototype
-  // holds would have been dropped and the reason would read `Expected
-  // undefined`.
+  // and rebuilds it with the outer path prepended.
   const inner = S.parseOrThrow(S.number);
   const outer = S.schema({
     a: S.unknown.with(S.refine, (value: unknown) => {

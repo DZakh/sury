@@ -19,7 +19,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){let v3=e[1](v2);v2=v3.then(v3=>{typeof v3==="string"||e[2](v3);return v3});v2=Promise.resolve(v2);}else{for(;;){if(typeof v2==="string"){let v4=e[3](v2);v2=v4.then(v4=>{typeof v4==="string"||e[4](v4);return v4});break}if(v2===void 0){v2="d";break}throw e[5](v2)}v2=Promise.resolve(v2);}return Promise.all([v2]).then(([v2])=>{return {a:v2}}).catch(e[7])}catch(v5){return e[8](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){let v3;try{v3=e[4].call(e[1](v2),v3=>{typeof v3==="string"||e[3](v3);return v3},e[2])}catch(x){e[2](x)}v2=v3;v2=Promise.resolve(v2);}else{for(;;){if(typeof v2==="string"){let v4;try{v4=e[8].call(e[5](v2),v4=>{typeof v4==="string"||e[7](v4);return v4},e[6])}catch(x){e[6](x)}v2=v4;break}if(v2===void 0){v2="d";break}throw e[9](v2)}v2=Promise.resolve(v2);}return Promise.all([v2]).then(([v2])=>{return {a:v2}}).catch(e[11])}catch(v5){return e[12](v5)}}
     examples:
       missing:
         input: "{}"
@@ -29,7 +29,7 @@ operations:
         output: '{ a: "x!" }'
   decode:
     isAsync: true
-    expression: i=>{try{let v1=i.a;if(v1!==void 0){let v2=e[0](v1);v1=v2.then(v2=>{typeof v2==="string"||e[1](v2);return v2});v1=Promise.resolve(v1);}else{for(;;){if(typeof v1==="string"){let v3=e[2](v1);v1=v3.then(v3=>{typeof v3==="string"||e[3](v3);return v3});break}if(v1===void 0){v1="d";break}throw e[4](v1)}v1=Promise.resolve(v1);}return Promise.all([v1]).then(([v1])=>{return {a:v1}}).catch(e[5])}catch(v4){return e[6](v4)}}
+    expression: i=>{try{let v1=i.a;if(v1!==void 0){let v2;try{v2=e[3].call(e[0](v1),v2=>{typeof v2==="string"||e[2](v2);return v2},e[1])}catch(x){e[1](x)}v1=v2;v1=Promise.resolve(v1);}else{for(;;){if(typeof v1==="string"){let v3;try{v3=e[7].call(e[4](v1),v3=>{typeof v3==="string"||e[6](v3);return v3},e[5])}catch(x){e[5](x)}v1=v3;break}if(v1===void 0){v1="d";break}throw e[8](v1)}v1=Promise.resolve(v1);}return Promise.all([v1]).then(([v1])=>{return {a:v1}}).catch(e[9])}catch(v4){return e[10](v4)}}
     examples:
       missing:
         input: "{}"

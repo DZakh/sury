@@ -1,22 +1,26 @@
 // `S.recursive` - a schema that refers to itself. The decoder compiles the
-// body once and routes every self-reference back through it by `$ref`.
+// body once and routes every self-reference back through it by the definition
+// the ref carries.
 
 import {
   baseSchema,
   type Builder,
   defsPath,
-  globalConfig,
   type Internal,
+  pathExpr,
   refTag,
   U,
   type Val
 } from "../base";
 import {
+  B_asyncTry,
   B_let,
   B_embed,
+  B_invalidOperation,
   B_mergeWithPathPrepend,
   B_nextVar,
-  B_refine
+  B_refine,
+  rethrowWithPath
 } from "../builder";
 import {
  addOpNode,
@@ -28,10 +32,12 @@ import {
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
-  const defs = input.g.d!;
-  // A ref the compiler built carries its definition; one the author wrote names
-  // it in the operation's record. Ignore #/$defs/
-  const def = expectedSchema.definition || defs[expectedSchema["$ref"]!.slice(8)]!;
+  // Nothing to compile while the definer runs - a default checked inside it
+  // reaches the ref first. `invalid_operation` is what leaves such a default
+  // unchecked, the way a never encode does.
+  const def =
+    expectedSchema.definition!() ||
+    B_invalidOperation(input, `${expectedSchema.name} is used before S.recursive returns its definition`);
   // Masked to the compile-semantics bits (127 and below). A def compiles a
   // nested operation whose result generated code consumes, so it must throw:
   // inheriting the outer operation's return mode would have the inner one
@@ -46,12 +52,14 @@ export const recursiveDecoder: Builder = (input) => {
   // a bare value, and its failure a synchronous throw.
   const key = flag & 1 ? flag | 8192 : flag;
 
-  // A ref source stands for its definition when it carries one: converting from
-  // it means converting from what it names, and a ref is opaque to every
-  // decoder below. A ref the author wrote is left alone, since resolving one
-  // would have a schema converting to `S.json` read its definition too and plan
-  // from a union where it now plans from an opaque value.
-  const inputSchema = input.s.definition || (input.s.seq === expectedSchema.seq ? def : input.s);
+  // A ref source stands for its definition: converting from it means
+  // converting from what it names, and a ref is opaque to every decoder below.
+  // Not when `S.json` is either side (flag 16): the document converts whole, and
+  // reading its definition would plan from a union where it plans from an
+  // opaque value.
+  const inputSchema =
+    ((input.s.flags | expectedSchema.flags) & 16 ? U : input.s.definition?.()) ||
+    (input.s.seq === expectedSchema.seq ? def : input.s);
 
   let recOperation = "";
 
@@ -91,7 +99,7 @@ export const recursiveDecoder: Builder = (input) => {
         node.v = 0;
 
         // `compileDecoder` overwrites both with what it actually built.
-        node.v = compileDecoder(inputSchema, def, flag, defs, node);
+        node.v = compileDecoder(inputSchema, def, flag, node);
 
         if (node.t !== assumedHasTransform || node.y !== assumedIsAsync) {
           // Wrong assumption - update and recompile
@@ -121,13 +129,18 @@ export const recursiveDecoder: Builder = (input) => {
   let output: Val;
   if (hasTransform || isAsync) {
     output = B_nextVar(input, expectedSchema);
-    outputDecl = B_let(input.g, output.i);
-
-    output.cp = `${output.i}=${recOperation}(${input.i});`;
-
+    const call = `${recOperation}(${input.i})`;
     if (isAsync) {
       output.f |= 1;
+      // The rejection gets the path the same way a throw does, and whatever
+      // continues the value can join that `.then` (base.ts `fu`).
+      if (input.path.length) {
+        B_asyncTry(output, call, B_embed(output, rethrowWithPath), `,${pathExpr(input.path)}`);
+        return output;
+      }
     }
+    outputDecl = B_let(input.g, output.i);
+    output.cp = `${output.i}=${call};`;
   } else {
     // No transform: call for validation but don't capture result
     output = B_refine(input, expectedSchema, U, expectedSchema);
@@ -147,44 +160,23 @@ export const recursiveDecoder: Builder = (input) => {
 
 // @__NO_SIDE_EFFECTS__
 export const recursive = (name: string, fn: (schema: Internal) => Internal): Internal => {
-  const ref = `${defsPath}${name}`;
-  const refSchema = baseSchema(refTag, false, recursiveDecoder);
-  refSchema["$ref"] = ref;
-  refSchema.name = name;
-
-  // This is for mutual recursion
-  const isNestedRec = !!globalConfig.d;
-  if (!isNestedRec) {
-    // Null prototype: the caller names the definition, so one named `__proto__`
-    // would set this object's prototype instead of taking a key.
-    globalConfig.d = Object.create(null);
-  }
-  let def: Internal;
-  // A definer that throws must not leave the accumulator behind: every later
-  // top-level `recursive` would then see itself as nested and return a ref
-  // with no `$defs`. A nested one leaves it to the outer call, whose definer
-  // may catch and carry on.
-  try {
-    def = fn(refSchema);
-  } catch (e) {
-    if (!isNestedRec) globalConfig.d = U;
-    throw e;
-  }
-  if (def.name) {
-    refSchema.name = def.name;
-  }
-  globalConfig.d![name] = def;
-
-  if (isNestedRec) {
-    return refSchema;
-  } else {
+  let def: Internal | undefined;
+  const definition = () => def;
+  const ref = (): Internal => {
     const schema = baseSchema(refTag, false, recursiveDecoder);
-    schema.name = refSchema.name;
-    schema["$ref"] = ref;
-    schema["$defs"] = globalConfig.d;
-
-    globalConfig.d = U;
-
+    schema.name = def?.name || name;
+    schema["$ref"] = `${defsPath}${name}`;
+    schema.definition = definition;
     return schema;
-  }
+  };
+  const self = ref();
+  def = fn(self);
+  if (def.name) self.name = def.name;
+  const schema = ref();
+  // Null prototype: the caller names the definition, so one named `__proto__`
+  // would set this object's prototype instead of taking a key.
+  const defs: Record<string, Internal> = Object.create(null);
+  defs[name] = def;
+  schema["$defs"] = defs;
+  return schema;
 }

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(() => { const Base = S.Error as unknown as new (details: unknown) => Error; class Named extends Base { name = "MyError" } return S.schema({ a: S.string.with(S.refine, (value: string) => { if (value === "bad") { throw new Named({ code: "invalid_operation", path: [], reason: "nope" }) } if (value === "fixedstack") { const error = new Named({ code: "invalid_operation", path: [], reason: "nope" }); delete (error as { stack?: string }).stack; Object.defineProperty(error, "stack", { value: "fixed" }); throw error } if (value === "nostack") { const error = new Named({ code: "invalid_operation", path: [], reason: "nope" }); delete (error as { stack?: string }).stack; throw error } return true }) }) })()'
+  input: "{ a: string; }"
+  output: "{ a: string; }"
+  instantiations: 5553
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.a;typeof v0==="string"||e[2](v0);e[0](v0)||e[1](v0);return {a:v0}}catch(v1){e[4](v1)}}
+    examples:
+      valid:
+        input: '{ a: "ok" }'
+        output: '{ a: "ok" }'
+      subclass-thrown:
+        input: '{ a: "bad" }'
+        error: "Named: Failed at a: nope"
+      subclass-thrown-without-own-stack:
+        input: '{ a: "nostack" }'
+        error: "Named: Failed at a: nope"
+      subclass-thrown-with-fixed-stack:
+        input: '{ a: "fixedstack" }'
+        error: "Named: Failed at a: nope"
+  decode:
+    expression: i=>{try{let v0=i.a;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
+    examples:
+      subclass-thrown:
+        input: '{ a: "bad" }'
+        error: "Named: Failed at a: nope"
+  encode:
+    expression: i=>{try{let v0=i.a;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
+    examples:
+      valid:
+        input: '{ a: "ok" }'
+        output: '{ a: "ok" }'

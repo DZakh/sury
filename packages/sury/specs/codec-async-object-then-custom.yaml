@@ -19,7 +19,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i.a;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0});return Promise.all([v2]).then(([v2])=>{let v3;try{v3=e[4]({a:v2})}catch(x){e[5](x)}typeof v3==="number"&&v3==v3||e[6](v3);return v3}).catch(e[8])}catch(v4){return e[9](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v1=i.a;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3].call(e[0](v1),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{let v2;try{v2=e[5]({a:v0})}catch(x){e[6](x)}typeof v2==="number"&&v2==v2||e[7](v2);return v2}).catch(e[9])}catch(v3){return e[10](v3)}}
     examples:
       valid:
         input: '{ a: "abc" }'
@@ -32,7 +32,7 @@ operations:
         error: "Failed at a: Expected string, received 1"
   decode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[0](i.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v1=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0});return Promise.all([v1]).then(([v1])=>{let v2;try{v2=e[3]({a:v1})}catch(x){e[4](x)}typeof v2==="number"&&v2==v2||e[5](v2);return v2}).catch(e[6])}catch(v3){return e[7](v3)}}
+    expression: i=>{try{let v0;try{v0=e[3].call(e[0](i.a),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{let v1;try{v1=e[4]({a:v0})}catch(x){e[5](x)}typeof v1==="number"&&v1==v1||e[6](v1);return v1}).catch(e[7])}catch(v2){return e[8](v2)}}
     examples:
       valid:
         input: '{ a: "abc" }'
