@@ -1,5 +1,5 @@
 // The tree a generated member is built from, carried beside its printed id so a
-// known bug can be described by the shape that triggers it - "a union with a
+// known entry can be described by the shape that triggers it - "a union with a
 // member that carries a default" - at any depth, rather than by a substring of
 // the id that only matches the depths someone happened to write down. The
 // grammar builds it at the same place it builds the schema (`generate.ts`).
@@ -49,9 +49,26 @@ export const absorbs = (node: Shape): boolean =>
   ANY.has(node.name) ||
   node.name === "fieldOr" ||
   node.name === "record" ||
-  // `{head, next?}` and `head | self[]` over `any`/`unknown`: every field may be absent, or anything goes.
-  (node.name === "recursive" && node.form !== "tree" && ANY.has(node.args[0]!.name)) ||
+  // `{head, next?}` over a head that may be absent, and either list form over
+  // `any`/`unknown`: every field may be absent, or anything goes.
+  (node.name === "recursive" &&
+    node.form !== "tree" &&
+    (ANY.has(node.args[0]!.name) || (node.form === "list" && admitsUndefined(node.args[0]!)))) ||
   ((node.name === "field" || node.name === "renamed") && admitsUndefined(node.args[0]!)) ||
   ((node.name === "list" || node.name === "array") && some(node.args[0]!, (n) => ANY.has(n.name))) ||
-  (["optional", "nullable", "nullish"].includes(node.name) &&
-    (absorbs(node.args[0]!) || node.args[1]?.name === "#value"));
+  (["optional", "nullable", "nullish"].includes(node.name) && absorbs(node.args[0]!));
+
+export const admitsNull = (node: Shape): boolean =>
+  ANY.has(node.name) ||
+  ["null", "json", "nullable", "nullish", "fromEmpty"].includes(node.name) ||
+  (node.name === "optional" && admitsNull(node.args[0]!)) ||
+  (node.name === "union" && node.args.some(admitsNull));
+
+// A wrapper whose default takes the `undefined` or `null` a later member would
+// keep, which so never sees it.
+export const shadowsEmpty = (union: Shape): boolean =>
+  union.args.some((node, idx) => {
+    if (node.args[1]?.name !== "#value") return false;
+    const later = union.args.slice(idx + 1);
+    return node.name === "optional" ? later.some(admitsUndefined) : node.name === "nullable" && later.some(admitsNull);
+  });

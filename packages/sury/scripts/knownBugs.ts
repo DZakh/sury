@@ -12,7 +12,7 @@
 // carries a reason instead of a spec.
 //
 // Entries are written against the SHAPE the grammar built the schema from,
-// not its text: "a union with a member that carries a default" is one bug at
+// not its text: "a union with a member that carries a default" is one entry at
 // every depth the grammar reaches, and a substring only covers the depths
 // someone happened to list.
 
@@ -20,6 +20,7 @@ import {
   absorbs,
   admitsUndefined,
   type Shape,
+  shadowsEmpty,
   some,
 } from "./unionFuzz/shape";
 
@@ -118,12 +119,13 @@ export const KNOWN_BUGS: Known[] = [
     kind: "limitation",
     summary:
       "A member that takes every value of its kind - an object whose every field may be absent, a record, " +
-      "a list of `any`, a wrapper whose default reads `null` or `undefined` - claims values meant for a later member. The first member that accepts a value wins, which is " +
+      "a list of `any` - claims values meant for a later member, and so does a wrapper whose default takes the " +
+      "`null` or `undefined` a later member would keep. The first member that accepts a value wins, which is " +
       "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+      some(f.shape, (node) => node.name === "union" && (node.args.slice(0, -1).some(absorbs) || shadowsEmpty(node))),
   },
 ];
 

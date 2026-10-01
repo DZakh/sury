@@ -189,6 +189,11 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
   const takers: [string, () => unknown, string][] = [
     ['env->nullable(string,"d")', () => S.env.with(S.to, S.nullable(S.string, "d")), "envTo"],
+    [
+      "env->nullable(string)->optional(string)",
+      () => S.env.with(S.to, S.nullable(S.string).with(S.to, S.optional(S.string))),
+      "envTo",
+    ],
     ['env->optional(string,"dev")', () => S.env.with(S.to, S.optional(S.string, "dev")), "envTo"],
     ["env->port", () => S.env.with(S.to, S.port), "envTo"],
     ["null->0", () => S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }), "fromEmpty"],
