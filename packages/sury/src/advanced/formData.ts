@@ -66,7 +66,6 @@ import {
   asList,
   asText,
   decidesBlank,
-  isAbsent,
   keepsUndefined,
   presentArm,
   readWrapped
@@ -178,7 +177,7 @@ const assertListItems = (val: Val, schema: Internal): void => {
     if (isCheckbox(item)) {
       unsupported(`A checkbox group sends the value of each checked box, so read it as string[]`);
     }
-    if (isAbsent(item)) {
+    if (absentArm(item)) {
       unsupported(`A repeated key is positional, so every item needs an entry`);
     }
     if (item.type === arrayTag) {
@@ -197,7 +196,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     if (schema.const !== U) {
       return schema.const ? `${fdVar}.append(${keyText},"on");` : "";
     }
-    return isAbsent(schema)
+    return absentArm(schema)
       ? `if(${val.i}!=null){${fdVar}.append(${keyText},${val.i}?"on":"false")}`
       : `if(${val.i}){${fdVar}.append(${keyText},"on")}`;
   }
@@ -223,7 +222,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
-  if (isAbsent(schema) && present.type !== unknownTag) {
+  if (absentArm(schema) && present.type !== unknownTag) {
     if (present === schema) {
       return "";
     }
@@ -294,7 +293,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
     const schema = properties[key]!;
     const keyText = inlinedValueFromString(key);
     const present = presentArm(schema);
-    const absent = isAbsent(schema);
+    const absent = absentArm(schema);
     const list = present.type === arrayTag;
     const folds = absent && !list && !admitsBlank(present);
     const readVar = B_varWithoutAllocation(input.g);
@@ -303,7 +302,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
       input,
       list
         ? `${readVar}=${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${readVar}=${slot}${folds && keepsUndefined(schema) ? "||void 0" : ""}`,
+        : `${readVar}=${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
     );
 
     // Canonical Val field order (see B_operationArg in builder.ts). Hung off
@@ -334,7 +333,7 @@ const formDataToObject = (input: Val, target: Internal): Val => {
 
     if (list) {
       assertListItems(item, present);
-      if (absent && absentArm(schema).to !== U) {
+      if (absent && absent.to !== U) {
         B_invalidOperation(
           item,
           `Can't decode form field -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
