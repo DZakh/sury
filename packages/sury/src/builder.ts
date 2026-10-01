@@ -1167,8 +1167,9 @@ export const rethrowWithPath = (error: unknown, path: Path): never => {
 };
 
 // Opaque embed (a recursive self-call): a compiled function that does not take
-// a path. Inlined item parsers thread the path to the fail helper instead. Sync
-// only: an async call keeps its value a var (recursive.ts, `B_asyncTry`).
+// a path. Inlined item parsers thread the path to the fail helper instead. Sync,
+// or at the root: an async call at a path keeps its value a var (recursive.ts,
+// `B_asyncTry`).
 export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
   if (!parent.path.length) return B_merge(val);
   const valCode = B_merge(val);
