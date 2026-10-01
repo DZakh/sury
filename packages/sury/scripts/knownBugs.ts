@@ -25,7 +25,7 @@ import {
   unionMembers,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union";
+export type Fuzzer = "eq" | "codec" | "union" | "issues";
 
 export type Finding = {
   fuzzer: Fuzzer;
@@ -48,6 +48,11 @@ export type Known = {
 
 const inUnionWithDefault = (shape: Shape): boolean =>
   some(shape, (node) => unionMembers(node).some(hasDefault));
+
+// A container carried into a JSON string (unionFuzz/generate.ts `generateSchema`).
+// A leaf's `.with(S.to, ...)` wraps a node with no args; a container has some.
+const intoJsonString = (shape: Shape): boolean =>
+  shape.name === "with" && shape.raw === "to" && (shape.args[0]?.args.length ?? 0) > 0;
 
 export const KNOWN_BUGS: Known[] = [
   {
@@ -100,6 +105,59 @@ export const KNOWN_BUGS: Known[] = [
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
       some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+  },
+  {
+    id: "jsonstring-fieldor-refined-url-encode",
+    kind: "bug",
+    summary:
+      "`S.object((s) => ({ f: s.fieldOr(\"f\", S.nullable(S.url.with(S.refine, check)), null) })).with(S.to, S.jsonString)` " +
+      "crashes the encode compile (`isOutput`, `encodeOrThrow`) with a TypeError from `B_merge` instead of building it.",
+    spec: "jsonstring-fieldor-refined-url",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "setup" &&
+      f.detail.includes("reading 't'") &&
+      some(f.shape, (node) => node.name === "fieldOr"),
+  },
+  {
+    id: "conversion-after-failed-container",
+    kind: "limitation",
+    summary:
+      "A conversion over a whole container - a JSON string rendering an `unknown` field, or checking a " +
+      "number is finite on encode - runs only once every field passed, as a refine or transform does, so its " +
+      "failure for one field is " +
+      "reported alone but not beside another field's. The skip is the documented rule; the property that " +
+      "breaks one field and then all of them cannot tell it from a lost issue.",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "independent" &&
+      intoJsonString(f.shape),
+  },
+  {
+    id: "jsonstring-render-order",
+    kind: "limitation",
+    summary:
+      "A throwing operation renders a container carried into `S.jsonString` in one pass, so a field whose " +
+      "only check is being JSON (`unknown`, `any`) fails where it is rendered, ahead of a later field's " +
+      "check. A Result checks the fields first and renders after them, so its first issue is the later " +
+      "field's. Both answers are the value's; only their order differs.",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "first" &&
+      f.detail.includes("Expected JSON") &&
+      intoJsonString(f.shape),
+  },
+  {
+    id: "json-is-one-value",
+    kind: "limitation",
+    summary:
+      "`S.json` validates one JSON value with a walk that stops at the first thing that isn't JSON, so an " +
+      "array or object it accepts reports one issue, not one per item: it is a value, not a container.",
+    fuzzers: ["issues"],
+    matches: (f) => f.fuzzer === "issues" && f.property === "independent" && f.shape.name === "json",
   },
 ];
 

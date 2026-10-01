@@ -1,11 +1,14 @@
 // What one drawn schema hands each family of properties: the schema, both of
 // its sides sampled, and the two ways a family says something went wrong.
 
+import type { Shape } from "../unionFuzz/shape";
+
 export type Fn = (...args: unknown[]) => unknown;
 
 export type Ctx = {
   S: Record<string, any>;
   id: string;
+  shape: Shape;
   schema: unknown;
   reversed: unknown;
   // Carries a conversion that throws information away (see `MemberSpec`), so
