@@ -34,15 +34,15 @@ export type FailureResult = {
 };
 
 /**
- * What every `*AsResult` operation returns. Also a Standard Schema result: the
- * `issues` of a failure are the ones `schema["~standard"].validate` reports, so
- * a Result goes straight to a consumer that reads that shape.
+ * What every `*AsResult` operation and `schema["~standard"].validate` return,
+ * a Standard Schema result. A failure lists every issue; `error` is the first.
  *
  * ```ts
- * const result = S.parseAsResult(S.string, 42)
+ * const result = S.parseAsResult(S.schema({ a: S.string, b: S.number }), { a: 1, b: "x" })
  * result.success       // false
- * result.error?.reason // "Expected string, received 42"
- * result.issues        // [{ message: "Expected string, received 42" }]
+ * result.error?.reason // "Expected string, received 1"
+ * result.issues        // [{ message: "Expected string, received 1", path: ["a"] },
+ *                      //  { message: 'Expected number, received "x"', path: ["b"] }]
  * ```
  */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
@@ -346,28 +346,23 @@ export const Error: {
   prototype: Error;
 };
 
-// Extract Output/Input by matching only the `~standard` marker instead of the
-// full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
-// instantiate per match). `types` is optional, so the pattern keeps it optional.
 export type Output<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : never;
 
-// Match the `~standard` marker instead of the full `Schema<…>` shape for the
-// same instantiation-cost reason as `Output<T>` above.
 // `-readonly` undoes the `readonly` that a `const T` call site (schema/union)
 // stamps onto every nested property - that marker only exists to keep literal
 // types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : T extends (...args: any[]) => any
@@ -379,7 +374,7 @@ export type UnknownToOutput<T> = T extends {
   : T;
 
 export type UnknownToInput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : T extends (...args: any[]) => any

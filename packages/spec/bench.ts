@@ -30,6 +30,13 @@ const SURY_SRC = "packages/sury/src";
 // than signal: ~25ns each against a 500µs batch is under 0.01%, which leaves
 // no reason to pay for a longer one - and batches are the bulk of a run.
 const BATCH_TARGET_NS = 500_000;
+// An awaited call is a microtask round trip, so the same 500µs holds too few of
+// them: the batch size is calibrated on cold code, and on warm code a batch of
+// a thousand or so awaits is short enough that two identical runners settle
+// into a standing gap of 30% or more against each other - one the minimum
+// can't cancel, because it isn't noise. At 6ms a control measures within a
+// few percent of itself; 4ms still settles into the occasional standing gap.
+const ASYNC_BATCH_TARGET_NS = 6_000_000;
 // Half the cores for the screening pass, so processes overlap without every
 // one fighting for a core. A two-core CI runner falls back to serial.
 const SCREEN_JOBS = Math.max(1, Math.floor(cpus().length / 2));
@@ -68,9 +75,13 @@ const CONTROLS_PER_PHASE = 6;
 // point a real but sub-noise delta is not actionable, and listing it trains
 // the reader to ignore the section.
 const MIN_FLOOR_PCT = 3;
-const PHASES = ["create", "create+compile", "run", "scenario"] as const;
+// `async` is a run of an async operation, awaited call by call. A phase of its
+// own because every call goes through the microtask queue, which is noisier
+// than a sync loop - pooled with `run`, that noise would raise the floor that
+// gates every sync target.
+const PHASES = ["create", "create+compile", "run", "async", "scenario"] as const;
 
-export type Phase = "create" | "create+compile" | "run" | "scenario";
+export type Phase = "create" | "create+compile" | "run" | "async" | "scenario";
 
 export type Target = {
   name: string;
@@ -97,6 +108,7 @@ export type ChildPayload = {
   current: string;
   targets: Target[];
   batchTargetNs: number;
+  asyncBatchTargetNs: number;
   warmupBatches: number;
   blocks: number;
   roundsPerBlock: number;
@@ -120,7 +132,6 @@ export type Perf = {
   unchanged: number;
   added: string[];
   skippedConstants: number;
-  skippedAsync: number;
   errors: { name: string; error: string }[];
   // Targets whose accept/reject outcome moved. Not timings - a behavior change
   // that a percentage would misreport as an enormous slowdown.
@@ -231,10 +242,9 @@ const isConstantSchema = (src: string): boolean => evalSchema(src) === evalSchem
 export const deriveTargets = (
   files: string[],
   scenarioIds?: string[],
-): { targets: Target[]; skippedConstants: number; skippedAsync: number } => {
+): { targets: Target[]; skippedConstants: number } => {
   const targets: Target[] = [];
   let skippedConstants = 0;
-  let skippedAsync = 0;
 
   for (const [id, scenario] of Object.entries(readScenarios())) {
     if (scenarioIds && !scenarioIds.includes(id)) continue;
@@ -276,14 +286,6 @@ export const deriveTargets = (
       const isAsync = block.isAsync === true;
       if (!constant)
         targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op, isAsync });
-      // Compiling an async operation is ordinary synchronous work (above), but
-      // running one is not: the batch loop can only start the promises, so the
-      // resolution it is supposed to be timing lands in microtasks after the
-      // clock is read. Counted, not silently dropped - the report says how many.
-      if (isAsync) {
-        skippedAsync += Object.keys(block.examples).length;
-        continue;
-      }
       // One target per outcome, its batch iterating every example of that
       // outcome, rather than one target per example. Same coverage at a third
       // of the child processes - and no example has to be elected the
@@ -304,8 +306,9 @@ export const deriveTargets = (
           name: `${id}${SEP}${op}${SEP}${throws ? "rejects" : "accepts"}${
             examples.length > 1 ? ` ×${examples.length}` : ""
           }`,
-          phase: "run",
+          phase: isAsync ? "async" : "run",
           op,
+          isAsync,
           inputSrcs: examples.map(([, ex]) => stripTypes(ex.input)),
           exampleNames: examples.map(([name]) => name),
           throws,
@@ -324,7 +327,7 @@ export const deriveTargets = (
       controls.push({ ...inPhase[i]!, name: `control${SEP}${inPhase[i]!.name}`, control: true });
   }
 
-  return { targets: [...targets, ...controls], skippedConstants, skippedAsync };
+  return { targets: [...targets, ...controls], skippedConstants };
 };
 
 // ---- statistics ------------------------------------------------------------
@@ -391,13 +394,14 @@ export const runPerf = async (
     buildChild(),
   ]);
 
-  const { targets, skippedConstants, skippedAsync } = deriveTargets(files, scenarioIds);
+  const { targets, skippedConstants } = deriveTargets(files, scenarioIds);
   const childPath = join(CACHE, "child.mjs");
   const payloadFor = (list: Target[]): ChildPayload => ({
     baseline: pathToFileURL(baselinePath).href,
     current: pathToFileURL(currentPath).href,
     targets: list,
     batchTargetNs: BATCH_TARGET_NS,
+    asyncBatchTargetNs: ASYNC_BATCH_TARGET_NS,
     warmupBatches: WARMUP_BATCHES,
     blocks: BLOCKS,
     roundsPerBlock: ROUNDS_PER_BLOCK,
@@ -533,7 +537,6 @@ export const runPerf = async (
     unchanged: real.length - changed.length,
     added: [...new Set(added)],
     skippedConstants,
-    skippedAsync,
     // Deduped by name like outcomeChanged: collect runs over the screening pass
     // plus every confirm pass, so one target can report the same failure twice.
     errors: [...new Map(errors.map((e) => [e.name, e])).values()],

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.union([S.bigint, S.boolean]).with(S.refine, () => true), S.number, S.literal(null)]))
+  input: JSON
+  output: number | bigint | boolean | null
+  instantiations: 6922
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "boolean" }, { type: "number" }, { type: "null" }] }'
+  fromInputType: string | number | boolean | null
+  output: Expected JSON, received bigint | boolean
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string" }, { type: "boolean" }, { type: "number" }, { enum: [null] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare bigint | boolean | number | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);i=v0;break}if(typeof i==="boolean")break;throw e[2](i)}e[3](i)||e[4](i);break}return i}catch(v1){e[5](v1)}}
+    examples:
+      # FIXME: the nested union coerces JSON text with no guard and never hands on to the later members
+      number:
+        input: "1"
+        error: Expected bigint | boolean, received 1
+      "null":
+        input: "null"
+        error: Expected bigint | boolean, received null
+      bigint-text:
+        input: '"10"'
+        output: 10n
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i)break;if(i===null)break;l1:{try{for(;;){if(typeof i==="bigint"){if(!(e[0](i))){v0=[v0,e[1],i];break l1}i=""+i;break}if(typeof i==="boolean"){if(!(e[0](i))){v0=[v0,e[2],i];break l1}break}v0=[v0,e[3](i)];break l1}break}catch(x){v0=[v0,e[4](x)]}}throw e[5](i,v0)}return i}catch(v2){e[6](v2)}}
+    examples:
+      number:
+        input: "1"
+        output: "1"

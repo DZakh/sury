@@ -36,9 +36,10 @@ probe. No ledger, no loop.
    metrics that must not regress.
 3. Candidates, when `packages/sury/src` changes and several designs are
    plausible: a subagent per candidate with `isolation: "worktree"`, built far
-   enough for `pnpm spec check --write` to measure. Pass `sury-judge` (pick
-   mode) each sketch, worktree path and numbers (bundle gz, codegen, perf above
-   the floor, lines +/-).
+   enough for `pnpm spec check --write --perf=skip` to measure, and
+   `--perf=only <ids>` for the specs it reaches. Pass `sury-judge` (pick mode)
+   each sketch, worktree path and numbers (bundle gz, codegen, perf above the
+   floor, lines +/-).
 4. Build it through the `spec` skill, with docs, `S.res` and `index.d.ts`.
 5. Loop.
 
@@ -52,7 +53,8 @@ probe. No ledger, no loop.
    green, and the fuzzer extended if it should have caught this.
 5. Change steps 3-5.
 
-**Hillclimb** (faster/smaller): baseline and noise floor in the ledger; one
+**Hillclimb** (faster/smaller): baseline and noise floor in the ledger, timed
+with `pnpm spec check --perf=only <ids>` on the target's specs; one
 hypothesis per iteration, kept as its own commit only above the floor with no
 other regression. Contract: the target, or a plateau after a pivot.
 
@@ -82,13 +84,15 @@ rejected findings, reverts.
 
 ## Loop
 
-1. `pnpm verify --fast`. Red is the next thing to fix.
+1. `pnpm verify --fast`. Red is the next thing to fix. Between rounds, check
+   only the specs the change reaches: `pnpm spec check --write --perf=skip
+   <ids>` takes seconds where all of them take minutes.
 2. `sury-judge` review of the diff against `origin/main`. Fix blocking findings,
    each as a spec example first; log the rest with a reason.
 3. `comment-sicko` on the diff; apply what you accept.
 4. Deslop: one-caller helpers, defensive checks on trusted paths, `as any`, dead
    flags, anything off the surrounding file's dialect. Keep a cleanup only if
-   `pnpm spec check --write` shows no regression.
+   `pnpm spec check --write --perf=skip <ids>` shows no regression.
 5. Reflect: try the next deletion or simplification and measure it.
 
 Exit when the contract holds and a whole round changed nothing. After two rounds
@@ -98,7 +102,8 @@ Stop after round 8 regardless.
 ## Finish
 
 1. `git fetch origin main && git merge origin/main`. Regenerate, never
-   hand-merge: `pnpm spec check --write`,
+   hand-merge: `pnpm spec check --write --perf=skip` (CI's `Performance (PR)`
+   job times every target and posts the report on the PR),
    `pnpm benchmarks --write`, `pnpm --filter=sury build`, `pnpm spec schema`.
 2. `pnpm verify`. Name any red that isn't this change's.
 3. Commit, push to the session branch. Never open a PR.
@@ -111,17 +116,26 @@ Stop after round 8 regardless.
 
 ## Reply
 
-Who it's for and what they notice first. Name each principle that changed a
-decision. End with:
+Plain markdown for someone reading on a phone, never a code block around the
+summary. Lead with what they notice first:
 
-```
-Done: pnpm verify green (full), 0 blocking, 3 rounds.   [or: Stopped: <why>]
-Decision (confidence: high|low): <approach>
-| | approach | bundle gz | codegen | perf | judge |
-| A (built) | ... |
-| B | ... |
-Reply "switch to B" to rework from B.
-```
+- **What changes for you**: the schema they write and what it reads back,
+  before and after.
+- **Why it happened**: one or two sentences, in their terms.
+- **What else moved**: error messages, speed, size, a spec whose schema
+  changed. Skip what nobody would notice.
+- Name each principle next to the decision it changed.
+
+Close with a short status, one fact per line:
+
+**Done**: `pnpm verify` green (full), nothing blocking, 3 rounds. (Or
+**Stopped**, and why.)
+**Chosen** (confidence high|low): the approach in one sentence.
+
+When more than one candidate was measured, add a table. Name each row by what
+it does, not a letter alone, mark the one built, and write each cell as its
+meaning ("+8 B gzip", "adds a try/catch on the valid path"). End with: Reply
+"switch to <row>" to rework from that row.
 
 Confidence is low when goals 1-2 were close or the public API changed. "switch
 to X" reruns Change from step 4 with X, keeping the ledger.

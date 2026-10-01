@@ -117,13 +117,20 @@ S.decodeOrThrow(b64Event, "eyJ0eXBlIjoidXNlci5kZWxldGVkIiwiaWQiOiI3IiwicGF5bG9hZ
 // => { type: "user.deleted", id: 7n, payload: { reason: "spam" } }
 ```
 
-Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries, and `S.parseAsResult` answers in their result shape, `issues` and all. Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
+Thanks to [Standard Schema](https://standardschema.dev/), the schema plugs straight into tRPC, Hono, TanStack and 28+ other libraries. `validate` reports every issue at once, ready for a form:
+
+```ts
+eventSchema["~standard"].validate({ type: "user.created", id: 7, tags: [] }).issues;
+// => [
+//   { message: "Expected bigint, received 7", path: ["id"] },
+//   { message: "Add at least one tag", path: ["tags"] },
+// ]
+```
+
+Its Standard JSON Schema extension describes the wire - and a `bigint` has no wire until you give it one:
 
 ```ts
 S.enableStandardJSONSchema(); // Opt-in, so unused JSON Schema code tree-shakes away
-
-eventSchema["~standard"].validate({ type: "user.deleted", id: 7n, payload: null });
-// => { value: { type: "user.deleted", id: 7n, payload: null } }
 
 eventSchema["~standard"].jsonSchema.input({ target: "draft-07" });
 // => throws: Failed at id: Expected JSON, received bigint

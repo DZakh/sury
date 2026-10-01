@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { expect, expectTypeOf, test } from "vitest";
 import * as S from "sury";
 import type { StandardSchemaV1 } from "sury";
@@ -83,7 +84,7 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {
   expect(S.parseAsResult(S.string).toString()).toMatchInlineSnapshot(
-    `"i=>{try{if(!(typeof i==="string"))return e[0](e[1](i));return {success:true,value:i,error:void 0,issues:void 0}}catch(v0){return e[2](v0)}}"`,
+    `"i=>{let v0;try{if(!(typeof i==="string"))return e[0]([v0,e[1],i]);return {success:true,value:i,error:void 0,issues:void 0}}catch(v1){return e[0](0,1,v1)}}"`,
   );
 });
 
@@ -260,7 +261,8 @@ test("a foreign exception from user code is a failure of the value, in the outco
   const evilA = { get a(): never { throw boom; } };
   const rejected = S.parseAsPromiseOrReject(fallback, evilA);
   await expect(rejected).rejects.toBe(boom);
-  expect(fallback["~standard"].validate(evilA)).toEqual({
+  expect(fallback["~standard"].validate(evilA)).toMatchObject({
+    success: false,
     issues: [{ message: "TypeError: boom", path: undefined }],
   });
 
@@ -269,7 +271,8 @@ test("a foreign exception from user code is a failure of the value, in the outco
   const open = S.union([S.schema({ kind: "a", v: S.unknown }), S.unknown]);
   expect(S.isInput(open, evilKind)).toBe(false);
   expect(S.parseAsResult(open, evilKind).error?.code).toBe("invalid_conversion");
-  expect(open["~standard"].validate(evilKind)).toEqual({
+  expect(open["~standard"].validate(evilKind)).toMatchObject({
+    success: false,
     issues: [{ message: "TypeError: boom", path: undefined }],
   });
   await expect(S.parseAsPromiseOrReject(open, evilKind)).rejects.toBe(boom);
@@ -305,19 +308,19 @@ test("the promisable Result mode follows the schema's own shape", async () => {
 });
 
 test("`~standard.validate` is the compiled operation, with no wrapper left", () => {
-  // The Standard Schema result shape is a tail of its own (mode bit 1024), so
-  // there is no wrapper translating one result shape into another. It is
-  // emitted by `throwTail` rather than behind the `__setTail` hook: the
-  // `~standard` prototype getter can never be tree-shaken, so registering from
-  // it would drag the whole emitter into every consumer bundle.
-  expect(S.parseAsResult(user).toString()).toContain("success:true");
-  const schema = S.schema({ id: S.string });
-  expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
-  expect(schema["~standard"].validate({ id: 1 })).toEqual({
-    issues: [{ message: "Expected string, received 1", path: ["id"] }],
+  const schema = S.schema({ id: S.string, age: S.number });
+  const validate = schema["~standard"].validate;
+  expect(validate({ id: "a", age: 1 })).toEqual(S.parseAsResult(schema, { id: "a", age: 1 }));
+  expect(validate({ id: 1, age: "x" })).toEqual(S.parseAsResult(schema, { id: 1, age: "x" }));
+  expect(validate({ id: 1, age: "x" })).toMatchObject({
+    success: false,
+    issues: [
+      { message: "Expected string, received 1", path: ["id"] },
+      { message: 'Expected number, received "x"', path: ["age"] },
+    ],
   });
   // `path` is omitted at the root rather than sent as an empty array.
-  expect(S.string["~standard"].validate(1)).toEqual({
+  expect(S.string["~standard"].validate(1)).toMatchObject({
     issues: [{ message: "Expected string, received 1" }],
   });
 });
@@ -632,4 +635,50 @@ test("every verb takes the promisable Result, and answers in the schema's shape"
   }
   // There is no promisable throwing variant, in either language.
   expect("parseAsPromisableOrThrow" in S).toBe(false);
+});
+
+// A declaration spelled outside `B_let` compiles, and then scopes wrong only
+// inside a collecting child's labelled block - a golden records one schema, so
+// the source is held to it instead. The four are `B_let` and the sinks that
+// declare what it routed.
+test("generated declarations go through B_let", () => {
+  const src = new URL("../src/", import.meta.url);
+  const spelled: Record<string, number> = {};
+  for (const file of readdirSync(src, { recursive: true }) as string[]) {
+    if (!file.endsWith(".ts")) continue;
+    const count = readFileSync(new URL(file, src), "utf8").split("`let ${").length - 1;
+    if (count) spelled[file] = count;
+  }
+  expect(spelled).toEqual({ "builder.ts": 3, "parse.ts": 1 });
+});
+
+// An async entry that starts before a sync one fails. A test rather than a spec
+// example: the spec harness also runs the throwing outcome, which leaves the
+// started entry's rejection unhandled (IDEAS.md), while the
+// collecting outcomes wait for it.
+test("a collecting outcome waits for an async child started before a sync failure", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const taken = S.string.with(S.to, S.string, {
+      decode: { async: (v: string) => (v === "t" ? Promise.reject(new Error("taken")) : Promise.resolve(v)) },
+      encode: (v: string) => v,
+    });
+    const record = S.record(taken);
+    const nested = S.schema({ r: record, n: S.number });
+    const expected = [
+      { message: "Expected string, received 1", path: ["b"] },
+      { message: "taken", path: ["a"] },
+    ];
+    expect((await S.parseAsResultPromise(record, { a: "t", b: 1 })).issues).toEqual(expected);
+    expect((await record["~standard"].validate({ a: "t", b: 1 })).issues).toEqual(expected);
+    expect((await S.parseAsResultPromise(nested, { r: { a: "t", b: 1 }, n: 1 })).issues).toEqual(
+      expected.map((issue) => ({ ...issue, path: ["r", ...issue.path] })),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
 });

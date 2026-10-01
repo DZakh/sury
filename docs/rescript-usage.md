@@ -1649,7 +1649,7 @@ Bad input throws an error that points to the field:
   ~from=S.protobuf,
   ~to=userSchema,
 )
-// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
+// throws: Failed at home.street: Protobuf string is not valid UTF-8
 ```
 
 #### `toProtoOrThrow`
@@ -2034,7 +2034,7 @@ let apiUserSchema = S.schema(s =>
 
 Every operation is named `[compile]` + verb + outcome, and the names match the JS ones apart from two deliberate divergences: `S.t<'value>` names the **output** type, so what JS spells `encode*` is `convert*` here, and what it spells `makeOutput*` is just `make*`.
 
-`parse`, `convert` and `make` each take four outcomes:
+`parse`, `convert` and `make` each take six outcomes:
 
 | Suffix | Returns |
 | --- | --- |
@@ -2042,6 +2042,8 @@ Every operation is named `[compile]` + verb + outcome, and the names match the J
 | `AsResult` | `result<'value, S.error>` |
 | `AsPromiseOrReject` | `promise<'value>` - rejects, never throws synchronously |
 | `AsResultPromise` | `promise<result<'value, S.error>>` |
+| `AsStandardResult` | `StandardSchema.Result.t<'value>` - every issue, not only the first |
+| `AsStandardResultPromise` | `promise<StandardSchema.Result.t<'value>>` |
 
 The result outcomes are compiled, not wrapped: ReScript's `result` is a second tail the same compiler emits, so nothing pays for a closure per call.
 
@@ -2057,9 +2059,9 @@ There is no promisable outcome here, though the JS surface has one (`parseAsProm
 
 | Verb        | Throws                                             | Result                                             |
 | ----------- | -------------------------------------------------- | -------------------------------------------------- |
-| **parse**   | `parseOrThrow`, `parseAsPromiseOrReject`           | `parseAsResult`, `parseAsResultPromise`            |
-| **convert** | `convertOrThrow`, `convertAsPromiseOrReject`       | `convertAsResult`, `convertAsResultPromise`        |
-| **make**    | `makeOrThrow`, `makeAsPromiseOrReject`             | `makeAsResult`, `makeAsResultPromise`              |
+| **parse**   | `parseOrThrow`, `parseAsPromiseOrReject`           | `parseAsResult`, `parseAsResultPromise`, `parseAsStandardResult`, `parseAsStandardResultPromise` |
+| **convert** | `convertOrThrow`, `convertAsPromiseOrReject`       | `convertAsResult`, `convertAsResultPromise`, `convertAsStandardResult`, `convertAsStandardResultPromise` |
+| **make**    | `makeOrThrow`, `makeAsPromiseOrReject`             | `makeAsResult`, `makeAsResultPromise`, `makeAsStandardResult`, `makeAsStandardResultPromise` |
 | **assert**  | `assertInputOrThrow`, `assertInputAsPromiseOrReject` (and the `Output` twins) | |
 | **is**      | | `isInput`, `isOutput` - a `bool`, not a `result` |
 
@@ -2076,6 +2078,10 @@ S.compileParseOrThrow: (~to: S.t<'value>) => 'any => 'value
 S.compileParseAsResult: (~to: S.t<'value>) => 'any => result<'value, S.error>
 S.compileParseAsPromiseOrReject: (~to: S.t<'value>) => 'any => promise<'value>
 S.compileParseAsResultPromise: (~to: S.t<'value>) => 'any => promise<result<'value, S.error>>
+S.parseAsStandardResult: ('any, ~to: S.t<'value>) => StandardSchema.Result.t<'value>
+S.parseAsStandardResultPromise: ('any, ~to: S.t<'value>) => promise<StandardSchema.Result.t<'value>>
+S.compileParseAsStandardResult: (~to: S.t<'value>) => 'any => StandardSchema.Result.t<'value>
+S.compileParseAsStandardResultPromise: (~to: S.t<'value>) => 'any => promise<StandardSchema.Result.t<'value>>
 ```
 
 ```rescript
@@ -2088,6 +2094,25 @@ switch data->S.parseAsResult(~to=schema) {
 }
 ```
 
+`AsStandardResult` reports every issue, which is what a form needs:
+
+```rescript
+let signup = S.object(s =>
+  {
+    "name": s.field("name", S.string),
+    "age": s.field("age", S.int),
+  }
+)
+
+switch {"name": 1, "age": "x"}->S.parseAsStandardResult(~to=signup) {
+| {issues} => issues->Array.forEach(issue => Console.log(issue.message))
+// "Expected string, received 1"
+// "Expected int32, received \"x\""
+| {value} => Console.log(value)
+| _ => ()
+}
+```
+
 **Converting** transforms a value from one schema's output type to another's. The input isn't validated - `~from` is trusted, and the type is derived from it. Pass `~via` to route through an intermediate schema:
 
 ```
@@ -2095,6 +2120,8 @@ S.convertOrThrow: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) =
 S.convertAsResult: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => result<'to, S.error>
 S.convertAsPromiseOrReject: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<'to>
 S.convertAsResultPromise: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<result<'to, S.error>>
+S.convertAsStandardResult: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => StandardSchema.Result.t<'to>
+S.convertAsStandardResultPromise: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<StandardSchema.Result.t<'to>>
 S.compileConvertOrThrow: (~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => 'from => 'to
 ```
 
@@ -2165,6 +2192,8 @@ S.makeOrThrow: ('value, ~schema: S.t<'value>) => 'value
 S.makeAsResult: ('value, ~schema: S.t<'value>) => result<'value, S.error>
 S.makeAsPromiseOrReject: ('value, ~schema: S.t<'value>) => promise<'value>
 S.makeAsResultPromise: ('value, ~schema: S.t<'value>) => promise<result<'value, S.error>>
+S.makeAsStandardResult: ('value, ~schema: S.t<'value>) => StandardSchema.Result.t<'value>
+S.makeAsStandardResultPromise: ('value, ~schema: S.t<'value>) => promise<StandardSchema.Result.t<'value>>
 S.compileMakeOrThrow: (~schema: S.t<'value>) => 'value => 'value
 ```
 
