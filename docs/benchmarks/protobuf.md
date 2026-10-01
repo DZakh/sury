@@ -6,7 +6,7 @@
 
 `S.protobuf` encodes and decodes the Protocol Buffers binary format from an ordinary Sury schema: no `.proto` file, no code generation step, and the same schema still parses, infers types and converts to JSON Schema.
 
-Measured against sury 11.0.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
+Measured against sury 11.1.0-rc.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 ## Features
 

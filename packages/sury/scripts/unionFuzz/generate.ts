@@ -132,11 +132,14 @@ const transformingContainer = (S: Sury, rng: Rng): MemberSpec => {
   };
 };
 
-// `S.optional(x, d)` / `S.nullable(x, d)`. Deliberately NOT guarded: a default
-// the sampler drew off the Output side is one the schema has to accept, so a
-// throw here is the finding (#452), and the runners report it against this id.
+// Deliberately NOT guarded: a default the sampler drew off the Output side is
+// one the schema has to accept, so a throw here is the finding (#452), and the
+// runners report it against this id.
 const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
-  const name = rng() < 0.5 ? "optional" : "nullable";
+  const r = rng();
+  // One draw, and optional keeps the half it had before nullish took defaults:
+  // the issues gate reaches jsonstring-null-default-inlined only through it.
+  const name = r < 0.5 ? "optional" : r < 0.75 ? "nullable" : "nullish";
   const value = defaultFor(S, rng, inner);
   if (value === NO_SAMPLE) {
     return {

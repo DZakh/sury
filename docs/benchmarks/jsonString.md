@@ -6,7 +6,7 @@
 
 `S.jsonString` compiles the schema into the JSON text: the structure is baked in as literals and only the values are spliced, so nothing is allocated between the value and the string. The same schema reads the text back, checked.
 
-Measured against sury 11.0.0, fast-json-stringify 7.0.1.
+Measured against sury 11.1.0-rc.0, fast-json-stringify 7.0.1.
 
 ## Features
 
