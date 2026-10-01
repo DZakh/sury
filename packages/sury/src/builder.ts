@@ -448,18 +448,21 @@ const B_foreignFail = (
 //
 // Onto the SAME prototype: what the failing check settled lives on its site
 // prototype (base.ts, `errorSite`), and a copy without it would read `Expected
-// undefined`. `Object.assign` rather than every own descriptor, which measured
-// 36 times slower and is paid once per recursive level a failure passes back
-// through: an own `reason` goes through `reasonSet`, which writes the same data
-// property. The one non-enumerable own field is a `stack`, there only on an
-// error user code built (Sury's own get theirs at the boundary), and it goes
-// across as its value: V8's is an accessor reading the instance it was captured
-// on, so the copied descriptor reads `undefined`.
+// undefined`. This runs once per recursive level a failure passes back
+// through, so a failure Sury built and nothing has handed out yet - no own
+// `stack` - takes `Object.assign`: its own keys are plain enumerable data.
+// Anything else may carry what a subclass defined (a read-only `name` field,
+// a non-enumerable one), so it gets every own descriptor, and the `stack` as
+// its value: V8's is an accessor reading the instance it was captured on, and
+// copied over it reads `undefined`.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
-  const copy = Object.assign(Object.create(Object.getPrototypeOf(error) as object), error) as SuryErrorRecord;
-  if (Object.hasOwn(error, "stack"))
+  const proto = Object.getPrototypeOf(error) as object;
+  let copy: SuryErrorRecord;
+  if (Object.hasOwn(error, "stack")) {
+    copy = Object.create(proto, Object.getOwnPropertyDescriptors(error)) as SuryErrorRecord;
     Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
+  } else copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
   copy.path = pathConcat(p, error.path);
   return copy;
 };

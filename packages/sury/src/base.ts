@@ -1051,7 +1051,9 @@ const renderReason = (error: SuryErrorRecord, expectedExpression: string): strin
 // `new S.Error({ reason })` assigns through the prototype, and an accessor with
 // no setter makes that a TypeError rather than an error carrying the reason it
 // was handed. Writing an own property is what an explicit reason means anyway -
-// it shadows the renderer from then on.
+// it shadows the renderer from then on. It must stay an own enumerable data
+// property: `B_prefixPath` (builder.ts) copies a failure with `Object.assign`,
+// which writes an own `reason` through here.
 const reasonSet = function (this: SuryErrorRecord, reason: string): void {
   Object.defineProperty(this, "reason", {
     value: reason,

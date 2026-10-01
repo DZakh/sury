@@ -115,8 +115,6 @@ test("a check that names its own message says it without rendering one", () => {
 });
 
 test("a chosen stack survives the copy that prepends a path", () => {
-  // Under a field the thrown instance is copied to take the path, and the
-  // stack is the one own field a copy of enumerable properties would drop.
   const SuryError = S.Error as unknown as new (details: unknown) => Error;
   const refined = S.schema({
     a: S.string.with(S.refine, (value: string) => {
@@ -136,10 +134,7 @@ test("a chosen stack survives the copy that prepends a path", () => {
 
 test("prepending a path keeps what the failing check knew", () => {
   // The inner parse throws a compiled failure; the refiner's wrapper catches it
-  // and rebuilds it with the outer path prepended. That copy used to be a
-  // spread, which takes own properties only - so everything the site prototype
-  // holds would have been dropped and the reason would read `Expected
-  // undefined`.
+  // and rebuilds it with the outer path prepended.
   const inner = S.parseOrThrow(S.number);
   const outer = S.schema({
     a: S.unknown.with(S.refine, (value: unknown) => {
