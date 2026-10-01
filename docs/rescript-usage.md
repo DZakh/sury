@@ -466,6 +466,17 @@ The `Option.getOr` augments a schema to add transformation logic for default val
 
 > 🧠 If you want to set a default value for an object field, there's a more convenient `fieldOr` method on `Object.s` type.
 
+When the item is an option itself, `None` is a default too:
+
+```rescript
+let schema = S.option(S.option(S.string))->S.Option.getOr(None)
+
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
+// None
+None->S.convertOrThrow(~from=schema, ~to=S.unknown)
+// undefined
+```
+
 ### **`Option.getOrWith`**
 
 `(S.t<option<'value>>, () => 'value) => S.t<'value>`

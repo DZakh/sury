@@ -6,7 +6,7 @@ ts:
   instantiations: 445
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: Expected JSON, received string | undefined
+  output: "Expected JSON, received string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined"
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||e[0](a,b)
@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i="x";break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'
@@ -26,7 +26,7 @@ operations:
       # FIXME: the outer option's None goes behind the inner default
       undefined-is-the-outer-none:
         input: undefined
-        output: '"x"'
+        output: undefined
   decode: eq-to-parse
   encode:
     expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}

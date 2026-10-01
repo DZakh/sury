@@ -1,6 +1,6 @@
 import { modifiers, schemaLeaves, wraps } from "./catalog";
 import { NO_SAMPLE, sample, show } from "./sample";
-import { node, type Shape, valueNode } from "./shape";
+import { admitsUndefined, node, type Shape, valueNode } from "./shape";
 import type { Sury } from "./types";
 
 export type Rng = () => number;
@@ -159,17 +159,29 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 
 // ReScript's `S.option(S.option(x))->S.Option.getOr(d)`: the only way to reach
 // the nested `Some(None)` marker. The default peels one option off, so it is a
-// value of `option(x)` and `None` is one it may take. Lossy: every
-// `None` in the output encodes to the one `undefined` of the input.
+// value of `option(x)` and `None` is one it may take. Lossy: every `None` in
+// the output encodes to the one `undefined` of the input.
+//
+// Half the time the inner option is a coder whose output is the option
+// (`x.with(S.to, S.option(x))`), which the outer one wraps rather than reaches
+// into. That coder can't encode `None` back to `x`, so `None` is no default
+// for it, and without another the draw is the bare outer option. An `x` that
+// takes `undefined` itself has no such coder: `x` and `option(x)` overlap.
 const nestedOptionMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
-  const item = S.$option(inner.schema);
-  const drawn = rng() < 0.5 ? NO_SAMPLE : defaultFor(S, rng, { ...inner, schema: item });
-  const value = drawn === NO_SAMPLE ? undefined : drawn;
-  const id = `getOr(option(option(${inner.id})),${show(value)})`;
+  const coder = rng() < 0.5 && !admitsUndefined(inner.shape);
+  const name = coder ? "toOption" : "option";
+  const item = coder ? inner.schema.with(S.to, S.$option(inner.schema)) : S.$option(inner.schema);
+  const drawn = !coder && rng() < 0.5 ? NO_SAMPLE : defaultFor(S, rng, { ...inner, schema: item });
   const nested = S.$option(item);
+  const shape = node("option", node(name, inner.shape));
+  if (coder && drawn === NO_SAMPLE) {
+    return { id: `option(${name}(${inner.id}))`, schema: nested, shape, lossy: true };
+  }
+  const value = drawn === NO_SAMPLE ? undefined : drawn;
+  const id = `getOr(option(${name}(${inner.id})),${show(value)})`;
   return {
     id,
-    shape: node("getOr", node("option", node("option", inner.shape)), valueNode(show(value))),
+    shape: node("getOr", shape, valueNode(show(value))),
     schema: named(id, () => S.$Option_getOr(nested, value), () => nested),
     lossy: true,
   };

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(S as any).$option(S.union(["a", "b", ""]).with(S.to, (S as any).$option(S.union(["a", "b"])), { decode: (v: string) => (v === "" ? undefined : v), encode: (v: string | undefined) => (v === undefined ? "" : v) })) as S.Schema<"a" | "b" | "" | undefined, "a" | "b" | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0 }>'
+  input: '"" | "a" | "b" | undefined'
+  output: '"a" | "b" | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined'
+  instantiations: 1678
+jsonSchema:
+  input: Expected JSON, received "a" | "b" | "" | undefined
+  output: 'Expected JSON, received "a" | "b" | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare \"a\" | \"b\" | \"\" | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare \"a\" | \"b\" | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(i===void 0)break;if(typeof i==="string"&&(i==="a"||i==="b"||i==="")){l2:{let v0;try{v0=e[0](i)}catch(x){v1=[v1,e[1],x];break l2}for(;;){if(typeof v0==="string"&&(v0==="a"||v0==="b"))break;if(v0===void 0){v0={BS_PRIVATE_NESTED_SOME_NONE:0};break}v1=[v1,e[2](v0)];break l2}i=v0;break}}throw e[3](i,v1)}return i}catch(v3){e[4](v3)}}
+    examples:
+      member:
+        input: '"a"'
+        output: '"a"'
+      blank-is-some-none:
+        input: '""'
+        output: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
+      undefined-is-the-outer-none:
+        input: undefined
+        output: undefined
+      not-a-member:
+        input: '"c"'
+        error: Expected "a" | "b" | "" | undefined, received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string"&&(i==="a"||i==="b"))break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}v0=[v0,e[0](i)];break l1}let v2;try{v2=e[1](i)}catch(x){v0=[v0,e[2],x];break l1}if(!(typeof v2==="string"&&(v2==="a"||v2==="b"||v2===""))){v0=[v0,e[3],v2];break l1}i=v2;break}throw e[4](i,v0)}return i}catch(v3){e[5](v3)}}
+    examples:
+      member:
+        input: '"a"'
+        output: '"a"'
+      some-none-encodes-to-blank:
+        input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
+        output: '""'
+      outer-none-encodes-to-undefined:
+        input: undefined
+        output: undefined

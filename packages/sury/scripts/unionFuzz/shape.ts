@@ -31,6 +31,7 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 // `env` reads an unset variable, so its input admits `undefined` too.
 export const admitsUndefined = (node: Shape): boolean =>
   node.name === "optional" ||
+  node.name === "option" ||
   node.name === "getOr" ||
   node.name === "env" ||
   node.name === "nullish" ||

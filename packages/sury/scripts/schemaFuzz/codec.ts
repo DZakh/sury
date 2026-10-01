@@ -21,12 +21,17 @@
 //   reverse      `encode(schema)` is `decode(reverse(schema))`. One operation
 //                reached two ways, so a reverse that rebuilds rather than swaps
 //                is caught against itself.
+//   absent       a shape built to take `undefined` - an option, a default - has
+//                an `isInput` that takes it. The sampler draws only what the
+//                validators accept, so a wrapper that never reached the input
+//                side is otherwise invisible: both of its sides agree.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
 // wrong is not a property.
 
 import { show, structural } from "../unionFuzz/sample";
+import { admitsUndefined } from "../unionFuzz/shape";
 import { type Ctx, type Family, reason } from "./context";
 
 type Op = (value: unknown) => unknown;
@@ -35,6 +40,10 @@ const settled = (value: unknown): boolean => !(value instanceof Promise);
 
 const check = (ctx: Ctx): void => {
   const { S, schema, reversed, lossy, inputs, outputs, isInput, isOutput, report, compile, count } = ctx;
+
+  if (admitsUndefined(ctx.shape) && isInput(undefined) !== true) {
+    report("absent", "isInput rejects undefined, which the shape takes");
+  }
 
   const decode = compile<Op>("decode", () => S.decodeOrThrow(schema));
   const encode = compile<Op>("encode", () => S.encodeOrThrow(schema));

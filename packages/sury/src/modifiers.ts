@@ -3,7 +3,6 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
-  anyOfTag,
   type AdditionalItems,
   baseSchema,
   type Builder,
@@ -103,14 +102,44 @@ const renest = (variant: Internal, marker: Internal, depth: number): Internal =>
     mut.properties = { [nestedLoc]: bumped };
   });
 
-// The inverse of one `optionFactory` step on a member, for a default that takes
-// that step back: the outer `Some(None)` marker is the inner option's `None`.
-const unnestOption = (variant: Internal): Internal => {
-  const marker = getOutputSchema(variant).properties?.[nestedLoc];
-  if (marker === U) return variant;
+// A union further down an arm's chain - a coder's output - holds values of the
+// same option, so a step on the arm is the step on each of its members. The
+// arm stays itself when none moved: a copy would miss its cached operations.
+const mapOutputArms = (arm: Internal, step: (arm: Internal) => Internal): Internal => {
+  const arms = getOutputSchema(arm).anyOf!;
+  const stepped = arms.map(step);
+  return stepped.some((member, idx) => member !== arms[idx])
+    ? updateOutput<Internal>(arm, (mut) => {
+        mut.anyOf = stepped;
+      })
+    : arm;
+};
+
+// One `optionFactory` step on a member: the inner `None` becomes the nested
+// `Some(None)` marker, and a marker already there goes one deeper.
+const nestArm = (arm: Internal): Internal => {
+  const out = getOutputSchema(arm);
+  const marker = out.properties?.[nestedLoc];
+  return out.type === undefinedTag
+    ? nestedOption(arm)
+    : marker
+      ? renest(arm, marker, (marker.const as number) + 1)
+      : out.anyOf
+        ? mapOutputArms(arm, nestArm)
+        : arm;
+};
+
+// The step back, for a default that peels one option off: the outer
+// `Some(None)` marker is the inner option's `None`.
+const unnestArm = (arm: Internal): Internal => {
+  const out = getOutputSchema(arm);
+  const marker = out.properties?.[nestedLoc];
+  if (marker === U) return out.anyOf ? mapOutputArms(arm, unnestArm) : arm;
   const depth = marker.const as number;
-  if (depth) return renest(variant, marker, depth - 1);
-  const root = copySchema(variant);
+  if (depth) return renest(arm, marker, depth - 1);
+  // A bare marker, from a union of outputs: an earlier default's.
+  if (arm.to === U) return unit;
+  const root = copySchema(arm);
   let mut = root;
   while (mut.to!.to) mut = mut.to = copySchema(mut.to!);
   // `delete`, not `= U`: unionIsTransparent counts a schema's keys.
@@ -120,52 +149,16 @@ const unnestOption = (variant: Internal): Internal => {
 }
 
 export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  const out = getOutputSchema(item);
-  if (out.type === undefinedTag) {
-    return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === anyOfTag) {
-    const anyOf = out.anyOf;
-    const has = out.has;
-    return updateOutput<Internal>(item, (mut) => {
-      const schemas = anyOf!;
-      const mutHas = { ...has! };
-
-      const newAnyOf: Internal[] = [];
-      for (let idx = 0; idx < schemas.length; idx++) {
-        const schema = schemas[idx]!;
-        let toPush: Internal;
-        const schemaOut = getOutputSchema(schema);
-        if (schemaOut.type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
-          toPush = nestedOption(schema);
-        } else if (schemaOut.properties !== U) {
-          const properties = schemaOut.properties;
-          const nestedSchema = properties[nestedLoc];
-          if (nestedSchema !== U) {
-            toPush = renest(schema, nestedSchema, (nestedSchema.const as number) + 1);
-          } else {
-            toPush = schema;
-          }
-        } else {
-          toPush = schema;
-        }
-        newAnyOf.push(toPush);
-      }
-
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        // The copy keeps the union's own `default`, which the arm it now goes
-        // ahead of was the one to apply.
-        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
-      }
-
-      mut.anyOf = newAnyOf;
-      mut.has = mutHas;
-    });
-  } else {
-    return unionWrap(item, [unitSchema]);
-  }
+  // Only a union of its own takes the empty value among its arms. Anything
+  // else, a coder whose output is a union included, gets it as an arm beside.
+  if (item.anyOf === U || item.to) return unionWrap(nestArm(item), [unitSchema]);
+  return updateOutput<Internal>(item, (mut) => {
+    mut.anyOf = item.anyOf!.map(nestArm);
+    mut.has = { ...item.has, [unitSchema.type]: true };
+    // The copy keeps the union's own `default`, which the arm it now goes
+    // ahead of was the one to apply.
+    if (unionPlaceEmpty(mut.anyOf, unitSchema)) delete mut.default;
+  });
 }
 
 // @__NO_SIDE_EFFECTS__
@@ -441,7 +434,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const items = anyOf.slice();
     for (let idx = 0; idx < anyOf.length; idx++) {
       if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
-        const variant = (items[idx] = unnestOption(anyOf[idx]!));
+        const variant = (items[idx] = unnestArm(anyOf[idx]!));
         const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,

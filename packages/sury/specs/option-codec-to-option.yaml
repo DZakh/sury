@@ -5,41 +5,33 @@ ts:
   output: "string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined"
   instantiations: 4963
 jsonSchema:
-  input: '{ type: "string" }'
-  fromInputType: string
+  input: Expected JSON, received string | undefined
   output: "Expected JSON, received string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined"
 isEqual:
   input: strictEqual
-  output: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:a===void 0?b===void 0:typeof b==="object"&&b&&!Array.isArray(b))
+  output: (a,b)=>a===b||e[0](a,b)
 compare:
-  input: strictCompare
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
   output: "throws: [Sury] Can't compare string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);return v0}catch(v1){e[4](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}for(;;){if(typeof v0==="string")break;if(v0===void 0){v0={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[2](v0)}i=v0;break}if(i===void 0)break;throw e[3](i)}return i}catch(v1){e[4](v1)}}
     examples:
       string:
         input: '"a"'
         output: '"a"'
-      # FIXME: the coder's None should read as Some(None), the nested marker
       empty-string-is-some-none:
         input: '""'
-        output: undefined
-      # FIXME: S.option over a codec reshapes only its output, so the input never admits undefined
+        output: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
       undefined-is-none:
         input: undefined
-        error: Expected string, received undefined
-  decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);return v0}catch(v1){e[3](v1)}}
-    examples:
-      string:
-        input: '"a"'
-        output: '"a"'
+        output: undefined
+  decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="string"||e[3](v0);return v0}catch(v1){e[4](v1)}}
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string")break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i.BS_PRIVATE_NESTED_SOME_NONE===0){i=void 0;break}v0=[v0,e[0](i)];break l1}let v2;try{v2=e[1](i)}catch(x){v0=[v0,e[2],x];break l1}if(!(typeof v2==="string")){v0=[v0,e[3],v2];break l1}i=v2;break}throw e[4](i,v0)}return i}catch(v3){e[5](v3)}}
     examples:
       string:
         input: '"a"'
@@ -47,7 +39,6 @@ operations:
       some-none-encodes-to-empty-string:
         input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
         output: '""'
-      # FIXME: None should encode to undefined, not through the coder
       none-encodes-to-undefined:
         input: undefined
-        output: '""'
+        output: undefined
