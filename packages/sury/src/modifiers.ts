@@ -147,14 +147,22 @@ const unnestArm = (arm: Internal): Internal => {
 }
 
 export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
+  if (getOutputSchema(item).type === undefinedTag) {
+    return unionFactory([unitSchema, nestedOption(item)]);
+  }
   // A coder's own `anyOf` is its input union, not the values the option wraps.
   if (item.anyOf === U || item.to) return unionWrap(nestArm(item), [unitSchema]);
   return updateOutput<Internal>(item, (mut) => {
-    mut.anyOf = item.anyOf!.map(nestArm);
-    mut.has = { ...item.has, [unitSchema.type]: true };
+    const arms = item.anyOf!.map(nestArm);
+    // The empty arm goes where the inner one was, or in front of an earlier
+    // arm that would take the value first: an inner default.
+    const at = item.anyOf!.findIndex((arm) => getOutputSchema(arm).type === undefinedTag);
+    const head = at < 0 ? arms : arms.slice(0, at);
     // The copy keeps the union's own `default`, which the arm it now goes
     // ahead of was the one to apply.
-    if (unionPlaceEmpty(mut.anyOf, unitSchema)) delete mut.default;
+    if (unionPlaceEmpty(head, unitSchema)) delete mut.default;
+    mut.anyOf = at < 0 ? head : head.concat(arms.slice(at));
+    mut.has = { ...item.has, [unitSchema.type]: true };
   });
 }
 
@@ -417,6 +425,10 @@ export type OptionDefault =
 // default on decode and taking the never slot on encode so it yields to its
 // siblings there. Spelling the default as ordinary union arms is what lets the
 // planner treat it like any other variant.
+// The arms a default builds. Only a ReScript chain of `getOr`s reaches one
+// still ahead of every `undefined` arm: a wrapper puts its own empty arm first.
+const defaultArms = /* @__PURE__ */ new WeakSet<Internal>();
+
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
@@ -429,8 +441,16 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     // `S.recursive`'s definitions, while its definer is still running.
     const building = globalConfig.d;
     const items = anyOf.slice();
+    let reached = false;
     for (let idx = 0; idx < anyOf.length; idx++) {
-      if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
+      if (getOutputSchema(anyOf[idx]!).type === undefinedTag) {
+        reached = true;
+      } else {
+        if (!reached && defaultArms.has(anyOf[idx]!)) {
+          panic(
+            `Can't set default for ${inputExpression(mut)}: its default already takes undefined. Set one default`
+          );
+        }
         const variant = (items[idx] = unnestArm(anyOf[idx]!));
         const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
@@ -511,11 +531,12 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       result.io = true;
       return result;
     };
-    mut.anyOf = anyOf.map((variant, idx) =>
-      getOutputSchema(variant).type === undefinedTag
-        ? codecTo(variant, item, decodeB, B_neverSlot)
-        : items[idx]!
-    );
+    mut.anyOf = anyOf.map((variant, idx) => {
+      if (getOutputSchema(variant).type !== undefinedTag) return items[idx]!;
+      const arm = codecTo(variant, item, decodeB, B_neverSlot);
+      defaultArms.add(arm);
+      return arm;
+    });
   });
 };
 

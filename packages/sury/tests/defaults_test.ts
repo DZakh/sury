@@ -28,3 +28,31 @@ test("a default the refinement accepts is kept", () => {
     f: "x",
   });
 });
+
+// ReScript's `S.Option.getOr` over a nested option, chained. A second default
+// that its first already shadows is refused rather than read wrong.
+const R = S as unknown as Record<string, (...args: unknown[]) => S.Schema<unknown>>;
+const nested = () => R.$option!(R.$option!(S.string));
+const blankAsNone = () =>
+  R.$option!(
+    S.string.with(S.to, R.$option!(S.string), {
+      decode: (v: string) => (v === "" ? undefined : v),
+      encode: (v: unknown) => (v === undefined ? "" : v),
+    } as never),
+  );
+const refused =
+  "[Sury] Can't set default for string | undefined: its default already takes undefined. Set one default";
+
+test("getOr after a value default is refused", () => {
+  expect(() => R.$Option_getOr!(R.$Option_getOr!(nested(), "x"), "y")).toThrow(refused);
+});
+
+test("getOr after a Some(None) default is refused", () => {
+  expect(() =>
+    R.$Option_getOr!(R.$Option_getOr!(R.$option!(nested()), { BS_PRIVATE_NESTED_SOME_NONE: 0 }), undefined),
+  ).toThrow(refused);
+});
+
+test("getOr after a None default over a coder is refused", () => {
+  expect(() => R.$Option_getOr!(R.$Option_getOr!(blankAsNone(), undefined), "y")).toThrow(refused);
+});

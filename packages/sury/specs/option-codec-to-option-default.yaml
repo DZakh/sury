@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(S as any).$Option_getOr((S as any).$option(S.string.with(S.to, (S as any).$option(S.string), { decode: (v: string) => (v === "" ? undefined : v), encode: (v: string | undefined) => (v === undefined ? "" : v) })), undefined) as S.Schema<string | undefined, string | undefined>'
+  input: string | undefined
+  output: string | undefined
+  instantiations: 4793
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);i=v0;break}if(i===void 0){i=void 0;break}throw e[3](i)}return i}catch(v1){e[4](v1)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      blank-is-none:
+        input: '""'
+        output: undefined
+      undefined-is-none:
+        input: undefined
+        output: undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if((typeof i==="string"||i===void 0)){l2:{let v0;try{v0=e[0](i)}catch(x){v1=[v1,e[1],x];break l2}if(!(typeof v0==="string")){v1=[v1,e[2],v0];break l2}i=v0;break}}throw e[3](i,v1)}return i}catch(v3){e[4](v3)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      none-encodes-to-blank:
+        input: undefined
+        output: '""'

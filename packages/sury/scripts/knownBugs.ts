@@ -95,8 +95,8 @@ export const KNOWN_BUGS: Known[] = [
     summary:
       "`S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)` fails to compile " +
       "its parse: the `null` default is inlined as a literal, and the field's conversion to JSON text then " +
-      "assigns to it as if it were a variable (`null=...`). `S.nullable(x, null)` and ReScript's " +
-      "`S.Option.getOr` over a nested option inline their default the same way.",
+      "assigns to it as if it were a variable (`null=...`). Any eager default is inlined the same way, and " +
+      "the grammar reaches it through `S.nullable(x, null)` and ReScript's `S.Option.getOr` over a nested option.",
     spec: "jsonstring-object-optional-null-default",
     fuzzers: ["issues"],
     matches: (f) =>
