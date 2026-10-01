@@ -125,7 +125,12 @@ export const KNOWN_BUGS: Known[] = [
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
-      some(f.shape, (node) => node.name === "union" && (node.args.slice(0, -1).some(absorbs) || shadowsEmpty(node))),
+      some(
+        f.shape,
+        (node) =>
+          node.name === "union" &&
+          (node.args.slice(0, -1).some(absorbs) || (f.fuzzer === "codec" && shadowsEmpty(node))),
+      ),
   },
 ];
 

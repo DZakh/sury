@@ -59,7 +59,7 @@ export const absorbs = (node: Shape): boolean =>
   ((node.name === "list" || node.name === "array") && some(node.args[0]!, (n) => ANY.has(n.name))) ||
   (["optional", "nullable", "nullish"].includes(node.name) && absorbs(node.args[0]!));
 
-export const admitsNull = (node: Shape): boolean =>
+const admitsNull = (node: Shape): boolean =>
   ANY.has(node.name) ||
   ["null", "json", "nullable", "nullish", "fromEmpty"].includes(node.name) ||
   (node.name === "optional" && admitsNull(node.args[0]!)) ||
