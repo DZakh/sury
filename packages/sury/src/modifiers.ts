@@ -421,14 +421,14 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
-// Every undefined-producing variant converts to the item union, supplying the
-// default on decode and taking the never slot on encode so it yields to its
-// siblings there. Spelling the default as ordinary union arms is what lets the
-// planner treat it like any other variant.
 // The arms a default builds. Only a ReScript chain of `getOr`s reaches one
 // still ahead of every `undefined` arm: a wrapper puts its own empty arm first.
 const defaultArms = /* @__PURE__ */ new WeakSet<Internal>();
 
+// Every undefined-producing variant converts to the item union, supplying the
+// default on decode and taking the never slot on encode so it yields to its
+// siblings there. Spelling the default as ordinary union arms is what lets the
+// planner treat it like any other variant.
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
