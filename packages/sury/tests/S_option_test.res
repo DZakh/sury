@@ -46,7 +46,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){try{let v0=e[0](i);i=await v0;break}catch(x){v1=[v1,e[1](x)]}if(i===void 0)break;throw e[2](i,v1)};return i})(i)).catch(e[3])}catch(v2){return e[4](v2)}}`,
+      `i=>{try{return Promise.resolve((async(i)=>{for(;;){if(i===void 0)break;let v0=e[0](i);i=await v0;break};return i})(i)).catch(e[1])}catch(v1){return e[2](v1)}}`,
     )
   })
 
@@ -266,12 +266,14 @@ test("Option with transformed unknown", t => {
     %raw(`"foo"`),
   )
   t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(%raw(`"foo"`)->S.parseOrThrow(~to=schema), Some({"field": %raw(`"foo"`)}))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){i={field:i};break}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(i===void 0)break;i={field:i};break}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i=i.field;break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=i.field;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -347,7 +349,7 @@ module CoderToOption = {
     t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
   })
 
-  test("Option over a coder whose input takes undefined hands it to the coder", t => {
+  test("Option over a coder whose input takes undefined owns undefined", t => {
     let schema = S.option(
       S.option(S.string)->S.to(
         S.union([S.literal(1), S.literal(2)]),
@@ -358,8 +360,24 @@ module CoderToOption = {
       ),
     )
 
-    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Some(1))
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
     t->Assert.deepEqual(%raw(`"x"`)->S.parseOrThrow(~to=schema), Some(2))
+  })
+
+  test("Option over a union holding a coder to option", t => {
+    let floatToSome = S.float->S.to(
+      S.option(S.string),
+      ~custom={
+        decode: Sync(f => Some(f->Float.toString)),
+        encode: Sync(o => o->Option.flatMap(Float.fromString)->Option.getOr(0.)),
+      },
+    )
+    let schema = S.option(S.union([blankToNone, floatToSome]))
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
   })
 
   test("Option over a coder to a union parses undefined as None", t => {

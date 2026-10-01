@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.date, S.literal("x"), S.optional(S.date, new Date(0))]))
+  input: JSON
+  output: Date | "x"
+  instantiations: 5957
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "string", const: "x" }] }'
+  fromInputType: string
+  output: Expected JSON, received Date | "x"
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "string", enum: ["x"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Date | \"x\". Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0=new Date(i);if(!(!Number.isNaN(v0.getTime()))){v1=[v1,e[0],i];break l2}i=v0;break}}if(typeof i==="string"&&i==="x")break;l4:{for(;;){if(typeof i==="string"){let v3=new Date(i);if(!(!Number.isNaN(v3.getTime()))){v1=[v1,e[1],i];break l4}i=v3;break}if(i===null){i=e[2];break}v1=[v1,e[3](i)];break l4}break}throw e[4](i,v1)}return i}catch(v5){e[5](v5)}}
+    examples:
+      literal:
+        input: '"x"'
+        output: '"x"'
+      date-text:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){l2:{let v0;try{v0=i.toISOString()}catch(_){v1=[v1,e[0],i];break l2}i=v0;break}}if(typeof i==="string"&&i==="x")break;l4:{if(i instanceof e[3]){let v3;try{v3=i.toISOString()}catch(_){v1=[v1,e[2],i];break l4}i=v3;}else{v1=[v1,e[4](i)];break l4}break}throw e[5](i,v1)}return i}catch(v5){e[6](v5)}}
+    examples:
+      literal:
+        input: '"x"'
+        output: '"x"'

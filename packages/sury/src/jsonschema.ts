@@ -551,19 +551,36 @@ const internalToJSONSchemaBase = (
     const items: JSONSchemaT[] = [];
     const seen: Record<string, boolean> = {};
 
-    schema.anyOf!.forEach((childSchema) => {
-      // Filter out undefined to support optional fields - no `else` branch
-      // needed, this variant is simply skipped.
-      if (
-        childSchema.type === undefinedTag &&
-        (parent.type === objectTag ||
-          (parent.type === arrayTag &&
-            typeof parent.additionalItems === "object" &&
-            parent.items!.includes(schema)))
-      ) {
-        return;
+    const anyOf = schema.anyOf!;
+    const optionalSlot =
+      parent.type === objectTag ||
+      (parent.type === arrayTag &&
+        typeof parent.additionalItems === "object" &&
+        parent.items!.includes(schema));
+    // A missing value reads through the first arm that takes it, so only that
+    // arm's default is advertised: the union's own when that arm is its
+    // `undefined`, otherwise the taking member's, which renders it itself.
+    // `s.fieldOr`'s own parser reads it ahead of every arm.
+    const taker = optionalSlot && schema.parser === U && anyOf.find(isOptional);
+    const ownsEmpty = taker ? taker.type === undefinedTag : schema.default !== U;
+    if (schema.default !== U && (!taker || (ownsEmpty && taker.to !== U))) {
+      jsonSchema.default = schema.default;
+    }
+    const ordered = anyOf.filter((child) => child.type !== nullTag);
+    ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {
+      if (childSchema.type === undefinedTag && optionalSlot) return;
+      // A union nested in an optional slot's union answers to the same slot, so
+      // its own `undefined` is the slot being absent too.
+      const childJsonSchema = internalToJSONSchema(
+        childSchema,
+        path,
+        defs,
+        childSchema.type === anyOfTag && optionalSlot ? parent : schema,
+        target
+      );
+      if (childSchema.type === anyOfTag && (ownsEmpty || (taker && childSchema !== taker))) {
+        delete childJsonSchema.default;
       }
-      const childJsonSchema = js(childSchema, path);
       // Collapse structurally-identical members (e.g. variants coercing to
       // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
       const key = JSON.stringify(childJsonSchema);
@@ -575,7 +592,6 @@ const internalToJSONSchemaBase = (
     });
 
     const itemsNumber = items.length;
-    if (schema.default !== U) jsonSchema.default = schema.default;
 
     // Detect whether a definition is the "null" representation for the
     // current target. Sury models nullable as a union `[X, null]`; for
@@ -869,13 +885,11 @@ const withRequired = (schema: Internal, required: string[]): Internal =>
     "Should contain every required property."
   );
 
-// Deliberately not `S.isInput`, whose compiled boolean this looks like: an
-// `is*` operation registers the Result emitter (operations.ts `tailDispatch`),
-// which would ship in every JSON Schema bundle for one keyword's yes/no.
+// A schema that can't compile passes nothing, rather than failing the whole
+// conversion.
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
-    (getOp(0, 3, unknown, schema, assertResult) as (input: unknown) => unknown)(data);
-    return true;
+    return (getOp(4096, 3, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
   } catch {
     return false;
   }

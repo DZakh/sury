@@ -137,6 +137,10 @@ const exampleOutput = S.schema({
 const exampleError = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
   error: S.string.with(S.meta, { description: "Expected error message. Filled by `spec check --write`." }),
+  issues: S.optional(S.array(S.string)).with(S.meta, {
+    description:
+      "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`.",
+  }),
   ...divergence,
 }).with(S.strict);
 const exampleErrorConstructor = S.schema({

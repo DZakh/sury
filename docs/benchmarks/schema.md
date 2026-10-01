@@ -18,7 +18,7 @@ Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.
 | Compares two values for you<br><sub>the schema knows the shape, so comparing is one generated function instead of a blind walk</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
 | Checks a value you built yourself<br><sub>for data your own code produced, where parsing an untrusted input is the wrong tool</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
 | Validates asynchronously | ✅ | ✅ | ❌† | ✅ | ❌† |
-| Reports every problem, not just the first<br><sub>Sury stops at the first, which is part of why it parses as fast as it does</sub> | ❌ | ✅ | ❌ | ✅ | ✅ |
+| Reports every problem, not just the first<br><sub>through Standard Schema validate, the way a form library reads it</sub> | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Runs where `new Function` is blocked<br><sub>a page under a strict CSP, some browser extension contexts</sub> | ❌† | ⭕† opt-out | ⭕† opt-in | ✅† | ⭕† opt-out |
 
 <sub>Unmarked ✅ and ❌ are probes: the call was run against that library at the version above, and the table prints what happened. † marks a cell read from the library's documentation instead.</sub>

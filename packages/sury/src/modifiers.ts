@@ -15,7 +15,6 @@ import {
   globalConfig,
   inputExpression,
   type Internal,
-  isOptional,
   objectTag,
   panic,
   pathEmpty,
@@ -25,7 +24,6 @@ import {
   U,
   undefinedTag,
   unknown,
-  unknownTag,
   updateOutput,
   type Val,
   valKey,
@@ -65,7 +63,9 @@ import {
  unit
 } from "./primitives";
 import {
- unionFactory
+ unionFactory,
+ unionPlaceEmpty,
+ unionWrap
 } from "./union";
 
 // Lives here rather than in composites.ts so objectDecoder's module has no
@@ -94,12 +94,15 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
-// Recurses into a coder member, whose output union a flattened union doesn't
-// expose.
-const bumpNested = (schema: Internal): Internal => {
+// The schema read one option level deeper: an undefined it outputs is Some(None)
+// and a Some(None) marker counts one more Some. Recurses into output unions,
+// since a coder's input never reaches its own.
+const someOf = (schema: Internal): Internal => {
   const out = getOutputSchema(schema);
   const nestedSchema = out.properties?.[nestedLoc];
-  if (nestedSchema !== U) {
+  if (out.type === undefinedTag) {
+    return nestedOption(schema);
+  } else if (nestedSchema !== U) {
     return updateOutput<Internal>(schema, (mut) => {
       // copySchema, not a spread: a spread keeps the original's seq,
       // and two schemas sharing a seq can collide in the seq-keyed
@@ -112,7 +115,7 @@ const bumpNested = (schema: Internal): Internal => {
     });
   } else if (out.anyOf !== U) {
     return updateOutput<Internal>(schema, (mut) => {
-      mut.anyOf = out.anyOf!.map(bumpNested);
+      mut.anyOf = out.anyOf!.map(someOf);
     });
   } else {
     return schema;
@@ -123,49 +126,37 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {
     return unionFactory([unitSchema, nestedOption(item)]);
+  } else if (out.type === anyOfTag && item.to !== U) {
+    return unionWrap(someOf(item), [unitSchema]);
   } else if (out.type === anyOfTag) {
     const anyOf = out.anyOf;
     const has = out.has;
-    // A coder's input never reaches its output union, so the unit joins at the
-    // input, and an undefined the coder returns reads back as Some(None). An
-    // input that already takes undefined keeps handing it to the coder.
-    const isCoder =
-      item.to !== U &&
-      !isOptional(item) &&
-      item.type !== unknownTag &&
-      !(item.has !== U && unknownTag in item.has);
-    const optioned = updateOutput<Internal>(item, (mut) => {
+    return updateOutput<Internal>(item, (mut) => {
       const schemas = anyOf!;
       const mutHas = { ...has! };
 
       const newAnyOf: Internal[] = [];
       for (let idx = 0; idx < schemas.length; idx++) {
         const schema = schemas[idx]!;
-        let toPush: Internal;
-        const schemaOut = getOutputSchema(schema);
-        if (schemaOut.type === undefinedTag) {
-          if (!isCoder) {
-            mutHas[unitSchema.type] = true;
-            newAnyOf.push(unitSchema);
-          }
-          toPush = nestedOption(schema);
-        } else {
-          toPush = bumpNested(schema);
+        if (getOutputSchema(schema).type === undefinedTag) {
+          mutHas[unitSchema.type] = true;
+          newAnyOf.push(unitSchema);
         }
-        newAnyOf.push(toPush);
+        newAnyOf.push(someOf(schema));
       }
 
-      if (!isCoder && newAnyOf.length === schemas.length) {
+      if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        newAnyOf.push(unitSchema);
+        // The copy keeps the union's own `default`, which the arm it now goes
+        // ahead of was the one to apply.
+        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
       }
 
       mut.anyOf = newAnyOf;
       mut.has = mutHas;
     });
-    return isCoder ? unionFactory([unitSchema, optioned]) : optioned;
   } else {
-    return unionFactory([item, unitSchema]);
+    return unionWrap(item, [unitSchema]);
   }
 }
 
