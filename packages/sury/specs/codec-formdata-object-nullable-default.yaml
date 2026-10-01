@@ -41,6 +41,9 @@ operations:
       null-is-invalid:
         input: "{ n: null, s: null }"
         error: "Failed at n: Expected number, received null"
+        issues:
+          - "Failed at n: Expected number, received null"
+          - "Failed at s: Expected string.length >= 1, received null"
       built:
         input: '{ n: 1, s: "x" }'
         output: ((f) => (f.append("n", "1"), f.append("s", "x"), f))(new FormData())

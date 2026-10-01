@@ -37,6 +37,8 @@ import {
   _notVarAtParent,
   _var,
   B_addObjectField,
+  B_field,
+  B_unlessCollected,
   B_inlineConst,
   B_invalidOperation,
   B_markOutput,
@@ -432,7 +434,7 @@ const assembleShapedObject = (
     const items = schema.items;
     for (let idx = 0; idx < items.length; idx++) {
       const location = String(idx);
-      B_addObjectField(output, location, field(location, items[idx]!));
+      B_field(output, location, () => field(location, items[idx]!));
     }
   } else if (schema.properties !== U) {
     const properties = schema.properties;
@@ -441,7 +443,7 @@ const assembleShapedObject = (
       const location = keys[idx]!;
       // Skip locations pre-populated by init (flattened fields)
       if (!(location in output.d!)) {
-        B_addObjectField(output, location, field(location, properties[location]!));
+        B_field(output, location, () => field(location, properties[location]!));
       }
     }
   } else if (onMissing !== U) {
@@ -513,7 +515,7 @@ const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      input.cp = input.cp + B_merge(flattenedVal);
+      B_unlessCollected(input, () => B_merge(flattenedVal));
     }
     input.fv = flattenedVals;
   }
