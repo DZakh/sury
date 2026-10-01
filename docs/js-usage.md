@@ -311,26 +311,22 @@ A schema read from a file or an API needs no cast: a non-literal argument - `unk
 
 ### Standard Schema
 
-**Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
+**Sury** implements the [Standard Schema](https://standardschema.dev/) specification, so a schema works with any library that accepts one, such as form libraries. It reports every issue, not only the first:
 
 ```ts
 const schema = S.schema({ name: S.string, age: S.number });
 
-schema["~standard"].validate({ name: "Dmitry", age: 30 });
-// { success: true, value: { name: "Dmitry", age: 30 }, error: undefined, issues: undefined }
+schema["~standard"].validate({ name: "Dmitry", age: 30 }).value;
+// { name: "Dmitry", age: 30 }
 
-schema["~standard"].validate({ name: 1, age: "30" });
-// {
-//   success: false,
-//   issues: [
-//     { message: "Expected string, received 1", path: ["name"] },
-//     { message: 'Expected number, received "30"', path: ["age"] },
-//   ],
-//   ...
-// }
+schema["~standard"].validate({ name: 1, age: "30" }).issues;
+// [
+//   { message: "Expected string, received 1", path: ["name"] },
+//   { message: 'Expected number, received "30"', path: ["age"] },
+// ]
 ```
 
-`validate` answers with a Sury [`Result`](#outcomes), which is a Standard Schema result, and reports every issue - see [Every issue at once](#every-issue-at-once). A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
+A schema with an async codec answers with a promise.
 
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
@@ -2046,7 +2042,7 @@ A suffix names the failure mechanism only when the return type doesn't reveal it
 
 `parse`, `decode`, `encode`, `makeInput` and `makeOutput` each take all five.
 
-There is no promisable *throwing* variant, in either language: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
+There is no promisable *throwing* variant: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
 
 ```ts
 S.parseOrThrow(userSchema, data);          //? { id: string }
@@ -2065,15 +2061,9 @@ S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
 
-A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
-
-```ts
-S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
-```
-
 #### Every issue at once
 
-A failed `Result` lists an issue for every field, item and entry that failed, and for every unknown key of a strict object. `error` is the first of them in field order - the one `OrThrow` throws, unless the failures are async and another settles first:
+A failed `Result` lists every problem in `issues`, so a form can show them all. `error` is the first one, the same error `OrThrow` would throw:
 
 ```ts
 const signup = S.schema({
@@ -2090,7 +2080,9 @@ S.parseAsResult(signup, { email: "x", password: "123", tags: ["a", 1] }).issues;
 // ]
 ```
 
-A value reports its first failure, a union one failure for the whole union. A refine or transform on an object runs only once every field passed, so it never sees an invalid field:
+A `Result` is a Standard Schema result, the same one [`~standard.validate`](#standard-schema) returns.
+
+A refine on an object runs only when all its fields are valid, so it never sees a broken value:
 
 ```ts
 const passwords = S.schema({ password: S.string.with(S.minLength, 8), confirm: S.string })
@@ -2100,28 +2092,17 @@ S.parseAsResult(passwords, { password: "123", confirm: "x" }).issues;
 // [{ message: 'Expected string.length >= 8, received "123"', path: ["password"] }]
 ```
 
-An async field is checked even when another field already failed, and every async failure is reported, after the sync ones:
+A union reports one issue for itself, and async fields report theirs after the sync ones (`activeUser` is the async check from [Refinements](#refinements)):
 
 ```ts
-const availableUsername = S.string.with(S.to, S.string, {
-  decode: {
-    async: async (name) => {
-      if (await isTaken(name)) throw new Error("Username is taken");
-      return name;
-    },
-  },
-  encode: "auto",
-});
-const account = S.schema({ username: availableUsername, age: S.number });
+const account = S.schema({ id: activeUser, age: S.number });
 
-(await S.parseAsResultPromise(account, { username: "taken", age: "x" })).issues;
+(await S.parseAsResultPromise(account, { id: inactiveId, age: "x" })).issues;
 // [
 //   { message: 'Expected number, received "x"', path: ["age"] },
-//   { message: "Username is taken", path: ["username"] },
+//   { message: `The user ${inactiveId} is inactive.`, path: ["id"] },
 // ]
 ```
-
-The ReScript `result` keeps its one `error`.
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
@@ -2613,9 +2594,8 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it. `result.issues` lists it first, followed by every other failure the
-value has, in the Standard Schema shape - `message` without the path prefix, and
-the `path` beside it (see [Every issue at once](#every-issue-at-once)).
+supplied it. `result.issues` lists every failure (see
+[Every issue at once](#every-issue-at-once)).
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's
@@ -2630,7 +2610,7 @@ is created, which for an immediate call form is that same call.
 
 `defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
-```rescript
+```ts
 S.global({
   defaultAdditionalItems: "strict",
 })
@@ -2640,7 +2620,7 @@ S.global({
 
 `disableNanNumberValidation` is an option that controls whether the library should check for NaN values when parsing numbers. The default value is `false`, but you can globally change it to `true` to allow NaN values. If you parse many numbers which are guaranteed to be non-NaN, you can set it to `true` to improve performance ~10%, depending on the case.
 
-```rescript
+```ts
 S.global({
   disableNanNumberValidation: true,
 })

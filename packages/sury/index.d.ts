@@ -34,10 +34,8 @@ export type FailureResult = {
 };
 
 /**
- * What every `*AsResult` operation and `schema["~standard"].validate` return.
- * Also a Standard Schema result, so it goes straight to a consumer that reads
- * that shape. A failure lists an issue for every field, item and entry that
- * failed; `error` is the first of them in field order.
+ * What every `*AsResult` operation and `schema["~standard"].validate` return,
+ * a Standard Schema result. A failure lists every issue; `error` is the first.
  *
  * ```ts
  * const result = S.parseAsResult(S.schema({ a: S.string, b: S.number }), { a: 1, b: "x" })
