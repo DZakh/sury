@@ -75,14 +75,6 @@ export const parse = (input: Val): Val => {
 
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
-    const defs = loopInput.e["$defs"];
-    // Copied, never adopted: a second `$defs` in the same operation - two
-    // independent `S.recursive` schemas in one object - would otherwise merge
-    // into the first schema's own record and leave it holding definitions that
-    // are not its own for the rest of the program. Null prototype because the
-    // keys are the names the caller gave `S.recursive`.
-    if (defs) loopInput.g.d = Object.assign(loopInput.g.d || Object.create(null), defs);
-
     // The val is a promise, so the rest of the chain has to run inside a
     // `.then`. The flag alone is the right guard: a second condition could only
     // have been "and there is something to wrap", which is not knowable before
@@ -210,16 +202,16 @@ const throwTail = (
   out: string,
   isAsync: boolean,
   flag: Flag,
-  hasDefs: boolean,
+  nested: boolean,
 ): string | undefined => {
   if (code === "" && out === operationArgVar && !(flag & 1)) return U;
   // An appended hop rather than a second argument to whatever `.then` built the
   // value: that argument would never see a failure raised inside the `.then`
   // itself, which is where an async value's own checks run.
   const body = `${code}return ${
-    (flag & 1) && !isAsync && !hasDefs
+    (flag & 1) && !isAsync && !nested
       ? `Promise.resolve(${out})`
-      : isAsync && !hasDefs && input.g.t
+      : isAsync && !nested && input.g.t
         ? `${out}.catch(${B_embedPure(input, rejectionBoundary)})`
         : out
   }`;
@@ -232,7 +224,7 @@ const throwTail = (
   //
   // The sync phase only. What an async operation raises after its first await
   // is `rejectionBoundary`'s.
-  if (!(input.g.t || (flag & 1 && !(flag & 512) && code)) || hasDefs) return body;
+  if (!(input.g.t || (flag & 1 && !(flag & 512) && code)) || nested) return body;
   const g = input.g;
   const e = B_varWithoutAllocation(g);
   // A promise-returning operation must not throw synchronously: a value that
@@ -315,7 +307,7 @@ type Outcome = {
   t: (code: string, out: string, isAsync: boolean) => string | undefined;
 };
 
-const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
+const outcomeOf = (input: Val, flag: Flag, nested: boolean): Outcome => {
   const g = input.g;
   // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
   // operation's parameter still is that value unless the body assigned to it
@@ -327,15 +319,15 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
     return [B_let(g, value, operationArgVar) + code, value];
   };
   // A nested compile (recursive.ts) answers with its value, so it raises.
-  if (!(flag & (128 | 256 | 4096)) || hasDefs)
+  if (!(flag & (128 | 256 | 4096)) || nested)
     return {
       x: U,
       t: (code, out, isAsync) => {
         if (flag & 2048) {
           const [body, value] = given(code);
-          return throwTail(input, body, isAsync ? `${out}.then(()=>${value})` : value, isAsync, flag, hasDefs);
+          return throwTail(input, body, isAsync ? `${out}.then(()=>${value})` : value, isAsync, flag, nested);
         }
-        return throwTail(input, code, out, isAsync, flag, hasDefs);
+        return throwTail(input, code, out, isAsync, flag, nested);
       },
     };
   // A failure the sync phase finds comes back in the shape the success path
@@ -402,11 +394,12 @@ export const compileDecoder = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
-  defs: Record<string, Internal> | undefined,
   node?: OpNode
 ): (input: unknown) => unknown => {
-  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
-  const outcome = outcomeOf(input, flag, !!defs);
+  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag);
+  // A nested compile (recursive.ts, the one caller with a node) answers with
+  // its value, so it raises.
+  const outcome = outcomeOf(input, flag, !!node);
   input.g.x = outcome.x;
 
   const output = parse(input);
@@ -507,6 +500,11 @@ Object.defineProperty(schemaPrototype, reversedKey, {
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"]) mut["$defs"] = reverseDict(mut["$defs"]);
+      // Resolved when a compile asks, not here: the definition holds this ref,
+      // so reversing it now would come back to this node before its reverse is
+      // cached, and without end.
+      const definition = mut.definition;
+      if (definition) mut.definition = () => definition()?.r;
       reversedHead = mut;
       current = next;
     }
@@ -545,19 +543,7 @@ export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | unde
 // container keeps its items' transforms inside itself, so its tail is still the
 // Input form (#452).
 export const setDefault = (owner: Internal, original: Internal, v: unknown): void => {
-  let output = reverse(original);
-  // `S.recursive`'s definitions, while its definer is still running. A nested
-  // `S.recursive` hands back a bare `$ref`, so an item reached inside a definer
-  // names definitions the check would not otherwise see. They ride on the copy
-  // it compiles against, and `parse` merges them for the whole operation, so a
-  // ref inside a union resolves too. Only once the record holds something: an
-  // empty one names nothing, and a copy would miss the operation cached on the
-  // item itself.
-  const building = globalConfig.d;
-  if (building !== U && output["$defs"] === U && Object.keys(building).length) {
-    output = copySchema(output);
-    output["$defs"] = building;
-  }
+  const output = reverse(original);
   const decode = decodeOutput(output);
   if (decode) {
     try {
@@ -712,7 +698,7 @@ const compileChain = (
   // this is where they become an exception. Free: `getOp` reaches this on a
   // memo miss only, so a compile pays for the `try` and nothing else does.
   try {
-    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag, U) as (
+    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag) as (
       from: unknown,
     ) => unknown;
   } catch (thrown) {

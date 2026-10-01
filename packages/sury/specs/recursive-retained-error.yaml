@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(() => { let saved: unknown; try { S.parseOrThrow(1, S.string) } catch (e) { saved = e } return S.recursive("N", (n) => S.schema({ v: S.string, kid: S.optional(n) }).with(S.refine, (x) => { if ((x as { v: string }).v === "bad") { throw saved } return true })) })()'
+  input: unknown
+  output: unknown
+  instantiations: 8322
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: string; kid?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      bad-kid:
+        input: '{ v: "a", kid: { v: "bad" } }'
+        error: "Failed at kid: Expected string, received 1"
+      bad-kid-again:
+        input: '{ v: "b", kid: { v: "bad" } }'
+        error: "Failed at kid: Expected string, received 1"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      ok:
+        input: '{ v: "a", kid: { v: "b" } }'
+        output: '{ v: "a", kid: { v: "b" } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      ok:
+        input: '{ v: "a", kid: { v: "b" } }'
+        output: '{ v: "a", kid: { v: "b" } }'

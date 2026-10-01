@@ -216,8 +216,7 @@ export const B_hoistDecl = (owner: Val, name: string, init?: string): void => {
 export const B_operationArg = (
   schema: Internal,
   expected: Internal,
-  flag: Flag,
-  defs: Record<string, Internal> | undefined
+  flag: Flag
 ): Val => {
   // Every Val literal in the codegen path lists the same fields in the same
   // order (undefined where unset) so V8 gives them all ONE hidden class -
@@ -243,7 +242,6 @@ export const B_operationArg = (
     t: U,
     path: pathEmpty,
     g: {
-      d: defs,
       o: flag,
       e: [],
       v: -1,
@@ -427,6 +425,28 @@ const B_foreignFail = (
   };
 };
 
+// Copied rather than mutated: user code may throw one retained instance more
+// than once, and prepending onto the instance makes the second parse report
+// `a.a` (specs/recursive-retained-error.yaml). Nothing to prepend means nothing
+// to copy - `B_throw` reparents whichever of the two it gets, and reparenting
+// the instance to the prototype it already has changes nothing, its stack
+// included.
+//
+// Own descriptors onto the SAME prototype, not a spread: what the failing check
+// settled lives on its site prototype (base.ts, `errorSite`), and a spread
+// copies own properties only - the copy would come out reading `Expected
+// undefined`. Descriptors rather than `Object.assign` so an own `reason` is
+// carried as the data property it is instead of being pushed through a setter.
+const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
+  if (!p.length) return error;
+  const copy = Object.create(
+    Object.getPrototypeOf(error) as object,
+    Object.getOwnPropertyDescriptors(error)
+  ) as SuryErrorRecord;
+  copy.path = pathConcat(p, error.path);
+  return copy;
+};
+
 export const B_conversionFail = (
   input: Val,
   to: Internal
@@ -438,28 +458,8 @@ export const B_conversionFail = (
       const error = cause as unknown as SuryErrorRecord;
 
       // A SuryError thrown by user code carries only the path it named, so the
-      // path it was reached through is prepended here. Nothing arrives
-      // pre-prepended any more - that was effectCtx, which is gone.
-      //
-      // Copied rather than mutated: user code may throw one retained instance
-      // more than once, and prepending onto the instance makes the second parse
-      // report `a.a`. Nothing to prepend means nothing to copy - `B_throw`
-      // reparents whichever of the two it gets, and reparenting the instance to
-      // the prototype it already has changes nothing, its stack included.
-      //
-      // Own descriptors onto the SAME prototype, not a spread: what the failing
-      // check settled lives on its site prototype (base.ts, `errorSite`), and a
-      // spread copies own properties only - the copy would come out reading
-      // `Expected undefined`. Descriptors rather than `Object.assign` so an own
-      // `reason` is carried as the data property it is instead of being pushed
-      // through a setter.
-      if (!p.length) return error as unknown as ErrorDetails;
-      const copy = Object.create(
-        Object.getPrototypeOf(error) as object,
-        Object.getOwnPropertyDescriptors(error)
-      ) as SuryErrorRecord;
-      copy.path = pathConcat(p, error.path);
-      return copy as unknown as ErrorDetails;
+      // path it was reached through is prepended here.
+      return B_prefixPath(error, p) as unknown as ErrorDetails;
     }
     return foreign(cause, p);
   };
@@ -994,11 +994,6 @@ export const B_scope = (val: Val): Val => {
 // A literal target is the exception, and `compileDecoder` states the same
 // rule for its typed input: a type says "string", never "the string \"a\"",
 // so a const is checked whatever the value claims to be.
-//
-// Inside a union case the sync form rethrows foreign exceptions raw (the
-// union owns exception classification) while still wrapping Sury failures
-// with the reached path; the async form leaves the promise bare, since the
-// case's own await/catch classifies rejections.
 export const B_conversion = (
   fn: (value: unknown) => unknown,
   isAsync?: boolean,
@@ -1013,19 +1008,16 @@ export const B_conversion = (
     );
     if (isAsync) B_markAsync(input, output);
     const inputValue = input.vc ? input.v() : input.i;
-    const unionContext = input.g.o & 4; // 4
-    if (unionContext && isAsync) {
-      output.cp = B_let(input.g, output.i, `${B_embed(input, fn)}(${inputValue})`);
-      return output;
-    }
     // Called inside the `try` below, so nothing it raises gets past it.
     const embeddedFn = B_embedPure(input, fn);
-    // Whatever the coder throws - a `SuryError` it raised on purpose or a
-    // TypeError it hit on a value it was never written for - is that
-    // conversion failing, so in a union it is what hands the value to the
+    // Whatever the coder throws or rejects with - a `SuryError` it raised on
+    // purpose or a TypeError it hit on a value it was never written for - is
+    // that conversion failing, so in a union it is what hands the value to the
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
-    // do escape a union are a getter's, which never enter this try.
+    // do escape a union are a getter's, which never enter this try. A
+    // rejection left bare would carry no path for an enclosing recursive call
+    // to prepend to (specs/codec-protobuf-recursive-async.yaml).
     // An async coder's failure lands in its `.catch` as often as in the `catch`,
     // so both raise and share one site; a sync one's may jump.
     const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
@@ -1160,26 +1152,23 @@ export const B_askReading = (input: Val, from: Internal, to: Internal): never =>
 export const B_invalidOperation = (val: Val, description: string): never =>
   B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });
 
-const B_mergeWithCatch = (val: Val, catchFn: (errorVar: string) => string): string => {
+// A failure an opaque embed throws is rooted at its own `[]`, so the path it
+// was reached through goes in front. Only a Sury failure has a path: a foreign
+// error (a getter's throw, a file read) leaves with its identity.
+const prependPath = (error: unknown, path: Path): unknown =>
+  error && (error as { s?: symbol }).s === s ? B_prefixPath(error as SuryErrorRecord, path) : error;
+
+// Opaque embed (a recursive self-call): a compiled function that does not take
+// a path. Inlined item parsers thread the path to the fail helper instead.
+export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
+  if (!parent.path.length) return B_merge(val);
   const valCode = B_merge(val);
   const errorVar = B_varWithoutAllocation(val.g);
   B_markThrow(val);
-  const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
-  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
-  return `try{${valCode}}catch(${errorVar}){${catchCode}}`;
+  const rethrow = `throw ${B_embedPure(val, prependPath)}(${errorVar},${pathExpr(parent.path)})`;
+  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${rethrow}})`;
+  return `try{${valCode}}catch(${errorVar}){${rethrow}}`;
 };
-
-// Opaque embed (recursive self-call, S.json's any-value walk): a compiled
-// function that does not take a path. Failures it throws are rooted at its
-// own `[]`, so a nested use still prepends in catch. Inlined item parsers
-// thread the path to the fail helper instead.
-export const B_mergeWithPathPrepend = (val: Val, parent: Val): string =>
-  !parent.path.length
-    ? B_merge(val)
-    : B_mergeWithCatch(
-        val,
-        (errorVar) => `${errorVar}.path=${pathExpr(parent.path, `...${errorVar}.path`)}`,
-      );
 
 export const noopOperation = (i: unknown): unknown => i;
 (noopOperation as unknown as Record<string, unknown>)["embedded"] = immutableEmptyArray;

@@ -5,7 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 7836
 jsonSchema:
-  input: '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated'
+  input: '{ $ref: "#/$defs/Endless", $defs: { Endless: { type: "object", properties: { me: { $ref: "#/$defs/Endless" } }, required: ["me"] } } }'
+  fromInputType: "{ me: ...; }"
   output: '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated'
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)

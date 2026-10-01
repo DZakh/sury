@@ -268,7 +268,7 @@ const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   target: JsonSchemaTarget
 ): void => {
   // Both read `.to` from the carrier, never from the target itself: the
@@ -327,17 +327,34 @@ const applyMetadataOverlay = (
       } catch (_exn) {}
     }
   }
-  if (schema["$defs"] !== U) Object.assign(defs, schema["$defs"]);
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
   if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
 }
 
+// The definitions a document publishes, in first-reference order: key and
+// definition. A ref is published by the definition it carries, under its name
+// unless another definition already took that key
+// (specs/recursive-same-name.yaml).
+type Defs = [string, Internal][];
+
+const refKey = (defs: Defs, ref: Internal): string => {
+  const name = ref["$ref"]!.slice(8);
+  const def = ref.definition!()!;
+  let entry = defs.find((e) => e[1] === def);
+  if (entry === U) {
+    let key = name;
+    for (let i = 2; defs.some((e) => e[0] === key); i++) key = name + i;
+    defs.push((entry = [key, def]));
+  }
+  return entry[0];
+};
+
 const internalToJSONSchema = (
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   parent: Internal,
   target: JsonSchemaTarget
 ): JSONSchemaT => {
@@ -381,12 +398,17 @@ const internalToJSONSchema = (
   const hasUserTo =
     !!schema.to &&
     !(tagFlag & (64 | 128)) &&
+    // A ref stands for its definition, an object or array or union the same
+    // way. A codec's decode lands on a ref of its own compiling, whose
+    // definition is the codec's working copy and not the one the author wrote.
+    // `S.json` is the document itself, not a definition, and keeps the path.
+    !(tagFlag & 512 && !(schema.flags & 16)) &&
     !((tagFlag & 256) && !!schema.parser);
   if (hasUserTo) {
     let encoded: JSONSchemaT | undefined;
     try {
       encoded = internalToJSONSchema(
-        parse(B_operationArg(unknown, reverse(schema), 0, U)).s,
+        parse(B_operationArg(unknown, reverse(schema), 0)).s,
         path,
         defs,
         parent,
@@ -440,7 +462,7 @@ const jsonSchemaFormat = {
 const internalToJSONSchemaBase = (
   schema: Internal,
   path: Path,
-  defs: Record<string, Internal>,
+  defs: Defs,
   parent: Internal,
   target: JsonSchemaTarget
 ): JSONSchemaT => {
@@ -651,7 +673,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === unknownTag) {
     // `{}` accepts any instance, which is exactly what unknown and any admit.
   } else if (tag === refTag) {
-    jsonSchema.$ref = schema["$ref"];
+    jsonSchema.$ref = defsPath + refKey(defs, schema);
   } else if (tag === nullTag) {
     // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
     target === openApi30 ? (jsonSchema.enum = [null]) : (jsonSchema.type = "null");
@@ -690,23 +712,17 @@ export const inputJSONSchema = (schema: Internal, options?: JSONSchemaOptions): 
     else if (target === draft202012) schemaUri = "https://json-schema.org/draft/2020-12/schema";
     else if (target !== openApi30) refError(`Unsupported JSON Schema target: ${target}`);
   }
-  // Null prototypes: definitions are named by their author. `__proto__` would
-  // set a prototype instead of taking a key, and `toString` would read back as
-  // already converted - either way a `$ref` to a definition nobody publishes.
-  const defs: Record<string, Internal> = Object.create(null);
+  const defs: Defs = [];
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   if (options !== U) delete jsonSchema.$schema;
+  // Null prototype: a key is a name the author chose, and `__proto__` would
+  // set a prototype instead of taking one.
   const jsonSchemDefs: Record<string, JSONSchemaDefinition> = Object.create(null);
-  // Converting a def body can name defs of its own, so the set grows while it
-  // is walked - a schema reached only from inside another one is otherwise left
-  // with a `$ref` nobody publishes. `S.json` names itself in here and is the
-  // one that stays unpublished: it converts to `{}`.
-  let name: string | undefined;
-  while (
-    (name = Object.keys(defs).find((key) => key !== jsonName && !(key in jsonSchemDefs))) !== U
-  ) {
-    const def = defs[name]!;
-    jsonSchemDefs[name] = internalToJSONSchema(def, pathEmpty, defs, def, target);
+  // Converting a def body can reach defs of its own, so the list grows while it
+  // is walked. `S.json` never lands in it: its `$ref` converts to `{}`.
+  for (let i = 0; i < defs.length; i++) {
+    const [key, def] = defs[i]!;
+    jsonSchemDefs[key] = internalToJSONSchema(def, pathEmpty, defs, def, target);
   }
   if (Object.keys(jsonSchemDefs).length) jsonSchema.$defs = jsonSchemDefs;
   if (schemaUri !== U) jsonSchema.$schema = schemaUri;
@@ -1029,9 +1045,9 @@ type RefContext = {
   // pays for a call per value only where recursion makes one unavoidable.
   cyc: Record<string, true>;
   defs: Record<string, Internal>;
-  // Def names already taken. `S.json` mints its def under `JSON`, into the
-  // same dict at compile time, so a document's own `JSON` has to be renamed
-  // rather than shadow it.
+  // Def names already taken. `S.json` names its def `JSON` in the `$defs`
+  // `withDefs` folds into, so a document's own `JSON` has to be renamed rather
+  // than shadow it there.
   names: Record<string, true>;
 };
 
@@ -1107,8 +1123,8 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   // The pointer's last segment is the name the document already uses for the
   // definition, so a JSON Schema round-trip keeps it. `#` points at
   // the document itself and has no segment to take. `/`, `~` and `%` can't
-  // keep: recursiveDecoder slices the raw suffix off `$ref`, so they'd come
-  // back out as a pointer that resolves to a different key.
+  // keep: the renderer publishes a definition under the raw suffix of its
+  // `$ref`, so they'd come back out as a pointer that resolves to another key.
   const base =
     ref === "#"
       ? "Root"
@@ -1120,12 +1136,14 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
   }
   ctx.names[name] = true;
 
+  let def: Internal | undefined;
   const refSchema = baseSchema(refTag, false, recursiveDecoder);
   refSchema["$ref"] = `${defsPath}${name}`;
   refSchema.name = name;
+  refSchema.definition = () => def;
   ctx.ph[ref] = refSchema;
 
-  const def = jsonDefinitionToSchema(target as JSONSchemaDefinition, ctx);
+  def = jsonDefinitionToSchema(target as JSONSchemaDefinition, ctx);
   // A cycle with no schema between the refs (`{"$ref": "#"}`, or A→B→A) builds
   // a def that is its own placeholder: nothing to compile, only recursion, and
   // compiling it would recurse forever. Comparing `$ref` rather than identity
@@ -1150,24 +1168,15 @@ const jsonDefinitionToSchema = (
 ): Internal =>
   typeof definition !== "boolean" ? fromJSONSchema(definition, ctx) : definition ? json : never_;
 
-// The compiler reads `$defs` off the schema it is handed, so every schema that
-// gets compiled as a root of its own needs the document's - the outermost one,
-// and each schema `passesSchema` runs, since a `$ref` inside an `allOf` member
-// resolves against the same document as everywhere else. Copied because the
-// schema may be a shared instance (an interned primitive, or a def inlined at
-// more than one use). The live `ctx.defs` is handed over rather than a snapshot:
-// a cycle still being built registers its def after this returns.
+// The document's cycles, named on the outermost schema for reading the way
+// `S.recursive` names its own. `S.json` names itself through a `$defs` of its
+// own, so fold rather than replace.
 const withDefs = (schema: Internal, ctx: RefContext): Internal => {
   const copy = copySchema(schema);
-  // `S.json` names itself through a `$defs` of its own, so fold rather than
-  // replace - dropping it leaves the compiler with a `$ref` it can't resolve.
   if (copy["$defs"] !== U) Object.assign(ctx.defs, copy["$defs"]);
   copy["$defs"] = ctx.defs;
   return copy;
 };
-
-const asAssertion = (definition: JSONSchemaDefinition, ctx: RefContext): Internal =>
-  withDefs(jsonDefinitionToSchema(definition, ctx), ctx);
 
 type PatternProp = { re: RegExp; schema: Internal };
 
@@ -1181,7 +1190,7 @@ const compilePatternProperties = (
     const source = keys[i]!;
     compiled.push({
       re: B_compilePattern(source),
-      schema: asAssertion(patterns[source]!, ctx),
+      schema: jsonDefinitionToSchema(patterns[source]!, ctx),
     });
   }
   return compiled;
@@ -1305,7 +1314,7 @@ const B_layer = (
   test: (schemas: Internal[], data: unknown) => boolean,
   message: string
 ): Internal => {
-  const schemas = definitions.map((d) => asAssertion(d, ctx));
+  const schemas = definitions.map((d) => jsonDefinitionToSchema(d, ctx));
   return B_assert(
     schema,
     (data) => test(schemas, data),
@@ -1391,7 +1400,7 @@ export const fromJSONSchema = (
         if (value !== U) (siblingKeywords as Record<string, unknown>)[keyword] = value;
       }
       if (Object.keys(siblingKeywords).length) {
-        const siblingSchema = asAssertion(siblingKeywords, ctx);
+        const siblingSchema = jsonDefinitionToSchema(siblingKeywords, ctx);
         schema = B_assert(
           schema,
           (data: unknown) => passesSchema(data, siblingSchema),
@@ -1427,7 +1436,7 @@ export const fromJSONSchema = (
           additional !== false &&
           !isAnyJSONSchema(additional)
         ) {
-          const extra = asAssertion(additional, ctx);
+          const extra = jsonDefinitionToSchema(additional, ctx);
           const patterns = compilePatternProperties(jsonSchema.patternProperties!, ctx);
           schema = refineInput(
             schema,
@@ -1465,7 +1474,7 @@ export const fromJSONSchema = (
         const propertyKeys = Object.keys(definitions);
         const propertySchemas = propertyKeys.map((key) => {
           const definition = definitions[key]!;
-          const propertySchema = asAssertion(definition, ctx);
+          const propertySchema = jsonDefinitionToSchema(definition, ctx);
           return [
             key,
             propertySchema,
@@ -1485,7 +1494,7 @@ export const fromJSONSchema = (
         let additionalSchema: Internal | undefined = U;
         let roundTripAdditional: JSONSchemaDefinition | undefined = U;
         if (additional !== U && additional !== false && !isAnyJSONSchema(additional)) {
-          additionalSchema = asAssertion(additional, ctx);
+          additionalSchema = jsonDefinitionToSchema(additional, ctx);
           roundTripAdditional = assertionToJSONDefinition(
             additional,
             additionalSchema,
@@ -1566,8 +1575,8 @@ export const fromJSONSchema = (
         schema.items = tupleItems;
         schema.additionalItems = "strict";
       } else {
-        const prefixSchemas = prefixItems.map((definition) => asAssertion(definition, ctx));
-        const restSchema = restDefinition === true ? U : asAssertion(restDefinition, ctx);
+        const prefixSchemas = prefixItems.map((definition) => jsonDefinitionToSchema(definition, ctx));
+        const restSchema = restDefinition === true ? U : jsonDefinitionToSchema(restDefinition, ctx);
         const mapped = prefixItems.map((d, i) =>
           assertionToJSONDefinition(d, prefixSchemas[i]!, ctx)
         );
@@ -1681,9 +1690,8 @@ export const fromJSONSchema = (
   // literal checks; re-running the base for every parse would be redundant.
   if (jsonSchema["$ref"] === U) {
     if (jsonSchema.enum !== U) {
-      const assertion = withDefs(schema, ctx);
       const candidates = jsonSchema.enum
-        .filter((candidate) => schema === json || passesSchema(candidate, assertion))
+        .filter((candidate) => schema === json || passesSchema(candidate, schema))
         .map(primitiveToSchema);
       schema =
         candidates.length === 0
@@ -1694,7 +1702,7 @@ export const fromJSONSchema = (
     }
     if (jsonSchema.const !== U) {
       schema =
-        schema === json || passesSchema(jsonSchema.const, withDefs(schema, ctx))
+        schema === json || passesSchema(jsonSchema.const, schema)
           ? primitiveToSchema(jsonSchema.const)
           : never_;
     }
@@ -1757,7 +1765,7 @@ export const fromJSONSchema = (
           );
   }
   if (jsonSchema.not !== U) {
-    const notSchema = asAssertion(jsonSchema.not, ctx);
+    const notSchema = jsonDefinitionToSchema(jsonSchema.not, ctx);
     schema = B_assert(
       schema,
       (data: unknown) => !passesSchema(data, notSchema),
@@ -1767,9 +1775,9 @@ export const fromJSONSchema = (
   }
   if (jsonSchema.if !== U) {
     // `then`/`else` default to "always passes" when absent.
-    const ifSchema = asAssertion(jsonSchema.if, ctx);
-    const thenSchema = jsonSchema.then !== U ? asAssertion(jsonSchema.then, ctx) : U;
-    const elseSchema = jsonSchema.else !== U ? asAssertion(jsonSchema.else, ctx) : U;
+    const ifSchema = jsonDefinitionToSchema(jsonSchema.if, ctx);
+    const thenSchema = jsonSchema.then !== U ? jsonDefinitionToSchema(jsonSchema.then, ctx) : U;
+    const elseSchema = jsonSchema.else !== U ? jsonDefinitionToSchema(jsonSchema.else, ctx) : U;
     const conditionalKeywords: JSONSchemaT = {
       if: assertionToJSONDefinition(jsonSchema.if, ifSchema, ctx),
     };
@@ -1809,7 +1817,7 @@ export const fromJSONSchema = (
   }
 
   if (jsonSchema.propertyNames !== U) {
-    const names = asAssertion(jsonSchema.propertyNames, ctx);
+    const names = jsonDefinitionToSchema(jsonSchema.propertyNames, ctx);
     schema = refineInput(
       schema,
       (data: unknown) =>
@@ -1847,7 +1855,7 @@ export const fromJSONSchema = (
   if (jsonSchema.dependentSchemas !== U) {
     const deps = jsonSchema.dependentSchemas;
     const keys = Object.keys(deps);
-    const schemas = keys.map((key) => asAssertion(deps[key]!, ctx));
+    const schemas = keys.map((key) => jsonDefinitionToSchema(deps[key]!, ctx));
     schema = refineInput(
       schema,
       (data: unknown) => {
@@ -1879,7 +1887,7 @@ export const fromJSONSchema = (
       if (Array.isArray(dep)) required.push([key, dep as string[]]);
       else {
         const definition = dep as JSONSchemaDefinition;
-        schemas.push([key, asAssertion(definition, ctx), definition]);
+        schemas.push([key, jsonDefinitionToSchema(definition, ctx), definition]);
       }
     }
     schema = refineInput(
@@ -1922,7 +1930,7 @@ export const fromJSONSchema = (
   }
 
   if (jsonSchema.contains !== U) {
-    const itemSchema = asAssertion(jsonSchema.contains, ctx);
+    const itemSchema = jsonDefinitionToSchema(jsonSchema.contains, ctx);
     const min = jsonSchema.minContains !== U ? jsonSchema.minContains : 1;
     const max = jsonSchema.maxContains;
     schema = refineInput(
