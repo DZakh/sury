@@ -702,13 +702,6 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
-The outer `S.optional` owns `undefined`, even around a schema that would read it on its own:
-
-```ts
-S.parseOrThrow(S.optional(S.optional(S.string, "tuna")), undefined); // => returns undefined
-S.parseOrThrow(S.optional(S.optional(S.string, "tuna"), "salmon"), undefined); // => returns "salmon"
-```
-
 The default is what parsing returns, so it is written in the schema's output shape, even when the schema transforms:
 
 ```ts
@@ -733,12 +726,6 @@ Pass a fallback as the second argument to replace the absent case:
 
 ```ts
 S.parseOrThrow(S.nullable(S.string, "fallback"), null); // => "fallback"
-```
-
-The outer `S.nullable` owns `null` the same way:
-
-```ts
-S.parseOrThrow(S.nullable(S.nullable(S.string, "fallback")), null); // => null
 ```
 
 ## Nullish
@@ -1005,16 +992,6 @@ const stringOrNumberSchema = S.union([S.string, S.number]);
 
 S.parseOrThrow(stringOrNumberSchema, "foo"); // passes
 S.parseOrThrow(stringOrNumberSchema, 14); // passes
-```
-
-`null` and `undefined` follow the same rule: once an earlier member's default takes one, a later member never sees it. Put the default on the union instead:
-
-```ts
-const schema = S.union([S.optional(S.string, "none"), S.optional(S.number)]); // string | number | undefined
-S.parseOrThrow(schema, undefined); // => "none"
-S.parseOrThrow(schema, S.encodeOrThrow(schema, undefined)); // => "none", not undefined
-
-S.optional(S.union([S.string, S.number]), "none"); // ✅ string | number
 ```
 
 ### Discriminated unions

@@ -464,13 +464,6 @@ let schema = S.option(S.string)->S.Option.getOr("Hello World!")
 
 The `Option.getOr` augments a schema to add transformation logic for default values, which are applied when the input is undefined.
 
-An outer `S.option` keeps `undefined` as `None`, even around a default:
-
-```rescript
-%raw(`undefined`)->S.parseOrThrow(~to=S.option(schema))
-// None
-```
-
 > 🧠 If you want to set a default value for an object field, there's a more convenient `fieldOr` method on `Object.s` type.
 
 ### **`Option.getOrWith`**
