@@ -398,11 +398,6 @@ type UnionMember = {
   i: number;
   s: Internal;
   m: number;
-  // What the member itself accepts. Under a union source `m` is what can reach
-  // it, which for a nested union, or a ref not dispatched as its definition, is
-  // only the coercion guess; and an empty value is reached by whichever empty
-  // value the source has, as JSON's `null` stands for `undefined`.
-  t: number;
   // Whether the member produces a value at all: `mode 0` masks are zero for
   // exactly one reason, a `never` output, and nothing reads more than that.
   o: boolean;
@@ -635,20 +630,21 @@ const unionAnalyze = (
                 ? 32
                 : s.type === nullTag && (sourceMask & 16)
                   ? 16
-                  : // Reached only by coercion. Every built-in cross-tag
-                    // coercion parses a string (`BigInt`, `Number`, `new Date`),
-                    // so a source that can produce one is assumed to be coerced
-                    // through it - narrow enough to keep the case out of an
-                    // unnecessary fallback. With no string in the source that
-                    // guess describes nothing, and claiming too little would let
-                    // the dispatch raise where a later member should have run,
-                    // so fall back to "any type the source produces".
-                    sourceMask & 2
-                    ? 2
-                    : sourceMask
+                  : // A nested union or a ref takes what its arms take, an
+                    // empty value by whichever one the source has (JSON's
+                    // `null` stands for `undefined`). Past that, reached only
+                    // by coercion. Every built-in cross-tag coercion parses a
+                    // string (`BigInt`, `Number`, `new Date`), so a source that
+                    // can produce one is assumed to be coerced through it -
+                    // narrow enough to keep the case out of an unnecessary
+                    // fallback. With no string in the source that guess
+                    // describes nothing, and claiming too little would let the
+                    // dispatch raise where a later member should have run, so
+                    // fall back to "any type the source produces".
+                    (tag & (256 | 512) ? (inputMask & sourceMask) | (inputMask & 48 ? sourceMask & 48 : 0) : 0) |
+                    (sourceMask & 2 ? 2 : sourceMask)
             : sourceMask
         : 0,
-      t: inputMask | (unionSource && inputMask & 48 ? sourceMask & 48 : 0),
       o: !!accepts && output.type !== neverTag,
       e: effect,
       f:
@@ -861,9 +857,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       group.m === ~0
     ) continue;
     group.f |= 8 | 2;
-    const m = group.m | head.t;
     let to = i;
-    while (plan[to + 1] && !(plan[to + 1]!.m & m)) to++;
+    while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
     plan.splice(to, 0, ...plan.splice(i, 1));
   }
 
@@ -942,7 +937,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     if (laterMask & group.m) {
       group.f |= 32;
     }
-    laterMask |= group.m | (tagFlags[head.n.type]! & (256 | 512) ? head.t : 0);
+    laterMask |= group.m;
   }
   return plan;
 };

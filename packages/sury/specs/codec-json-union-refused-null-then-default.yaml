@@ -22,12 +22,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0;for(;;){if(i===null){l3:{try{for(;;){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[4](x)]}}l2:{try{if(!(e[2](i))){v0=[v0,e[3],i];break l2}break}catch(x){v0=[v0,e[4](x)]}}break l3}break}catch(x){v0=[v0,e[4](x)]}}}l4:{for(;;){if(typeof i==="string")break;if(i===null){i="d";break}v0=[v0,e[5](i)];break l4}break}throw e[6](i,v0)}return i}catch(v5){e[7](v5)}}
+    expression: i=>{try{let v0;for(;;){if(i===null){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[5](x)]}}}l2:{for(;;){if(typeof i==="string")break;if(i===null){i="d";break}v0=[v0,e[2](i)];break l2}break}if(i===null){l3:{try{if(!(e[3](i))){v0=[v0,e[4],i];break l3}break}catch(x){v0=[v0,e[5](x)]}}}throw e[6](i,v0)}return i}catch(v4){e[7](v4)}}
     examples:
-      # FIXME: the third member takes null ahead of the second, whose default reads it
       null-reaches-the-default:
         input: "null"
-        output: "null"
+        output: '"d"'
       string:
         input: '"s"'
         output: '"s"'

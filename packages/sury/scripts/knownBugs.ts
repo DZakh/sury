@@ -121,7 +121,8 @@ export const KNOWN_BUGS: Known[] = [
       "A member that takes every value of its kind - an object whose every field may be absent, a record, " +
       "a list of `any` - claims values meant for a later member, and so does a wrapper whose default takes the " +
       "`null` or `undefined` a later member would keep. The first member that accepts a value wins, which is " +
-      "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
+      "the documented rule. The round trip cannot tell that from a bug, and the member-by-member reference " +
+      "cannot either for a member that takes every value of its kind.",
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
