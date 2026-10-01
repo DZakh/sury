@@ -210,7 +210,7 @@ const anyOf = (members: Internal[]): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = members;
   mut.has = {};
-  for (let idx = 0; idx < members.length; idx++) setHas(mut.has, members[idx]!.type);
+  for (let idx = 0; idx < members.length; idx++) setHas(mut.has, members[idx]!);
   return mut;
 };
 
@@ -278,7 +278,7 @@ const optionalMessage = (raw: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [raw, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, raw.type);
+  setHas(mut.has, raw);
   mut.encoder = optionalMessageEncoder;
   mut.flags = mut.flags | 64;
   return mut;
