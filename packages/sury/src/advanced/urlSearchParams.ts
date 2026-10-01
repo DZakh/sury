@@ -18,8 +18,10 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _var,
-  B_addObjectField,
+  B_field,
   B_dynamicScope,
   B_failInvalidInput,
   B_embed,
@@ -115,8 +117,10 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
     const iterVar = B_varWithoutAllocation(val.g);
     val.e = schema;
     const itemVal = B_dynamicScope(val, iterVar);
-    const appendCode = appendValue(B_scope(itemVal), destVar, keyText);
-    const itemCode = B_merge(itemVal) + appendCode;
+    const itemCode = B_sink(val.g, () => {
+      const appendCode = appendValue(B_scope(itemVal), destVar, keyText);
+      return B_merge(itemVal) + appendCode;
+    });
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
@@ -150,7 +154,7 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
     detached.prev = U;
     detached.io = false;
     const converted = parse(detached);
-    return `let ${tmp}=${val.i};` + B_merge(converted) + `${destVar}.append(${keyText},${converted.i});`;
+    return B_let(val.g, tmp, val.i) + B_merge(converted) + `${destVar}.append(${keyText},${converted.i});`;
   }
   val.io = false;
   val.e = string;
@@ -161,7 +165,7 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
 const objectToSearchParams = (input: Val): Val => {
   const destVar = B_varWithoutAllocation(input.g);
   const properties = input.s.properties!;
-  let code = `let ${destVar}=new ${B_embed(input, urlSearchParams.class)}();`;
+  let code = B_let(input.g, destVar, `new ${B_embed(input, urlSearchParams.class)}()`);
   for (const key in properties) {
     const field = valGet(input, key);
     code += appendValue(field, destVar, inlinedValueFromString(key));
@@ -181,7 +185,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
   }
   const objectVal = makeObjectVal(input);
   const entriesVar = B_varWithoutAllocation(input.g);
-  B_hoistDecl(input, `${entriesVar}=${B_embed(input, readEntries)}(${input.v()})`);
+  B_hoistDecl(input, entriesVar, `${B_embed(input, readEntries)}(${input.v()})`);
   const properties = target.properties!;
   let listRead = "";
   for (const key in properties) {
@@ -195,9 +199,10 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
     const slot = `${entriesVar}.get(${keyText})`;
     B_hoistDecl(
       input,
+      readVar,
       list
-        ? `${readVar}=${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${readVar}=${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
+        ? `${(listRead ||= B_embed(input, asList))}(${slot})`
+        : `${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
     );
     const item: Val = {
       b: U,
@@ -229,14 +234,13 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
           `Can't decode search param -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
         );
       }
-    } else if (present.type === unknownTag) {
-      item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
     }
-    B_addObjectField(
-      objectVal,
-      key,
-      absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item),
-    );
+    B_field(objectVal, key, () => {
+      if (!list && present.type === unknownTag) {
+        item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
+      }
+      return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
+    });
   }
   return B_markOutput(completeObjectVal(objectVal), input);
 };

@@ -34,15 +34,15 @@ export type FailureResult = {
 };
 
 /**
- * What every `*AsResult` operation returns. Also a Standard Schema result: the
- * `issues` of a failure are the ones `schema["~standard"].validate` reports, so
- * a Result goes straight to a consumer that reads that shape.
+ * What every `*AsResult` operation and `schema["~standard"].validate` return,
+ * a Standard Schema result. A failure lists every issue; `error` is the first.
  *
  * ```ts
- * const result = S.parseAsResult(S.string, 42)
+ * const result = S.parseAsResult(S.schema({ a: S.string, b: S.number }), { a: 1, b: "x" })
  * result.success       // false
- * result.error?.reason // "Expected string, received 42"
- * result.issues        // [{ message: "Expected string, received 42" }]
+ * result.error?.reason // "Expected string, received 1"
+ * result.issues        // [{ message: "Expected string, received 1", path: ["a"] },
+ *                      //  { message: 'Expected number, received "x"', path: ["b"] }]
  * ```
  */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;

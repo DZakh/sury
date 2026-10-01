@@ -333,7 +333,22 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 
 // One schema from the same grammar the union members come from, for a fuzzer
 // whose subject is a schema rather than a union of them (`fuzz:schema`).
-export const generateSchema = (S: Sury, rng: Rng): MemberSpec => memberAt(S, rng, 0);
+//
+// A container is sometimes carried into a JSON string, which `jsonString` can
+// fuse into one aggregate that validates while it renders. Chosen off the drawn
+// id rather than a draw of its own, so every seed still replays the same
+// schemas and only some of them gain the wrapper.
+export const generateSchema = (S: Sury, rng: Rng): MemberSpec => {
+  const member = memberAt(S, rng, 0);
+  const type = (member.schema as { type?: string }).type;
+  if ((type !== "object" && type !== "array") || member.id.length % 4) return member;
+  return {
+    id: `${member.id}.with(to,jsonString)`,
+    shape: { name: "with", args: [member.shape], raw: "to" },
+    schema: (member.schema as { with: Function }).with(S.to, S.jsonString),
+    lossy: true,
+  };
+};
 
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
   taggedRescript(S, "One", { id: "string", schema: S.string, shape: node("string") }),
