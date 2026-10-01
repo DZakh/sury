@@ -552,7 +552,6 @@ const internalToJSONSchemaBase = (
     const seen: Record<string, boolean> = {};
 
     const anyOf = schema.anyOf!;
-    const ordered = anyOf.filter((child) => child.type !== nullTag);
     const optionalSlot =
       parent.type === objectTag ||
       (parent.type === arrayTag &&
@@ -562,17 +561,23 @@ const internalToJSONSchemaBase = (
     // the one to advertise: the union's own `undefined` arm's, or a nested
     // member's, which then speaks for itself. `s.fieldOr`'s own parser reads it
     // ahead of every arm.
-    const taker = optionalSlot && schema.parser === U ? anyOf.find(isOptional) : U;
+    const taker = optionalSlot && schema.parser === U && anyOf.find(isOptional);
     const ownsEmpty = taker ? taker.type === undefinedTag : schema.default !== U;
-    const ownDefault = taker && (taker.type !== undefinedTag || taker.to === U) ? U : schema.default;
+    if (schema.default !== U && (!taker || (ownsEmpty && taker.to !== U))) {
+      jsonSchema.default = schema.default;
+    }
+    const ordered = anyOf.filter((child) => child.type !== nullTag);
     ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {
       if (childSchema.type === undefinedTag && optionalSlot) return;
       // A union nested in a field's union answers to the same field, so its
       // own `undefined` is the field being absent too.
-      const childJsonSchema =
-        childSchema.type === anyOfTag && parent.type === objectTag
-          ? internalToJSONSchema(childSchema, path, defs, parent, target)
-          : js(childSchema, path);
+      const childJsonSchema = internalToJSONSchema(
+        childSchema,
+        path,
+        defs,
+        childSchema.type === anyOfTag && parent.type === objectTag ? parent : schema,
+        target
+      );
       if (ownsEmpty && childSchema.type === anyOfTag) delete childJsonSchema.default;
       // Collapse structurally-identical members (e.g. variants coercing to
       // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
@@ -585,7 +590,6 @@ const internalToJSONSchemaBase = (
     });
 
     const itemsNumber = items.length;
-    if (ownDefault !== U) jsonSchema.default = ownDefault;
 
     // Detect whether a definition is the "null" representation for the
     // current target. Sury models nullable as a union `[X, null]`; for

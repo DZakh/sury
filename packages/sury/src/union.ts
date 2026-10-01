@@ -1890,41 +1890,39 @@ const unionResolveToUnion = (
 // wrapper's own empty arm is surely tried ahead of it.
 const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
   if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
-  if (s.type === anyOfTag) {
-    if (s.to !== U || s.parser !== U) return true;
-    // In order: an arm that surely passes the value through settles it, one
-    // that may reject it hands it on.
-    for (const arm of s.anyOf!) {
-      if (arm.type === tag) return arm.to !== U;
-      if (!(unionMask(arm, 1, 0) & tagFlags[tag]!)) continue;
-      if (unionChanges(arm, tag, refs)) return true;
-      if (!(unionTraits(arm) & 3)) return false;
-    }
-    return false;
-  }
   if (s.type === refTag) {
     if (refs?.includes(s)) return false;
     const def = s.definition || unionRefDef(s);
     // A ref still being defined has nothing to read yet, so it counts.
     return def === U || unionChanges(def, tag, [...(refs || []), s]);
   }
-  return (unionTraits(s) & 12) !== 0;
+  if (s.type !== anyOfTag) return !!(unionTraits(s) & 12);
+  if (s.to !== U || s.parser !== U) return true;
+  // In order: an arm that surely passes the value through settles it, one
+  // that may reject it hands it on.
+  for (const arm of s.anyOf!) {
+    if (arm.type === tag) return arm.to !== U;
+    if (!(unionMask(arm, 1, 0) & tagFlags[tag]!)) continue;
+    if (unionChanges(arm, tag, refs)) return true;
+    if (!(unionTraits(arm) & 3)) return false;
+  }
+  return false;
 };
 
 // `S.optional`, `S.nullable` and their kin own their empty value. The order
 // lives in `anyOf`, so a parent union that flattens this one keeps it, and
 // first-member-wins between the parent's own members is untouched.
 export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
-  const arms = unionIsTransparent(inner) ? inner.anyOf!.slice() : [inner];
+  const arms = unionIsTransparent(inner) ? [...inner.anyOf!] : [inner];
   for (const empty of empties) unionPlaceEmpty(arms, empty);
   return unionFactory(arms);
 };
 
-// Whether it went ahead of an arm that would have changed the value.
-export const unionPlaceEmpty = (arms: Internal[], empty: Internal): boolean => {
+// Where it went ahead of an arm that would have changed the value, or -1.
+export const unionPlaceEmpty = (arms: Internal[], empty: Internal): number => {
   const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
-  at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
-  return at >= 0;
+  arms.splice(at < 0 ? arms.length : at, 0, empty);
+  return at;
 };
 
 export const unionFactory = (schemas: Internal[]): Internal => {

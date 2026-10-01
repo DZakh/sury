@@ -800,11 +800,10 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
     const seen = new Set<string>();
-    const add = (s: Internal): void => {
+    const add = (s: Internal): unknown =>
       s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
-    };
     schema.anyOf.forEach(add);
-    ["null", "undefined"].forEach((e) => seen.delete(e) && seen.add(e));
+    for (const e of ["null", "undefined"]) seen.delete(e) && seen.add(e);
     return [...seen].join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
