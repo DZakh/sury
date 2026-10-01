@@ -139,6 +139,11 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.parser = (input: Val) => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
+    if (input.s === unit) {
+      const output = B_nextVarOutput(input, v, item, item);
+      output.cp = `${v}=${defCode};`;
+      return output;
+    }
     const itemInput = B_scope(input);
     itemInput.io = false;
     itemInput.s = unknown;

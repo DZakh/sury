@@ -797,7 +797,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
   const presentBody = body(item, !unsetIsInput);
-  const absentBody = !unsetIsInput && readsAbsent(target) ? body(unknown, false) : "";
+  const absentBody = !unsetIsInput && readsAbsent(target) ? body(target.decoder === noopDecoder ? unit : unknown, false) : "";
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   output.cp = absentBody
     ? presentBody === ""

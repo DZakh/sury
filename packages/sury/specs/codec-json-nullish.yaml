@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.nullish(S.number))
   input: JSON
   output: number | null | undefined
-  instantiations: 4617
+  instantiations: 4620
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "null" }] }'
   fromInputType: number | null
