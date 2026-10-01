@@ -22,6 +22,7 @@ import {
   type Val
 } from "./base";
 import {
+  B_let,
   B_embed,
   B_embedPure,
   B_block,
@@ -113,7 +114,7 @@ export const numberDecoder: Builder = (input: Val) => {
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
     const inputVar = input.v();
-    output.cp = `let ${output.i}=+${inputVar};`;
+    output.cp = B_let(input.g, output.i, `+${inputVar}`);
 
     output.vc = [
       {
@@ -226,7 +227,7 @@ export const booleanDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    output.cp = `let ${output.i};${B_failInvalidInput(input, U, `(${output.i}=${inputVar}==="true")||${inputVar}==="false"`)}`;
+    output.cp = `${B_let(input.g, output.i)}${B_failInvalidInput(input, U, `(${output.i}=${inputVar}==="true")||${inputVar}==="false"`)}`;
     return output;
   }
   return B_typeDecode(input, booleanTag, inputTagFlag);
@@ -242,7 +243,7 @@ export const bigintDecoder: Builder = (input: Val) => {
     const inputVar = input.v();
     // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
     // show a digit.
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_)${B_block(B_failInvalidInput(input))}${B_failInvalidInput(input, U, `${output.i}||${inputVar}.trim()`)}`;
+    output.cp = `${B_let(input.g, output.i)}try{${output.i}=BigInt(${inputVar})}catch(_)${B_block(B_failInvalidInput(input))}${B_failInvalidInput(input, U, `${output.i}||${inputVar}.trim()`)}`;
     return output;
   }
   if ((inputTagFlag & 4)) {

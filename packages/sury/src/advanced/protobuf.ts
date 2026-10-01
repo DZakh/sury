@@ -30,6 +30,7 @@ import {
   type Val,
 } from "../base";
 import {
+  B_let,
   _var,
   B_embed,
   B_embedPure,
@@ -1991,7 +1992,7 @@ const protobufDecoder = (input: Val): Val => {
   // The root's frame is the operation's catch: its locals are declared outside
   // the `try` for it to read.
   const frame = fails ? `x=${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
-  output.cp = `let ${outVar};{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
+  output.cp = `${B_let(input.g, outVar)}{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
   output.io = true;
   return output;
 };
@@ -2037,7 +2038,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const output = B_next(input, outVar, wire, top);
   output.v = _var;
   // Braced, for the reader, as the writer above.
-  output.cp = `let ${outVar};{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
+  output.cp = `${B_let(input.g, outVar)}{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
   // Whatever runs after the wire object: a `.to` on the target - which is where
   // a ref carries it, the definition it names having none - or one on the
   // object the walk ended at.

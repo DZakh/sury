@@ -423,6 +423,13 @@
                             "type": "string",
                             "description": "Expected error message. Filled by `spec check --write`."
                           },
+                          "issues": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "description": "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`."
+                          },
                           "divergence": {
                             "type": "object",
                             "properties": {
@@ -676,6 +683,13 @@
                           "error": {
                             "type": "string",
                             "description": "Expected error message. Filled by `spec check --write`."
+                          },
+                          "issues": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "description": "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`."
                           },
                           "divergence": {
                             "type": "object",
@@ -931,6 +945,13 @@
                             "type": "string",
                             "description": "Expected error message. Filled by `spec check --write`."
                           },
+                          "issues": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "description": "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`."
+                          },
                           "divergence": {
                             "type": "object",
                             "properties": {
@@ -1185,6 +1206,13 @@
                             "type": "string",
                             "description": "Expected error message. Filled by `spec check --write`."
                           },
+                          "issues": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "description": "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`."
+                          },
                           "divergence": {
                             "type": "object",
                             "properties": {
@@ -1438,6 +1466,13 @@
                           "error": {
                             "type": "string",
                             "description": "Expected error message. Filled by `spec check --write`."
+                          },
+                          "issues": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "description": "Every issue the `AsResult` outcome reports, as messages, when there is more than one. The first is always `error`. Filled by `spec check --write`."
                           },
                           "divergence": {
                             "type": "object",
