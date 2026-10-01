@@ -1949,14 +1949,11 @@ const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
 export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   if (!(unionMask(inner, 1, 0) & (16 | 32))) return unionFactory([inner, ...empties]);
   const arms = unionIsTransparent(inner) ? [...inner.anyOf!] : [inner];
-  for (const empty of empties) unionPlaceEmpty(arms, empty);
+  for (const empty of empties) {
+    const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
+    at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
+  }
   return unionFactory(arms);
-};
-
-export const unionPlaceEmpty = (arms: Internal[], empty: Internal): boolean => {
-  const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
-  at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
-  return at >= 0;
 };
 
 export const unionFactory = (schemas: Internal[]): Internal => {

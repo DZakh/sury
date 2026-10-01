@@ -512,9 +512,9 @@ Object.defineProperty(schemaPrototype, reversedKey, {
     }
 
     // defineProperty (slower, once per schema) keeps the cache non-enumerable:
-    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign,
-    // optionFactory-style spreads, and unionIsTransparent's field count all walk
-    // enumerable fields and must not see it.
+    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign
+    // and unionIsTransparent's field count walk enumerable fields and must not
+    // see it.
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);

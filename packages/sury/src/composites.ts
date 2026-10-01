@@ -878,7 +878,7 @@ export const valGet = (parent: Val, location: string): Val => {
         // missing key uniformly. Scoped to dict parents (objectTag) with a
         // concrete value type - array->tuple rest reads (arrayTag) and
         // json/unknown values read as-is. Light T|undefined wrap (not
-        // optionFactory) so this decoder SCC does not statically retain union.
+        // S.option) so this decoder SCC does not statically retain union.
         if (
           parent.s.type === objectTag &&
           s.type !== unknownTag &&

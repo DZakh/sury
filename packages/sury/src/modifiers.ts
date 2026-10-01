@@ -3,7 +3,6 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
-  anyOfTag,
   type AdditionalItems,
   baseSchema,
   type Builder,
@@ -20,7 +19,6 @@ import {
   pathEmpty,
   refTag,
   type SchemaErrorMessage,
-  setHas,
   U,
   undefinedTag,
   unknown,
@@ -64,7 +62,6 @@ import {
 } from "./primitives";
 import {
  unionFactory,
- unionPlaceEmpty,
  unionWrap
 } from "./union";
 
@@ -122,13 +119,9 @@ export const someOf = (schema: Internal): Internal => {
   }
 }
 
-export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal =>
-  unionWrap(someOf(item), [unitSchema]);
-
 // @__NO_SIDE_EFFECTS__
-export const option = (item: Internal): Internal => {
-  return optionFactory(item, unit);
-}
+export const option = (item: Internal): Internal =>
+  unionWrap(someOf(item), [unit]);
 
 export type MetadataId = string;
 

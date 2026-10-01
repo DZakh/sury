@@ -39,7 +39,6 @@ import {
  getMutErrorMessage,
  internalRefine,
  nullAsUnit,
- optionFactory,
  someOf
 } from "./modifiers";
 import {
@@ -67,7 +66,7 @@ export { dict } from "./composites";
 export { unionFactory as union } from "./union";
 // @__NO_SIDE_EFFECTS__
 export const nullAsOption = (item: Internal): Internal =>
-  optionFactory(item, nullAsUnit);
+  unionWrap(someOf(item), [nullAsUnit]);
 // `null` is a reserved word in JS/TS binding position, so this is exported
 // as `null_`.
 // @__NO_SIDE_EFFECTS__
