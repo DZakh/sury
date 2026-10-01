@@ -94,7 +94,7 @@ test("a union refuses undefined a default replaces behind a .to or a ref", () =>
   );
 });
 
-test("the fixes the refusal names construct", () => {
+test("the rewrites the refusal suggests are accepted", () => {
   expect(S.parseOrThrow(undefined, S.optional(S.union([S.string, S.number]), "none"))).toBe("none");
   expect(S.parseOrThrow(null, S.union([S.nullable(S.boolean, false), S.string]))).toBe(false);
   expect(S.parseOrThrow(null, S.union([null, S.nullable(S.boolean, false)]))).toBe(null);

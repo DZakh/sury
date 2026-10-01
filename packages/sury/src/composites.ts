@@ -26,6 +26,7 @@ import {
   objectTag,
   pathConcat,
   pathEmpty,
+  refTag,
   setHas,
   stringify,
   toError,
@@ -35,7 +36,6 @@ import {
   unknown,
   unknownTag,
   updateOutput,
-  refTag,
   type Val
 } from "./base";
 import {

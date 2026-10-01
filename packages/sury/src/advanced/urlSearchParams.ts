@@ -48,11 +48,11 @@ import {
 } from "../primitives";
 import {
   absentArm,
-  keepsUndefined,
   admitsBlank,
   asList,
   convertTextEntry,
   isAbsent,
+  keepsUndefined,
   presentArm,
   readWrapped
 } from "./entries";

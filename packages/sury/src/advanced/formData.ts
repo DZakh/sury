@@ -62,12 +62,12 @@ import {
 } from "../primitives";
 import {
   absentArm,
-  keepsUndefined,
   admitsBlank,
   asList,
   asText,
   decidesBlank,
   isAbsent,
+  keepsUndefined,
   presentArm,
   readWrapped
 } from "./entries";
