@@ -775,7 +775,8 @@ export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (input: Val) => {
   // Carry `never` as the val's own schema, not the input's: nothing gets past
   // this branch, so a union built from its cases' output schemas must not list
-  // the input type as something the union can produce.
+  // the input type as something the union can produce. That drops the field's
+  // `from`, which is why the shaped serializer reads it off the container.
   const output = B_refine(input, never_, U, never_);
   output.cp = B_failInvalidInput(input) + ";";
   return output;

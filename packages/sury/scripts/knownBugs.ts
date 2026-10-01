@@ -79,17 +79,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-never-member",
-    kind: "bug",
-    summary:
-      "A union member with an `S.never` field makes the whole union's encode refuse to compile, " +
-      "instead of that one member yielding to its siblings.",
-    spec: "union-never-member",
-    fuzzers: ["union"],
-    matches: (f) =>
-      f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
-  },
-  {
     id: "jsonstring-null-default-inlined",
     kind: "bug",
     summary:

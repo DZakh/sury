@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ b: s.field("a", S.never) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ b: never; }"
+  instantiations: 534
+jsonSchema:
+  input: '{ type: "object", properties: { a: { not: {} } }, required: ["a"] }'
+  fromInputType: "{ a: never; }"
+  output: '{ type: "object", properties: { b: { not: {} } }, required: ["b"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.a,b.a)
+  output: (a,b)=>a===b||e[0](a.b,b.b)
+compare:
+  input: "throws: [Sury] Can't compare { a: never; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { b: never; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;e[0](v0);return {b:v0}}catch(v1){e[2](v1)}}
+    examples:
+      any-value:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected never, received 1"
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected never, received undefined"
+  decode:
+    expression: i=>{try{let v0=i.a;e[0](v0);return {b:v0}}catch(v1){e[1](v1)}}
+    examples:
+      any-value:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected never, received 1"
+  encode:
+    expression: i=>{try{let v0=i.b;e[0](v0);return {a:v0}}catch(v1){e[1](v1)}}
+    examples:
+      any-value:
+        input: "{ b: 1 }"
+        error: "Failed at b: Expected never, received 1"

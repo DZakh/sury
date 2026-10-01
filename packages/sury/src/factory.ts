@@ -503,10 +503,16 @@ const shapedParser: Builder = (input: Val) => {
   return B_markOutput(output, input);
 }
 
-const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
-  if (input.e.from !== U) {
-    const from = input.e.from;
-    const fromFlattened = input.e.fromFlattened;
+// Reads `from` off the container's field schema, not `input.e`: a decoder can
+// end its val on a schema of its own (`S.never`'s does), which has no `from`.
+const prepareShapedSerializerAcc = (
+  acc: ShapedSerializerAcc,
+  input: Val,
+  schema: Internal = input.e
+): void => {
+  if (schema.from !== U) {
+    const from = schema.from;
+    const fromFlattened = schema.fromFlattened;
     let accAtFrom: ShapedSerializerAcc;
     if (fromFlattened !== U) {
       if (acc.flattened === U) {
@@ -545,9 +551,12 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
     accAtFrom.val = input;
   } else if (input.d !== U) {
     const vals = input.d;
+    // A tuple's `items` is indexed by the same keys as `input.d`.
+    const fields = (schema.properties || schema.items) as Record<string, Internal> | undefined;
     const keys = Object.keys(vals);
     for (let idx = 0; idx < keys.length; idx++) {
-      prepareShapedSerializerAcc(acc, vals[keys[idx]!]!);
+      const key = keys[idx]!;
+      prepareShapedSerializerAcc(acc, vals[key]!, fields?.[key]);
     }
   }
 }
