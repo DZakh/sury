@@ -96,7 +96,7 @@ const nestedOption = (item: Internal): Internal => {
 
 // The schema read one option level deeper: an undefined it outputs is Some(None)
 // and a Some(None) marker counts one more Some. Recurses into output unions,
-// since a coder's input never reaches its own.
+// since a coder's input never reaches its output.
 const someOf = (schema: Internal): Internal => {
   const out = getOutputSchema(schema);
   const nestedSchema = out.properties?.[nestedLoc];
