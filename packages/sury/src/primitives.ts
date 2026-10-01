@@ -13,7 +13,6 @@ import {
   nullTag,
   numberTag,
   objectTag,
-  setContent,
   stringTag,
   symbolTag,
   type Tag,
@@ -24,7 +23,9 @@ import {
 } from "./base";
 import {
   B_embed,
-  B_embedInvalidInput,
+  B_embedPure,
+  B_block,
+  B_failInvalidInput,
   B_inlineConst,
   B_next,
   B_nextConst,
@@ -60,9 +61,18 @@ export const numberTagCond = (inputVar: string, allowNaN: boolean): string => {
   const t = typeofCond(numberTag)(inputVar);
   return allowNaN ? t : `${t}&&${inputVar}==${inputVar}`;
 };
-// `class` is a reserved word in TS, so the parameter is named `class_`.
+// `class` is a reserved word in TS, so the parameter is named `class_`. The
+// default `instanceof` only reads the class's `prototype` and never raises, so
+// only a class with its own `Symbol.hasInstance` counts as one that may - a
+// count that would otherwise keep a `try` around every union case holding an
+// instance.
 export const instanceofCond = (b: Val, class_: unknown, inputVar: string): string =>
-  `${inputVar} instanceof ${B_embed(b, class_)}`;
+  `${inputVar} instanceof ${(
+    (class_ as Function)[Symbol.hasInstance] === Function.prototype[Symbol.hasInstance] &&
+    Object((class_ as Function).prototype) === (class_ as Function).prototype
+      ? B_embedPure
+      : B_embed
+  )(b, class_)}`;
 
 // Shared, immutable per-tag type-narrow Check objects. A Check's c/f are only
 // ever called, never reassigned, and callers always wrap it in a fresh array
@@ -205,7 +215,9 @@ export const string: Internal = /* @__PURE__ */ initSchema(stringTag, stringDeco
 // @__NO_SIDE_EFFECTS__
 export const openedText = (format: Internal): Internal => {
   const opened = copySchema(string);
-  setContent(opened, format.content!);
+  opened.flags = format.flags & 3;
+  const stored = format.bytesCodec ? format : format.storedAs;
+  if (stored) opened.storedAs = stored;
   return opened;
 };
 
@@ -214,9 +226,7 @@ export const booleanDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    output.cp = `let ${output.i};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
-      input,
-    )};`;
+    output.cp = `let ${output.i};${B_failInvalidInput(input, U, `(${output.i}=${inputVar}==="true")||${inputVar}==="false"`)}`;
     return output;
   }
   return B_typeDecode(input, booleanTag, inputTagFlag);
@@ -230,10 +240,9 @@ export const bigintDecoder: Builder = (input: Val) => {
   if ((inputTagFlag & 2)) {
     const output = B_nextVar(input);
     const inputVar = input.v();
-    const fail = B_embedInvalidInput(input);
     // `BigInt("")` and `BigInt("   ")` are 0n, so a zero result also has to
     // show a digit.
-    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_){${fail}}${output.i}||${inputVar}.trim()||${fail};`;
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${inputVar})}catch(_)${B_block(B_failInvalidInput(input))}${B_failInvalidInput(input, U, `${output.i}||${inputVar}.trim()`)}`;
     return output;
   }
   if ((inputTagFlag & 4)) {
@@ -280,6 +289,12 @@ export const literalDecoder: Builder = (input: Val) => {
       return B_nextConst(stringConstVal, expectedSchema, expectedSchema);
     } else if ((schemaTagFlag & 2048)) {
       return B_refine(input, expectedSchema, [{ c: nanCond, f: failInvalidType }]);
+    } else if (tagFlags[input.s.type]! & (64 | 128 | 4096 | 8192) && input.s.type !== expectedSchema.type) {
+      // An object, array, function or instance is never a constant, and no
+      // conversion reads one out of it: an equality check here would compile
+      // and reject every value. The same type is a union narrowing to its
+      // literal arm, where the equality check is the dispatch.
+      return B_unsupportedDecode(input, input.s, expectedSchema);
     } else {
       return B_refine(input, expectedSchema, [
         {

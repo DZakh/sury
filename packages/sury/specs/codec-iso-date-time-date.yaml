@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[3](i);e[1](i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}catch(v1){e[4](v1)}}
+    expression: i=>{try{typeof i==="string"||e[3](i);e[1](i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[4](v1)}}
     examples:
       valid:
         input: '"2020-01-01T00:00:00.000Z"'
@@ -27,7 +27,7 @@ operations:
         input: '"2021-02-30T00:00:00.000Z"'
         error: Expected date-time, received "2021-02-30T00:00:00.000Z"
   decode:
-    expression: i=>{try{e[1](i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}catch(v1){e[3](v1)}}
+    expression: i=>{try{e[1](i)||e[2](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[3](v1)}}
     examples:
       valid:
         input: '"2020-01-01T00:00:00.000Z"'

@@ -181,7 +181,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   protobufField: skip("field metadata, does not change parse"),
   queryString: schema((S) => S.queryString),
   record: wrap((S, inner) => S.record(inner)),
-  recursive: skip("cyclic schemas; generation is acyclic"),
+  recursive: skip("needs a definer, not a leaf; recursiveMember in generate.ts builds its members"),
   refine: modify(["string", "number", "bigint", "boolean", "object", "array"], (S, schema) =>
     schema.with(S.refine, () => true),
   ),

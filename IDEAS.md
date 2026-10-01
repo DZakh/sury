@@ -42,7 +42,14 @@
   `composites.ts`), materializing the parent var even when the passthrough
   case never uses the child - `{let v0=i["VAL"];break}` in
   `S_union_test.res`'s issue-101 golden. Eliminating it means making
-  field-val inline strings lazy, a cross-cutting builder change.
+  field-val inline strings lazy, a cross-cutting builder change. The same
+  read shows wherever an object converts to another object of the same shape:
+  `decodeOrThrow(a, b)` for two copies of `{ tags: S.array(S.string) }` emits
+  `let v0=i.tags;return i`, and every `S.protobuf` decode with a repeated or
+  nested field carries one per such field (the raw message converting to the
+  normalized one). An array fast path keyed on the source's item schema being
+  the target's is not enough: a decode still runs the item's refinements, so
+  only the compiled item says whether the loop is empty.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the
@@ -341,6 +348,126 @@ of a form-data story. What they were built to make cheap, roughly in order:
   the surviving item, so its mask adds nothing and the check falls out), and
   extend trusted case compilation past field-discriminated members, so a lone
   object member validates as little as a typed object does.
+
+### Failure exit follow-ups
+
+A failed check hands its record to `BGlobal.x` and runs the statement it gets
+back - `return false` for `is*`, the failure Result for `*AsResult`, record and
+`break` for a union case a later one may accept - and raises only where no exit
+is set. What is left on the table:
+
+- **A refiner's own throw still raises.** `S.refine` wraps the user check in an
+  embed that turns an exception into `invalid_conversion` by `B_throw`, so the
+  body reads `e[0](i)||e[1](i)` and a union case holding one keeps its `try` and
+  the `caught` bookkeeping behind it. If the embed answered the failure instead
+  of throwing it (`true`, or the record), the case could jump like any other
+  check. With `B_conversion` already jumping, most union cases would then need no
+  `try` at all, and the raise tracking in `emitChain` would matter only for
+  opaque embeds (a recursive schema's operation, `S.json`'s walk) and async
+  cases.
+- **A validation-only operation still builds the value it throws away.** `is*`,
+  `assert*` and `make*` end in `assertResult`, yet a union case still rebuilds
+  its object (`i={kind:i.kind,v:v0}`) and an array still allocates
+  `new Array(n)` to store each item's union output. Measured, 20-item array of
+  a two-member union, every item accepted by the first member: 167ns against
+  95ns with the writes removed. Wants the union to know its output is unread
+  (a val flag set where the chain ends in `assertResult`, or the output val's
+  inline materialized lazily the way object fields already are).
+- **A deferred union failure still allocates its path.** A case that falls
+  through links a node onto the union's list (`v1=[v1,e[0],v0]`), and inside a
+  loop the node carries a fresh path, `v1=[v1,e[1],v4,["result",v3]]`, per
+  failing item. `parseOrThrow` over a 20-item array of a two-member union where
+  every other item falls through: ~450ns, against ~170ns for `isInput`, which
+  records nothing. Linking only the dynamic segments (the loop var) and letting
+  the builder concat the static part would close most of it.
+- **Standard Schema `validate` and `*AsPromisableResult` still raise.** Both
+  answer in the body's own shape - a promise when the body turns out async - and
+  the exit is chosen before the body is compiled, so they are left without one.
+  An exit whose embed reads a box the tail fills in once `isAsync` is known
+  (`box.a ? Promise.resolve(R(e)) : R(e)`) would cover both. `validate` is the
+  one most of the ecosystem calls, and its failing path is the throw-and-catch
+  every other answering outcome no longer pays. Its exit belongs next to
+  `throwTail` in parse.ts, which is in every bundle; measure what it adds there.
+- **`parseOrThrow`'s failing path is the stack capture.** ~4.7us of a ~5us
+  failure is `Error.captureStackTrace` at the operation boundary; the throw
+  itself is noise next to it. Nothing to do with the exit, but it is now what
+  every remaining raise costs.
+- **A jump spells its condition as `if(!(cond))`.** A check's `c` is written to
+  read `cond||raise`, so the jump form negates it whole: `if(!(typeof
+  v0==="string"))return false`, and `if(!((a||b)))` where the union fused a
+  group. A check that could also hand over its negation (`typeof v0!=="string"`)
+  would shorten every jump by three characters. One cosmetic wart rides along:
+  `{…;break l1};break` where a union arm's body ends in a jump, since `attempt`
+  can't tell that closing brace from an object literal's (`i={…}`) and adds the
+  `;` either way.
+- **Only some embeds know they can't raise.** Every `B_embed` counts toward the
+  `try` a union case keeps; `instanceof` a class without its own
+  `Symbol.hasInstance` and the built-in formats' tests are now `B_embedPure`,
+  and a union of them keeps none. `S.pattern` still counts (a user's `RegExp`
+  can be a subclass whose `exec` throws), as does every constant a literal
+  embeds. An embed that states what it is (callable, and whether it is ours)
+  rather than the call site choosing would make the rest follow.
+- **An async operation's union throws its failure whenever a case may fall
+  through.** Whether the dispatch ends up in an `(async(i)=>{…})(i)` wrapper is
+  known only once the cases are compiled, but the exit they fail to is chosen
+  before, so `unionEmit` assumes the wrapper for any async operation with a
+  falling group (`outer = g.o & 1 && awaitAsync ? U : g.x`).
+  `S.union([{k:"a",n:number}, {k:"a",s:string}, string])` answers
+  `parseAsResult` with a `return`, but `parseAsResultPromise` and
+  `isInputAsPromise` with a `throw` their tail catches - the cost the sync
+  outcomes no longer pay. Deciding it from the members' own async-ness (a
+  schema walk like `unionTraits`) before compiling them would let the common
+  all-sync union jump in async operations too.
+- **Union compiles are still 5-13% slower than main** (`spec check
+  --perf=only --against origin/main`: 13 create+compile targets, every other
+  one unchanged or faster; worst `union2-refine-throws`). Most of the first
+  round's 12-30% was generated code up to 30% longer, which the linked failure
+  record and the dropped `try`s won back. What is left is compiler work spread
+  thin - `enter`/`leave` build a closure and a label holder per case, `settle`
+  rescans the chain for its drop rule, `attempt` re-checks what follows a
+  terminal case, and `B_fail` builds a record thunk per failed check - with no
+  single hotspot in a profile. A per-union label counter and a `settle` that
+  keeps its last live case would be the next cuts; measure each, the noise
+  floor is 3-5%.
+- **`B_detached` is a convention, not a guarantee.** Every builder that emits
+  code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
+  has to run both the parse and the merge of that code with the exit cleared,
+  or a jump lands in a function it can't leave - which is exactly what
+  `completeObjectVal` got wrong
+  (specs/codec-async-object-then-custom.yaml). One helper that parses and merges
+  a continuation, used by parse.ts, composites.ts and B_markOutput alike, would
+  leave nowhere to forget it.
+- **`fuzz:union` generates no async member.** Its `outcome` class holds every
+  answering outcome to `parseOrThrow` (and over seeds 2-8 it catches the
+  getter/`try` regression tests/operations_test.ts pins), but over sync members
+  only, so the async-object bug (specs/codec-async-object-then-custom.yaml)
+  would still get past it. An async coder in the generator, and the `AsPromise`
+  outcomes awaited in the loop, would close that.
+
+### Pre-existing bugs surfaced by the failure exit work
+
+- **`fuzz:union --seed=3` reports an unlisted `acceptance` diff.**
+  `S.union([record(R3{head:xid,next?:R3}), {TAG:T2,…}, instance(Error)])`
+  answers `Error(e)` for an `Error`, where the sequential reference lets the
+  record take it first and answers `{}`: instance members dispatch ahead of
+  their position (specs/union3-instance-priority-order.yaml). Same on main
+  3a04716. Either the reference learns the priority rule or `knownBugs.ts`
+  lists it as a limitation; CI only runs seed 1, so nothing gates it today.
+- **`fuzz:union --ref=<commit>` crashes before it prints a changelog.** The
+  ref build throws `Cannot read properties of undefined (reading 'name')` from
+  `inputExpression` inside the `message` getter of a failure it compiled
+  (`scripts/unionFuzz/reference.ts` `compiledParse`). Same on main 3a04716, so
+  the changelog the union-compiler workflow suggests can't run at all.
+  Probably the two library instances meeting (the ref's compile reading a
+  schema the current build made); unverified.
+- **`S.env.with(S.maxLength, n)` throws a `TypeError` on `undefined`.**
+  `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
+  properties of undefined (reading 'length')` instead of a Sury failure, alone
+  and as a union member, array item or object field; `S.length` does the same.
+  The length check reads a value `env`'s blank handling let through. Same on
+  16de5d3, and it is what `fuzz:union --seed=5` fails on (an `acceptance` diff
+  against a reference that accepts `undefined`). Wants a spec example once
+  fixed.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 

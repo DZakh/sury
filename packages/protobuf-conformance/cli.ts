@@ -137,13 +137,7 @@ const upstream = (): string => {
 // The fields testMessages.ts leaves undeclared on purpose. Anything else
 // missing is a corpus bump outrunning the schema, which is the whole reason the
 // commit is pinned.
-const UNDECLARED: Record<number, string> = {
-  304: "optional_struct: Struct/Value/ListValue are ProtoJSON, which this suite does not attempt",
-  306: "optional_value: as above",
-  316: "repeated_value: as above",
-  317: "repeated_list_value: as above",
-  324: "repeated_struct: as above",
-};
+const UNDECLARED: Record<number, string> = {};
 
 const checkSchema = (): string[] => {
   const found = divergences(upstream());

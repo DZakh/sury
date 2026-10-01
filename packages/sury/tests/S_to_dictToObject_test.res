@@ -102,7 +102,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.foo,v3=i.bar,v5=i.zoo;v2!==void 0||e[1](v2);if(v3!==void 0){let v4;try{v4=BigInt(v3)}catch(_){e[2](v3)}v4||v3.trim()||e[2](v3);v3=v4;}else{e[3](v3)}if(v5!==void 0){let v6=+v5;v6==v6&&(v6||v5.trim())||e[4](v5);v5=v6;}return {foo:v2,bar:v3,zoo:v5}}catch(v7){e[6](v7)}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.foo,v3=i.bar,v5=i.zoo;v2!==void 0||e[1](v2);if(v3!==void 0){let v4;try{v4=BigInt(v3)}catch(_){e[2](v3)}v4||v3.trim()||e[3](v3);v3=v4;}else{e[4](v3)}if(v5!==void 0){let v6=+v5;v6==v6&&(v6||v5.trim())||e[5](v5);v5=v6;}return {foo:v2,bar:v3,zoo:v5}}catch(v7){e[7](v7)}}`,
   )
 })
 
@@ -134,7 +134,7 @@ test("[milestone 2] compiled encode iterates the source object's fixed keys", t 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.zoo;break}if(v0===void 0)break;e[0](v0)}let v1={foo:i.foo,bar:""+i.bar};if(v0!==void 0){v1.zoo=v0}return v1}catch(v2){e[1](v2)}}`,
+    `i=>{try{let v0=i.zoo;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.zoo;break}if(v0===void 0)break;throw e[0](v0)}let v1={foo:i.foo,bar:""+i.bar};if(v0!==void 0){v1.zoo=v0}return v1}catch(v2){e[1](v2)}}`,
   )
 })
 

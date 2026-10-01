@@ -540,20 +540,21 @@ const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => 
     const key = objects.length > 1 ? discriminantOf(objects) : U;
     if (key === U) return abandon();
     if (!templatable(key)) return abandon();
-    // A discriminant is read off the value, which `undefined` and `null` don't
-    // have: beside one of them - `S.optional` of a tagged union - the read is
-    // guarded, on both sides of the comparison.
-    const at = inlinedProperty(V, key);
-    const guard = members.some((member) => tagFlags[member.type]! & 48) ? `${V}!=null&&` : "";
+    // A null or undefined member has no property to read, and the arms test
+    // the discriminant before they reach it, on either value.
+    const prop = inlinedProperty("", key);
+    const at = members.some((member) => tagFlags[member.type]! & 48)
+      ? `${V}?${prop[0] === "." ? "" : "."}${prop}`
+      : V + prop;
     for (let idx = 0; idx < members.length; idx++) {
       const property = members[idx]!.properties?.[key];
       if (property !== U && isLiteral(property)) {
         if (isNanConst(property)) {
-          narrows[idx] = `${guard}${at}!=${at}`;
+          narrows[idx] = `${at}!=${at}`;
         } else {
           const inlined = B_inlineConst(ctx.b, property);
           if (!templatable(inlined)) return abandon();
-          narrows[idx] = `${guard}${at}===${inlined}`;
+          narrows[idx] = `${at}===${inlined}`;
         }
       }
     }

@@ -9,7 +9,8 @@ import {
   type Val
 } from "../base";
 import {
- B_embedInvalidInput,
+ B_block,
+ B_failInvalidInput,
  B_next,
  B_nextVar,
  B_refine,
@@ -24,7 +25,7 @@ import {
  stringDecoderFn
 } from "../primitives";
 
-export const invalidDateRefine = (input: Val): Val => {
+const invalidDateRefine = (input: Val): Val => {
   return B_refine(input, input.e, [
     {
       c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
@@ -44,7 +45,7 @@ const dateTimeString: Internal = /* @__PURE__ */ initSchema(
   (s) => {
     s.format = "date-time";
     // `toISOString()` emits only digits, `-:.TZ` and a sign.
-    s.formatFlag = 1;
+    s.flags = s.flags | 32;
   },
 );
 
@@ -55,7 +56,19 @@ export const date: Internal = /* @__PURE__ */ initSchema(
   (input: Val): Val => {
     const inputTagFlag = tagFlags[input.s.type]!;
     if ((inputTagFlag & 2)) {
-      return invalidDateRefine(B_next(input, `new Date(${input.i})`, date));
+      // The conversion is checked, and what failed is blamed on the text that
+      // was handed over, not on the `Invalid Date` it produced - the same
+      // shape the number coercion uses. The instance branch below blames its
+      // own value, which there really is an invalid Date. With nothing to
+      // check, the conversion stays an expression its reader can inline.
+      if (input.e.noValidation) {
+        return B_next(input, `new Date(${input.i})`, date);
+      }
+      const output = B_nextVar(input, date, input.e);
+      const inputVar = input.v();
+      output.cp = `let ${output.i}=new Date(${inputVar});`;
+      output.vc = [{ c: () => `!Number.isNaN(${output.i}.getTime())`, f: failInvalidType }];
+      return output;
     } else if ((inputTagFlag & 1)) {
       return invalidDateRefine(instanceDecoder(input));
     } else if ((inputTagFlag & 8192) && input.s.class === date.class) {
@@ -86,10 +99,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(
           return parse(B_refine(B_next(input, `${input.i}.toISOString()`, dateTimeString, target)));
         }
         const output = B_nextVar(input, dateTimeString, target);
-        output.cp = `let ${output.i};try{${output.i}=${input.v()}.toISOString()}catch(_){${B_embedInvalidInput(
-          input,
-          input.s,
-        )}}`;
+        output.cp = `let ${output.i};try{${output.i}=${input.v()}.toISOString()}catch(_)${B_block(B_failInvalidInput(input, input.s))}`;
         return parse(B_refine(output));
       } else {
         return input;

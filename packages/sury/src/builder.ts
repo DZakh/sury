@@ -15,6 +15,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  stringTag,
   type InvalidInputDetails,
   type Path,
   pathConcat,
@@ -218,6 +219,8 @@ export const B_operationArg = (
       e: [],
       v: -1,
       t: 0,
+      j: 0,
+      x: U,
     },
     o: U,
   };
@@ -247,6 +250,55 @@ export const B_pathArg = (b: Val): string =>
 export const B_pathSnap = (b: Val): Path | undefined =>
   hasPathDyn(b.path) ? U : (b.path as Path);
 
+// A failed check, as the statement that follows it - or, with `cond`, the
+// whole check. The exit where the code around it can jump (`BGlobal.x`), the
+// raise otherwise; a raising check reads `cond||raise`, the shorter spelling,
+// and every schema's generated code is mostly these. The record is built only
+// where the exit reads it, by `fn` itself (every fail builder answers a
+// record, see `Check`).
+export const B_fail = <TArg>(
+  b: Val,
+  fn: (arg: TArg, path?: Path) => ErrorDetails,
+  arg: string,
+  cond?: string,
+): string => {
+  const exit = b.g.x;
+  let jump: string | undefined;
+  if (exit) {
+    const path = B_pathArg(b);
+    let embedded = "";
+    jump = exit(
+      (unbuilt) =>
+        `${(embedded ||= B_embedPure(b, fn))}${unbuilt ? `,${arg}${path}` : `(${arg}${path})`}`,
+    );
+  }
+  if (jump === U) {
+    const raise = B_failWithArg(b, fn, arg);
+    return cond ? `${cond}||${raise};` : raise;
+  }
+  b.g.j++;
+  return cond ? `if(!(${cond}))${jump}${jump[0] === "{" ? "" : ";"}` : jump;
+};
+
+// A failure's statement where a block goes: an exit's is one already
+// (`BGlobal.x`), a raise gets the braces.
+export const B_block = (statement: string): string =>
+  statement[0] === "{" ? statement : `{${statement}}`;
+
+// Emits `body` with the exit cleared: it lands inside a callback, which a jump
+// can't leave. The parse of what goes there has to run inside it as well as the
+// merge - a decoder emits some of its code while it parses.
+export const B_detached = <T>(g: BGlobal, body: () => T): T => {
+  const x = g.x;
+  g.x = U;
+  try {
+    return body();
+  } finally {
+    g.x = x;
+  }
+};
+
+// A failure as the expression that raises it.
 export const B_failWithArg = <TArg>(
   b: Val,
   fn: (arg: TArg, path?: Path) => ErrorDetails,
@@ -342,8 +394,6 @@ export const B_errorOf = (input: Val): ((e: unknown) => SuryErrorRecord) => {
       : toError(foreign(e, path));
 };
 
-export const B_embedErrorOf = (input: Val): string => B_embedPure(input, B_errorOf(input));
-
 // Drop-in `check.fail` builder for InvalidInput failures. The `(~input) =>
 // (value, path) => error` shape is what makes the site prototype possible: the
 // middle call happens once, while the check is being compiled, so everything
@@ -380,11 +430,11 @@ export const B_failWithErrorMessage = (
   return m !== U ? B_invalidInputBuilder(U, U, m)(input) : failInvalidType(input);
 };
 
-// Inline variant: emits the throw expression directly. Used by decoders
-// that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
-// not via the `check` pipeline.
-export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): string =>
-  B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
+// A failed `invalid_input` for a decoder that splices its own statements (a
+// `catch` around `JSON.parse`, a hand-built guard) rather than going through
+// the `check` pipeline.
+export const B_failInvalidInput = (input: Val, expected: Internal = input.e, cond?: string): string =>
+  B_fail(input, B_invalidInputBuilder(expected)(input), input.v(), cond);
 
 // Caller must verify `val.vc` is truthy and `val.expected.noValidation !==
 // true` first - the `!` unwrap below is unchecked. `inputVar` is usually
@@ -401,7 +451,7 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
       cond += "&&" + checks[i]!.c(inputVar);
       i++;
     }
-    out += `${cond}||${B_failWithArg(val, fail(val), inputVar)};`;
+    out += B_fail(val, fail(val), inputVar, cond);
   }
   return out;
 }
@@ -450,7 +500,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
             // `noValidation` is intentionally bypassed for the hoisted part -
             // the cond routes between cases, it doesn't reject, so suppressing
             // it would break dispatch.
-            currentCode += `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
+            currentCode += B_fail(val, check.f(val), inputVar, condCode);
           }
         }
         if (hoisted) {
@@ -580,7 +630,7 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
   // is: inside a `.then`, the way the parse loop continues an async val.
   if (outC && (val.f & 1)) {
     const v = val.v();
-    val.i = `${v}.then(${v}=>{${B_merge(B_refine(B_scope(val), U, outC))}return ${v}})`;
+    val.i = `${v}.then(${v}=>{${B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC)))}return ${v}})`;
     val.v = _notVar;
   } else if (outC) val = B_refine(val, U, outC);
   val.io = true;
@@ -797,23 +847,27 @@ export const B_conversion = (
       target,
     );
     if (isAsync) B_markAsync(input, output);
-    const embeddedFn = B_embed(input, fn);
     const inputValue = input.vc ? input.v() : input.i;
     const unionContext = input.g.o & 4; // 4
     if (unionContext && isAsync) {
-      output.cp = `let ${output.i}=${embeddedFn}(${inputValue});`;
+      output.cp = `let ${output.i}=${B_embed(input, fn)}(${inputValue});`;
       return output;
     }
+    // Called inside the `try` below, so nothing it raises gets past it.
+    const embeddedFn = B_embedPure(input, fn);
     // Whatever the coder throws - a `SuryError` it raised on purpose or a
     // TypeError it hit on a value it was never written for - is that
     // conversion failing, so in a union it is what hands the value to the
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
     // do escape a union are a getter's, which never enter this try.
-    const failure = B_failWithArg(output, B_conversionFail(input, target), `x`);
+    // An async coder's failure lands in its `.catch` as often as in the `catch`,
+    // so both raise and share one site; a sync one's may jump.
+    const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
+    const failure = isAsync ? B_detached(input.g, fail) : fail();
     output.cp = `let ${output.i};try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>${failure})` : ""
-    }}catch(x){${failure}}`;
+      isAsync ? `.catch(x=>{${failure}})` : ""
+    }}catch(x)${B_block(failure)}`;
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the
@@ -837,19 +891,58 @@ export const B_neverSlot: Builder = (input: Val) =>
   );
 
 // The node a link's content reading comes from: the schema, or the arm that
-// carries one where the schema is a union - which has neither `content` nor
+// carries one where the schema is a union - which has neither a kind nor
 // `.to` of its own, though linking a carrier to `S.optional(S.jsonString)` puts
 // the same two readings on the table as linking it to `S.jsonString`.
 export const B_contentNode = (schema: Internal): Internal =>
-  (schema.content === U && schema.anyOf?.find((arm) => arm.content !== U)) || schema;
+  (!(schema.flags & 3) && schema.anyOf?.find((arm) => arm.flags & 3)) || schema;
 
 // Whether two payloads are of different kinds, which is what puts two readings
 // of a link on the table - store the source's value in the target, or open the
-// source and hand its payload over. Which applies is `opens` on the target
+// source and hand its payload over. Which applies is the reading bit on the target
 // (CONTENT_CODEC_SPEC.md rules 1 to 3, all written down as the link is made);
-// neither is rule 4, asked below.
-export const B_contentDiffers = (from?: Internal, to?: Internal): boolean =>
-  from !== U && to !== U && from !== to && !(from.bc && to.bc);
+// neither is rule 4, asked below. Both alphabets are one kind, and `S.json`
+// and `S.jsonString` another.
+export const B_contentDiffers = (from: Internal, to: Internal): boolean =>
+  !!((from.flags & 3) && (to.flags & 3) && ((from.flags ^ to.flags) & 3));
+
+// A plain string: the one schema that is both a JSON value and text
+// (CONTENT_CODEC_SPEC.md), so a link from it into a JSON text format has the
+// two readings a bytes carrier's has. A format (`S.email`) can't spell a
+// document and a literal is a value, so each stores; a carrier's opened text
+// and a union narrow carry the kind bits and are already known to be text.
+export const B_isText = (schema: Internal): boolean =>
+  schema.type === stringTag && !(schema.flags & 3) && schema.format === U && !isLiteral(schema);
+
+// The reading a reversed node takes, set as `reverseReading` on every schema
+// that carries a payload kind. The link into a node is, reversed, the one out
+// of it read the other way: opening `mut` into `next` was storing `next` into
+// `mut`. A union's reading sits on the arm that carries a payload, and only
+// plain text reaches that arm forward - the union hands it over per case. A
+// carrier or another union meets the union whole and is refused there (the
+// axis stops at a union), so only a reading written on the union itself crosses
+// back to it; lifting the arm's instead compiled an encode whose decode
+// refuses. The arm is also what tells a union of plain text from one holding a
+// payload, and only the former takes the derivation below.
+//
+// That derivation is the one reading the forward side leaves unwritten: a
+// payload naming text as what it holds settles the link, but the text is
+// `S.string` itself, a shared singleton, and marking it would mean copying it
+// on every such link. So the fact is derived where the pair is in hand: read
+// back, the text is stored in the payload. `codec-jsonstring-string` and
+// `codec-jsonstring-optional-string` pin both shapes, and
+// `codec-uint8array-optional-jsonstring-unsupported` is what fails when the
+// union test goes.
+export const B_reverseReading = (mut: Internal, next?: Internal): number => {
+  if (!next) return 0;
+  const nextNode = B_contentNode(next);
+  const readFrom = mut.flags & 3 || mut.anyOf ? next : nextNode;
+  return readFrom.flags & 12
+    ? (readFrom.flags & 12) ^ 12
+    : !(nextNode.flags & 3) && mut.flags & 3 && (next.has ? next.has[stringTag] : next.type === stringTag)
+      ? 8
+      : 0;
+};
 
 // CONTENT_CODEC_SPEC.md rule 4, asked while compiling by the schemas that
 // declare a payload - `json`, `jsonString`, `base64`, `uint8Array`, `file` -
@@ -880,17 +973,24 @@ export const B_rejectUnsettled = (input: Val, to: Internal, from = input.prev &&
   if (
     from &&
     from.to === to &&
-    to.opens === U &&
-    B_contentDiffers(B_contentNode(from).content, B_contentNode(to).content)
+    !(to.flags & 12) &&
+    B_contentDiffers(B_contentNode(from), B_contentNode(to))
   ) {
-    !from.isJson && !to.isJson && B_contentNode(from) === from && B_contentNode(to) === to
-      ? B_invalidOperation(
-          input,
-          `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
-        )
+    !(from.flags & 16) && !(to.flags & 16) && B_contentNode(from) === from && B_contentNode(to) === to
+      ? B_askReading(input, from, to)
       : B_unsupportedDecode(input, from, to);
   }
 };
+
+// Rule 4's question, for a pair of payload kinds and for plain text meeting a
+// JSON text format alike: the one wording, with what is being read named.
+export const B_askReading = (input: Val, from: Internal, to: Internal): never =>
+  B_invalidOperation(
+    input,
+    `Ambiguous ${inputExpression(from)} -> ${inputExpression(to)}. Should the ${
+      B_isText(from) || B_isText(to) ? "text" : "bytes"
+    } be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
+  );
 
 export const B_invalidOperation = (val: Val, description: string): never =>
   B_throw({ code: "invalid_operation", reason: description, path: compilePath(val.path) });

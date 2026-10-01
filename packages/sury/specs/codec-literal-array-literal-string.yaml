@@ -20,22 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)&&i.length===2||e[3](i);let v0=i[0],v1=i[1];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}catch(v2){e[4](v2)}}
-    examples:
-      const:
-        input: "[1, 2]"
-        error: Expected "done", received [1, 2]
-      other-array:
-        input: "[1, 3]"
-        error: "Failed at [1]: Expected 2, received 3"
-      target-const:
-        input: '"done"'
-        error: Expected [1, 2], received "done"
-  decode:
-    expression: i=>{try{i==="done"||e[0](i);return i}catch(v0){e[1](v0)}}
-    examples:
-      const:
-        input: "[1, 2]"
-        error: Expected "done", received [1, 2]
+    creationError: "SuryError: Can't decode [1, 2] -> \"done\". Define custom codec with S.to"
+  decode: eq-to-parse
   encode:
     creationError: "SuryError: Can't decode \"done\" -> [1, 2]. Define custom codec with S.to"

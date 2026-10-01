@@ -1,49 +1,67 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.schema({ meta: S.protobufField(S.optional(S.record(S.json)), { number: 1, type: "google.protobuf.Struct" }), metas: S.protobufField(S.array(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }), byKey: S.protobufField(S.record(S.record(S.json)), { number: 3, type: "google.protobuf.Struct" }), pick: S.union([S.schema({ case: "obj", value: S.protobufField(S.record(S.json), { number: 4, type: "google.protobuf.Struct" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
-  input: '{ metas: Record<string, JSON>[]; byKey: Record<string, Record<string, JSON>>; pick: { case: "obj"; value: Record<string, JSON>; } | { ...; }; meta?: Record<...> | undefined; }'
+  schema: 'S.schema({ meta: S.record(S.json).with(S.protobufField, { number: 1, type: "google.protobuf.Struct" }), tags: S.array(S.json).with(S.protobufField, { number: 2, type: "google.protobuf.ListValue" }), mask: S.array(S.string).with(S.protobufField, { number: 3, type: "google.protobuf.FieldMask" }), masks: S.array(S.array(S.string)).with(S.protobufField, { number: 4, type: "google.protobuf.FieldMask" }), none: S.optional(S.schema({})).with(S.protobufField, { number: 5, type: "google.protobuf.Empty" }) }).with(S.to, S.protobuf)'
+  input: "{ meta: Record<string, JSON>; tags: JSON[]; mask: string[]; masks: string[][]; none?: {} | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 13088
+  instantiations: 11588
 jsonSchema:
-  input: "Failed at pick.case: Expected JSON, received undefined"
+  input: '{ type: "object", properties: { meta: { type: "object" }, tags: { items: {}, type: "array" }, mask: { items: { type: "string" }, type: "array" }, masks: { items: { items: { type: "string" }, type: "array" }, type: "array" }, none: { type: "object", properties: {} } }, required: ["meta", "tags", "mask", "masks"] }'
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||(a.meta===void 0?b.meta===void 0:b.meta!==void 0&&e[0](a.meta,b.meta))&&e[2](a.metas,b.metas)&&e[4](a.byKey,b.byKey)&&(a.pick.case==="obj"?b.pick.case==="obj"&&e[6](a.pick.value,b.pick.value):b.pick.case===void 0)
+  input: (a,b)=>a===b||e[0](a.meta,b.meta)&&e[2](a.tags,b.tags)&&e[3](a.mask,b.mask)&&e[4](a.masks,b.masks)&&(a.none===void 0?b.none===void 0:b.none!==void 0)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
-  input: "throws: [Sury] Can't compare { meta: { [key: string]: JSON; } | undefined; metas: { [key: string]: JSON; }[]; byKey: { [key: string]: { [key: string]: JSON; }; }; pick: { case: \"obj\"; value: { [key: string]: JSON; }; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { meta: { [key: string]: JSON; }; tags: JSON[]; mask: string[]; masks: string[][]; none: {} | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
-    _skip: todo(#…)
+    _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[18](i);let v0=i.meta,v3=i.metas,v8=i.byKey,v13=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){v2.path=["meta",v1,...v2.path];throw v2}};break}if(v0===void 0)break;e[1](v0)}Array.isArray(v3)||e[4](v3);for(let v4=0;v4<v3.length;++v4){let v5=v3[v4];typeof v5==="object"&&v5&&!Array.isArray(v5)||e[3](v5,["metas",v4]);for(let v6 in v5){try{e[2](v5[v6]);}catch(v7){v7.path=["metas",v4,v6,...v7.path];throw v7}}}typeof v8==="object"&&v8&&!Array.isArray(v8)||e[7](v8);for(let v9 in v8){let v10=v8[v9];typeof v10==="object"&&v10&&!Array.isArray(v10)||e[6](v10,["byKey",v9]);for(let v11 in v10){try{e[5](v10[v11]);}catch(v12){v12.path=["byKey",v9,v11,...v12.path];throw v12}}}if(typeof v13==="object"&&v13&&!Array.isArray(v13)){for(;;){if(v13.case==="obj"){let v14=v13.value;typeof v14==="object"&&v14&&!Array.isArray(v14)||e[9](v14);for(let v15 in v14){try{e[8](v14[v15]);}catch(v16){v16.path=["pick","value",v15,...v16.path];throw v16}}v13={case:v13.case,value:v14};break}if(v13.case===void 0){v13={case:v13.case};break}e[10](v13)}}else{e[11](v13)}let v17;{let w;try{w=e[16].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);e[15](w,v)};v=v3;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[15](w,v[j++])}};v=v8;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[15](w,c);w.end(h)};v=v13;switch(v&&v.case){case "obj":w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);e[15](w,v.value);break;};v17=w.finish()}catch(x){w&&(w.busy=false);e[17](x)}}return v17}catch(v18){e[19](v18)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[19](i);let v0=i.meta,v3=i.tags,v6=i.mask,v9=i.masks,v14=i.none;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){v2.path=["meta",v1,...v2.path];throw v2}}Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){try{e[2](v3[v4]);}catch(v5){v5.path=["tags",v4,...v5.path];throw v5}}Array.isArray(v6)||e[5](v6);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="string"||e[4](v8,["mask",v7]);}Array.isArray(v9)||e[8](v9);for(let v10=0;v10<v9.length;++v10){let v11=v9[v10];Array.isArray(v11)||e[7](v11,["masks",v10]);for(let v12=0;v12<v11.length;++v12){let v13=v11[v12];typeof v13==="string"||e[6](v13,["masks",v10,v12]);}}for(;;){if(typeof v14==="object"&&v14&&!Array.isArray(v14)){v14={};break}if(v14===void 0)break;throw e[9](v14)}let v15;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[17].acquire();f=0;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[10](w,v);w.end(h)};f=1;v=v3;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[11](w,v);w.end(h)};f=2;v=v6;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[12](w,v);w.end(h)};f=3;v=v9;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[13](w,v[j++]);w.end(h)}};f=4;v=v14;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[14](w,v);w.end(h)};v15=w.finish()}catch(x){w&&(w.busy=false);x=e[15](x,e[16],f,j,a);e[18](x)}}return v15}catch(v16){e[20](v16)}}
     examples:
-      nested:
-        input: '{ meta: { a: 1, b: [true, null, "s", { c: 2.5 }], e: {} }, metas: [{ x: 1 }], byKey: { k: { y: "z" } }, pick: { case: "obj", value: { q: [] } } }'
-        output: new Uint8Array([10, 67, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 40, 10, 1, 98, 18, 35, 50, 33, 10, 2, 32, 1, 10, 2, 8, 0, 10, 3, 26, 1, 115, 10, 18, 42, 16, 10, 14, 10, 1, 99, 18, 9, 17, 0, 0, 0, 0, 0, 0, 4, 64, 10, 7, 10, 1, 101, 18, 2, 42, 0, 18, 16, 10, 14, 10, 1, 120, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 26, 15, 10, 1, 107, 18, 10, 10, 8, 10, 1, 121, 18, 3, 26, 1, 122, 34, 9, 10, 7, 10, 1, 113, 18, 2, 50, 0])
-      empty:
-        input: "{ metas: [], byKey: {}, pick: { case: undefined } }"
-        output: new Uint8Array([])
+      values:
+        input: '{ meta: { a: 1, b: [null, "x"] }, tags: [true], mask: ["a.b"], masks: [], none: {} }'
+        output: new Uint8Array([10, 34, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 16, 10, 1, 98, 18, 11, 50, 9, 10, 2, 8, 0, 10, 3, 26, 1, 120, 18, 4, 10, 2, 32, 1, 26, 5, 10, 3, 97, 46, 98, 42, 0])
+      meta-not-json:
+        input: "{ meta: { a: 1n }, tags: [], mask: [], masks: [] }"
+        error: "Failed at meta.a: Expected JSON, received 1n"
   decode:
-    expression: i=>{try{let v0=i.meta,v3=i.metas,v7=i.byKey,v11=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){v2.path=["meta",v1,...v2.path];throw v2}};break}if(v0===void 0)break;e[1](v0)}if(typeof v11==="object"&&v11&&!Array.isArray(v11)){for(;;){if(v11.case==="obj"){let v12=v11.value;break}if(v11.case===void 0)break;e[2](v11)}}else{e[3](v11)}let v14;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);e[7](w,v)};v=v3;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[7](w,v[j++])}};v=v7;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);e[7](w,c);w.end(h)};v=v11;switch(v&&v.case){case "obj":w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);e[7](w,v.value);break;};v14=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v14}catch(v15){e[10](v15)}}
+    expression: i=>{try{let v0=i.meta,v2=i.tags,v4=i.mask,v6=i.masks;let v10;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=v2;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};f=2;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v);w.end(h)};f=3;v=v6;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v[j++]);w.end(h)}};f=4;v=i.none;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[4](w,v);w.end(h)};v10=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v10}catch(v11){e[9](v11)}}
     examples:
-      nested:
-        input: "{ meta: { a: 1, b: [true, null] }, metas: [], byKey: {}, pick: { case: undefined } }"
-        output: new Uint8Array([10, 33, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 15, 10, 1, 98, 18, 10, 50, 8, 10, 2, 32, 1, 10, 2, 8, 0])
+      empty-is-written:
+        input: "{ meta: {}, tags: [], mask: [], masks: [[]] }"
+        output: new Uint8Array([10, 0, 18, 0, 26, 0, 34, 0])
+      values:
+        input: '{ meta: { a: { b: 1 } }, tags: [1, "a"], mask: ["a", "b.c"], masks: [["x"]], none: {} }'
+        output: new Uint8Array([10, 25, 10, 23, 10, 1, 97, 18, 18, 42, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 16, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 3, 26, 1, 97, 26, 8, 10, 1, 97, 10, 3, 98, 46, 99, 34, 3, 10, 1, 120, 42, 0])
+      mask-path-not-a-string:
+        input: '{ meta: {}, tags: [], mask: ["a", 1], masks: [] }'
+        error: "Failed at mask[1]: Expected string, received 1"
+      masks-path-not-a-string:
+        input: '{ meta: {}, tags: [], mask: [], masks: [["a"], ["b", 1]] }'
+        error: "Failed at masks[1][1]: Expected string, received 1"
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.meta,v3=v0.metas,v7=v0.byKey;let v13=v0.pick;if(typeof v13==="object"&&v13&&!Array.isArray(v13)){for(;;){if(v13.case==="obj"){let v14=v13.value;break}if(v13.case===void 0)break;e[3](v13)}}else{e[4](v13)}return v0}catch(v16){e[5](v16)}}
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.meta,v3=v0.tags,v5=v0.mask,v7=v0.masks;return v0}catch(v11){e[3](v11)}}
     examples:
-      nested:
-        input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
-        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: 1 } }"
-      value-without-kind-is-null:
-        input: new Uint8Array([10, 7, 10, 5, 10, 1, 97, 18, 0])
-        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: null } }"
-      empty-struct-present:
-        input: new Uint8Array([10, 0])
-        output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: {} }"
-      lists-past-the-nesting-limit:
-        input: new Uint8Array([10, 156, 5, 10, 153, 5, 10, 1, 97, 18, 147, 5, 50, 144, 5, 10, 141, 5, 50, 138, 5, 10, 135, 5, 50, 132, 5, 10, 129, 5, 50, 254, 4, 10, 251, 4, 50, 248, 4, 10, 245, 4, 50, 242, 4, 10, 239, 4, 50, 236, 4, 10, 233, 4, 50, 230, 4, 10, 227, 4, 50, 224, 4, 10, 221, 4, 50, 218, 4, 10, 215, 4, 50, 212, 4, 10, 209, 4, 50, 206, 4, 10, 203, 4, 50, 200, 4, 10, 197, 4, 50, 194, 4, 10, 191, 4, 50, 188, 4, 10, 185, 4, 50, 182, 4, 10, 179, 4, 50, 176, 4, 10, 173, 4, 50, 170, 4, 10, 167, 4, 50, 164, 4, 10, 161, 4, 50, 158, 4, 10, 155, 4, 50, 152, 4, 10, 149, 4, 50, 146, 4, 10, 143, 4, 50, 140, 4, 10, 137, 4, 50, 134, 4, 10, 131, 4, 50, 128, 4, 10, 253, 3, 50, 250, 3, 10, 247, 3, 50, 244, 3, 10, 241, 3, 50, 238, 3, 10, 235, 3, 50, 232, 3, 10, 229, 3, 50, 226, 3, 10, 223, 3, 50, 220, 3, 10, 217, 3, 50, 214, 3, 10, 211, 3, 50, 208, 3, 10, 205, 3, 50, 202, 3, 10, 199, 3, 50, 196, 3, 10, 193, 3, 50, 190, 3, 10, 187, 3, 50, 184, 3, 10, 181, 3, 50, 178, 3, 10, 175, 3, 50, 172, 3, 10, 169, 3, 50, 166, 3, 10, 163, 3, 50, 160, 3, 10, 157, 3, 50, 154, 3, 10, 151, 3, 50, 148, 3, 10, 145, 3, 50, 142, 3, 10, 139, 3, 50, 136, 3, 10, 133, 3, 50, 130, 3, 10, 255, 2, 50, 252, 2, 10, 249, 2, 50, 246, 2, 10, 243, 2, 50, 240, 2, 10, 237, 2, 50, 234, 2, 10, 231, 2, 50, 228, 2, 10, 225, 2, 50, 222, 2, 10, 219, 2, 50, 216, 2, 10, 213, 2, 50, 210, 2, 10, 207, 2, 50, 204, 2, 10, 201, 2, 50, 198, 2, 10, 195, 2, 50, 192, 2, 10, 189, 2, 50, 186, 2, 10, 183, 2, 50, 180, 2, 10, 177, 2, 50, 174, 2, 10, 171, 2, 50, 168, 2, 10, 165, 2, 50, 162, 2, 10, 159, 2, 50, 156, 2, 10, 153, 2, 50, 150, 2, 10, 147, 2, 50, 144, 2, 10, 141, 2, 50, 138, 2, 10, 135, 2, 50, 132, 2, 10, 129, 2, 50, 254, 1, 10, 251, 1, 50, 248, 1, 10, 245, 1, 50, 242, 1, 10, 239, 1, 50, 236, 1, 10, 233, 1, 50, 230, 1, 10, 227, 1, 50, 224, 1, 10, 221, 1, 50, 218, 1, 10, 215, 1, 50, 212, 1, 10, 209, 1, 50, 206, 1, 10, 203, 1, 50, 200, 1, 10, 197, 1, 50, 194, 1, 10, 191, 1, 50, 188, 1, 10, 185, 1, 50, 182, 1, 10, 179, 1, 50, 176, 1, 10, 173, 1, 50, 170, 1, 10, 167, 1, 50, 164, 1, 10, 161, 1, 50, 158, 1, 10, 155, 1, 50, 152, 1, 10, 149, 1, 50, 146, 1, 10, 143, 1, 50, 140, 1, 10, 137, 1, 50, 134, 1, 10, 131, 1, 50, 128, 1, 10, 126, 50, 124, 10, 122, 50, 120, 10, 118, 50, 116, 10, 114, 50, 112, 10, 110, 50, 108, 10, 106, 50, 104, 10, 102, 50, 100, 10, 98, 50, 96, 10, 94, 50, 92, 10, 90, 50, 88, 10, 86, 50, 84, 10, 82, 50, 80, 10, 78, 50, 76, 10, 74, 50, 72, 10, 70, 50, 68, 10, 66, 50, 64, 10, 62, 50, 60, 10, 58, 50, 56, 10, 54, 50, 52, 10, 50, 50, 48, 10, 46, 50, 44, 10, 42, 50, 40, 10, 38, 50, 36, 10, 34, 50, 32, 10, 30, 50, 28, 10, 26, 50, 24, 10, 22, 50, 20, 10, 18, 50, 16, 10, 14, 50, 12, 10, 10, 50, 8, 10, 6, 50, 4, 10, 2, 8, 0])
-        error: protobuf message nesting limit exceeded at meta (field 1, wire type 2)
+      empty:
+        input: new Uint8Array([])
+        output: "{ meta: {}, tags: [], mask: [], masks: [] }"
+      values:
+        input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 9, 10, 3, 26, 1, 120, 10, 2, 32, 1, 26, 8, 10, 3, 97, 46, 98, 10, 1, 99, 34, 3, 10, 1, 120, 34, 0, 42, 0])
+        output: '{ meta: { a: 1 }, tags: ["x", true], mask: ["a.b", "c"], masks: [["x"], []], none: {} }'
+      struct-seen-twice-merges:
+        input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
+        output: "{ meta: { a: 1, b: 2 }, tags: [], mask: [], masks: [] }"
+      list-seen-twice-appends:
+        input: new Uint8Array([18, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
+        output: "{ meta: {}, tags: [1, 2], mask: [], masks: [] }"
+      mask-seen-twice-appends:
+        input: new Uint8Array([26, 3, 10, 1, 97, 26, 3, 10, 1, 98])
+        output: '{ meta: {}, tags: [], mask: ["a", "b"], masks: [] }'
+      entry-without-value-is-null:
+        input: new Uint8Array([10, 5, 10, 3, 10, 1, 97])
+        output: "{ meta: { a: null }, tags: [], mask: [], masks: [] }"
+      mask-path-invalid-utf8:
+        input: new Uint8Array([26, 6, 10, 1, 97, 10, 1, 255])
+        error: "Failed at mask[1]: Protobuf string is not valid UTF-8"
