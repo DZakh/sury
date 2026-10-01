@@ -30,8 +30,10 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _var,
-  B_addObjectField,
+  B_field,
   B_dynamicScope,
   B_embedPure,
   B_block,
@@ -44,6 +46,7 @@ import {
   B_next,
   B_nextConst,
   B_nextVar,
+  B_collects,
   B_refine,
   B_rejectUnsettled,
   B_reverseReading,
@@ -245,12 +248,14 @@ export const jsonDecoderFn = (input: Val): Val => {
             json,
             (variantOutput) => variantOutput.type === undefinedTag || isJsonable(variantOutput),
           );
-          const itemOutput = parse(itemVal);
-          itemOutput.o = true;
-          B_addObjectField(jsonVal, key, itemOutput);
+          B_field(jsonVal, key, () => {
+            const itemOutput = parse(itemVal);
+            itemOutput.o = true;
+            return itemOutput;
+          });
         } else {
           itemVal.e = json;
-          B_addObjectField(jsonVal, key, parse(itemVal));
+          B_field(jsonVal, key, () => parse(itemVal));
         }
       }
 
@@ -454,7 +459,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         const output = B_nextVar(input, nextSchema);
         output.io = true;
         const inputVar = input.v();
-        output.cp = `let ${output.i};try{${output.i}=${B_parseCall(inputVar)}}catch(t)${B_block(B_failInvalidInput(input, input.s))}`;
+        output.cp = `${B_let(input.g, output.i)}try{${output.i}=${B_parseCall(inputVar)}}catch(t)${B_block(B_failInvalidInput(input, input.s))}`;
 
         return output;
       }
@@ -496,6 +501,10 @@ export const jsonString = /* @__PURE__ */ (() => {
         container &&
         !container.to!.space &&
         !(input.g.o & 1) &&
+        // The aggregate validates while it renders, so it has no child scope
+        // for a failure to leave: an operation that collects every failure
+        // keeps the container, whose decoder gives each child one.
+        !B_collects(input.g) &&
         (item !== U
           ? !(item.to === U && (tagFlags[item.type]! & ((2 | 8) | 32)))
           : raw &&
@@ -606,7 +615,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       return itemVal;
     }
     const local = B_nextVar(itemVal, itemVal.s, itemVal.e);
-    local.cp = `let ${local.i}=${inputVar};`;
+    local.cp = B_let(itemVal.g, local.i, inputVar);
     return local;
   };
 
@@ -674,8 +683,8 @@ export const jsonString = /* @__PURE__ */ (() => {
       const validation = B_merge(jsonVal);
       const p = B_nextVar(itemVal, jsonString);
       p.cp = isArr
-        ? `let ${p.i}="null";if(${inputVar}!==void 0){${validation}${p.i}=${B_stringifyCall(jsonVal.i, U)}??"null"}`
-        : `let ${p.i};if(${inputVar}!==void 0){${validation}${p.i}=${B_stringifyCall(jsonVal.i, U)}}`;
+        ? `${B_let(p.g, p.i, `"null"`)}if(${inputVar}!==void 0){${validation}${p.i}=${B_stringifyCall(jsonVal.i, U)}??"null"}`
+        : `${B_let(p.g, p.i)}if(${inputVar}!==void 0){${validation}${p.i}=${B_stringifyCall(jsonVal.i, U)}}`;
       return { p, g: isArr ? U : p.i };
     };
     if ((tagFlags[cur.type]! & 1)) {
@@ -695,7 +704,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         return { p, g: U };
       }
       const p = B_nextVar(jsonVal, jsonString);
-      p.cp = `let ${p.i}=${B_stringifyCall(jsonVal.i, U)};`;
+      p.cp = B_let(p.g, p.i, B_stringifyCall(jsonVal.i, U));
       return { p, g: p.i };
     }
     if (cur.type === anyOfTag && cur.to === U) {
@@ -856,58 +865,61 @@ export const jsonString = /* @__PURE__ */ (() => {
         const keyEmbed = isArr ? "" : B_embedJsonStr(input);
         const itemInput = B_dynamicScope(input, iterVar);
         itemInput.e = itemInput.s;
-        // A fused container (see `fuse` in initJsonString and base.ts) emitted
-        // no loop of its own, so this one owes whatever its items still do:
-        // every check when they arrive raw (1), and only what a typed value
-        // still owes - a refiner - when they arrive typed (2).
-        let piece: { p: Val; g: string | undefined } | undefined = U;
-        if (schema.flags & 512) {
-          const item = itemInput.s;
-          itemInput.s = unknown;
-          if (
-            item.type === anyOfTag &&
-            !item.has![undefinedTag] &&
-            item.to === U &&
-            // The target is built from the variants, so the union's own
-            // refiners have nowhere to ride: carrying them onto the rebuilt
-            // union runs them on the text a case just produced, not on the
-            // value, and a `value !== 0` refiner then accepts `0`. A union
-            // that carries one gives up this shortcut instead.
-            item.refiner === U &&
-            item.inputRefiner === U &&
-            !item.anyOf!.some((variant) =>
-              (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
-            )
-          ) {
-            // One dispatch, not two: parsing straight to `union -> jsonString`
-            // makes each case validate its fields and emit text in the same
-            // branch, where resolving the union first would rebuild the item
-            // and then re-dispatch on it to serialize.
-            itemInput.e = perVariantTo(item.anyOf!, jsonPiece, () => false);
-            piece = { p: parse(itemInput), g: U };
+        let itemAsync = false;
+        const itemCode = B_sink(input.g, () => {
+          // A fused container (see `fuse` in initJsonString and base.ts) emitted
+          // no loop of its own, so this one owes whatever its items still do:
+          // every check when they arrive raw (1), and only what a typed value
+          // still owes - a refiner - when they arrive typed (2).
+          let piece: { p: Val; g: string | undefined } | undefined = U;
+          if (schema.flags & 512) {
+            const item = itemInput.s;
+            itemInput.s = unknown;
+            if (
+              item.type === anyOfTag &&
+              !item.has![undefinedTag] &&
+              item.to === U &&
+              // The target is built from the variants, so the union's own
+              // refiners have nowhere to ride: carrying them onto the rebuilt
+              // union runs them on the text a case just produced, not on the
+              // value, and a `value !== 0` refiner then accepts `0`. A union
+              // that carries one gives up this shortcut instead.
+              item.refiner === U &&
+              item.inputRefiner === U &&
+              !item.anyOf!.some((variant) =>
+                (tagFlags[getOutputSchema(variant).type]! & (1 | 512))
+              )
+            ) {
+              // One dispatch, not two: parsing straight to `union -> jsonString`
+              // makes each case validate its fields and emit text in the same
+              // branch, where resolving the union first would rebuild the item
+              // and then re-dispatch on it to serialize.
+              itemInput.e = perVariantTo(item.anyOf!, jsonPiece, () => false);
+              piece = { p: parse(itemInput), g: U };
+            }
           }
-        }
-        const { p, g } = piece !== U ? piece : fieldPiece(parse(itemInput), isArr, U, true);
-        // An async item can't be appended as it arrives: the loop collects each
-        // item's text as a promise instead, and the chunk is their join.
-        const itemAsync = !!(p.f & 1);
-        const itemVar = itemAsync ? B_varWithoutAllocation(input.g) : "";
-        const appendCode = (): string =>
-          itemAsync
-            ? `${dynAcc}.push(${p.i}.then(${itemVar}=>${
-                isArr ? itemVar : `${keyEmbed}(${iterVar})+":"+${itemVar}`
-              }))`
-            : isArr
-              ? `${dynAcc}+=${
-                  fixedLen ? `","` : `(${iterVar}?",":"")`
-                }+${foldStringCoercion(p.i)}`
-              : `${dynAcc}+=(${dynAcc}?",":"")+${keyEmbed}(${iterVar})+":"+${foldStringCoercion(p.i)}`;
-        const itemCode = B_merge(p) + (g !== U ? `if(${g}!==void 0){${appendCode()}}` : appendCode());
+          const { p, g } = piece !== U ? piece : fieldPiece(parse(itemInput), isArr, U, true);
+          // An async item can't be appended as it arrives: the loop collects each
+          // item's text as a promise instead, and the chunk is their join.
+          itemAsync = !!(p.f & 1);
+          const itemVar = itemAsync ? B_varWithoutAllocation(input.g) : "";
+          const appendCode = (): string =>
+            itemAsync
+              ? `${dynAcc}.push(${p.i}.then(${itemVar}=>${
+                  isArr ? itemVar : `${keyEmbed}(${iterVar})+":"+${itemVar}`
+                }))`
+              : isArr
+                ? `${dynAcc}+=${
+                    fixedLen ? `","` : `(${iterVar}?",":"")`
+                  }+${foldStringCoercion(p.i)}`
+                : `${dynAcc}+=(${dynAcc}?",":"")+${keyEmbed}(${iterVar})+":"+${foldStringCoercion(p.i)}`;
+          return B_merge(p) + (g !== U ? `if(${g}!==void 0){${appendCode()}}` : appendCode());
+        });
         // `Object.keys`, not `for...in`: the latter walks the prototype chain,
         // so an inherited enumerable key would be serialized where
         // JSON.stringify (and the whole-value path this replaced) emits own
         // keys only.
-        loopCode = `let ${dynAcc}=${itemAsync ? "[]" : `""`};for(let ${iterVar}${
+        loopCode = `${B_let(input.g, dynAcc, itemAsync ? "[]" : `""`)}for(let ${iterVar}${
           isArr
             ? `=${fixedLen};${iterVar}<${inputVar}.length;++${iterVar}`
             : ` of Object.keys(${inputVar})`
@@ -917,9 +929,13 @@ export const jsonString = /* @__PURE__ */ (() => {
           const joined = B_varWithoutAllocation(input.g);
           // A tuple's rest items follow its fixed ones, so the chunk owns its
           // leading comma, as the sync append does.
-          loopCode += `let ${joined}=Promise.all(${dynAcc}).then(${partsVar}=>${
-            isArr && fixedLen ? `${partsVar}.length?","+${partsVar}.join(","):""` : `${partsVar}.join(",")`
-          });`;
+          loopCode += B_let(
+            input.g,
+            joined,
+            `Promise.all(${dynAcc}).then(${partsVar}=>${
+              isArr && fixedLen ? `${partsVar}.length?","+${partsVar}.join(","):""` : `${partsVar}.join(",")`
+            })`,
+          );
           dynAcc = joined;
           asyncNames.push(joined);
         }
@@ -995,7 +1011,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     }
     flushRun();
     const text = braceSeeded ? `${accVar}+"}"` : `"{"+${accVar}+"}"`;
-    const build = mergeStrLits(`let ${accVar}=${accInit !== U ? accInit : `""`};` + stmts);
+    const build = mergeStrLits(B_let(input.g, accVar, accInit !== U ? accInit : `""`) + stmts);
     const output = B_next(
       input,
       asyncNames.length ? resolved(text, build) : text,

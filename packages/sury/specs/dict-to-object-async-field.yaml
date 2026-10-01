@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.record(S.string).with(S.to, S.schema({ a: S.optional(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: "auto" }), "d") }))'
+  input: "{ [x: string]: string; }"
+  output: "{ a: string; }"
+  instantiations: 6275
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){let v3;try{v3=e[1](v2).catch(x=>{e[2](x)})}catch(x){e[2](x)}v2=v3.then(v3=>{typeof v3==="string"||e[3](v3);return v3});v2=Promise.resolve(v2);}else{for(;;){if(typeof v2==="string"){let v4;try{v4=e[4](v2).catch(x=>{e[5](x)})}catch(x){e[5](x)}v2=v4.then(v4=>{typeof v4==="string"||e[6](v4);return v4});break}if(v2===void 0){v2="d";break}throw e[7](v2)}v2=Promise.resolve(v2);}return Promise.all([v2]).then(([v2])=>{return {a:v2}}).catch(e[9])}catch(v5){return e[10](v5)}}
+    examples:
+      missing:
+        input: "{}"
+        output: '{ a: "d" }'
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v1=i.a;if(v1!==void 0){let v2;try{v2=e[0](v1).catch(x=>{e[1](x)})}catch(x){e[1](x)}v1=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});v1=Promise.resolve(v1);}else{for(;;){if(typeof v1==="string"){let v3;try{v3=e[3](v1).catch(x=>{e[4](x)})}catch(x){e[4](x)}v1=v3.then(v3=>{typeof v3==="string"||e[5](v3);return v3});break}if(v1===void 0){v1="d";break}throw e[6](v1)}v1=Promise.resolve(v1);}return Promise.all([v1]).then(([v1])=>{return {a:v1}}).catch(e[7])}catch(v4){return e[8](v4)}}
+    examples:
+      missing:
+        input: "{}"
+        output: '{ a: "d" }'
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+  encode:
+    expression: i=>{try{let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}catch(v1){e[1](v1)}}
+    examples:
+      value:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'

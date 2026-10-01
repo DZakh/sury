@@ -37,7 +37,6 @@ operations:
   encode:
     expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
-      # FIXME: the reverse reads the absent `kid` as `null`.
       flat:
         input: '{ v: "a" }'
-        error: "Failed at kid: Expected { v: string; kid: T | undefined; }, received null"
+        output: '{ v: "a", kid: undefined }'

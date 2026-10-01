@@ -17,6 +17,8 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _notVarBeforeValidation,
   B_asyncVal,
   B_markOutput,
@@ -144,49 +146,50 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       let lengthCode = "";
       let itemBuildCode = "";
-      let itemParseCode = "";
       let asyncInlines = "";
       let hasAsync = false;
-      for (let idx = 0; idx < keysLen; ++idx) {
-        const key = keys[idx]!;
-        const idxStr = `${idx}`;
-        const rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`;
+      const itemParseCode = B_sink(input.g, () => {
+        let code = "";
+        for (let idx = 0; idx < keysLen; ++idx) {
+          const key = keys[idx]!;
+          const idxStr = `${idx}`;
+          const rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`;
 
-        const fieldSchema = properties[key]!;
+          const fieldSchema = properties[key]!;
 
-        // When the declared source differs from the runtime type
-        // (e.g. runtime=unknown, declared=json), chain through the
-        // declared type first so parse validates the value matches
-        // the source schema before converting to the field type.
-        const itemExpected =
-          declaredItemSchema !== runtimeItemSchema
-            ? copyTo(declaredItemSchema, fieldSchema)
-            : fieldSchema;
+          // When the declared source differs from the runtime type
+          // (e.g. runtime=unknown, declared=json), chain through the
+          // declared type first so parse validates the value matches
+          // the source schema before converting to the field type.
+          const itemExpected =
+            declaredItemSchema !== runtimeItemSchema
+              ? copyTo(declaredItemSchema, fieldSchema)
+              : fieldSchema;
 
-        const itemInput = B_scope(input);
-        itemInput.i = rawValueCode;
-        itemInput.s = runtimeItemSchema;
-        itemInput.e = itemExpected;
-        itemInput.v = _notVarBeforeValidation;
-        itemInput.io = false;
+          const itemInput = B_scope(input);
+          itemInput.i = rawValueCode;
+          itemInput.s = runtimeItemSchema;
+          itemInput.e = itemExpected;
+          itemInput.v = _notVarBeforeValidation;
+          itemInput.io = false;
 
-        itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
-        const itemOutput = parse(itemInput);
-        if ((itemOutput.f & 1)) {
-          hasAsync = true;
+          itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
+          const itemOutput = parse(itemInput);
+          if ((itemOutput.f & 1)) {
+            hasAsync = true;
+          }
+
+          code += B_merge(itemOutput);
+          lengthCode += `${inputVar}[${idxStr}].length,`;
+          asyncInlines += `${itemOutput.i},`;
+          itemBuildCode += `${inlinedObjectKey(key)}:${itemOutput.i},`;
         }
-
-        itemParseCode += B_merge(itemOutput);
-        lengthCode += `${inputVar}[${idxStr}].length,`;
-        asyncInlines += `${itemOutput.i},`;
-        itemBuildCode += `${inlinedObjectKey(key)}:${itemOutput.i},`;
-      }
+        return code;
+      });
 
       let output = B_nextVar(input, outputSchema);
       const outputVar = output.i;
-      // Row accumulator: declared at the head of its own segment, before the
-      // `for` below that fills it.
-      output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode.slice(0, -1)}));`;
+      output.cp = B_let(input.g, outputVar, `new Array(Math.max(${lengthCode.slice(0, -1)}))`);
 
       let rowAssign: string;
       if (hasAsync) {
@@ -228,34 +231,36 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       let initialArraysCode = "";
       let settingCode = "";
-      let perFieldCode = "";
-      for (let idx = 0; idx < keysLen; ++idx) {
-        const key = keys[idx]!;
-        initialArraysCode += `new Array(${inputVar}.length),`;
+      const perFieldCode = B_sink(input.g, () => {
+        let code = "";
+        for (let idx = 0; idx < keysLen; ++idx) {
+          const key = keys[idx]!;
+          initialArraysCode += `new Array(${inputVar}.length),`;
 
-        if (needsPerFieldTransform) {
-          const fieldSchema = properties[key]!;
-          const rawValueCode = inlinedProperty(`${inputVar}[${iteratorVar}]`, key);
+          if (needsPerFieldTransform) {
+            const fieldSchema = properties[key]!;
+            const rawValueCode = inlinedProperty(`${inputVar}[${iteratorVar}]`, key);
 
-          const itemInput = B_scope(input);
-          itemInput.i = rawValueCode;
-          itemInput.s = fieldSchema;
-          itemInput.e = declaredItemSchema;
-          itemInput.v = _notVarBeforeValidation;
-          itemInput.io = false;
-          itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
+            const itemInput = B_scope(input);
+            itemInput.i = rawValueCode;
+            itemInput.s = fieldSchema;
+            itemInput.e = declaredItemSchema;
+            itemInput.v = _notVarBeforeValidation;
+            itemInput.io = false;
+            itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
 
-          const itemOutput = parse(itemInput);
-          perFieldCode += B_merge(itemOutput);
-          settingCode += `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
-        } else {
-          settingCode +=
-            `${outputVar}[${idx}][${iteratorVar}]=${inlinedProperty(`${inputVar}[${iteratorVar}]`, key)};`;
+            const itemOutput = parse(itemInput);
+            code += B_merge(itemOutput);
+            settingCode += `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
+          } else {
+            settingCode +=
+              `${outputVar}[${idx}][${iteratorVar}]=${inlinedProperty(`${inputVar}[${iteratorVar}]`, key)};`;
+          }
         }
-      }
+        return code;
+      });
 
-      // Columnar accumulator: declared before the `for` that fills it.
-      output.cp = `let ${outputVar}=[${initialArraysCode.slice(0, -1)}];`;
+      output.cp = B_let(input.g, outputVar, `[${initialArraysCode.slice(0, -1)}]`);
       const loopBody = perFieldCode + settingCode;
       output.cp =
         output.cp +

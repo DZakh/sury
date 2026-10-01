@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[22](i);let v0=i.meta,v3=i.tags,v6=i.mask,v9=i.masks,v14=i.none;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){throw e[1](v2,["meta",v1])}}Array.isArray(v3)||e[5](v3);for(let v4=0;v4<v3.length;++v4){try{e[3](v3[v4]);}catch(v5){throw e[4](v5,["tags",v4])}}Array.isArray(v6)||e[7](v6);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="string"||e[6](v8,["mask",v7]);}Array.isArray(v9)||e[10](v9);for(let v10=0;v10<v9.length;++v10){let v11=v9[v10];Array.isArray(v11)||e[9](v11,["masks",v10]);for(let v12=0;v12<v11.length;++v12){let v13=v11[v12];typeof v13==="string"||e[8](v13,["masks",v10,v12]);}}for(;;){if(typeof v14==="object"&&v14&&!Array.isArray(v14)){v14={};break}if(v14===void 0)break;throw e[11](v14)}let v15;{let w;try{w=e[20].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[12](w,v);w.end(h)};v=v3;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[13](w,v);w.end(h)};v=v6;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[14](w,v);w.end(h)};v=v9;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[15](w,v[j++]);w.end(h)}};v=v14;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[16](w,v);w.end(h)};v15=w.finish()}catch(x){w&&(w.busy=false);e[21](x)}}return v15}catch(v16){e[23](v16)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[21](i);let v0=i.meta,v3=i.tags,v6=i.mask,v9=i.masks,v14=i.none;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{e[0](v0[v1]);}catch(v2){throw e[1](v2,["meta",v1])}}Array.isArray(v3)||e[5](v3);for(let v4=0;v4<v3.length;++v4){try{e[3](v3[v4]);}catch(v5){throw e[4](v5,["tags",v4])}}Array.isArray(v6)||e[7](v6);for(let v7=0;v7<v6.length;++v7){let v8=v6[v7];typeof v8==="string"||e[6](v8,["mask",v7]);}Array.isArray(v9)||e[10](v9);for(let v10=0;v10<v9.length;++v10){let v11=v9[v10];Array.isArray(v11)||e[9](v11,["masks",v10]);for(let v12=0;v12<v11.length;++v12){let v13=v11[v12];typeof v13==="string"||e[8](v13,["masks",v10,v12]);}}for(;;){if(typeof v14==="object"&&v14&&!Array.isArray(v14)){v14={};break}if(v14===void 0)break;throw e[11](v14)}let v15;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[19].acquire();f=0;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[12](w,v);w.end(h)};f=1;v=v3;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[13](w,v);w.end(h)};f=2;v=v6;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[14](w,v);w.end(h)};f=3;v=v9;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[15](w,v[j++]);w.end(h)}};f=4;v=v14;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[16](w,v);w.end(h)};v15=w.finish()}catch(x){w&&(w.busy=false);x=e[17](x,e[18],f,j,a);e[20](x)}}return v15}catch(v16){e[22](v16)}}
     examples:
       values:
         input: '{ meta: { a: 1, b: [null, "x"] }, tags: [true], mask: ["a.b"], masks: [], none: {} }'
@@ -27,7 +27,7 @@ operations:
         input: "{ meta: { a: 1n }, tags: [], mask: [], masks: [] }"
         error: "Failed at meta.a: Expected JSON, received 1n"
   decode:
-    expression: i=>{try{let v0=i.meta,v2=i.tags,v4=i.mask,v6=i.masks;let v10;{let w;try{w=e[8].acquire();let v,j,n,s,h,a,k,g,c,o;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v=v2;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v);w.end(h)};v=v6;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v[j++]);w.end(h)}};v=i.none;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[4](w,v);w.end(h)};v10=w.finish()}catch(x){w&&(w.busy=false);e[9](x)}}return v10}catch(v11){e[10](v11)}}
+    expression: i=>{try{let v0=i.meta,v2=i.tags,v4=i.mask,v6=i.masks;let v10;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v0;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=v2;if(v!==void 0){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[1](w,v);w.end(h)};f=2;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[2](w,v);w.end(h)};f=3;v=v6;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v[j++]);w.end(h)}};f=4;v=i.none;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();e[4](w,v);w.end(h)};v10=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v10}catch(v11){e[9](v11)}}
     examples:
       empty-is-written:
         input: "{ meta: {}, tags: [], mask: [], masks: [[]] }"
@@ -35,6 +35,12 @@ operations:
       values:
         input: '{ meta: { a: { b: 1 } }, tags: [1, "a"], mask: ["a", "b.c"], masks: [["x"]], none: {} }'
         output: new Uint8Array([10, 25, 10, 23, 10, 1, 97, 18, 18, 42, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 16, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 3, 26, 1, 97, 26, 8, 10, 1, 97, 10, 3, 98, 46, 99, 34, 3, 10, 1, 120, 42, 0])
+      mask-path-not-a-string:
+        input: '{ meta: {}, tags: [], mask: ["a", 1], masks: [] }'
+        error: "Failed at mask[1]: Expected string, received 1"
+      masks-path-not-a-string:
+        input: '{ meta: {}, tags: [], mask: [], masks: [["a"], ["b", 1]] }'
+        error: "Failed at masks[1][1]: Expected string, received 1"
   encode:
     expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.meta,v3=v0.tags,v5=v0.mask,v7=v0.masks;return v0}catch(v11){e[3](v11)}}
     examples:
@@ -56,3 +62,6 @@ operations:
       entry-without-value-is-null:
         input: new Uint8Array([10, 5, 10, 3, 10, 1, 97])
         output: "{ meta: { a: null }, tags: [], mask: [], masks: [] }"
+      mask-path-invalid-utf8:
+        input: new Uint8Array([26, 6, 10, 1, 97, 10, 1, 255])
+        error: "Failed at mask[1]: Protobuf string is not valid UTF-8"

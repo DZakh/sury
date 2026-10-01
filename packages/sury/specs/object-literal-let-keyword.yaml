@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ t: S.literal("let x"), a: S.string })'
+  input: '{ t: "let x"; a: string; }'
+  output: '{ t: "let x"; a: string; }'
+  instantiations: 1603
+jsonSchema:
+  input: '{ type: "object", properties: { t: { type: "string", const: "let x" }, a: { type: "string" } }, required: ["t", "a"] }'
+  output: '{ type: "object", properties: { t: { type: "string", const: "let x" }, a: { type: "string" } }, required: ["t", "a"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { t: { type: "string", enum: ["let x"] }, a: { type: "string" } }, required: ["t", "a"] }'
+    output: '{ type: "object", properties: { t: { type: "string", enum: ["let x"] }, a: { type: "string" } }, required: ["t", "a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare: "throws: [Sury] Can't compare { t: \"let x\"; a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.object({ t: z.literal("let x"), a: z.string() })'
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.t,v1=i.a;v0==="let x"||e[0](v0);typeof v1==="string"||e[1](v1);return {t:v0,a:v1}}catch(v2){e[3](v2)}}
+    examples:
+      valid:
+        input: '{ t: "let x", a: "b" }'
+        output: '{ t: "let x", a: "b" }'
+      both-invalid:
+        input: '{ t: "var x", a: 1 }'
+        error: 'Failed at t: Expected "let x", received "var x"'
+        issues:
+          - 'Failed at t: Expected "let x", received "var x"'
+          - "Failed at a: Expected string, received 1"
+  decode: identity
+  encode: identity

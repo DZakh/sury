@@ -24,6 +24,9 @@ operations:
       swapped:
         input: '{ x: { b: 1 }, y: { a: "s" } }'
         error: "Failed at x.a: Expected string, received undefined"
+        issues:
+          - "Failed at x.a: Expected string, received undefined"
+          - "Failed at y.b: Expected number, received undefined"
       nested-swapped:
         input: '{ x: { a: "s", kid: { b: 2 } }, y: { b: 1 } }'
         error: "Failed at x.kid.a: Expected string, received undefined"

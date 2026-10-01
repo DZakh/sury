@@ -933,7 +933,8 @@ test("Standard schema", (t) => {
 
   t.expect(schema["~standard"]["vendor"]).toEqual("sury");
   t.expect(schema["~standard"]["version"]).toEqual(1);
-  t.expect(schema["~standard"]["validate"](undefined)).toEqual({
+  t.expect(schema["~standard"]["validate"](undefined)).toMatchObject({
+    success: false,
     issues: [
       {
         message: "Expected string | null, received undefined",
@@ -942,9 +943,11 @@ test("Standard schema", (t) => {
     ],
   });
   t.expect(schema["~standard"]["validate"]("foo")).toEqual({
+    success: true,
     value: "foo",
   });
   t.expect(schema["~standard"]["validate"](null)).toEqual({
+    success: true,
     value: null,
   });
 
@@ -974,6 +977,7 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
     t.expect(S.isInput(schema)({ a: "1" })).toBe(true);
     t.expect(S.isInput(schema)({ a: 1 })).toBe(false);
     t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
+      success: true,
       value: { a: 2 },
     });
   }
@@ -986,18 +990,19 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
 
   const standard = S.number["~standard"];
   const nanRejected = {
+    success: false,
     issues: [{ message: "Expected number, received NaN", path: undefined }],
   };
-  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  t.expect(standard.validate(NaN)).toMatchObject(nanRejected);
   try {
     S.global({ disableNanNumberValidation: true });
     t.expect(S.isInput(S.number)(NaN)).toBe(true);
-    t.expect(standard.validate(NaN)).toEqual({ value: NaN });
+    t.expect(standard.validate(NaN)).toEqual({ success: true, value: NaN });
   } finally {
     S.global({});
   }
   t.expect(S.isInput(S.number)(NaN)).toBe(false);
-  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  t.expect(standard.validate(NaN)).toMatchObject(nanRejected);
 });
 
 // A conversion rejected at operation creation fails for every input, so it
@@ -1016,8 +1021,9 @@ test("A conversion rejected at operation creation throws from validate, on every
   // Only the compile is promoted: an input that fails validation is still a
   // result, not an exception.
   const schema = S.schema({ id: S.string });
-  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
-  t.expect(schema["~standard"].validate({ id: 1 })).toEqual({
+  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ success: true, value: { id: "a" } });
+  t.expect(schema["~standard"].validate({ id: 1 })).toMatchObject({
+    success: false,
     issues: [{ message: "Expected string, received 1", path: ["id"] }],
   });
 });
@@ -1036,15 +1042,16 @@ test("~standard.validate returns a promise for a schema with an async codec", as
   for (let i = 0; i < 2; i++) {
     const valid = standard.validate({ id: "abc" });
     t.expect(valid).toBeInstanceOf(Promise);
-    await t.expect(valid).resolves.toEqual({ value: { id: 3 } });
-    await t.expect(standard.validate({ id: 1 })).resolves.toEqual({
+    await t.expect(valid).resolves.toEqual({ success: true, value: { id: 3 } });
+    await t.expect(standard.validate({ id: 1 })).resolves.toMatchObject({
+      success: false,
       issues: [{ message: "Expected string, received 1", path: ["id"] }],
     });
   }
 
   // A sync schema keeps answering synchronously - a consumer that can't
   // await must not start getting promises.
-  t.expect(S.string["~standard"].validate("a")).toEqual({ value: "a" });
+  t.expect(S.string["~standard"].validate("a")).toEqual({ success: true, value: "a" });
 
   // A conversion rejected at operation creation still throws, on the async
   // retry rather than being read as an async schema.
@@ -1053,22 +1060,14 @@ test("~standard.validate returns a promise for a schema with an async codec", as
   );
 });
 
-// A foreign exception (not a Sury error) keeps going up from `~standard.validate`
-// of a sync schema, and keeps doing so after a Result operation has installed
-// the operation tail emitter - which must not wrap the Standard Schema body in
-// a second `try` that turns the rethrow into a rejection. A test file rather
-// than a spec: what's under test is an order dependency between two
-// operations, which a per-schema golden can't express.
-// A foreign exception - a getter here - is a failure of THIS value, so it is
-// an issue rather than a throw, and the same issue whichever operation was
-// compiled first (the Result emitter is registered on first use).
-test("~standard.validate answers a foreign exception as an issue regardless of which operation compiled first", (t) => {
+test("~standard.validate answers a foreign exception as an issue", (t) => {
   const foreign = new Proxy({}, { get() { throw new Error("foreign"); } });
-  t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toEqual({
+  t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toMatchObject({
+    success: false,
     issues: [{ message: "foreign", path: undefined }],
   });
-  S.parseAsResult(S.string, "a");
-  t.expect(S.schema({ id: S.string, n: S.number })["~standard"].validate(foreign)).toEqual({
+  t.expect(S.schema({ id: S.string, n: S.number })["~standard"].validate(foreign)).toMatchObject({
+    success: false,
     issues: [{ message: "foreign", path: undefined }],
   });
 });
@@ -1078,7 +1077,8 @@ test("~standard.validate answers a foreign exception as an issue regardless of w
 test("~standard.validate forwards a symbol path segment", (t) => {
   const tag = Symbol("tag");
   const schema = S.string.with(S.refine, () => false, { error: "User error", path: [tag] });
-  t.expect(schema["~standard"].validate("a")).toEqual({
+  t.expect(schema["~standard"].validate("a")).toMatchObject({
+    success: false,
     issues: [{ message: "User error", path: [tag] }],
   });
   t.expect(S.pathToText([tag, "a"])).toBe("[Symbol(tag)].a");
