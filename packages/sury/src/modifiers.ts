@@ -97,7 +97,7 @@ const nestedOption = (item: Internal): Internal => {
 // The schema read one option level deeper: an undefined it outputs is Some(None)
 // and a Some(None) marker counts one more Some. Recurses into output unions,
 // since a coder's input never reaches its output.
-const someOf = (schema: Internal): Internal => {
+export const someOf = (schema: Internal): Internal => {
   const out = getOutputSchema(schema);
   const nestedSchema = out.properties?.[nestedLoc];
   if (out.type === undefinedTag) {
@@ -122,43 +122,8 @@ const someOf = (schema: Internal): Internal => {
   }
 }
 
-export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  const out = getOutputSchema(item);
-  if (out.type === undefinedTag) {
-    return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === anyOfTag && item.to !== U) {
-    return unionWrap(someOf(item), [unitSchema]);
-  } else if (out.type === anyOfTag) {
-    const anyOf = out.anyOf;
-    const has = out.has;
-    return updateOutput<Internal>(item, (mut) => {
-      const schemas = anyOf!;
-      const mutHas = { ...has! };
-
-      const newAnyOf: Internal[] = [];
-      for (let idx = 0; idx < schemas.length; idx++) {
-        const schema = schemas[idx]!;
-        if (getOutputSchema(schema).type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
-        }
-        newAnyOf.push(someOf(schema));
-      }
-
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        // The copy keeps the union's own `default`, which the arm it now goes
-        // ahead of was the one to apply.
-        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
-      }
-
-      mut.anyOf = newAnyOf;
-      mut.has = mutHas;
-    });
-  } else {
-    return unionWrap(item, [unitSchema]);
-  }
-}
+export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal =>
+  unionWrap(someOf(item), [unitSchema]);
 
 // @__NO_SIDE_EFFECTS__
 export const option = (item: Internal): Internal => {

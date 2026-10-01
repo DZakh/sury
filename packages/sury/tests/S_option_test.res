@@ -79,8 +79,8 @@ test("Classify schema", t => {
     schema->S.castToUnknown,
     S.union([
       S.string->S.castToUnknown,
-      S.unit->S.castToUnknown,
       S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.castToUnknown,
+      S.unit->S.castToUnknown,
     ]),
   )
 
@@ -88,8 +88,8 @@ test("Classify schema", t => {
     schema->S.reverse,
     S.union([
       S.string->S.castToUnknown,
-      S.unit->S.castToUnknown,
       S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.castToUnknown,
+      S.unit->S.castToUnknown,
     ]),
   )
 })
@@ -130,12 +130,12 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -214,12 +214,12 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i={};break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
   },
 )
@@ -318,6 +318,17 @@ module CoderToOption = {
     t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
     t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
     t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  })
+
+  test("nullableAsOption over a coder to option", t => {
+    let schema = S.nullableAsOption(blankToNone)
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
   })
 
   test("Nested option over a coder to option", t => {

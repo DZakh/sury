@@ -39,7 +39,8 @@ import {
  getMutErrorMessage,
  internalRefine,
  nullAsUnit,
- optionFactory
+ optionFactory,
+ someOf
 } from "./modifiers";
 import {
   nullLiteral,
@@ -801,7 +802,7 @@ export const trim = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
-  return unionWrap(schema, [unit, nullAsUnit]);
+  return unionWrap(someOf(schema), [unit, nullAsUnit]);
 }
 
 // Anchoring is a call rather than a bare `"^" + p + "$"` because esbuild keeps
