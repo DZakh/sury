@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.record(S.string).with(S.to, S.object((s) => ({ a: s.fieldOr("a", S.number, 9) })))'
+  input: "{ [x: string]: string; }"
+  output: "{ a: number; }"
+  instantiations: 4964
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){if(v2===void 0){v2=9}else{typeof v2==="number"&&v2==v2||e[1](v2);}}else{v2=9;}return {a:v2}}catch(v3){e[3](v3)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ a: 9 }"
+      # FIXME: s.fieldOr's parser re-reads the record's string from unknown, so
+      # `"1"` is rejected where S.optional(S.number) from the same record decodes it.
+      present:
+        input: '{ a: "1" }'
+        error: 'Failed at a: Expected number | undefined, received "1"'
+  decode:
+    expression: i=>{try{let v1=i.a;if(v1!==void 0){if(v1===void 0){v1=9}else{typeof v1==="number"&&v1==v1||e[0](v1);}}else{v1=9;}return {a:v1}}catch(v2){e[1](v2)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ a: 9 }"
+      # FIXME: s.fieldOr's parser re-reads the record's string from unknown, so
+      # `"1"` is rejected where S.optional(S.number) from the same record decodes it.
+      present:
+        input: '{ a: "1" }'
+        error: 'Failed at a: Expected number | undefined, received "1"'
+  encode:
+    expression: i=>{return {a:""+i.a}}
+    examples:
+      value:
+        input: "{ a: 1 }"
+        output: '{ a: "1" }'

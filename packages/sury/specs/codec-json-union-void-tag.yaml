@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.union([S.schema({ t: S.void, x: S.string }), S.schema({ t: "b" })]))'
+  input: JSON
+  output: '{ x: string; t?: void | undefined; } | { t: "b"; }'
+  instantiations: 9485
+jsonSchema:
+  # FIXME: under S.json a field the decode reads as absent (a default, `void`)
+  # is still `required` here, because the input side is rendered from what
+  # encode writes - so the document turns away a key the schema lets go missing.
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "null" }, x: { type: "string" } }, additionalProperties: false, required: ["t", "x"] }, { type: "object", properties: { t: { type: "string", const: "b" } }, additionalProperties: false, required: ["t"] }] }'
+  fromInputType: '{ t: null; x: string; } | { t: "b"; }'
+  output: "Failed at t: Expected JSON, received void"
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { enum: [null] }, x: { type: "string" } }, additionalProperties: false, required: ["t", "x"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] } }, additionalProperties: false, required: ["t"] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||(a.t===void 0?b.t===void 0&&a.x===b.x:b.t==="b")
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: void; x: string; } | { t: \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){let v0=i.t,v1=i.x;if(v0!==void 0){v0===null||e[0](v0);v0=void 0;}typeof v1==="string"||e[1](v1);i={t:v0,x:v1};break}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      void-tag:
+        input: '{ x: "y" }'
+        output: '{ t: undefined, x: "y" }'
+        divergence:
+          reason: the input document is rendered from the encode side, which always writes the field
+          ajv: "input: data must have required property 't', data must have required property 't', data must match a schema in anyOf"
+      # FIXME: the `t: S.void` member claims every value of `t` it can bridge from
+      # JSON null, so the tagged member after it is never tried.
+      b-tag:
+        input: '{ t: "b" }'
+        error: 'Failed at t: Expected null, received "b"'
+        issues:
+          - 'Failed at t: Expected null, received "b"'
+          - "Failed at x: Expected string, received undefined"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t===void 0){i={t:null,x:i.x};break}if(i.t==="b")break;throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: the `t: S.void` member claims every value of `t` it can bridge from
+      # JSON null, so the tagged member after it is never tried.
+      b-tag:
+        input: '{ t: "b" }'
+        output: '{ t: "b" }'
