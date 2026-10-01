@@ -24,7 +24,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.f;if(v0!==void 0){for(;;){if(typeof v0==="string"){e[1](v0)||e[2](v0);v0=e[0](v0);break}if(v0===null){v0=void 0;break}throw e[3](v0)}if(v0===void 0){v0=e[6]}else{v0 instanceof e[4]||e[5](v0);}}else{v0=e[7];}return {f:v0}}catch(v1){e[9](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.f;if(v0!==void 0){for(;;){if(typeof v0==="string"){e[1](v0)||e[2](v0);v0=e[0](v0);break}if(v0===null){v0=void 0;break}throw e[3](v0)}if(v0===void 0){v0=e[4]}else{v0 instanceof e[5]||e[6](v0);}}else{if(v0===void 0){v0=e[7]}else{v0 instanceof e[8]||e[9](v0);}}return {f:v0}}catch(v1){e[11](v1)}}
     examples:
       absent:
         input: "{}"

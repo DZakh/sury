@@ -98,6 +98,20 @@ Vitest$1.test("Record schema with optional fields", t => {
   }, undefined);
 });
 
+let flagWithDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.boolean), false);
+
+let recordWithOptionalDefaultedSchema = Sury.$schema(s => ({
+  darkMode: s.m(Sury.$option(flagWithDefaultSchema))
+}));
+
+Vitest$1.test("Optional field of a type with a default keeps a missing value as None", t => {
+  Vitest.Assert.deepEqual(t, Sury.parseOrThrow({}, recordWithOptionalDefaultedSchema), {}, undefined);
+  Vitest.Assert.deepEqual(t, Sury.parseOrThrow({"darkMode":true}, recordWithOptionalDefaultedSchema), {
+    darkMode: true
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.convertOrThrow({}, recordWithOptionalDefaultedSchema, undefined, Sury.unknown), {}, undefined);
+});
+
 let emptyRecordSchema = Sury.$schema(s => ({}));
 
 Vitest$1.test("Empty record schema", t => Vitest.Assert.deepEqual(t, Sury.parseOrThrow({}, emptyRecordSchema), {}, undefined));
@@ -307,6 +321,8 @@ export {
   simpleRecordSchema,
   recordWithAliasSchema,
   recordWithOptionalSchema,
+  flagWithDefaultSchema,
+  recordWithOptionalDefaultedSchema,
   emptyRecordSchema,
   recordWithNullableFieldSchema,
   recordWithOptionalNullableFieldSchema,

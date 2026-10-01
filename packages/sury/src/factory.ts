@@ -36,6 +36,8 @@ import {
   _notVarAtParent,
   _var,
   B_addObjectField,
+  B_field,
+  B_unlessCollected,
   B_inlineConst,
   B_invalidOperation,
   B_markOutput,
@@ -116,7 +118,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, schema.type);
+  setHas(mut.has, schema);
   // A `.to` is what makes reverse start at the item (output is required, not
   // optional), and its reverse step `T -> T | undefined` is the identity. A
   // link's reverse builder is its TARGET's serializer, as `codecTo` places it,
@@ -136,13 +138,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
 
   mut.parser = (input: Val) => {
     const v = input.v();
-    const source = input.s;
-    // An absent key reaches here as `unit` (objectDecoder's missing-key read).
-    if (source === unit) {
-      const output = B_nextVarOutput(input, v, item, item);
-      output.cp = `${v}=${B_inlineConst(input, Literal_parse(or))};`;
-      return output;
-    }
+    const defCode = B_inlineConst(input, Literal_parse(or));
     const itemInput = B_scope(input);
     itemInput.io = false;
     itemInput.s = unknown;
@@ -154,11 +150,10 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
     // A JSON document never holds `undefined`, so there is no default check to emit.
-    if (source.flags & 16) {
+    if (input.s.flags & 16) {
       output.cp = presentBody;
       return output;
     }
-    const defCode = B_inlineConst(input, Literal_parse(or));
     output.cp =
       presentBody === ""
         ? `if(${v}===void 0)${v}=${defCode};`
@@ -420,7 +415,7 @@ const assembleShapedObject = (
     const items = schema.items;
     for (let idx = 0; idx < items.length; idx++) {
       const location = String(idx);
-      B_addObjectField(output, location, field(location, items[idx]!));
+      B_field(output, location, () => field(location, items[idx]!));
     }
   } else if (schema.properties !== U) {
     const properties = schema.properties;
@@ -429,7 +424,7 @@ const assembleShapedObject = (
       const location = keys[idx]!;
       // Skip locations pre-populated by init (flattened fields)
       if (!(location in output.d!)) {
-        B_addObjectField(output, location, field(location, properties[location]!));
+        B_field(output, location, () => field(location, properties[location]!));
       }
     }
   } else if (onMissing !== U) {
@@ -501,7 +496,7 @@ const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      input.cp = input.cp + B_merge(flattenedVal);
+      B_unlessCollected(input, () => B_merge(flattenedVal));
     }
     input.fv = flattenedVals;
   }

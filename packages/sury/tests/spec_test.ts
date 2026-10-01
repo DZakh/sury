@@ -249,7 +249,7 @@ test("summarize renders creation-error flips and message drift", () => {
 // nothing but a manual run, so a divergence in any of them reached main with
 // the whole suite green. There is one answer to "what is wrong with this
 // spec", and this is where CI asks for it.
-describe.each(specs)("spec: $id", ({ id, file }) => {
+describe.concurrent.each(specs)("spec: $id", ({ id, file }) => {
   test("passes `pnpm spec check`", async () => {
     const raw = readFileSync(file, "utf8");
     const errs = await checkSpec(id, readSpec(file), raw);

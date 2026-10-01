@@ -8,7 +8,7 @@ test("Correctly parses", t => {
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), Value(true))
   t->U.assertThrowsMessage(
     () => %raw(`"foo"`)->S.parseOrThrow(~to=schema),
-    `Expected boolean | undefined | null, received "foo"`,
+    `Expected boolean | null | undefined, received "foo"`,
   )
 
   t->U.assertCompiledCode(

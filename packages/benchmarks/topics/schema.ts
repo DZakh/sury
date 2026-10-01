@@ -228,7 +228,7 @@ const features = (): Table => {
     },
     {
       label: "Reports every problem, not just the first",
-      note: "Sury stops at the first, which is part of why it parses as fast as it does",
+      note: "through Standard Schema validate, the way a form library reads it",
       cells: SCHEMAS.map(([, schema]) => () => {
         const issues = standardOf(schema)?.validate({ ...VALUE, string: 1, deeplyNested: { foo: 1, num: 1, bool: false } })
           .issues;

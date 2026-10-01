@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.schema({ a: S.recursive("R", (self) => S.union([S.void, S.array(self)])) }))'
+  input: JSON
+  output: "{ a?: unknown; }"
+  instantiations: 9166
+jsonSchema:
+  input: '{ type: "object", properties: { a: {} }, additionalProperties: false, required: ["a"] }'
+  fromInputType: "{ a: JSON; }"
+  output: Expected JSON, received void | R[]
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: R; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;try{v0=e[0](i.a);}catch(v1){v1.path=["a",...v1.path];throw v1}return {a:v0}}catch(v2){e[2](v2)}}
+    examples:
+      # FIXME: known bug json-absent-recursive-undefined. The field's `undefined`
+      # sits behind the ref, so the absent key reaches the union as present.
+      # Without S.json, parse reads `{}` as `{ a: undefined }`.
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected void | R[], received undefined"
+      empty-list:
+        input: "{ a: [] }"
+        output: "{ a: [] }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{try{e[0](i.a);}catch(v0){v0.path=["a",...v0.path];throw v0}try{e[1](i.a);}catch(v1){v1.path=["a",...v1.path];throw v1}return {a:i.a}}catch(v2){e[2](v2)}}
+    examples:
+      # FIXME: known bug json-absent-recursive-undefined. The field's `undefined`
+      # sits behind the ref, so the absent key reaches the union as present.
+      # Without S.json, parse reads `{}` as `{ a: undefined }`.
+      # FIXME: known bug json-absent-recursive-undefined, from the encode side.
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected JSON, received undefined"

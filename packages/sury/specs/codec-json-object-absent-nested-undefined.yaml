@@ -5,6 +5,9 @@ ts:
   output: "{ a: string | number; }"
   instantiations: 6522
 jsonSchema:
+  # FIXME: under S.json a field the decode reads as absent (a default, `void`)
+  # is still `required` here, because the input side is rendered from what
+  # encode writes - so the document turns away a key the schema lets go missing.
   input: '{ type: "object", properties: { a: { anyOf: [{ type: "number" }, { type: "string" }] } }, additionalProperties: false, required: ["a"] }'
   fromInputType: "{ a: string | number; }"
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "number" }, { type: "string" }] } }, required: ["a"] }'
@@ -19,14 +22,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="number"&&v0==v0)break;for(;;){if(typeof v0==="string")break;if(v0===null){v0="d";break}throw e[0](v0)}break}return {a:v0}}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.a;if(v0!==void 0){let v1;for(;;){if(typeof v0==="number"&&v0==v0)break;l2:{for(;;){if(typeof v0==="string")break;if(v0===null){v0="d";break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}}else{let v3;for(;;){if(typeof v0==="number"&&v0==v0)break;l4:{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="d";break}v3=[v3,e[2](v0)];break l4}break}throw e[3](v0,v3)}}return {a:v0}}catch(v5){e[5](v5)}}
     examples:
-      # FIXME: known bug json-absent-nested-undefined. The field's `undefined`
-      # belongs to the defaulted member, so the absent key never reaches its
-      # default. Without S.json, parse reads `{}` as `{ a: "d" }`.
       absent:
         input: "{}"
-        error: "Failed at a: Expected string | undefined, received undefined"
+        output: '{ a: "d" }'
+        divergence:
+          reason: the input document is rendered from the encode side, which always writes the field
+          ajv: "input: data must have required property 'a'"
       number:
         input: "{ a: 1 }"
         output: "{ a: 1 }"

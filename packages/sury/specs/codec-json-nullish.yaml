@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "null" }] }'
   fromInputType: number | null
-  output: Expected JSON, received number | undefined | null
+  output: Expected JSON, received number | null | undefined
   openapi-3.0:
     input: '{ type: "number", nullable: true }'
 isEqual:
