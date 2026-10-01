@@ -5,11 +5,10 @@ ts:
   output: "{ a: string; c: boolean; d: string; b?: string | undefined; }"
   instantiations: 3956
 jsonSchema:
-  # FIXME: d advertises its null default, and a missing d reads the inner "t"
-  input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, anyOf: [{ type: "boolean" }, { type: "null" }] }, d: { default: "n", anyOf: [{ type: "string" }, { type: "null" }] } } }'
+  input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, anyOf: [{ type: "boolean" }, { type: "null" }] }, d: { anyOf: [{ default: "t", type: "string" }, { type: "null" }] } } }'
   output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "boolean" }, d: { type: "string" } }, required: ["a", "c", "d"] }'
   openapi-3.0:
-    input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, type: "boolean", nullable: true }, d: { default: "n", type: "string", nullable: true } } }'
+    input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, type: "boolean", nullable: true }, d: { default: "t", type: "string", nullable: true } } }'
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d
 compare:
   input: "throws: [Sury] Can't compare { a: string | undefined; b: string | undefined; c: boolean | null | undefined; d: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

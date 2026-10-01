@@ -558,14 +558,15 @@ const internalToJSONSchemaBase = (
       (parent.type === arrayTag &&
         typeof parent.additionalItems === "object" &&
         parent.items!.includes(schema));
-    // An empty value here reads the union's own default, or its `undefined` arm
-    // keeps it, so a nested member's `default` would advertise another.
-    let ownsEmpty = schema.default !== U;
+    // A missing value reads through the first arm to take it, whose default is
+    // the one to advertise: the union's own `undefined` arm's, or a nested
+    // member's, which then speaks for itself. `s.fieldOr`'s own parser reads it
+    // ahead of every arm.
+    const taker = optionalSlot && schema.parser === U ? anyOf.find(isOptional) : U;
+    const ownsEmpty = taker ? taker.type === undefinedTag : schema.default !== U;
+    const ownDefault = taker && (taker.type !== undefinedTag || taker.to === U) ? U : schema.default;
     ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {
-      if (childSchema.type === undefinedTag && optionalSlot) {
-        ownsEmpty = true;
-        return;
-      }
+      if (childSchema.type === undefinedTag && optionalSlot) return;
       // A union nested in a field's union answers to the same field, so its
       // own `undefined` is the field being absent too.
       const childJsonSchema =
@@ -584,7 +585,7 @@ const internalToJSONSchemaBase = (
     });
 
     const itemsNumber = items.length;
-    if (schema.default !== U) jsonSchema.default = schema.default;
+    if (ownDefault !== U) jsonSchema.default = ownDefault;
 
     // Detect whether a definition is the "null" representation for the
     // current target. Sury models nullable as a union `[X, null]`; for

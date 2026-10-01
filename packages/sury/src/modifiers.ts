@@ -139,7 +139,9 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit): Inte
 
       if (newAnyOf.length === schemas.length) {
         mutHas[unitSchema.type] = true;
-        unionPlaceEmpty(newAnyOf, unitSchema);
+        // The copy keeps the union's own `default`, which the arm it now goes
+        // ahead of was the one to apply.
+        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
       }
 
       mut.anyOf = newAnyOf;

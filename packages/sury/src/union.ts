@@ -1921,9 +1921,11 @@ export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   return unionFactory(arms);
 };
 
-export const unionPlaceEmpty = (arms: Internal[], empty: Internal): void => {
+// Whether it went ahead of an arm that would have changed the value.
+export const unionPlaceEmpty = (arms: Internal[], empty: Internal): boolean => {
   const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
   at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
+  return at >= 0;
 };
 
 export const unionFactory = (schemas: Internal[]): Internal => {
