@@ -61,7 +61,7 @@ import {
 } from "./composites";
 import { getOutputSchema, parse, reverse, setDefault } from "./parse";
 import { Literal_parse, unit } from "./primitives";
-import { unionFactory } from "./union";
+import { unionFactory, unionIsTransparent } from "./union";
 
 type ShapedSerializerAcc = {
   val?: Val;
@@ -120,6 +120,10 @@ const presentOf = (schema: Internal): Internal => {
   if (arms === U) return schema;
   const present = arms.filter((arm) => arm.type !== undefinedTag);
   if (present.length === arms.length || !present.length) return schema;
+  // A union of one is its member, as `unionFactory` hands it back, and code
+  // past here assumes no other union has a single arm. One with a refiner or
+  // metadata of its own stays whole rather than lose them.
+  if (present.length === 1) return unionIsTransparent(schema) ? present[0]! : schema;
   // A copy rather than `unionFactory`, which would bring the union planner to
   // every object export; the item already carries its union decoder, and
   // keeps a refiner or metadata of its own.
