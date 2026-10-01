@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.optional(S.string).with(S.to, S.nullable(S.string)))
+  input: string | undefined
+  output: string | null | undefined
+  instantiations: 5015
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | null | undefined
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      undefined-is-kept:
+        input: undefined
+        output: undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      null-becomes-undefined:
+        input: "null"
+        output: undefined
+      undefined:
+        input: undefined
+        output: undefined

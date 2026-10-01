@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.union([S.optional(S.number, 3), S.boolean]))
+  input: string | undefined
+  output: number | boolean
+  instantiations: 5564
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ anyOf: [{ type: "number" }, { type: "boolean" }] }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(b===void 0)-(a===void 0)||(a<b?-1:a>b?1:0)
+  output: "throws: [Sury] Can't compare number | boolean. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}return i}catch(v5){e[4](v5)}}
+    examples:
+      # FIXME: unset reaches no member, though the optional one alone reads it as 3
+      unset-takes-the-default:
+        input: undefined
+        error: |-
+          Expected number | boolean | undefined, received undefined
+          - Expected number, received undefined
+          - Expected boolean, received undefined
+      number:
+        input: '"1"'
+        output: "1"
+      boolean:
+        input: '"true"'
+        output: "true"
+  decode:
+    expression: i=>{try{let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}return i}catch(v5){e[3](v5)}}
+    examples:
+      # FIXME: unset reaches no member, though the optional one alone reads it as 3
+      unset-takes-the-default:
+        input: undefined
+        error: |-
+          Expected number | boolean | undefined, received undefined
+          - Expected number, received undefined
+          - Expected boolean, received undefined
+      number:
+        input: '"1"'
+        output: "1"
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="boolean"){i=""+i;break}l1:{if(typeof i==="number"&&i==i){i=""+i;}else{v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      number:
+        input: "1"
+        output: '"1"'
+      boolean:
+        input: "true"
+        output: '"true"'

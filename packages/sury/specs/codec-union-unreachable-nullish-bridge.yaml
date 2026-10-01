@@ -6,7 +6,7 @@ ts:
   instantiations: 6456
 jsonSchema:
   input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
-  output: Expected JSON, received undefined | string
+  output: Expected JSON, received string | undefined
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: strictEqual
@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Ambiguous never | string -> undefined | string. Should undefined be decoded or ignored? Choose with S.to for string -> undefined, or S.never -> undefined"
+    creationError: "SuryError: Ambiguous never | string -> string | undefined. Should undefined be decoded or ignored? Choose with S.to for string -> undefined, or S.never -> undefined"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Ambiguous undefined | string -> null | string. Should undefined be decoded or ignored? Choose with S.to for undefined -> string, or S.never -> undefined"
+    creationError: "SuryError: Ambiguous string | undefined -> string | null. Should undefined be decoded or ignored? Choose with S.to for undefined -> string, or S.never -> undefined"
