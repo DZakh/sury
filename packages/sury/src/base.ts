@@ -22,17 +22,17 @@ export type Flag = number;
 // can distinguish Sury failures from foreign ones), 64 flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
-// operation tail (parse.ts, operations.ts): 128 JS Result
-// (`{success, value, error}`), 256 ReScript Result (`{TAG, _0}`), 512
-// promisable (1 without lifting a synchronous result into a promise), 1024
-// Standard Schema (`{value}` / `{issues}`), 2048 yield the operation's input
-// rather than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
+// operation's outcome (parse.ts `outcomeOf`): 128 JS Result
+// (`{success, value, error, issues}`, also what `~standard.validate` answers),
+// 256 ReScript Result (`{TAG, _0}`), 512 promisable (1 without lifting a
+// synchronous result into a promise), 2048 yield the operation's input rather
+// than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
 // An async operation also rejects rather than throwing when its value fails
-// before the first await - decided by the operation tail (operations.ts), from
+// before the first await - decided by the operation's outcome (parse.ts), from
 // whether the compile is nested, not by a flag of its own.
 //
 // The split at 128 is load-bearing: a nested operation compiled inside another
@@ -470,7 +470,12 @@ export type Internal = {
   // alphabet recoding still sees it after `S.trim`. A carrier packing into a
   // bytes target looks the codec up off its `storedAs`.
   bytesCodec?: BytesCodec;
+  // Every tag the union may take, through nested unions, so `undefined` behind
+  // one still makes it optional. A ref counts as `unknown`.
   has?: Partial<Record<Tag, boolean>>;
+  // Try order, not the type's: a wrapper puts its own empty arm ahead of any
+  // arm that would change it (`unionWrap`), so what prints the type lists
+  // `null` and `undefined` last.
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
@@ -587,6 +592,23 @@ export type BGlobal = {
   // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
   // took `x`. Read the difference, never the value.
   j: number;
+  // @as("k") - the var of the failure list an operation that reports every
+  // failure collects into (parse.ts `outcomeOf`).
+  k?: string;
+  // @as("kj") - how many failures children collected, `j`'s twin: read the
+  // difference. Unset, nothing can be on the list and the operation reads as
+  // if it answered the first failure.
+  kj?: number;
+  // @as("y") - where code that must not run after a container's children
+  // collected goes instead: out of the innermost collecting child, or out of
+  // the operation. Not `x()`: inside a union case `x` is the case's exit, and
+  // leaving by it would fail the union a second time.
+  y?: () => string;
+  // @as("l") - the declaration sink of the scope code lands in (`B_let`): the
+  // operation body, an item loop's, a callback's. `c` counts the collecting
+  // children open around the code being emitted.
+  l?: string[];
+  c?: number;
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,
@@ -667,6 +689,17 @@ export type Val = {
   // This is to mark an object field as optional. Fields like this should be
   // skipped when the value is undefined. @as("o") - optional
   o?: boolean;
+  // @as("k") - a container whose children collected a failure: it has no
+  // value for what follows it to read (builder.ts `B_merge`).
+  k?: boolean;
+  // @as("hn") - names this val's own code assigns but leaves to a sink to
+  // declare (`B_let`). Routed when the val merges rather than when the var was
+  // materialized: a late `.v()` runs in whatever stretch reads the value, not
+  // the one its code lands in.
+  hn?: string[];
+  // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
+  // sink.
+  ha?: string;
 }
 
 // Shared `undefined` for every value-position use across the implementation:
@@ -803,17 +836,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
-    const anyOf = schema.anyOf;
     const seen = new Set<string>();
-    let body = "";
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      const expression = inputExpression(anyOf[idx]!);
-      if (!seen.has(expression)) {
-        seen.add(expression);
-        body += (body ? " | " : "") + expression;
-      }
-    }
-    return body;
+    const add = (s: Internal): unknown =>
+      s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
+    schema.anyOf.forEach(add);
+    for (const e of ["null", "undefined"]) seen.delete(e) && seen.add(e);
+    return [...seen].join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
     // produces both at once today, but the shape is representable, and the
@@ -1238,8 +1266,9 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
   return root as unknown as TValue;
 }
 
-export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[(tagFlags[tag]! & (256 | 512)) ? unknownTag : tag] = true;
+export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
+  if (member.has) Object.assign(has, member.has);
+  else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:

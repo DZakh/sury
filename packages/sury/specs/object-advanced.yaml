@@ -23,6 +23,15 @@ operations:
   parse:
     expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.type,v1=i.nested,v3=i.id,v4=i.Foo,v5=i.Bar;v0===0||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1.field;typeof v2==="number"&&v2==v2||e[1](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);if(v5===void 0){v5=true}else{typeof v5==="boolean"||e[5](v5);}return {nested:v2,flattened:{id:v3},foo:v4,bar:v5}}catch(v6){e[7](v6)}}
     examples:
+      every-field-invalid:
+        input: '{ type: 1, nested: { field: "x" }, id: 1, Foo: 2, Bar: "no" }'
+        error: "Failed at type: Expected 0, received 1"
+        issues:
+          - "Failed at type: Expected 0, received 1"
+          - 'Failed at nested.field: Expected number, received "x"'
+          - "Failed at id: Expected string, received 1"
+          - "Failed at Foo: Expected string, received 2"
+          - 'Failed at Bar: Expected boolean | undefined, received "no"'
       all-features:
         input: '{ nested: { field: 123 }, type: 0, id: "id", Foo: "bar" }'
         output: '{ nested: 123, flattened: { id: "id" }, foo: "bar", bar: true }'

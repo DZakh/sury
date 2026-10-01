@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.number.with(S.refine, (n) => n > 0), S.nullable(S.number, 1)]))
+  input: JSON
+  output: number
+  instantiations: 5956
+jsonSchema:
+  input: '{ type: "number" }'
+  fromInputType: number
+  output: '{ type: "number" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[3](x)]}}}l2:{for(;;){if(typeof i==="number"&&i==i)break;if(i===null){i=1;break}v0=[v0,e[2](i)];break l2}break}throw e[4](i,v0)}return i}catch(v3){e[5](v3)}}
+    examples:
+      positive:
+        input: "3"
+        output: "3"
+      negative-falls-to-the-nullable:
+        input: "-5"
+        output: "-5"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[2](x)]}}break}throw e[3](i,v0)}return i}catch(v2){e[4](v2)}}
+    examples:
+      positive:
+        input: "3"
+        output: "3"
+      negative:
+        input: "-5"
+        output: "-5"

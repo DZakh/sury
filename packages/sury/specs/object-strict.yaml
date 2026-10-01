@@ -23,5 +23,12 @@ operations:
       excess-field:
         input: '{ foo: "bar", bar: true }'
         error: Unrecognized key "bar"
+      excess-fields-and-invalid-field:
+        input: "{ foo: 1, bar: true, baz: 2 }"
+        error: "Failed at foo: Expected string, received 1"
+        issues:
+          - "Failed at foo: Expected string, received 1"
+          - Unrecognized key "bar"
+          - Unrecognized key "baz"
   decode: identity
   encode: identity

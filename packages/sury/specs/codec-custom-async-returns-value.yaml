@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.object({ a: S.string.with(S.to, S.string, { decode: { async: ((value: string) => value) as any }, encode: (value) => value }) })"
+  schema: "S.object({ a: S.string.with(S.to, S.string, { decode: { async: (() => ({ get then(): never { throw new TypeError('not a promise') } })) as any }, encode: (value) => value }) })"
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 2662
@@ -19,14 +19,14 @@ operations:
     examples:
       coder-returns-a-value:
         input: '{ a: "a" }'
-        error: "Failed at a: TypeError: e[0](...).then is not a function"
+        error: "Failed at a: TypeError: not a promise"
   decode:
     isAsync: true
     expression: i=>{try{let v0;try{v0=e[0](i.a).then(v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[3])}catch(v1){return e[4](v1)}}
     examples:
       coder-returns-a-value:
         input: '{ a: "a" }'
-        error: "Failed at a: TypeError: e[0](...).then is not a function"
+        error: "Failed at a: TypeError: not a promise"
   encode:
     expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
     examples:

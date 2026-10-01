@@ -43,3 +43,39 @@ test("A refine that throws is that refinement failing, so the exception comes ba
   | Error(error) => t->Assert.is(error.reason->String.includes("Not_found"), true)
   }
 })
+
+let signup = S.object(s =>
+  {
+    "name": s.field("name", S.string),
+    "age": s.field("age", S.int),
+  }
+)
+
+test("parseAsStandardResult reports every issue", t => {
+  t->Assert.deepEqual(
+    (%raw(`{name: 1, age: "x"}`)->S.parseAsStandardResult(~to=signup)).issues,
+    Some([
+      {message: "Expected string, received 1", path: [String("name")]},
+      {message: `Expected int32, received "x"`, path: [String("age")]},
+    ]),
+  )
+  t->Assert.deepEqual(
+    (%raw(`{name: "a", age: 1}`)->S.parseAsStandardResult(~to=signup)).value,
+    Some({"name": "a", "age": 1}),
+  )
+})
+
+asyncTest("parseAsStandardResultPromise reports every issue", async t => {
+  let result = await %raw(`{name: 1, age: "x"}`)->S.parseAsStandardResultPromise(~to=signup)
+  t->Assert.is(result.issues->Option.map(Array.length), Some(2))
+})
+
+test("convertAsStandardResult and makeAsStandardResult answer the standard shape", t => {
+  t->Assert.deepEqual((1.5->S.convertAsStandardResult(~from=schema, ~to=S.string)).value, Some("1.5"))
+  t->Assert.is(
+    (S.JsonString(`1`)->S.convertAsStandardResult(~from=S.jsonString, ~to=S.string)).issues->Option.isSome,
+    true,
+  )
+  t->Assert.deepEqual(S.compileMakeAsStandardResult(~schema)(1.).value, Some(1.))
+  t->Assert.is((%raw(`"1"`)->S.makeAsStandardResult(~schema)).issues->Option.isSome, true)
+})

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.array(S.object((s) => s.flatten(S.schema({ a: S.string }).with(S.refine, (v) => v.a.length > 0))))"
+  input: Record<string, unknown>[]
+  output: "{ a: string; }[]"
+  instantiations: 6086
+jsonSchema:
+  input: '{ items: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, type: "array" }'
+  fromInputType: "{ a: string; }[]"
+  output: '{ items: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, type: "array" }'
+isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i].a===b[i].a))return false;return true}
+compare: "throws: [Sury] Can't compare { a: string; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)||e[6](i);let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1,[v0]);let v2=v1.a;typeof v2==="string"||e[0](v2,[v0,"a"]);let v3={a:v2};e[1](v3,[v0])||e[2](v3,[v0]);e[3](v3,[v0])||e[4](v3,[v0]);v4[v0]=v3}return v4}catch(v5){e[7](v5)}}
+    examples:
+      valid:
+        input: '[{ a: "x" }]'
+        output: '[{ a: "x" }]'
+      first-item-invalid:
+        input: '[{ a: 1 }, { a: "x" }]'
+        error: "Failed at [0].a: Expected string, received 1"
+      invalid-then-refine-failed:
+        input: '[{ a: 1 }, { a: "" }]'
+        error: "Failed at [0].a: Expected string, received 1"
+        issues:
+          - "Failed at [0].a: Expected string, received 1"
+          - "Failed at [1]: Refinement failed"
+  decode:
+    expression: i=>{try{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];let v2={a:v1.a};e[0](v2,[v0])||e[1](v2,[v0]);e[2](v2,[v0])||e[3](v2,[v0]);v3[v0]=v2}return v3}catch(v4){e[4](v4)}}
+    examples:
+      valid:
+        input: '[{ a: "x" }]'
+        output: '[{ a: "x" }]'
+  encode:
+    expression: i=>{try{let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1=i[v0];e[0](v1,[v0])||e[1](v1,[v0]);v2[v0]={a:v1.a}}return v2}catch(v3){e[2](v3)}}
+    examples:
+      valid:
+        input: '[{ a: "x" }]'
+        output: '[{ a: "x" }]'
