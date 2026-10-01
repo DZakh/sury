@@ -14,6 +14,7 @@ import {
 import {
   B_let,
   B_embed,
+  B_markOutput,
   B_mergeWithPathPrepend,
   B_nextVar,
   B_refine
@@ -142,7 +143,9 @@ export const recursiveDecoder: Builder = (input) => {
   output.fz = U;
   output.prev = input;
 
-  return output;
+  // Input checks go on `output`, not `input`: B_markOutput emits them against
+  // `valInput.prev`, and that is `input` here.
+  return B_markOutput(output, output);
 };
 
 // @__NO_SIDE_EFFECTS__

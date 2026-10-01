@@ -27,7 +27,7 @@ operations:
         output: "true"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}l2:{try{for(;;){if(typeof i==="boolean"){if(!(e[2](i))){v1=[v1,e[3],i];break l2}break}if(typeof i==="number"&&i==i){if(!(e[2](i))){v1=[v1,e[4],i];break l2}i=""+i;break}v1=[v1,e[5](i)];break l2}break}catch(x){v1=[v1,e[6](x)]}}throw e[7](i,v1)}return i}catch(v3){e[8](v3)}}
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}l2:{try{for(;;){if(typeof i==="boolean"){if(!(e[2](i))){v1=[v1,e[3],i];break l2}break}if(typeof i==="number"&&i==i){let v3=""+i;if(!(e[2](v3))){v1=[v1,e[4],v3];break l2}i=""+i;break}v1=[v1,e[5](i)];break l2}break}catch(x){v1=[v1,e[6](x)]}}throw e[7](i,v1)}return i}catch(v4){e[8](v4)}}
     examples:
       number:
         input: "1"

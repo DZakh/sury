@@ -134,9 +134,18 @@ export const parse = (input: Val): Val => {
       if (loopInput !== result) appliedEncoderRef = maybeEncoder!;
       else {
         result = loopInput.e.decoder(loopInput);
-        // Primitive decoder (no internal transforms): apply refiners here.
-        // Advanced decoders set isOutput themselves and own refiner application.
-        if (!result.io) result = B_markOutput(result, result);
+        // `!result.io` is a primitive decoder, the one kind that leaves its
+        // refiners to this loop; every other one knows which val holds its
+        // Input form. A primitive's Input and Output are one value, produced
+        // by the decoder when it coerces (`S.string` handed a number), so its
+        // input checks read the result: the reversed tail of
+        // `S.string.with(S.minLength, 3).with(S.to, S.number)` would otherwise
+        // measure the number. B_markOutput reads them off `valInput.prev`, so
+        // a new value gets a link of its own to hang them on.
+        if (!result.io) {
+          const own = result.e.inputRefiner && result.i !== loopInput.i ? B_refine(result) : result;
+          result = B_markOutput(own, own);
+        }
       }
     }
   }

@@ -702,7 +702,9 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 
 // Applies both refiners. Output checks wrap `val` via refine; input checks push
 // onto `valInput.vc`, which emits ahead of the decoder body - they have to read
-// what the decoder was *handed*. A schema that narrows leaves nothing else to
+// what the decoder was *handed*, `valInput.prev`. The parse loop hands a
+// coercing primitive its result instead, since for a primitive that value is
+// its Input as much as its Output. A schema that narrows leaves nothing else to
 // read it from: a union assigns its result over the operation argument, so an
 // `allOf` refinement placed after it looks for keys the object arm just
 // stripped. Sets isOutput on the result.

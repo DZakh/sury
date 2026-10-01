@@ -32,7 +32,7 @@ operations:
         output: '"2"'
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v1;for(;;){if(typeof i==="number"&&i==i&&i===1)break;if(typeof i==="number"&&i==i)break;l2:{try{for(;;){if(typeof i==="string"){let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[1],i];break l2}if(!(e[0](i))){v1=[v1,e[2],i];break l2}i=v0;break}if(typeof i==="boolean"){if(!(e[0](i))){v1=[v1,e[3],i];break l2}break}v1=[v1,e[4](i)];break l2}break}catch(x){v1=[v1,e[5](x)]}}throw e[6](i,v1)}return i}catch(v3){e[7](v3)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="number"&&i==i&&i===1)break;if(typeof i==="number"&&i==i)break;l2:{try{for(;;){if(typeof i==="string"){let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[2],i];break l2}if(!(e[0](v0))){v1=[v1,e[1],v0];break l2}i=v0;break}if(typeof i==="boolean"){if(!(e[0](i))){v1=[v1,e[3],i];break l2}break}v1=[v1,e[4](i)];break l2}break}catch(x){v1=[v1,e[5](x)]}}throw e[6](i,v1)}return i}catch(v3){e[7](v3)}}
     examples:
       literal:
         input: "1"
