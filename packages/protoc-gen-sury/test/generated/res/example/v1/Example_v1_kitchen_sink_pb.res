@@ -148,6 +148,10 @@ module User = {
 }
 
 module WellKnown = {
+  @tag("case")
+  type when_ =
+    | @as("atTime") AtTime({value: SuryProtobuf.Timestamp.t})
+    | @as("after") After({value: SuryProtobuf.Duration.t})
   type t = {
     at: option<SuryProtobuf.Timestamp.t>,
     took: option<SuryProtobuf.Duration.t>,
@@ -158,10 +162,14 @@ module WellKnown = {
     byName: dict<dict<JSON.t>>,
     value: option<SuryProtobuf.Value.t>,
     boxedList: array<SuryProtobuf.Int32Value.t>,
+    log: array<SuryProtobuf.Timestamp.t>,
+    timeouts: dict<SuryProtobuf.Duration.t>,
+    seen: option<SuryProtobuf.Timestamp.t>,
+    when_: option<when_>,
   }
   let schema: S.t<t> = S.schema(s => {
-    at: s.matches(S.option(SuryProtobuf.Timestamp.schema)->S.protobufField(1, ~type_=#message)),
-    took: s.matches(S.option(SuryProtobuf.Duration.schema)->S.protobufField(2, ~type_=#message)),
+    at: s.matches(S.option(SuryProtobuf.Timestamp.schema)->S.protobufField(1, ~type_=#"google.protobuf.Timestamp")),
+    took: s.matches(S.option(SuryProtobuf.Duration.schema)->S.protobufField(2, ~type_=#"google.protobuf.Duration")),
     label: s.matches(S.option(S.string)->S.protobufField(3, ~type_=#"google.protobuf.StringValue")),
     count: s.matches(S.option(S.bigint)->S.protobufField(4, ~type_=#"google.protobuf.Int64Value")),
     meta: s.matches(S.option(S.dict(S.json))->S.protobufField(5, ~type_=#"google.protobuf.Struct")),
@@ -169,6 +177,15 @@ module WellKnown = {
     byName: s.matches(S.dict(S.dict(S.json))->S.protobufField(7, ~type_=#"google.protobuf.Struct", ~key=#string)),
     value: s.matches(S.option(SuryProtobuf.Value.schema)->S.protobufField(8, ~type_=#message)),
     boxedList: s.matches(S.array(SuryProtobuf.Int32Value.schema)->S.protobufField(9, ~type_=#message)),
+    log: s.matches(S.array(SuryProtobuf.Timestamp.schema)->S.protobufField(10, ~type_=#"google.protobuf.Timestamp")),
+    timeouts: s.matches(S.dict(SuryProtobuf.Duration.schema)->S.protobufField(11, ~type_=#"google.protobuf.Duration", ~key=#string)),
+    seen: s.matches(S.option(SuryProtobuf.Timestamp.schema)->S.protobufField(12, ~type_=#"google.protobuf.Timestamp")),
+    when_: s.matches(S.option(
+      S.union([
+        S.schema(s => AtTime({value: s.matches(SuryProtobuf.Timestamp.schema->S.protobufField(13, ~type_=#"google.protobuf.Timestamp"))})),
+        S.schema(s => After({value: s.matches(SuryProtobuf.Duration.schema->S.protobufField(14, ~type_=#"google.protobuf.Duration"))})),
+      ]),
+    )),
   })
 }
 

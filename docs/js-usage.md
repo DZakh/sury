@@ -1778,7 +1778,9 @@ type `User_Address`, a field's lowerCamelCase property, an enum as a const
 object with its prefix dropped (`PhoneType.MOBILE`), a wrapper field as its
 scalar, a Struct as a JSON object, a map with 32-bit keys still string-keyed.
 A well-known type is imported from `sury/wkt` (`TimestampSchema`,
-`Timestamp`), where the generated code expects it.
+`Timestamp`), where the generated code expects it. A Timestamp or Duration
+field keeps protobuf-es's `{ seconds, nanos }` and is declared as the
+well-known type, so `S.toProtoOrThrow` prints it as an import.
 
 The options:
 

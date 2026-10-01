@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, outputPath, wrapperScalar, wktImport } from "./shared";
+import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, timeType, outputPath, wrapperScalar, wktImport } from "./shared";
 
 const is64 = (scalar: Scalar): boolean => scalar.includes("64");
 
@@ -148,7 +148,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     element.kind === "scalar" ? element.scalar
     : element.kind === "enum" ? "enum"
     : isStruct(field, element) ? "google.protobuf.Struct"
-    : "message";
+    : timeType(element) ?? "message";
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let opts = `number: ${field.number}, type: ${JSON.stringify(type)}`;

@@ -418,11 +418,34 @@ export type WellKnown = {
    * @generated from field: repeated google.protobuf.Int32Value boxed_list = 9;
    */
   boxedList: Int32Value[];
+
+  /**
+   * @generated from field: repeated google.protobuf.Timestamp log = 10;
+   */
+  log: Timestamp[];
+
+  /**
+   * @generated from field: map<string, google.protobuf.Duration> timeouts = 11;
+   */
+  timeouts: { [key: string]: Duration };
+
+  /**
+   * @generated from field: optional google.protobuf.Timestamp seen = 12;
+   */
+  seen?: Timestamp | undefined;
+
+  /**
+   * @generated from oneof example.v1.WellKnown.when
+   */
+  when:
+    | { case: "atTime"; value: Timestamp }
+    | { case: "after"; value: Duration }
+    | { case?: undefined; value?: undefined };
 };
 
 export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
-  at: S.protobufField(S.optional(TimestampSchema), { number: 1, type: "message" }),
-  took: S.protobufField(S.optional(DurationSchema), { number: 2, type: "message" }),
+  at: S.protobufField(S.optional(TimestampSchema), { number: 1, type: "google.protobuf.Timestamp" }),
+  took: S.protobufField(S.optional(DurationSchema), { number: 2, type: "google.protobuf.Duration" }),
   label: S.protobufField(S.optional(S.string), { number: 3, type: "google.protobuf.StringValue" }),
   count: S.protobufField(S.optional(S.bigint), { number: 4, type: "google.protobuf.Int64Value" }),
   meta: S.protobufField(S.optional(S.record(S.json)), { number: 5, type: "google.protobuf.Struct" }),
@@ -430,6 +453,14 @@ export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
   byName: S.protobufField(S.record(S.record(S.json)), { number: 7, type: "google.protobuf.Struct", key: "string" }),
   value: S.protobufField(S.optional(ValueSchema), { number: 8, type: "message" }),
   boxedList: S.protobufField(S.array(Int32ValueSchema), { number: 9, type: "message" }),
+  log: S.protobufField(S.array(TimestampSchema), { number: 10, type: "google.protobuf.Timestamp" }),
+  timeouts: S.protobufField(S.record(DurationSchema), { number: 11, type: "google.protobuf.Duration", key: "string" }),
+  seen: S.protobufField(S.optional(TimestampSchema), { number: 12, type: "google.protobuf.Timestamp" }),
+  when: S.union([
+    S.schema({ case: "atTime", value: S.protobufField(TimestampSchema, { number: 13, type: "google.protobuf.Timestamp" }) }),
+    S.schema({ case: "after", value: S.protobufField(DurationSchema, { number: 14, type: "google.protobuf.Duration" }) }),
+    S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+  ]),
 }), { name: "WellKnown" });
 
 /**

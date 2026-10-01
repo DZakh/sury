@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, isStruct, wktFiles, wrapperScalar } from "./shared";
+import { type Options, componentsOf, messageOf, isStruct, timeType, wktFiles, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -138,7 +138,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     element.kind === "scalar" ? `#${element.scalar}`
     : element.kind === "enum" ? "#enum"
     : isStruct(field, element) ? `#"google.protobuf.Struct"`
-    : "#message";
+    : `#${timeType(element) === undefined ? "message" : `"${timeType(element)}"`}`;
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let args = `${field.number}, ~type_=${type}`;

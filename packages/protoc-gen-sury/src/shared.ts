@@ -83,6 +83,16 @@ export const wrapperScalar = (field: Field): Scalar | undefined =>
     ? wrappers[field.element.message.typeName]
     : undefined;
 
+// A Timestamp or Duration keeps protobuf-es's `{ seconds, nanos }` shape, and is
+// declared as the well-known type it is so `S.toProtoOrThrow` imports it
+// rather than declaring a message of its own. The well-known type files declare
+// the message itself.
+export const timeType = (element: Element): string | undefined =>
+  element.kind === "message" &&
+  (element.message.typeName === "google.protobuf.Timestamp" || element.message.typeName === "google.protobuf.Duration")
+    ? element.message.typeName
+    : undefined;
+
 // ...and holds a Struct as a JSON object anywhere but inside Value itself.
 export const isStruct = (field: Field, element: Element): boolean =>
   element.kind === "message" &&

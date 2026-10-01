@@ -642,19 +642,7 @@ export type ProtobufType =
   | "string"
   | "bytes"
   | "enum"
-  | "message"
-  /** A scalar boxed in its wrapper message. Takes an `S.optional` field outside a list, a map or a oneof. */
-  | "google.protobuf.DoubleValue"
-  | "google.protobuf.FloatValue"
-  | "google.protobuf.Int64Value"
-  | "google.protobuf.UInt64Value"
-  | "google.protobuf.Int32Value"
-  | "google.protobuf.UInt32Value"
-  | "google.protobuf.BoolValue"
-  | "google.protobuf.StringValue"
-  | "google.protobuf.BytesValue"
-  /** A JSON object, such as `S.record(S.json)`, carried as a Struct. */
-  | "google.protobuf.Struct";
+  | "message";
 
 /**
  * A Google well-known type a field is declared as, printed by `S.toProtoOrThrow`

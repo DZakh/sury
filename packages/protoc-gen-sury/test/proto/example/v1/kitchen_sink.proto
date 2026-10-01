@@ -75,6 +75,13 @@ message WellKnown {
   map<string, google.protobuf.Struct> by_name = 7;
   google.protobuf.Value value = 8;
   repeated google.protobuf.Int32Value boxed_list = 9;
+  repeated google.protobuf.Timestamp log = 10;
+  map<string, google.protobuf.Duration> timeouts = 11;
+  optional google.protobuf.Timestamp seen = 12;
+  oneof when {
+    google.protobuf.Timestamp at_time = 13;
+    google.protobuf.Duration after = 14;
+  }
 }
 
 // A tree: a message that holds itself.
