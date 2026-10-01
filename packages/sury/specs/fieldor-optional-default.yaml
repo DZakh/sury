@@ -5,12 +5,12 @@ ts:
   output: "{ f: number | undefined; }"
   instantiations: 734
 jsonSchema:
-  input: "Failed at f: Expected JSON, received number | undefined"
+  input: '{ type: "object", properties: { f: { default: 2, type: "number" } } }'
   output: '{ type: "object", properties: { f: { type: "number" } }, required: ["f"] }'
   fromOutputType: "{ f: number; }"
 isEqual: (a,b)=>a===b||a.f===b.f
 compare:
-  input: "throws: [Sury] Can't compare { f: number | undefined | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { f: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { f: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
@@ -33,7 +33,7 @@ operations:
         output: "{ f: 1 }"
       not-a-number:
         input: '{ f: "1" }'
-        error: 'Failed at f: Expected number | undefined | undefined, received "1"'
+        error: 'Failed at f: Expected number | undefined, received "1"'
   decode:
     expression: i=>{try{let v0=i.f;if(v0===void 0){v0=2}else{typeof v0==="number"&&v0==v0||e[0](v0);}return {f:v0}}catch(v1){e[1](v1)}}
     examples:

@@ -26,6 +26,7 @@ import {
   objectTag,
   pathConcat,
   pathEmpty,
+  refTag,
   setHas,
   stringify,
   toError,
@@ -473,6 +474,21 @@ const objectTypeCheck: Check = {
   f: failInvalidType,
 };
 
+const keepAbsent = (union: Internal, to: Internal): Internal => {
+  const target = copySchema(union);
+  target.anyOf = union.anyOf!.map((variant) =>
+    variant.type === undefinedTag
+      ? variant
+      : isOptional(variant) && variant.to === U
+        ? keepAbsent(variant, to)
+        : updateOutput<Internal>(variant, (mut) => {
+            mut.to = to;
+          })
+  );
+  target.flags |= 64;
+  return target;
+};
+
 export const objectDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
@@ -594,20 +610,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
         source.has![undefinedTag] &&
         !(tagFlags[itemSchema.type]! & (1 | 16 | 32 | 256 | 512)) &&
         itemSchema.format !== "json";
-      if (absent) {
-        const target = copySchema(source);
-        target.anyOf = source.anyOf!.map((variant) =>
-          variant.type === undefinedTag
-            ? variant
-            : updateOutput<Internal>(variant, (mut) => {
-                mut.to = itemSchema;
-              })
-        );
-        target.flags = target.flags | 64;
-        itemInput.e = target;
-      } else {
-        itemInput.e = itemSchema;
-      }
+      itemInput.e = absent ? keepAbsent(source, itemSchema) : itemSchema;
       itemInput.io = false;
       itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
@@ -783,9 +786,9 @@ export const traverseDefinition = (
 }
 
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
-// not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
-// key against an optional target stays absent (None); against a required
-// target it fails - not the string `"undefined"`.
+// not put the union compiler on the objectDecoder/arrayDecoder SCC. The key's
+// presence is asked before the item's decode, which would otherwise coerce a
+// missing key into the string `"undefined"`.
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
@@ -794,21 +797,25 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // key's presence is not asked here, and the item keeps its own check.
   const unsetIsInput = item.format === "env";
 
-  const presentIn = B_scope(input);
-  presentIn.io = false;
-  presentIn.s = item;
-  presentIn.e = target;
-  presentIn.u = !unsetIsInput;
-  const presentOut = parse(presentIn);
-  const presentCode = B_merge(presentOut);
-  const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
-
-  // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const noAbsentCheck = isOptional(target) || unsetIsInput;
   const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
-  const presentBody = presentCode + presentAssign;
-  output.cp =
-    presentBody === ""
+  const body = (source: Internal, u: boolean): string => {
+    const scope = B_scope(input);
+    scope.io = false;
+    scope.s = source;
+    scope.e = target;
+    scope.u = u;
+    const out = parse(scope);
+    output.f |= out.f & 1;
+    return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
+  };
+  const presentBody = body(item, !unsetIsInput);
+  const absentBody = !unsetIsInput && readsAbsent(target) ? body(unknown, false) : "";
+  const noAbsentCheck = isOptional(target) || unsetIsInput;
+  output.cp = absentBody
+    ? presentBody === ""
+      ? `if(${v}===void 0){${absentBody}}`
+      : `if(${v}!==void 0){${presentBody}}else{${absentBody}}`
+    : presentBody === ""
       ? noAbsentCheck
         ? ""
         : B_failInvalidInput(input, target, `${v}!==void 0`)
@@ -820,11 +827,27 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
+// Whether an optional field's missing key goes through the field's own decode
+// rather than staying `undefined`. A ref may be optional behind its name, a
+// nested union holds its own `undefined` arm, and an `unknown` or `any` with
+// work to do reaches `undefined` before the plain arm.
+const readsAbsent = (s: Internal): boolean => {
+  if (!isOptional(s)) return s.type === refTag;
+  if (s.to !== U || s.refiner !== U) return true;
+  for (const arm of s.anyOf || [s]) {
+    if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
+    if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
+      return true;
+    }
+  }
+  return true;
+};
+
 const wrapDictMissingKeyLight = (s: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [s, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, s.type);
+  setHas(mut.has, s);
   mut.encoder = missingKeyEncoder;
   mut.flags = 64;
   return mut;

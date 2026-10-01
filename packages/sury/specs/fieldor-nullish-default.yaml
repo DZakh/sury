@@ -5,14 +5,15 @@ ts:
   output: "{ f: number | null | undefined; }"
   instantiations: 731
 jsonSchema:
-  input: "Failed at f: Expected JSON, received number | undefined | null"
+  input: '{ type: "object", properties: { f: { default: 2, anyOf: [{ type: "number" }, { type: "null" }] } } }'
   output: '{ type: "object", properties: { f: { anyOf: [{ type: "number" }, { type: "null" }] } }, required: ["f"] }'
   fromOutputType: "{ f: number | null; }"
   openapi-3.0:
+    input: '{ type: "object", properties: { f: { default: 2, type: "number", nullable: true } } }'
     output: '{ type: "object", properties: { f: { type: "number", nullable: true } }, required: ["f"] }'
 isEqual: (a,b)=>a===b||a.f===b.f
 compare:
-  input: "throws: [Sury] Can't compare { f: number | undefined | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { f: number | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { f: number | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:

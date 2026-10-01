@@ -5,7 +5,7 @@ ts:
   output: string
   instantiations: 4795
 jsonSchema:
-  input: "Failed at f: Expected JSON, received number | undefined"
+  input: '{ type: "object", properties: { f: { default: 1, type: "number" } } }'
   output: '{ type: "string", contentMediaType: "application/json" }'
   draft-2020-12:
     output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { type: "number" } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
@@ -15,7 +15,7 @@ isEqual:
   input: (a,b)=>a===b||a.f===b.f
   output: strictEqual
 compare:
-  input: "throws: [Sury] Can't compare { f: number | undefined | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { f: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: strictCompare
 vs:
   zod:

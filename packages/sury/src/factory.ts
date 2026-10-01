@@ -116,7 +116,9 @@ const makeObjectCtx = (
 // left whole, since the link, not the arm, decides what an absent value would
 // have become.
 const presentOf = (schema: Internal): Internal => {
-  const arms = schema.to === U ? schema.anyOf : U;
+  // An item with a default of its own already outputs it in place of
+  // `undefined`, so it has no absent arm to drop.
+  const arms = schema.to === U && schema.default === U ? schema.anyOf : U;
   if (arms === U) return schema;
   const present = arms.filter((arm) => arm.type !== undefinedTag);
   if (present.length === arms.length || !present.length) return schema;
@@ -129,7 +131,7 @@ const presentOf = (schema: Internal): Internal => {
   // keeps a refiner or metadata of its own.
   const mut = copySchema(schema);
   const has: Partial<Record<Tag, boolean>> = {};
-  for (let idx = 0; idx < present.length; idx++) setHas(has, present[idx]!.type);
+  for (let idx = 0; idx < present.length; idx++) setHas(has, present[idx]!);
   mut.anyOf = present;
   mut.has = has;
   return mut;
@@ -146,7 +148,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, schema.type);
+  setHas(mut.has, schema);
   // A `.to` is what makes reverse start at the item (output is required, not
   // optional), and its reverse step `T -> T | undefined` is the identity. A
   // link's reverse builder is its TARGET's serializer, as `codecTo` places it,
