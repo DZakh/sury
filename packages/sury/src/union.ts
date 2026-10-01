@@ -49,6 +49,7 @@ import {
   type Val
 } from "./base";
 import {
+  B_let,
   _notVar,
   _var,
   B_block,
@@ -61,7 +62,9 @@ import {
   B_unsupportedDecode,
   B_neverSlot,
   B_markOutput,
+  B_collects,
   B_merge,
+  settledTag,
   B_pathArg,
   B_pathSnap,
   B_pushCheck,
@@ -1039,6 +1042,18 @@ const unionEmit = (
   // the case found, precisely.
   const fail = (error?: Failure): string | undefined =>
     recorded ? toEnd(error) : error ? outer?.(error) : final();
+  // Before any case has recorded, a failure is the case's own and goes out
+  // through `outer`, so a container in the case collects if the operation
+  // does. Without an `outer` the dispatch may be wrapped in an async function,
+  // which the labels around it can't be reached from: a container there that
+  // collected raises what it has already recorded instead (`settledTag`).
+  const collects = B_collects(g);
+  if (collects && outer === U) {
+    const nothingMore = B_embedPure(input, { t: settledTag, l: [] });
+    g.y = () => (B_markThrow(input), `throw ${nothingMore}`);
+  }
+  (fail as { k?: () => boolean }).k = () => collects && !recorded;
+  const collected = g.kj;
   const rethrow = (): string => (rethrowEmbed ||= B_embed(input, getOrRethrow));
   // What a case that raised does with the error it caught: records it where
   // the union's failure will read it.
@@ -1468,7 +1483,7 @@ const unionEmit = (
     );
   } else if (!noop) {
     let dispatch = emitChain(cases, true);
-    if (failures) dispatch = `let ${failures};${dispatch}`;
+    if (failures) dispatch = B_let(input.g, failures) + dispatch;
     if (asyncDispatch) {
       const itemVar = input.v();
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
@@ -1496,6 +1511,9 @@ const unionEmit = (
   } else {
     out = output;
   }
+  // A case whose children collected still hands its value on: nothing after
+  // the union may read it (builder.ts `B_merge`).
+  if (g.kj !== collected) out.k = true;
   const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
   out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_;
   if (toPerCase !== U) {
@@ -1637,7 +1655,7 @@ export const unionDecoder: Builder = (input: Val) => {
   // The union swaps in its own exit while it emits, and a compile that throws
   // midway must not leave it behind: json.ts catches a failed parse and parses
   // again on the same operation.
-  const exit = input.g.x;
+  const exit = input.g.x, y = input.g.y;
   try {
     return unionEmit(
       input,
@@ -1649,6 +1667,7 @@ export const unionDecoder: Builder = (input: Val) => {
     );
   } finally {
     input.g.x = exit;
+    input.g.y = y;
   }
 };
 

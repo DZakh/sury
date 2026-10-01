@@ -23,6 +23,9 @@ operations:
       missing:
         input: "{}"
         error: "Failed at b: Refinement failed"
+        issues:
+          - "Failed at b: Refinement failed"
+          - "Failed at c: Refinement failed"
       only-b:
         input: '{ b: "x" }'
         error: "Failed at c: Refinement failed"
@@ -38,6 +41,9 @@ operations:
       missing:
         input: "{}"
         error: "Failed at b: Refinement failed"
+        issues:
+          - "Failed at b: Refinement failed"
+          - "Failed at c: Refinement failed"
       only-b:
         input: '{ b: "x" }'
         error: "Failed at c: Refinement failed"

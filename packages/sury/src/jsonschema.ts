@@ -885,13 +885,11 @@ const withRequired = (schema: Internal, required: string[]): Internal =>
     "Should contain every required property."
   );
 
-// Deliberately not `S.isInput`, whose compiled boolean this looks like: an
-// `is*` operation registers the Result emitter (operations.ts `tailDispatch`),
-// which would ship in every JSON Schema bundle for one keyword's yes/no.
+// A schema that can't compile passes nothing, rather than failing the whole
+// conversion.
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
-    (getOp(0, 3, unknown, schema, assertResult) as (input: unknown) => unknown)(data);
-    return true;
+    return (getOp(4096, 3, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
   } catch {
     return false;
   }

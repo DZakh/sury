@@ -10,6 +10,9 @@
 //           from both sides, and no looser than the decode it feeds.
 //   codec   decode and encode: each lands on the side it claims, parse agrees
 //           with decode, encode undoes decode, and reverse is the same encode.
+//   issues  the Result that reports every failure: its first is the throw's,
+//           `~standard.validate` is the same answer, and a container's fields
+//           report independently of each other.
 //
 // One more property belongs to the runner, since every family needs it first:
 //
@@ -45,11 +48,12 @@ import { codec } from "./schemaFuzz/codec";
 import { knownFor, staleFor } from "./knownBugs";
 import { type Ctx, type Family, reason } from "./schemaFuzz/context";
 import { eq } from "./schemaFuzz/eq";
+import { issues } from "./schemaFuzz/issues";
 import { generateSchema, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { NO_SAMPLE, sample } from "./unionFuzz/sample";
 import type { Sury } from "./unionFuzz/types";
 
-const FAMILIES: Record<string, Family> = { eq, codec };
+const FAMILIES: Record<string, Family> = { eq, codec, issues };
 
 const arg = (name: string, fallback: string): number => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -109,7 +113,11 @@ for (let c = 0; c < cases * seeds; c++) {
   } catch (error) {
     // Without both validators there is no side to sample or hold an answer
     // against, and a refusal that denied them is the schema's own contract.
-    if (!refused(error)) findings.push(`${id}: setup: ${reason(error)}`);
+    if (
+      !refused(error) &&
+      !running.some(([name]) => knownFor(name as "issues", member.shape, "setup", reason(error)))
+    )
+      findings.push(`${id}: setup: ${reason(error)}`);
     continue;
   }
 
@@ -134,11 +142,12 @@ for (let c = 0; c < cases * seeds; c++) {
 
   for (const [name, family] of running) {
     const report = (property: string, detail: string): void => {
-      if (!knownFor(name as "eq" | "codec", member.shape, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
+      if (!knownFor(name as "eq" | "codec" | "issues", member.shape, property, detail)) findings.push(`${id}: ${property}: ${detail}`);
     };
     const ctx: Ctx = {
       S: sury,
       id,
+      shape: member.shape,
       schema,
       reversed,
       lossy: !!member.lossy,
@@ -161,7 +170,7 @@ for (let c = 0; c < cases * seeds; c++) {
   }
 }
 
-if (gate) findings.push(...staleFor(running.map(([name]) => name as "eq" | "codec")));
+if (gate) findings.push(...staleFor(running.map(([name]) => name as "eq" | "codec" | "issues")));
 
 console.log(
   `${Object.entries(counts)

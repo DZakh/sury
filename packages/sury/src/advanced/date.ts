@@ -9,6 +9,7 @@ import {
   type Val
 } from "../base";
 import {
+ B_let,
  B_block,
  B_failInvalidInput,
  B_next,
@@ -66,7 +67,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(
       }
       const output = B_nextVar(input, date, input.e);
       const inputVar = input.v();
-      output.cp = `let ${output.i}=new Date(${inputVar});`;
+      output.cp = B_let(input.g, output.i, `new Date(${inputVar})`);
       output.vc = [{ c: () => `!Number.isNaN(${output.i}.getTime())`, f: failInvalidType }];
       return output;
     } else if ((inputTagFlag & 1)) {
@@ -99,7 +100,7 @@ export const date: Internal = /* @__PURE__ */ initSchema(
           return parse(B_refine(B_next(input, `${input.i}.toISOString()`, dateTimeString, target)));
         }
         const output = B_nextVar(input, dateTimeString, target);
-        output.cp = `let ${output.i};try{${output.i}=${input.v()}.toISOString()}catch(_)${B_block(B_failInvalidInput(input, input.s))}`;
+        output.cp = `${B_let(input.g, output.i)}try{${output.i}=${input.v()}.toISOString()}catch(_)${B_block(B_failInvalidInput(input, input.s))}`;
         return parse(B_refine(output));
       } else {
         return input;

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)"
+  input: "{ f?: string | null | undefined; }"
+  output: string
+  instantiations: 5964
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: null, anyOf: [{ type: "string" }, { type: "null" }] } } }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { anyOf: [{ type: "string" }, { anyOf: [{ type: "string" }, { type: "null" }] }, { type: "null" }] } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { default: null, type: "string", nullable: true } } }'
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.f===b.f
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { f: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: known bug jsonstring-null-default-inlined
+    creationError: "SyntaxError: Invalid left-hand side in assignment"
+  decode:
+    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="string")break;if(v0===null)break;if(v0===void 0){v0=null;break}throw e[0](v0)}let v1;for(;;){if(typeof v0==="string"){v0=e[1](v0);break}if(v0===null){v0="null";break}l2:{for(;;){if(typeof v0==="string"){v0=e[1](v0);break}if(v0===null){v0="null";break}v1=[v1,e[2](v0)];break l2}break}throw e[3](v0,v1)}return "{\"f\":"+v0+"}"}catch(v3){e[4](v3)}}
+    examples:
+      missing-takes-the-null-default:
+        input: "{}"
+        output: '"{\"f\":null}"'
+      string:
+        input: '{ f: "x" }'
+        output: '"{\"f\":\"x\"}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.f;(typeof v1==="string"||v1===null)||e[1](v1);return {f:v1}}catch(v2){e[3](v2)}}
+    examples:
+      "null":
+        input: '"{\"f\":null}"'
+        output: "{ f: null }"
+      string:
+        input: '"{\"f\":\"x\"}"'
+        output: '{ f: "x" }'
