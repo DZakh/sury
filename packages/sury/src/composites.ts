@@ -207,6 +207,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val.i);
+      // The join rebinds `val.i` to what the promise resolved to, and the
+      // field vals the promise was built from describe none of it.
+      val.d = U;
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;

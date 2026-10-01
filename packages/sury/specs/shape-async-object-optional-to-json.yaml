@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }), b: S.optional(S.string) }).with(S.shape, (v) => ({ TAG: "Wrap" as const, _0: v }))).with(S.to, S.json)'
+  input: '{ TAG: "Wrap"; _0: { a: string; b?: string | undefined; }; }'
+  output: JSON
+  instantiations: 6684
+jsonSchema:
+  input: '{ type: "object", properties: { TAG: { type: "string", const: "Wrap" }, _0: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a"] } }, required: ["TAG", "_0"] }'
+  output: "{}"
+  openapi-3.0:
+    input: '{ type: "object", properties: { TAG: { type: "string", enum: ["Wrap"] }, _0: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a"] } }, required: ["TAG", "_0"] }'
+isEqual:
+  input: (a,b)=>a===b||a._0.a===b._0.a&&a._0.b===b._0.b
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { TAG: \"Wrap\"; _0: { a: string; b: string | undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.TAG,v1=i._0;v0==="Wrap"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[6](v1);let v3=v1.a,v5=v1.b;typeof v3==="string"||e[4](v3);let v2;try{v2=e[1](v3).catch(x=>{e[2](x)})}catch(x){e[2](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[3](v2);return v2});(typeof v5==="string"||v5===void 0)||e[5](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,b:v5}});return Promise.all([v6]).then(([v6])=>{let v8=v6.b;let v7={a:v6.a};if(v8!==void 0){v7.b=v8}return v7}).catch(e[8])}catch(v9){return e[9](v9)}}
+    examples:
+      none:
+        input: '{ TAG: "Wrap", _0: { a: "x!" } }'
+        output: '{ a: "x" }'
+      some:
+        input: '{ TAG: "Wrap", _0: { a: "x!", b: "y" } }'
+        output: '{ a: "x", b: "y" }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i._0;let v1;try{v1=e[0](v0.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v3=Promise.all([v2]).then(([v2])=>{return {a:v2,b:v0.b}});return Promise.all([v3]).then(([v3])=>{let v5=v3.b;let v4={a:v3.a};if(v5!==void 0){v4.b=v5}return v4}).catch(e[3])}catch(v6){return e[4](v6)}}
+    examples:
+      none:
+        input: '{ TAG: "Wrap", _0: { a: "x!" } }'
+        output: '{ a: "x" }'
+      some:
+        input: '{ TAG: "Wrap", _0: { a: "x!", b: "y" } }'
+        output: '{ a: "x", b: "y" }'
+  encode:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.a,v3=(i.b??null);typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v0.then(v0=>{typeof v0==="string"||e[2](v0);return v0});for(;;){if(typeof v3==="string")break;if(v3===null){v3=void 0;break}throw e[4](v3)}return Promise.all([v2]).then(([v2])=>{return {TAG:"Wrap",_0:{a:v2,b:v3}}}).catch(e[6])}catch(v4){return e[7](v4)}}
+    examples:
+      none:
+        input: '{ a: "x" }'
+        output: '{ TAG: "Wrap", _0: { a: "x!", b: undefined } }'
+      some:
+        input: '{ a: "x", b: "y" }'
+        output: '{ TAG: "Wrap", _0: { a: "x!", b: "y" } }'
