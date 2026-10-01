@@ -18,7 +18,6 @@
 
 import {
   absorbs,
-  admitsUndefined,
   type Shape,
   shadowsEmpty,
   some,
@@ -64,19 +63,6 @@ export const KNOWN_BUGS: Known[] = [
       f.property === "conformance" &&
       f.detail.includes("isOutput rejects") &&
       some(f.shape, (node) => node.name === "with" && node.raw === "to"),
-  },
-  {
-    id: "fieldor-absent-item-output",
-    kind: "bug",
-    summary:
-      "`s.fieldOr(name, S.nullish(x), d)` keeps `undefined` in its Output type although the default " +
-      "always replaces it, so `isOutput({})` is true and `{}` does not round-trip.",
-    spec: "fieldor-nullish-default",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "round-trip" &&
-      some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
     id: "union-never-member",

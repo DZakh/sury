@@ -26,6 +26,7 @@ import {
   pathEmpty,
   pathToText,
   setHas,
+  type Tag,
   U,
   undefinedTag,
   unknown,
@@ -60,7 +61,7 @@ import {
 } from "./composites";
 import { getOutputSchema, parse, reverse, setDefault } from "./parse";
 import { Literal_parse, unit } from "./primitives";
-import { unionFactory } from "./union";
+import { unionFactory, unionIsTransparent } from "./union";
 
 type ShapedSerializerAcc = {
   val?: Val;
@@ -108,13 +109,42 @@ const makeObjectCtx = (
   flatten,
 });
 
+// The item as the default leaves it. An absent value takes the default and
+// never reaches the item's decoder, so the arms only `undefined` reaches are no
+// part of the Output: `s.fieldOr(f, S.nullish(x), d)` outputs `x | null`, the
+// same as `s.field(f, S.optional(S.nullish(x), d))`. A union behind a `.to` is
+// left whole, since the link, not the arm, decides what an absent value would
+// have become.
+const presentOf = (schema: Internal): Internal => {
+  // An item with a default of its own already outputs it in place of
+  // `undefined`, so it has no absent arm to drop.
+  const arms = schema.to === U && schema.default === U ? schema.anyOf : U;
+  if (arms === U) return schema;
+  const present = arms.filter((arm) => arm.type !== undefinedTag);
+  if (present.length === arms.length || !present.length) return schema;
+  // A union of one is its member, as `unionFactory` hands it back, and code
+  // past here assumes no other union has a single arm. One with a refiner or
+  // metadata of its own stays whole rather than lose them.
+  if (present.length === 1) return unionIsTransparent(schema) ? present[0]! : schema;
+  // A copy rather than `unionFactory`, which would bring the union planner to
+  // every object export; the item already carries its union decoder, and
+  // keeps a refiner or metadata of its own.
+  const mut = copySchema(schema);
+  const has: Partial<Record<Tag, boolean>> = {};
+  for (let idx = 0; idx < present.length; idx++) setHas(has, present[idx]!);
+  mut.anyOf = present;
+  mut.has = has;
+  return mut;
+};
+
 // Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
-  const item = getOutputSchema(schema);
+  const present = presentOf(schema);
+  const item = getOutputSchema(present);
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
@@ -124,16 +154,16 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   // link's reverse builder is its TARGET's serializer, as `codecTo` places it,
   // so it goes on a copy of the item: encode is the item's own reverse, trusted
   // the way `s.field` trusts it (#452).
-  const toMut = copySchema(schema);
+  const toMut = copySchema(present);
   toMut.serializer = (input: Val) => {
     const output = B_refine(input, U, U, input.e.to);
     output.io = true;
     return output;
   };
   mut.to = toMut;
-  setDefault(mut, schema, or);
+  setDefault(mut, present, or);
 
-  const parseAs = copySchema(schema);
+  const parseAs = copySchema(present);
   parseAs.expression = () => inputExpression(mut);
 
   mut.parser = (input: Val) => {

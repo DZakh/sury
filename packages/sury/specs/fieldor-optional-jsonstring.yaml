@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.optional(S.number), 1) })).with(S.to, S.jsonString)'
+  input: "{ [x: string]: unknown; }"
+  output: string
+  instantiations: 4795
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: 1, type: "number" } } }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { type: "number" } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.f===b.f
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { f: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0===void 0){v0=1}else{typeof v0==="number"&&v0==v0||e[0](v0);}return "{\"f\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}"}catch(v1){e[3](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: '"{\"f\":1}"'
+      present:
+        input: "{ f: 2 }"
+        output: '"{\"f\":2}"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=1}else{typeof v0==="number"&&v0==v0||e[0](v0);}return "{\"f\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}"}catch(v1){e[2](v1)}}
+    examples:
+      present:
+        input: "{ f: 2 }"
+        output: '"{\"f\":2}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0.f;typeof v1==="number"&&v1==v1||e[1](v1);return {f:v1}}catch(v2){e[3](v2)}}
+    examples:
+      present:
+        input: '"{\"f\":2}"'
+        output: "{ f: 2 }"

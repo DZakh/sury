@@ -139,7 +139,7 @@ const unionNeverLink = (schema: Internal): boolean => {
 // provenance instead - and a non-enumerable one (the only kind that would not
 // itself change the count) is dropped by `copySchema`, which would make every
 // reversed union opaque.
-const unionIsTransparent = (schema: Internal): boolean => {
+export const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const _key in schema) fields++;
