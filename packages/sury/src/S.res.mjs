@@ -103,6 +103,22 @@ function compileConvertAsResultPromise(from, via, to) {
   }
 }
 
+function compileConvertAsStandardResult(from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsResult(from, via, to);
+  } else {
+    return Sury.encodeAsResult(from, to);
+  }
+}
+
+function compileConvertAsStandardResultPromise(from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsResultPromise(from, via, to);
+  } else {
+    return Sury.encodeAsResultPromise(from, to);
+  }
+}
+
 function convertOrThrow(any, from, via, to) {
   if (via !== undefined) {
     return Sury.encodeOrThrow(any, from, via, to);
@@ -132,6 +148,22 @@ function convertAsResultPromise(any, from, via, to) {
     return Sury.$encodeAsResultPromise(any, from, via, to);
   } else {
     return Sury.$encodeAsResultPromise(any, from, to);
+  }
+}
+
+function convertAsStandardResult(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsResult(any, from, via, to);
+  } else {
+    return Sury.encodeAsResult(any, from, to);
+  }
+}
+
+function convertAsStandardResultPromise(any, from, via, to) {
+  if (via !== undefined) {
+    return Sury.encodeAsResultPromise(any, from, via, to);
+  } else {
+    return Sury.encodeAsResultPromise(any, from, to);
   }
 }
 
@@ -185,10 +217,14 @@ export {
   compileConvertAsPromiseOrReject,
   compileConvertAsResult,
   compileConvertAsResultPromise,
+  compileConvertAsStandardResult,
+  compileConvertAsStandardResultPromise,
   convertOrThrow,
   convertAsPromiseOrReject,
   convertAsResult,
   convertAsResultPromise,
+  convertAsStandardResult,
+  convertAsStandardResultPromise,
   Schema,
   $$Object,
   Tuple,

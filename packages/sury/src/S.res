@@ -776,6 +776,45 @@ let to = (from, target, ~custom=?) =>
     t<unknown>,
     t<'to>,
   ) => promise<result<'to, error>> = "$encodeAsResultPromise"
+  @module("sury")
+  external compileConvertStandard2: (t<'from>, t<'to>) => 'from => StandardSchema.Result.t<'to> =
+    "encodeAsResult"
+  @module("sury")
+  external compileConvertStandard3: (
+    t<'from>,
+    t<unknown>,
+    t<'to>,
+  ) => 'from => StandardSchema.Result.t<'to> = "encodeAsResult"
+  @module("sury")
+  external convertStandard2: ('from, t<'from>, t<'to>) => StandardSchema.Result.t<'to> =
+    "encodeAsResult"
+  @module("sury")
+  external convertStandard3: ('from, t<'from>, t<unknown>, t<'to>) => StandardSchema.Result.t<'to> =
+    "encodeAsResult"
+  @module("sury")
+  external compileConvertStandardPromise2: (
+    t<'from>,
+    t<'to>,
+  ) => 'from => promise<StandardSchema.Result.t<'to>> = "encodeAsResultPromise"
+  @module("sury")
+  external compileConvertStandardPromise3: (
+    t<'from>,
+    t<unknown>,
+    t<'to>,
+  ) => 'from => promise<StandardSchema.Result.t<'to>> = "encodeAsResultPromise"
+  @module("sury")
+  external convertStandardPromise2: (
+    'from,
+    t<'from>,
+    t<'to>,
+  ) => promise<StandardSchema.Result.t<'to>> = "encodeAsResultPromise"
+  @module("sury")
+  external convertStandardPromise3: (
+    'from,
+    t<'from>,
+    t<unknown>,
+    t<'to>,
+  ) => promise<StandardSchema.Result.t<'to>> = "encodeAsResultPromise"
 )
 
 // The compiled (data-last) forms.
@@ -790,6 +829,15 @@ external compileParseAsResult: (~to: t<'value>) => 'any => result<'value, error>
 @module("sury")
 external compileParseAsResultPromise: (~to: t<'value>) => 'any => promise<result<'value, error>> =
   "$parseAsResultPromise"
+// The JS Result is a Standard Schema result, so the standard outcomes are the
+// JS operations themselves: every issue, not only the first.
+@module("sury")
+external compileParseAsStandardResult: (~to: t<'value>) => 'any => StandardSchema.Result.t<'value> =
+  "parseAsResult"
+@module("sury")
+external compileParseAsStandardResultPromise: (
+  ~to: t<'value>,
+) => 'any => promise<StandardSchema.Result.t<'value>> = "parseAsResultPromise"
 
 // One dispatch on `~via` for the four convert outcomes, over the arity-specific
 // externals above.
@@ -821,6 +869,10 @@ let compileConvertAsResult = (~from, ~via=?, ~to) =>
   withVia(~from, ~via, ~to, compileConvertResult2, compileConvertResult3)
 let compileConvertAsResultPromise = (~from, ~via=?, ~to) =>
   withVia(~from, ~via, ~to, compileConvertResultPromise2, compileConvertResultPromise3)
+let compileConvertAsStandardResult = (~from, ~via=?, ~to) =>
+  withVia(~from, ~via, ~to, compileConvertStandard2, compileConvertStandard3)
+let compileConvertAsStandardResultPromise = (~from, ~via=?, ~to) =>
+  withVia(~from, ~via, ~to, compileConvertStandardPromise2, compileConvertStandardPromise3)
 
 // `assert` is a ReScript keyword, so the boolean-answering check keeps the JS
 // name: `isInput` asks of the wire side, `isOutput` of the value side.
@@ -846,6 +898,14 @@ external compileMakeAsResult: (~schema: t<'value>) => 'value => result<'value, e
 external compileMakeAsResultPromise: (
   ~schema: t<'value>,
 ) => 'value => promise<result<'value, error>> = "$makeAsResultPromise"
+@module("sury")
+external compileMakeAsStandardResult: (
+  ~schema: t<'value>,
+) => 'value => StandardSchema.Result.t<'value> = "makeOutputAsResult"
+@module("sury")
+external compileMakeAsStandardResultPromise: (
+  ~schema: t<'value>,
+) => 'value => promise<StandardSchema.Result.t<'value>> = "makeOutputAsResultPromise"
 
 // `t<'value>` names the output type, so the output side is THE equality here;
 // the input side has no type to compare against. Compares two values that
@@ -871,6 +931,14 @@ external parseAsResult: ('any, ~to: t<'value>) => result<'value, error> = "$pars
 @module("sury")
 external parseAsResultPromise: ('any, ~to: t<'value>) => promise<result<'value, error>> =
   "$parseAsResultPromise"
+@module("sury")
+external parseAsStandardResult: ('any, ~to: t<'value>) => StandardSchema.Result.t<'value> =
+  "parseAsResult"
+@module("sury")
+external parseAsStandardResultPromise: (
+  'any,
+  ~to: t<'value>,
+) => promise<StandardSchema.Result.t<'value>> = "parseAsResultPromise"
 
 @module("sury")
 external assertInputOrThrow: ('any, ~schema: t<'value>) => unit = "assertInputOrThrow"
@@ -898,6 +966,14 @@ external makeAsResult: ('value, ~schema: t<'value>) => result<'value, error> = "
 @module("sury")
 external makeAsResultPromise: ('value, ~schema: t<'value>) => promise<result<'value, error>> =
   "$makeAsResultPromise"
+@module("sury")
+external makeAsStandardResult: ('value, ~schema: t<'value>) => StandardSchema.Result.t<'value> =
+  "makeOutputAsResult"
+@module("sury")
+external makeAsStandardResultPromise: (
+  'value,
+  ~schema: t<'value>,
+) => promise<StandardSchema.Result.t<'value>> = "makeOutputAsResultPromise"
 
 let convertOrThrow = (any, ~from, ~via=?, ~to) =>
   withViaData(any, ~from, ~via, ~to, convert2, convert3)
@@ -907,6 +983,10 @@ let convertAsResult = (any, ~from, ~via=?, ~to) =>
   withViaData(any, ~from, ~via, ~to, convertResult2, convertResult3)
 let convertAsResultPromise = (any, ~from, ~via=?, ~to) =>
   withViaData(any, ~from, ~via, ~to, convertResultPromise2, convertResultPromise3)
+let convertAsStandardResult = (any, ~from, ~via=?, ~to) =>
+  withViaData(any, ~from, ~via, ~to, convertStandard2, convertStandard3)
+let convertAsStandardResultPromise = (any, ~from, ~via=?, ~to) =>
+  withViaData(any, ~from, ~via, ~to, convertStandardPromise2, convertStandardPromise3)
 
 @module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 
