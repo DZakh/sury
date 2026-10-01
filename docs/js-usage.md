@@ -747,7 +747,7 @@ S.parseOrThrow(schema, undefined); // => "fallback"
 S.parseOrThrow(schema, null); // => "fallback"
 ```
 
-To replace only `undefined` and keep `null`, wrap it instead: `S.optional(S.nullish(S.string), "fallback")`.
+To replace only `undefined` and keep `null`, use `S.optional(S.nullable(S.string), "fallback")`.
 
 ## Objects
 
