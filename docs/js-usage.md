@@ -997,13 +997,6 @@ The schema function `union` creates an OR relationship between any number of sch
 
 > 🧠 Members are matched in the order they are passed to `S.union` - the first one that fits the value wins.
 
-That includes `null` and `undefined`: a default on an earlier member reads them, so a later member never does, and an `undefined` it encodes reads back as the default. Put the default on the union instead:
-
-```ts
-S.parseOrThrow(S.union([S.optional(S.string, "none"), S.optional(S.number)]), undefined); // => "none"
-S.parseOrThrow(S.optional(S.union([S.string, S.number]), "none"), undefined); // => "none"
-```
-
 It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.
 
 ```ts
@@ -1014,6 +1007,16 @@ const stringOrNumberSchema = S.union([S.string, S.number]);
 
 S.parseOrThrow(stringOrNumberSchema, "foo"); // passes
 S.parseOrThrow(stringOrNumberSchema, 14); // passes
+```
+
+The first member that fits wins for `null` and `undefined` too. Once an earlier member's default takes one, a later member never sees it, though the type still lists it. Put the default on the union instead:
+
+```ts
+const schema = S.union([S.optional(S.string, "none"), S.optional(S.number)]);
+S.parseOrThrow(schema, undefined); // => "none"
+S.parseOrThrow(schema, S.encodeOrThrow(schema, undefined)); // => "none", not undefined
+
+S.optional(S.union([S.string, S.number]), "none"); // ✅ string | number
 ```
 
 ### Discriminated unions

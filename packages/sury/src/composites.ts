@@ -719,10 +719,9 @@ export const traverseDefinition = (
 }
 
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
-// not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
-// key is decoded as `undefined` where `readsAbsent` says the target does work
-// on it; otherwise it stays absent (None) against an optional target and fails
-// against a required one - not the string `"undefined"`.
+// not put the union compiler on the objectDecoder/arrayDecoder SCC. The key's
+// presence is asked before the item's decode, which would otherwise coerce a
+// missing key into the string `"undefined"`.
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();

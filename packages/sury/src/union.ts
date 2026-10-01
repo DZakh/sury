@@ -1918,7 +1918,6 @@ export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   return unionFactory(arms);
 };
 
-// Where it went ahead of an arm that would have changed the value, or -1.
 export const unionPlaceEmpty = (arms: Internal[], empty: Internal): number => {
   const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
   arms.splice(at < 0 ? arms.length : at, 0, empty);

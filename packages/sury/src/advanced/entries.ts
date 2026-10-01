@@ -75,9 +75,8 @@ export const admitsBlank = (schema: Internal): boolean =>
   schema.const === "" ||
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
 
-// The arm an unset entry reads through, if the field may be unset. Direct arms,
-// not `has`: a nested union's own empty arm carries a default or conversion
-// this would skip.
+// Direct arms, not `has`: a nested union reads its own empty arm, with the
+// default or conversion an entry reader would skip.
 export const absentArm = (schema: Internal): Internal | undefined => {
   const arms = schema.anyOf || [schema];
   return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
