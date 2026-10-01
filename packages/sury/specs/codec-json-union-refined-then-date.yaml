@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.union([S.boolean, S.string.with(S.to, S.number)]).with(S.refine, () => true), S.date]))
+  input: JSON
+  output: number | boolean | Date
+  instantiations: 6862
+jsonSchema:
+  input: '{ anyOf: [{ type: "boolean" }, { type: "string" }, { type: "string", format: "date-time" }] }'
+  fromInputType: string | boolean
+  output: Expected JSON, received boolean | number | Date
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare boolean | number | Date. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v2;for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}l3:{try{for(;;){if(typeof i==="boolean")break;if(typeof i==="string"){let v1=+i;if(!(v1==v1&&(v1||i.trim()))){v2=[v2,e[1],i];break l3}i=v1;break}v2=[v2,e[2](i)];break l3}if(!(e[3](i))){v2=[v2,e[4],i];break l3}break}catch(x){v2=[v2,e[5](x)]}}throw e[6](i,v2)}return i}catch(v4){e[7](v4)}}
+    examples:
+      # FIXME: the date member counts as native to JSON, so it takes "1" ahead of the first member
+      first-member:
+        input: '"1"'
+        output: new Date("2001-01-01T00:00:00.000Z")
+      boolean:
+        input: "true"
+        output: "true"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){e[0](i)}i=v0;break}l2:{try{for(;;){if(typeof i==="boolean"){if(!(e[2](i))){v1=[v1,e[3],i];break l2}break}if(typeof i==="number"&&i==i){if(!(e[2](i))){v1=[v1,e[4],i];break l2}i=""+i;break}v1=[v1,e[5](i)];break l2}break}catch(x){v1=[v1,e[6](x)]}}throw e[7](i,v1)}return i}catch(v3){e[8](v3)}}
+    examples:
+      number:
+        input: "1"
+        output: '"1"'
