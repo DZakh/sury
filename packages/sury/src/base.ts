@@ -1231,8 +1231,7 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
 }
 
 export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
-  if (member.has !== U) Object.assign(has, member.has);
-  else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;
+  Object.assign(has, member.has || { [(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type]: true });
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:
