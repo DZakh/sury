@@ -3,7 +3,7 @@ ts:
   schema: S.nullish(1)
   input: 1 | null | undefined
   output: 1 | null | undefined
-  instantiations: 387
+  instantiations: 390
 jsonSchema:
   input: Expected JSON, received 1 | null | undefined
   output: Expected JSON, received 1 | null | undefined
