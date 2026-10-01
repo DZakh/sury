@@ -189,11 +189,6 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
   const takers: [string, () => unknown, string][] = [
     ['env->nullable(string,"d")', () => S.env.with(S.to, S.nullable(S.string, "d")), "envTo"],
-    [
-      "env->nullable(string)->optional(string)",
-      () => S.env.with(S.to, S.nullable(S.string).with(S.to, S.optional(S.string))),
-      "envTo",
-    ],
     ['env->optional(string,"dev")', () => S.env.with(S.to, S.optional(S.string, "dev")), "envTo"],
     ["env->port", () => S.env.with(S.to, S.port), "envTo"],
     ["null->0", () => S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }), "fromEmpty"],
@@ -258,36 +253,13 @@ const tupleMember = (S: Sury, rng: Rng): MemberSpec => {
   };
 };
 
-// A draw S.union refuses keeps its first member, so the stream stays aligned.
-// The refusal has to hold for the members alone: the first turns the empty
-// value into something else, the second keeps it. Anything less is a finding.
 const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   const a = memberAt(S, rng, depth + 1);
   const b = memberAt(S, rng, depth + 1);
-  let schema: unknown;
-  try {
-    schema = S.union([a.schema, b.schema]);
-  } catch (error) {
-    const tag = /^\[Sury\] S\.union can't keep (null|undefined)/.exec((error as Error).message)?.[1];
-    if (tag === undefined) throw error;
-    const empty = tag === "null" ? null : undefined;
-    const read = (member: MemberSpec): unknown => {
-      try {
-        return S.parseOrThrow(empty, member.schema);
-      } catch {
-        return NO_SAMPLE;
-      }
-    };
-    const first = read(a);
-    if (first === empty || first === NO_SAMPLE || read(b) !== empty) {
-      refused.push(`union(${a.id},${b.id}) - refused ${tag} that ${a.id} does not replace or ${b.id} does not keep`);
-    }
-    return a;
-  }
   return {
     id: `union(${a.id},${b.id})`,
     shape: node("union", a.shape, b.shape),
-    schema,
+    schema: S.union([a.schema, b.schema]),
     lossy: a.lossy || b.lossy,
   };
 };

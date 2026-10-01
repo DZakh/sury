@@ -53,4 +53,5 @@ export const absorbs = (node: Shape): boolean =>
   (node.name === "recursive" && node.form !== "tree" && ANY.has(node.args[0]!.name)) ||
   ((node.name === "field" || node.name === "renamed") && admitsUndefined(node.args[0]!)) ||
   ((node.name === "list" || node.name === "array") && some(node.args[0]!, (n) => ANY.has(n.name))) ||
-  (["optional", "nullable", "nullish"].includes(node.name) && absorbs(node.args[0]!));
+  (["optional", "nullable", "nullish"].includes(node.name) &&
+    (absorbs(node.args[0]!) || node.args[1]?.name === "#value"));

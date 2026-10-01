@@ -5,7 +5,6 @@
 import {
   anyOfTag,
   copySchema,
-  emptyArm,
   inputExpression,
   type Internal,
   nullTag,
@@ -75,6 +74,13 @@ export const admitsBlank = (schema: Internal): boolean =>
   schema.minLength === 0 ||
   schema.const === "" ||
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
+
+// What an unset entry reads through. Direct arms, not `has`: a nested union's
+// own empty arm carries a default or conversion this would skip.
+const emptyArm = (schema: Internal): Internal | undefined => {
+  const arms = schema.anyOf || [schema];
+  return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
+};
 
 export const isAbsent = (schema: Internal): boolean => emptyArm(schema) !== U;
 

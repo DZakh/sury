@@ -20,7 +20,6 @@ import {
   type Builder,
   type Check,
   type Encoder,
-  emptyArm,
   errorAt,
   errorSite,
   getOrRethrow,
@@ -73,7 +72,7 @@ import {
   type HoistCond,
   operationArgVar,
 } from "./builder";
-import { getOutputSchema, nestedLoc, never_, outputExpression, parse, typeCheckCond } from "./parse";
+import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -1949,58 +1948,4 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.encoder = unionEncoder;
   mut.has = has;
   return mut;
-};
-
-// A member that passes `null`/`undefined` through, behind one that already
-// turns it into something else, is an Output decode never produces, so the
-// union could not read back what it writes. Only a written `S.union` can order
-// its members that way: a wrapper puts its own empty arm ahead of any arm that
-// would change it (`unionWrap`).
-export const unionCheckEmpties = (schema: Internal): Internal => {
-  const anyOf = schema.anyOf || [];
-  // The first member to take the value settles it: once one passes it through
-  // (`true`), a later one that keeps it too is not shadowed.
-  const replaced: Partial<Record<Tag, Internal | true>> = {};
-  for (let idx = 0; idx < anyOf.length; idx++) {
-    for (const tag of [nullTag, undefinedTag]) {
-      const replaces = unionReplaces(anyOf[idx]!, tag);
-      if (replaces === U) continue;
-      if (replaces) replaced[tag] ||= anyOf[idx];
-      else if (replaced[tag] === U) replaced[tag] = true;
-      else if (replaced[tag] !== true) {
-        panic(
-          `S.union can't keep ${tag}: an earlier member decodes it to ${outputExpression(replaced[tag] as Internal)}. Drop ${tag} from the later member, or from both and wrap the union: S.${tag === nullTag ? "nullable" : "optional"}(S.union([...]), default)`
-        );
-      }
-    }
-  }
-  return schema;
-};
-
-// Whether a member surely replaces `tag` (`true`), surely keeps it (`false`),
-// or can't be told (`undefined`). The opposite lean to `unionChanges`: a member
-// that only may take the value, or may reject it and hand it on, is not
-// counted, so nothing valid is refused.
-const unionReplaces = (s: Internal, tag: Tag, refs?: Internal[]): boolean | undefined => {
-  if (s.type === tag) return s.to !== U;
-  // The way `S.env` reads an unset var (`emptyArm`). An env var is never null,
-  // and past the target's own `.to` what the empty arm decodes to can't be told.
-  if (s.format === "env") {
-    const target = s.to;
-    if (tag !== undefinedTag) return U;
-    if (target === U) return false;
-    const arm = emptyArm(target);
-    if (arm === U) return U;
-    const out = getOutputSchema(arm).type;
-    return out !== undefinedTag && out !== nullTag ? true : target.to === U ? out === nullTag : U;
-  }
-  if (s.type === refTag) {
-    const def = s.definition || unionRefDef(s);
-    return def === U || refs?.includes(s) ? U : unionReplaces(def, tag, [...(refs || []), s]);
-  }
-  if (s.type !== anyOfTag) return U;
-  const arm = s.anyOf!.find((arm) => unionMask(arm, 1, 0) & tagFlags[tag]!);
-  const replaces = arm && unionReplaces(arm, tag, refs);
-  // Past a `.to`, a value the arms kept may still become something else.
-  return s.to === U || replaces ? replaces : U;
 };

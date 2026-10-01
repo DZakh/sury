@@ -997,14 +997,11 @@ The schema function `union` creates an OR relationship between any number of sch
 
 > 🧠 Members are matched in the order they are passed to `S.union` - the first one that fits the value wins.
 
-So a member can't keep `null` or `undefined` that an earlier member's default already replaces, and `S.union` refuses it:
+That includes `null` and `undefined`: a default on an earlier member reads them, so a later member never does, and an `undefined` it encodes reads back as the default. Put the default on the union instead:
 
 ```ts
-S.union([S.optional(S.string, "none"), S.optional(S.number)]);
-// throws: [Sury] S.union can't keep undefined: an earlier member decodes it to string. Drop
-// undefined from the later member, or from both and wrap the union: S.optional(S.union([...]), default)
-
-S.optional(S.union([S.string, S.number]), "none"); // ✅
+S.parseOrThrow(S.union([S.optional(S.string, "none"), S.optional(S.number)]), undefined); // => "none"
+S.parseOrThrow(S.optional(S.union([S.string, S.number]), "none"), undefined); // => "none"
 ```
 
 It's also available as `S.anyOf`, matching the JSON Schema keyword it maps to.

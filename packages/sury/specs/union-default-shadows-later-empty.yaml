@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.union([S.nullable(S.boolean, false), S.schema(null)]), b: S.union([S.optional(S.string, "none"), S.optional(S.number)]) })'
+  input: "{ a: boolean | null; b?: string | number | undefined; }"
+  output: "{ a: boolean | null; b?: string | number | undefined; }"
+  instantiations: 4372
+jsonSchema:
+  input: '{ type: "object", properties: { a: { anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "boolean" }, { type: "null" }] }, b: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { a: { default: false, type: "boolean", nullable: true }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] } }, required: ["a"] }'
+    output: '{ type: "object", properties: { a: { type: "boolean", nullable: true }, b: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b
+compare: "throws: [Sury] Can't compare { a: boolean | null; b: string | number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.object({ a: z.union([z.boolean().nullable().transform((v) => v ?? false), z.null()]), b: z.union([z.string().optional().transform((v) => v ?? "none"), z.number().optional()]) })'
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.a,v3=i.b;let v1;for(;;){l2:{for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=false;break}v1=[v1,e[0](v0)];break l2}break}if(v0===null)break;throw e[1](v0,v1)}let v4;for(;;){if(typeof v3==="number"&&v3==v3)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="none";break}v4=[v4,e[2](v3)];break l5}break}if(v3===void 0)break;throw e[3](v3,v4)}return {a:v0,b:v3}}catch(v6){e[5](v6)}}
+    examples:
+      first-member-reads-the-empty-values:
+        input: "{ a: null }"
+        output: '{ a: false, b: "none" }'
+      present:
+        input: "{ a: true, b: 2 }"
+        output: "{ a: true, b: 2 }"
+  decode:
+    expression: i=>{try{let v0=i.a,v3=i.b;let v1;for(;;){l2:{for(;;){if(typeof v0==="boolean")break;if(v0===null){v0=false;break}v1=[v1,e[0](v0)];break l2}break}if(v0===null)break;throw e[1](v0,v1)}let v4;for(;;){if(typeof v3==="number"&&v3==v3)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="none";break}v4=[v4,e[2](v3)];break l5}break}if(v3===void 0)break;throw e[3](v3,v4)}return {a:v0,b:v3}}catch(v6){e[4](v6)}}
+    examples:
+      first-member-reads-the-empty-values:
+        input: "{ a: null }"
+        output: '{ a: false, b: "none" }'
+  encode:
+    expression: i=>{try{let v0=i.a,v1=i.b;(v0===null||typeof v0==="boolean")||e[0](v0);(typeof v1==="number"&&v1==v1||v1===void 0||typeof v1==="string")||e[1](v1);return i}catch(v2){e[2](v2)}}
+    examples:
+      later-members-write-them:
+        input: "{ a: null, b: undefined }"
+        output: "{ a: null, b: undefined }"
+      present:
+        input: "{ a: true, b: 2 }"
+        output: "{ a: true, b: 2 }"
