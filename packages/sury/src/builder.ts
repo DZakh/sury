@@ -457,7 +457,8 @@ const B_foreignFail = (
 // what `Object.assign` drops or throws on: a non-enumerable key, or one
 // shadowing a read-only key on the prototype. Those copy by descriptor. A
 // `stack` - V8's own, SpiderMonkey's on `Error.prototype` - is an accessor that
-// reads the instance it was captured on, so it is copied as a value.
+// reads the instance it was captured on, so it is copied as a value; an own
+// data one already came across with the rest, and may refuse a redefinition.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
   const proto = Object.getPrototypeOf(error) as object;
@@ -470,7 +471,8 @@ const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
     copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
   else {
     copy = Object.create(proto, Object.getOwnPropertyDescriptors(error)) as SuryErrorRecord;
-    if ("stack" in error)
+    const stack = Object.getOwnPropertyDescriptor(error, "stack");
+    if (stack ? stack.get && stack.configurable : "stack" in error)
       Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
   }
   copy.path = pathConcat(p, error.path);

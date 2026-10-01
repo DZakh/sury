@@ -24,6 +24,9 @@ operations:
       bad-kid-again:
         input: '{ v: "b", kid: { v: "bad" } }'
         error: "Failed at kid: Expected string, received 1"
+      bad-grandkid:
+        input: '{ v: "a", kid: { v: "b", kid: { v: "bad" } } }'
+        error: "Failed at kid.kid: Expected string, received 1"
   decode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
