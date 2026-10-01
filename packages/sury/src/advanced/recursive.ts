@@ -12,6 +12,7 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
   B_embed,
   B_markOutput,
   B_mergeWithPathPrepend,
@@ -121,7 +122,7 @@ export const recursiveDecoder: Builder = (input) => {
   let output: Val;
   if (hasTransform || isAsync) {
     output = B_nextVar(input, expectedSchema);
-    outputDecl = `let ${output.i};`;
+    outputDecl = B_let(input.g, output.i);
 
     output.cp = `${output.i}=${recOperation}(${input.i});`;
 

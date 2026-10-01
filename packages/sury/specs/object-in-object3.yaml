@@ -28,6 +28,14 @@ operations:
       invalid-nested:
         input: '{ a: "x", nested: { b: "not a number", inner: { c: true } } }'
         error: 'Failed at nested.b: Expected number, received "not a number"'
+      invalid-every-level:
+        input: '{ a: 1, nested: { b: "x", inner: { c: 1, d: 2 } } }'
+        error: "Failed at a: Expected string, received 1"
+        issues:
+          - "Failed at a: Expected string, received 1"
+          - 'Failed at nested.b: Expected number, received "x"'
+          - "Failed at nested.inner.c: Expected boolean, received 1"
+          - "Failed at nested.inner.d: Expected string | undefined, received 2"
   decode:
     # FIXME: two property reads whose results are discarded, then the input is
     # returned unchanged - nothing here transforms, so it should be `identity`.
