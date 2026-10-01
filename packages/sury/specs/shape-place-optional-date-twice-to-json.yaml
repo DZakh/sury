@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ w: S.schema({ a: S.string, d: S.optional(S.string.with(S.to, S.date)) }) }).with(S.shape, (v) => ({ D: v.w.d, W: v.w })).with(S.to, S.json)"
+  input: "{ w: { a: string; d?: string | undefined; }; }"
+  output: JSON
+  instantiations: 8277
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { a: { type: "string" }, d: { type: "string", format: "date-time" } }, required: ["a"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { D: { type: "string", format: "date-time" }, W: { type: "object", properties: { a: { type: "string" }, d: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["W"] }'
+  fromOutputType: "{ W: { a: string; d?: string | undefined; }; D?: string | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||a.w.a===b.w.a&&a.w.d===b.w.d
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { w: { a: string; d: string | undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0.a,v3=v0.d;typeof v1==="string"||e[0](v1);for(;;){if(typeof v3==="string"){let v2=new Date(v3);!Number.isNaN(v2.getTime())||e[1](v3);v3=v2;break}if(v3===void 0)break;throw e[2](v3)}for(;;){if(v3 instanceof e[5]){let v4;try{v4=v3.toISOString()}catch(_){e[4](v3)}v3=v4;break}if(v3===void 0)break;throw e[6](v3)}for(;;){if(v3 instanceof e[8]){let v5;try{v5=v3.toISOString()}catch(_){e[7](v3)}v3=v5;break}if(v3===void 0)break;throw e[9](v3)}let v6={a:v1};if(v3!==void 0){v6.d=v3}let v7={W:v6};if(v3!==void 0){v7.D=v3}return v7}catch(v8){e[11](v8)}}
+    examples:
+      # FIXME: the optional date's var is converted to text once per placement, so the second sees a string
+      with-date:
+        input: '{ w: { a: "1", d: "2020-01-01T00:00:00.000Z" } }'
+        error: 'Failed at w.d: Expected Date | undefined, received "2020-01-01T00:00:00.000Z"'
+      without-date:
+        input: '{ w: { a: "1" } }'
+        output: '{ W: { a: "1" } }'
+  decode:
+    expression: i=>{try{let v0=i.w;let v2=v0.d;for(;;){if(typeof v2==="string"){let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2);v2=v1;break}if(v2===void 0)break;throw e[1](v2)}for(;;){if(v2 instanceof e[3]){let v3;try{v3=v2.toISOString()}catch(_){e[2](v2)}v2=v3;break}if(v2===void 0)break;throw e[4](v2)}for(;;){if(v2 instanceof e[6]){let v4;try{v4=v2.toISOString()}catch(_){e[5](v2)}v2=v4;break}if(v2===void 0)break;throw e[7](v2)}let v5={a:v0.a};if(v2!==void 0){v5.d=v2}let v6={W:v5};if(v2!==void 0){v6.D=v2}return v6}catch(v7){e[8](v7)}}
+    examples:
+      # FIXME: the optional date's var is converted to text once per placement, so the second sees a string
+      with-date:
+        input: '{ w: { a: "1", d: "2020-01-01T00:00:00.000Z" } }'
+        error: 'Failed at w.d: Expected Date | undefined, received "2020-01-01T00:00:00.000Z"'
+      without-date:
+        input: '{ w: { a: "1" } }'
+        output: '{ W: { a: "1" } }'
+  encode:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v1=(i.D??null),v3=i.W;for(;;){if(typeof v1==="string"){let v0=new Date(v1);!Number.isNaN(v0.getTime())||e[1](v1);let v2;try{v2=v0.toISOString()}catch(_){e[0](v0)}v1=v2;break}if(v1===null){v1=void 0;break}throw e[2](v1)}typeof v3==="object"&&v3&&!Array.isArray(v3)||e[7](v3);let v4=v3.a,v6=(v3.d??null);typeof v4==="string"||e[3](v4);for(;;){if(typeof v6==="string"){let v5=new Date(v6);!Number.isNaN(v5.getTime())||e[5](v6);let v7;try{v7=v5.toISOString()}catch(_){e[4](v5)}v6=v7;break}if(v6===null){v6=void 0;break}throw e[6](v6)}return {w:{a:v4,d:v6}}}catch(v8){e[9](v8)}}
+    examples:
+      without-date:
+        input: '{ D: undefined, W: { a: "1" } }'
+        output: '{ w: { a: "1", d: undefined } }'

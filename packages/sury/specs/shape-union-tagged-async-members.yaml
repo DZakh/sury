@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ w: S.union([S.schema({ t: "a", a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) }), S.schema({ t: "b", b: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) })]) }).with(S.shape, (v) => ({ W: v.w }))'
+  input: '{ w: { t: "a"; a: string; } | { t: "b"; b: string; }; }'
+  output: '{ W: { t: "a"; a: string; } | { t: "b"; b: string; }; }'
+  instantiations: 9314
+jsonSchema:
+  input: '{ type: "object", properties: { w: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", const: "b" }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { W: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", const: "b" }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["W"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { w: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["w"] }'
+    output: '{ type: "object", properties: { W: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["W"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.w.t==="a"?b.w.t==="a"&&a.w.a===b.w.a:b.w.t==="b"&&a.w.b===b.w.b)
+  output: (a,b)=>a===b||(a.W.t==="a"?b.W.t==="a"&&a.W.a===b.W.a:b.W.t==="b"&&a.W.b===b.W.b)
+compare:
+  input: "throws: [Sury] Can't compare { w: { t: \"a\"; a: string; } | { t: \"b\"; b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { W: { t: \"a\"; a: string; } | { t: \"b\"; b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.w;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="a"){let v2=v0.a;typeof v2==="string"||e[2](v2);let v1=e[0](v2);let v3=v1.then(v1=>{typeof v1==="string"||e[1](v1);return v1});v0=Promise.all([v3]).then(([v3])=>{return {t:v0.t,a:v3}});break}if(v0.t==="b"){let v5=v0.b;typeof v5==="string"||e[5](v5);let v4=e[3](v5);let v6=v4.then(v4=>{typeof v4==="string"||e[4](v4);return v4});v0=Promise.all([v6]).then(([v6])=>{return {t:v0.t,b:v6}});break}throw e[6](v0)}}else{throw e[6](v0)}let v7=Promise.resolve(v0);return Promise.all([v7]).then(([v7])=>{return {W:v7}}).catch(e[8])}catch(v8){return e[9](v8)}}
+    examples:
+      # FIXME: parse loses the tag of a union member with an async field; decode keeps it
+      case0:
+        input: '{ w: { t: "a", a: "1" } }'
+        output: '{ W: { t: undefined, a: "1!" } }'
+      case1:
+        input: '{ w: { t: "b", b: "2" } }'
+        output: '{ W: { t: undefined, b: "2!" } }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="a"){let v1=e[0](v0.a);let v2=v1.then(v1=>{typeof v1==="string"||e[1](v1);return v1});v0=Promise.all([v2]).then(([v2])=>{return {t:"a",a:v2}});break}if(v0.t==="b"){let v3=e[2](v0.b);let v4=v3.then(v3=>{typeof v3==="string"||e[3](v3);return v3});v0=Promise.all([v4]).then(([v4])=>{return {t:"b",b:v4}});break}throw e[4](v0)}}else{throw e[4](v0)}let v5=Promise.resolve(v0);return Promise.all([v5]).then(([v5])=>{return {W:v5}}).catch(e[5])}catch(v6){return e[6](v6)}}
+    examples:
+      case0:
+        input: '{ w: { t: "a", a: "1" } }'
+        output: '{ W: { t: "a", a: "1!" } }'
+      case1:
+        input: '{ w: { t: "b", b: "2" } }'
+        output: '{ W: { t: "b", b: "2!" } }'
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0=i.W;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="a"){let v1=e[0](v0.a);let v2=v1.then(v1=>{typeof v1==="string"||e[1](v1);return v1});v0=Promise.all([v2]).then(([v2])=>{return {t:"a",a:v2}});break}if(v0.t==="b"){let v3=e[2](v0.b);let v4=v3.then(v3=>{typeof v3==="string"||e[3](v3);return v3});v0=Promise.all([v4]).then(([v4])=>{return {t:"b",b:v4}});break}throw e[4](v0)}}else{throw e[4](v0)}let v5=Promise.resolve(v0);return Promise.all([v5]).then(([v5])=>{return {w:v5}}).catch(e[5])}catch(v6){return e[6](v6)}}
+    examples:
+      case0:
+        input: '{ W: { t: "b", b: "2!" } }'
+        output: '{ w: { t: "b", b: "2" } }'
