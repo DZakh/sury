@@ -5,11 +5,10 @@ ts:
   output: "{ a: boolean | null; c: string | number; b?: string | number | undefined; }"
   instantiations: 5206
 jsonSchema:
-  # FIXME: c advertises the second member's default 1, which a missing c never reads
-  input: '{ type: "object", properties: { a: { anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] }, c: { anyOf: [{ default: "none", type: "string" }, { default: 1, type: "number" }] } }, required: ["a"] }'
+  input: '{ type: "object", properties: { a: { anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] }, c: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "boolean" }, { type: "null" }] }, b: { anyOf: [{ type: "string" }, { type: "number" }] }, c: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a", "c"] }'
   openapi-3.0:
-    input: '{ type: "object", properties: { a: { default: false, type: "boolean", nullable: true }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] }, c: { anyOf: [{ default: "none", type: "string" }, { default: 1, type: "number" }] } }, required: ["a"] }'
+    input: '{ type: "object", properties: { a: { default: false, type: "boolean", nullable: true }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] }, c: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] } }, required: ["a"] }'
     output: '{ type: "object", properties: { a: { type: "boolean", nullable: true }, b: { anyOf: [{ type: "string" }, { type: "number" }] }, c: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a", "c"] }'
 isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c
 compare:

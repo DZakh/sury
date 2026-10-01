@@ -557,9 +557,9 @@ const internalToJSONSchemaBase = (
       (parent.type === arrayTag &&
         typeof parent.additionalItems === "object" &&
         parent.items!.includes(schema));
-    // A missing value reads through the first arm to take it, whose default is
-    // the one to advertise: the union's own `undefined` arm's, or a nested
-    // member's, which then speaks for itself. `s.fieldOr`'s own parser reads it
+    // A missing value reads through the first arm to take it, so that arm's
+    // default is the only one to advertise: the union's own `undefined` arm's,
+    // or the nested member's that renders it. `s.fieldOr`'s own parser reads it
     // ahead of every arm.
     const taker = optionalSlot && schema.parser === U && anyOf.find(isOptional);
     const ownsEmpty = taker ? taker.type === undefinedTag : schema.default !== U;
@@ -578,7 +578,9 @@ const internalToJSONSchemaBase = (
         childSchema.type === anyOfTag && parent.type === objectTag ? parent : schema,
         target
       );
-      if (ownsEmpty && childSchema.type === anyOfTag) delete childJsonSchema.default;
+      if (childSchema.type === anyOfTag && (ownsEmpty || (taker && childSchema !== taker))) {
+        delete childJsonSchema.default;
+      }
       // Collapse structurally-identical members (e.g. variants coercing to
       // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
       const key = JSON.stringify(childJsonSchema);
