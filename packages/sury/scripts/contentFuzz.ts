@@ -61,8 +61,7 @@ const SOURCES: Record<string, Source> = {
 
 // Every shape a target can take on the axis: the document with and without a
 // declared payload, behind a nullish arm, the document itself, plain types,
-// bytes and their text form, a union holding the document, and a document read
-// into a variant with an optional field.
+// bytes and their text form, and a union holding the document.
 const TARGETS: Record<string, unknown> = {
   "json-string": S.jsonString,
   "json-string-doc": S.jsonString.with(S.to, doc),

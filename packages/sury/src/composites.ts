@@ -196,7 +196,7 @@ export const makeArrayVal = (prev: Val): Val =>
   } as Internal);
 // The join rebinds an async field's var to what its promise resolved to, so
 // every field under it is read off that value: a var from before the join may
-// still be a promise, and a read an earlier join rebound names that join's var.
+// still be a promise, and a field an earlier join rebound names that join's var.
 const resolveAsyncFields = (val: Val): void => {
   const fields = val.d;
   for (const k in fields) {
