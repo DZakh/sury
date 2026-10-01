@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.union([S.schema({ a: S.string }), S.optional(S.schema({ b: S.string }), { b: "z" }), S.schema({ b: S.string, c: S.number })]))'
+  input: JSON
+  output: "{ a: string; } | { b: string; } | { b: string; c: number; }"
+  instantiations: 9796
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "object", properties: { b: { type: "string" } }, additionalProperties: false, required: ["b"] }, { type: "object", properties: { b: { type: "string" }, c: { type: "number" } }, additionalProperties: false, required: ["b", "c"] }] }'
+  fromInputType: "{ a: string; } | { b: string; } | { b: string; c: number; }"
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "object", properties: { b: { type: "string" } }, additionalProperties: false, required: ["b"] }, { type: "object", properties: { b: { type: "string" } }, required: ["b"] }, { type: "object", properties: { b: { type: "string" }, c: { type: "number" } }, additionalProperties: false, required: ["b", "c"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; } | { b: string; } | { b: string; c: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l6:{for(;;){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}l4:{let v3=i.b,v5=i.c;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}if(!(typeof v5==="number"&&v5==v5)){v1=[v1,e[2],v5];break l4}i={b:v3,c:v5};break}break l6}break}}l8:{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v7=i.b;if(!(typeof v7==="string")){v1=[v1,e[3],v7];break l8}i={b:v7};break}if(i===null){i=e[4];break}v1=[v1,e[5](i)];break l8}break}throw e[6](i,v1)}return i}catch(v9){e[7](v9)}}
+    examples:
+      # FIXME: the third member joins a group ahead of the second, which takes the object first
+      second-member-takes-it:
+        input: '{ b: "x", c: 1 }'
+        output: '{ b: "x", c: 1 }'
+      first-member:
+        input: '{ a: "y" }'
+        output: '{ a: "y" }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}}l4:{if(typeof i==="object"&&i&&!Array.isArray(i)){let v3=i.b;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={b:v3};}else{v1=[v1,e[2](i)];break l4}break}if(typeof i==="object"&&i&&!Array.isArray(i)){l6:{let v5=i.b,v7=i.c;if(!(typeof v5==="string")){v1=[v1,e[3],v5];break l6}if(!(typeof v7==="number"&&v7==v7)){v1=[v1,e[4],v7];break l6}i={b:v5,c:v7};break}}throw e[5](i,v1)}return i}catch(v8){e[6](v8)}}
+    examples:
+      second-member:
+        input: '{ b: "x" }'
+        output: '{ b: "x" }'
+      third-member:
+        input: '{ b: "x", c: 1 }'
+        output: '{ b: "x" }'
