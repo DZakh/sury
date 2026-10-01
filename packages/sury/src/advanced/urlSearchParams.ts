@@ -9,7 +9,6 @@ import {
   initSchema,
   inputExpression,
   type Internal,
-  isOptional,
   pathConcat,
   stringTag,
   tagFlags,
@@ -54,7 +53,7 @@ import {
   admitsBlank,
   asList,
   convertTextEntry,
-  isAbsent,
+  keepsUndefined,
   presentArm,
   readWrapped
 } from "./entries";
@@ -87,7 +86,7 @@ const assertListItems = (val: Val, schema: Internal): void => {
     B_invalidOperation(val, `Can't decode search param -> ${inputExpression(schema)}. ${why}`);
   const rest = schema.additionalItems;
   for (const item of schema.items!.concat(typeof rest === "object" ? [rest] : [])) {
-    if (isAbsent(item)) {
+    if (absentArm(item)) {
       unsupported(`A repeated key is positional, so every item needs an entry`);
     }
     if (item.type === arrayTag) {
@@ -124,7 +123,7 @@ const appendValue = (val: Val, destVar: string, keyText: string): string => {
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
-  if (isAbsent(schema) && present.type !== unknownTag) {
+  if (absentArm(schema) && present.type !== unknownTag) {
     if (present === schema) {
       return "";
     }
@@ -192,7 +191,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
     const schema = properties[key]!;
     const keyText = inlinedValueFromString(key);
     const present = presentArm(schema);
-    const absent = isAbsent(schema);
+    const absent = absentArm(schema);
     const list = present.type === arrayTag;
     const folds = absent && !list && !admitsBlank(present);
     const readVar = B_varWithoutAllocation(input.g);
@@ -202,7 +201,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
       readVar,
       list
         ? `${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
+        : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
     );
     const item: Val = {
       b: U,
@@ -228,7 +227,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
     };
     if (list) {
       assertListItems(item, present);
-      if (absent && absentArm(schema).to !== U) {
+      if (absent && absent.to !== U) {
         B_invalidOperation(
           item,
           `Can't decode search param -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,

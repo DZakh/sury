@@ -30,6 +30,14 @@ test("Successfully parses with default when provided primitive", t => {
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), true)
 })
 
+test("An outer option keeps undefined as None over an inner default", t => {
+  let schema = S.option(S.bool->S.option->S.Option.getOr(false))
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), Some(true))
+  t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+})
+
 test("Successfully serializes nested option with default value", t => {
   let schema = S.option(
     S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),

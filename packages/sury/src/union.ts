@@ -340,6 +340,17 @@ const unionRefDef = (schema: Internal): Internal | undefined => {
   return resolved !== U && resolved !== schema ? resolved : U;
 };
 
+// The tags a union's arms take as they are, before the widening that lets an
+// instance arm claim every object `typeof` can't tell from one.
+const unionRaw = (schema: Internal): number => {
+  let mask = schema.has ? 0 : ~0;
+  for (const tag in schema.has) {
+    const flag = tagFlags[tag as Tag]!;
+    mask |= flag & 1 ? ~0 : flag;
+  }
+  return mask;
+};
+
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
   if (mode === 2) {
     const resolved = unionRefDef(schema);
@@ -354,9 +365,10 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
     return mask;
   }
   // ~0: bitwise ops only see the low 32 bits, so this stays future-proof.
+  // An env var's unset state is `undefined` (16), which its narrow admits.
   return tagFlag & (1 | 256 | 512)
     ? ~0
-    : unionWiden(tagFlag, nan);
+    : unionWiden(tagFlag, nan) | (mode && schema.format === "env" ? 16 : 0);
 };
 
 // A member's effect (`UnionMember.e`), as a literal because naming these five
@@ -567,6 +579,7 @@ const unionAnalyze = (
   const unionSource =
     sourceBoundary &&
     sourceMask !== ~0;
+  const sourceRaw = unionSource ? unionRaw(unionRefDef(source) || source) : 0;
   const sourceDiscriminator = unionDiscriminator(source);
   const exact = flags & 1;
   const broadObject = flags & 64;
@@ -586,7 +599,9 @@ const unionAnalyze = (
     const tag = tagFlags[view.type]!;
     const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
     const d = unionDiscriminator(s);
-    const same = unionRuntimeSame(source, s);
+    // Two refs are one runtime type only as one schema: `S.json` and a
+    // recursive member are both refs.
+    const same = unionRuntimeSame(source, s) && !(s.type === refTag && s !== source);
     const discriminatorDisjoint =
       sourceDiscriminator !== U &&
       d !== U &&
@@ -601,7 +616,10 @@ const unionAnalyze = (
         (isLiteral(s)
           ? unionLiteralEqual(s.const, source.const)
           : sourceMask & inputMask));
-    const native = sourceMask & tag;
+    // A union source's own tags: through the `typeof` widening, a `Date` would
+    // count as native to `S.json`'s objects.
+    const native = (unionSource ? sourceRaw : sourceMask) & tag;
+    const raw = tag & (1 | 256 | 512) ? unionRaw(defTag & 256 ? def! : view) : 0;
     const coerces =
       accepts &&
       !unknownSource &&
@@ -632,17 +650,21 @@ const unionAnalyze = (
                 ? 32
                 : s.type === nullTag && (sourceMask & 16)
                   ? 16
-                  : // Reached only by coercion. Every built-in cross-tag
-                    // coercion parses a string (`BigInt`, `Number`, `new Date`),
-                    // so a source that can produce one is assumed to be coerced
-                    // through it - narrow enough to keep the case out of an
-                    // unnecessary fallback. With no string in the source that
-                    // guess describes nothing, and claiming too little would let
-                    // the dispatch raise where a later member should have run,
-                    // so fall back to "any type the source produces".
-                    sourceMask & 2
-                    ? 2
-                    : sourceMask
+                  : // `unknown`, a nested union or a ref takes what its arms
+                    // take as they are, an empty value or `NaN` by whichever
+                    // empty value the source has (JSON's `null` stands for
+                    // both). Past
+                    // that, reached only by coercion. Every built-in cross-tag
+                    // coercion parses a string (`BigInt`, `Number`, `new
+                    // Date`), so a source that can produce one is assumed to be
+                    // coerced through it - narrow enough to keep the case out
+                    // of an unnecessary fallback. With no string in the source
+                    // that guess describes nothing, and claiming too little
+                    // would let the dispatch raise where a later member should
+                    // have run, so fall back to "any type the source produces".
+                    (raw & sourceRaw) |
+                    (raw & (16 | 32 | 2048) ? sourceMask & 48 : 0) |
+                    (sourceMask & 2 ? 2 : sourceMask)
             : sourceMask
         : 0,
       o: !!accepts && output.type !== neverTag,
@@ -839,15 +861,23 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
   }
 
-  // A ref to a union has no narrow to guard its case, so once no later group
-  // shares a type with it, it stops falling through and would shadow them all.
+  // A ref to a union has no narrow to guard its case, and neither has a nested
+  // union whose arms convert (a defaulted `S.nullable` carries its default, so
+  // it stays whole): only a union of checks folds into one condition. Once no
+  // later group shares a type with it, it stops falling through and would
+  // shadow them all.
   // It runs after the groups it shares no type with instead - order between
   // disjoint groups is unobservable - and before the first one it does share
   // a type with. It still falls, into that group or the union's own failure,
   // so a value it refuses is reported against the whole union.
   for (let i = plan.length; i--; ) {
     const group = plan[i]!;
-    if (group.a[1] || group.a[0]!.n.type !== refTag || group.m === ~0) continue;
+    const head = group.a[0]!;
+    if (
+      group.a[1] ||
+      !(head.n.type === refTag || (head.n.type === anyOfTag && !unionIsNoop(head.s))) ||
+      group.m === ~0
+    ) continue;
     group.f |= 8 | 2;
     let to = i;
     while (plan[to + 1] && !(plan[to + 1]!.m & group.m)) to++;
@@ -1675,7 +1705,7 @@ export const unionRewrite = (
   for (let idx = 0; idx < variants.length; idx++) {
     const rewritten = map(variants[idx]!, idx);
     anyOf.push(rewritten);
-    setHas(has, rewritten.type);
+    setHas(has, rewritten);
   }
   const mut = baseSchema(anyOfTag, false, unionDecoder);
   mut.anyOf = anyOf;
@@ -1890,6 +1920,45 @@ const unionResolveToUnion = (
 
 // ── Factory ──────────────────────────────────────────────────────────────────
 
+// Leans to "changes": a member that only may convert the value counts, so a
+// wrapper's own empty arm is surely tried ahead of it.
+const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
+  if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
+  if (s.type === refTag) {
+    if (refs?.includes(s)) return false;
+    const def = s.definition || unionRefDef(s);
+    // A ref still being defined has nothing to read yet, so it counts.
+    return def === U || unionChanges(def, tag, [...(refs || []), s]);
+  }
+  if (s.type !== anyOfTag) return !!(unionTraits(s) & 12);
+  if (s.to !== U || s.parser !== U) return true;
+  // In order: an arm that surely passes the value through settles it, one
+  // that may reject it hands it on.
+  for (const arm of s.anyOf!) {
+    if (arm.type === tag) return arm.to !== U;
+    if (!(unionMask(arm, 1, 0) & tagFlags[tag]!)) continue;
+    if (unionChanges(arm, tag, refs)) return true;
+    if (!(unionTraits(arm) & 3)) return false;
+  }
+  return false;
+};
+
+// `S.optional`, `S.nullable` and their kin own their empty value. The order
+// lives in `anyOf`, so a parent union that flattens this one keeps it, and
+// first-member-wins between the parent's own members is untouched.
+export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
+  if (!(unionMask(inner, 1, 0) & (16 | 32))) return unionFactory([inner, ...empties]);
+  const arms = unionIsTransparent(inner) ? [...inner.anyOf!] : [inner];
+  for (const empty of empties) unionPlaceEmpty(arms, empty);
+  return unionFactory(arms);
+};
+
+export const unionPlaceEmpty = (arms: Internal[], empty: Internal): boolean => {
+  const at = arms.findIndex((arm) => unionChanges(arm, empty.type));
+  at < 0 ? arms.push(empty) : arms.splice(at, 0, empty);
+  return at >= 0;
+};
+
 export const unionFactory = (schemas: Internal[]): Internal => {
   if (!schemas.length) return panic("S.union requires at least one item");
   if (schemas.length === 1) return schemas[0]!;
@@ -1902,7 +1971,7 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     for (let j = 0; j < nested.length; j++) {
       const member = nested[j]!;
       anyOf.push(member);
-      setHas(has, member.type);
+      setHas(has, member);
     }
   }
 

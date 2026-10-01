@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.union([S.optional(S.date, new Date(0)), S.recursive("R", (self) => S.schema({ head: S.string, next: S.optional(self) }))]))'
+  input: JSON
+  output: unknown
+  instantiations: 8892
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", format: "date-time" }, {}] }'
+  output: Expected JSON, received Date
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Date | R. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0;v0=e[0](i);i=v0;break}l3:{for(;;){if(typeof i==="string"){let v1=new Date(i);if(!(!Number.isNaN(v1.getTime()))){v2=[v2,e[1],i];break l3}i=v1;break}if(i===null){i=e[2];break}v2=[v2,e[3](i)];break l3}break}throw e[4](i,v2)}return i}catch(v4){e[5](v4)}}
+    examples:
+      null-takes-the-default:
+        input: "null"
+        output: new Date("1970-01-01T00:00:00.000Z")
+      date-text:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+      list:
+        input: '{ head: "a" }'
+        output: '{ head: "a", next: undefined }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){l2:{if(i instanceof e[1]){let v0;try{v0=i.toISOString()}catch(_){v1=[v1,e[0],i];break l2}i=v0;}else{v1=[v1,e[2](i)];break l2}break}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v3;v3=e[3](i);e[4](v3);i=v3;break}catch(x){v1=[v1,e[5](x)]}}throw e[6](i,v1)}return i}catch(v4){e[7](v4)}}
+    examples:
+      # FIXME: encode refuses a list a Date member sits beside (same on main)
+      list:
+        input: '{ head: "a" }'
+        error: |-
+          Expected Date | R, received { head: "a"; }
+          - Expected Date, received { head: "a"; }
+          - At next: Expected JSON, received undefined
