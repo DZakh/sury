@@ -726,8 +726,6 @@ test("A display name of google.protobuf.* declares rather than imports", (t) => 
   t.expect(S.toProtoOrThrow(S.schema({ x: S.optional(named).with(S.protobufField, 1) }), { name: "Holder" })).not.toContain("import");
 });
 
-// A test, not a spec: `ts.constructionError` still asks for every other spec
-// field (CONTRIBUTING.md, Spec Harness Suggestions).
 test("protobufTypeName takes a full name, not a type URL", (t) => {
   for (const name of ["type.googleapis.com/acme.v1.User", ".acme.v1.User", "acme..User", "", "1acme"]) {
     t.expect(() => S.protobufTypeName(S.schema({}), name)).toThrow("[Sury] S.protobufTypeName requires a full name such as");

@@ -1722,7 +1722,7 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message | undefin
   ctx.messages.set(memo, msg);
   const members = shape.type === anyOfTag ? shape.anyOf! : [shape];
   const rawMembers: Internal[] = [];
-  const conversions: [key: string | undefined, raw: Internal, declared: Internal][] = [];
+  const conversions: Conversion[] = [];
   for (let idx = 0; idx < members.length; idx++) {
     const member = getOutputSchema(members[idx]!);
     let payload = member;
@@ -1752,12 +1752,12 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message | undefin
     const [raw, value] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
     msg.any!.push({ name, message, key, literals });
     rawMembers.push(key === U ? raw : armObject(literals, key, raw));
-    conversions.push([key, raw, refinedAs(payload, value)]);
+    conversions.push([U, "", key!, raw, refinedAs(payload, value)]);
   }
   const arms = msg.any!;
   if (arms.length === 1 && arms[0]!.key === U) {
-    msg.raw = conversions[0]![1];
-    msg.schema = conversions[0]![2];
+    msg.raw = conversions[0]![3];
+    msg.schema = conversions[0]![4];
     return msg;
   }
   let tag: string | undefined;
@@ -1772,11 +1772,8 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message | undefin
     }
   }
   msg.anyTag = tag;
-  msg.raw = taggedRaw(
-    rawMembers,
-    conversions.map(([key, raw, declared], idx) => [tag, tag === U ? "" : literalOf(arms[idx]!.literals[tag]!)!, key!, raw, declared]),
-    false,
-  );
+  if (tag !== U) conversions.forEach((conversion, idx) => ((conversion[0] = tag), (conversion[1] = literalOf(arms[idx]!.literals[tag]!)!)));
+  msg.raw = taggedRaw(rawMembers, conversions, false);
   return msg;
 };
 
@@ -1789,8 +1786,15 @@ const anyFrame = (x: unknown, key: string): unknown => {
 const anyEncodeBody = (msg: Message, fns: Map<Message, string>): string => {
   const write = (arm: AnyArm): string => {
     const at = arm.key === U ? "value" : inlinedProperty("value", arm.key);
+    // A type another member names belongs to that member: decoded, it would
+    // come back as that one.
+    const listed = msg.any!
+      .filter((other) => other !== arm)
+      .map((other) => `case ${JSON.stringify(other.name)}:fail(${JSON.stringify(`Protobuf Any holds ${other.name}, which ${msg.anyTag}: ${literalOf(other.literals[msg.anyTag!]!)} is for`)});`)
+      .join("");
     const code =
-      arm.name === "google.protobuf.Any" ? `${fns.get(arm.message)!}(w,${at})`
+      arm.name === "google.protobuf.Any"
+        ? `${listed && `g=${inlinedProperty(at, arm.message.fields[0]!.key)};switch(g.slice(g.lastIndexOf("/")+1)){${listed}}`}${fns.get(arm.message)!}(w,${at})`
       : `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${arm.name}`)});q=w.pos;${writeTag(18)};g=w.begin();${fns.get(arm.message)!}(w,${at});w.end(g);if(w.pos===q+2)w.pos=q`;
     return arm.key === U ? code : `try{${code}}catch(x){throw pre(x,${JSON.stringify(arm.key)})}`;
   };
@@ -1828,7 +1832,7 @@ const anyDecodeSource = (msg: Message, fns: Map<Message, string>, name: string):
   return (
     `function ${name}(r,d,o){if(d>=100)fail("Protobuf message nesting limit exceeded");var t,u="",s=-1,e=-1,g,x;` +
     `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();if(t===10)u=r.string();else if(t===18){g=r.sub();s=r.pos;e=r.limit;r.pos=e;r.limit=g}else{if(t<8)${zeroField};skip(r,t&7,t>>>3,0)}}` +
-    `if(o!==void 0){x=${earlier};if(!u)u=x;if(s<0&&u.slice(u.lastIndexOf("/")+1)===x.slice(x.lastIndexOf("/")+1))return o}` +
+    `if(o!==void 0){x=${earlier};if(!u)u=x;if(s<0){if(u.slice(u.lastIndexOf("/")+1)===x.slice(x.lastIndexOf("/")+1))return o;fail("Protobuf Any changes its type without a value to read as it")}}` +
     `g=r.limit;if(s<0)s=e=g;switch(u.slice(u.lastIndexOf("/")+1)){${cases}}` +
     (other || `fail(u?"Protobuf Any holds "+u.slice(u.lastIndexOf("/")+1)+", which this field doesn't take":"Protobuf Any has no type URL")`) +
     "}"
@@ -1946,7 +1950,7 @@ const writeTag = (tag: number): string =>
 const writeVarint32 = (expr: string): string =>
   `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
 
-const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict };
+const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict, fail };
 type Helper = keyof typeof encodeHelpers;
 type Encoding = (helper: Helper) => string;
 

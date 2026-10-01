@@ -1655,9 +1655,10 @@ S.decodeOrThrow(S.protobuf, Event)(bytes);
 // { payload: { type: "order", value: { total: 5n } } }
 ```
 
-A numbered union of messages is an Any without saying so. The type URL is
-written as `type.googleapis.com/acme.v1.Order`, and any prefix is accepted
-when reading. A type the union doesn't list fails the decode, so the union is
+A numbered union of messages is an Any without saying so, and each member needs
+a literal, like `type` here, to tell it from the others. The type URL is written
+as `type.googleapis.com/acme.v1.Order`, and `example.com/acme.v1.Order` reads
+as an order too. A type the union doesn't list fails the decode, so the union is
 also the list of types you accept.
 
 To keep the types you don't list, add a member holding the opaque Any, a
