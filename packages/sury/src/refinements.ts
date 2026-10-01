@@ -35,9 +35,6 @@ import {
   B_reverseReading
 } from "./builder";
 import {
- definitionToSchema
-} from "./composites";
-import {
  codecTo,
  getMutErrorMessage,
  internalRefine,
@@ -800,11 +797,6 @@ export const trim = (schema: Internal): Internal => {
   delete tail.refiner;
   delete tail.inputRefiner;
   return codecTo(schema, tail, transformer, transformer);
-}
-
-// @__NO_SIDE_EFFECTS__
-export const nullable = (definition: unknown): Internal => {
-  return unionWrap(definitionToSchema(definition), [unit, nullLiteral]);
 }
 
 // @__NO_SIDE_EFFECTS__
