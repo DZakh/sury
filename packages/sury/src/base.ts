@@ -17,9 +17,10 @@ export type Flag = number;
 // Bit-flag literals (esbuild does not inline named consts).
 //
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
-// itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
-// transform inside a union case preserves the original exception so dispatch
-// can distinguish Sury failures from foreign ones), 64 flatten.
+// itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
+// read inside a union case lets its failure escape raw rather than count as
+// the case not matching; a coder's or a protobuf wire failure never does), 64
+// flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation's outcome (parse.ts `outcomeOf`): 128 JS Result
@@ -512,19 +513,22 @@ export type Internal = {
   // of the decision.
   fuse?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   "$ref"?: string;
+  // What a ref's definitions are called, for reading: `S.recursive` and
+  // `S.json` put theirs here. Nothing resolves a `$ref` through it - see
+  // `definition` - but its presence is what marks a root ref to the union
+  // planner (union.ts `unionRefDef`).
   "$defs"?: Record<string, Internal>;
-  // The definition a ref resolves to, set only by a compiler that builds a ref
-  // of its own. The `$defs` of one operation are a single record keyed by the
-  // names their author chose, so a ref the compiler built cannot ask for a name
-  // without risking one: two `S.recursive` schemas may share a name, and a name
-  // is forgeable besides. Carrying the definition is what lets such a ref stay
-  // out of that record, and out of the document the operation publishes.
+  // The definition a ref stands for, bound by whatever built the ref. A name is
+  // a label: two `S.recursive` schemas may share one, and one may sit inside
+  // the other, so every consumer resolves a ref by this and never by `$ref`.
   //
-  // Every site such a ref can reach reads this before the record:
-  // `S.recursive`'s decoder and the equality compiler. A ref the author wrote
-  // never carries one, which is what keeps its meaning the author's: it
-  // resolves by name, against whatever definitions the operation has reached.
-  definition?: Internal;
+  // A function because the ref exists before its definition does - a definer
+  // receives it, and may copy it (`n.with(S.refine, ...)`) before returning, so
+  // a value written after the fact would miss every copy. It answers
+  // `undefined` while that definer runs, which is how `S.optional`'s default
+  // tells the definition being built. Always the same object once it answers,
+  // since compiled operations are cached on it.
+  definition?: () => Internal | undefined;
   "~standard"?: unknown;
   // Overrides how inputExpression renders this schema. Only for a schema whose
   // expression its tag can't produce - compactColumns, whose columns live on
@@ -555,8 +559,6 @@ export type BGlobal = {
   o: number;
   // @as("e") - embeded
   e: unknown[];
-  // @as("d") - defs
-  d?: Record<string, Internal>;
   // @as("t") - throwCounter. Bumped by every helper that emits a raise into
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
@@ -658,13 +660,16 @@ export type Val = {
   // @as("cp") - codeFromPrev
   cp: string;
   // Set by an async coder whose `cp` ends its promise with `.catch(H)`: given
-  // `.then(ok` it returns `cp` with `.then(ok,H)` there instead, so the parse
-  // loop's continuation runs inside the coder's `try`, one promise hop fewer.
-  // Equivalent only because H always throws: a `.then` second argument never
-  // sees a throw from the first, and neither did the `.catch` ahead of it.
-  // Returns undefined once `cp` has changed or been emitted. Never copied onto
-  // a val refined from this one: it rebuilds this val's `cp`, not theirs.
-  // @as("fu") - fuse
+  // the parse loop's continuation `ok`, it returns `cp` calling the native
+  // `then` with `ok` and H instead, one promise hop fewer, still inside the
+  // coder's `try`. Equivalent only because H always throws: a `.then` second
+  // argument never sees a throw from the first, and neither did the `.catch`
+  // ahead of it. The native `then`, not the answer's own: anything but a
+  // native promise fails inside the `try` as the `.catch` lookup made it,
+  // where a thenable could call H synchronously and have the `try` wrap its
+  // error a second time (codec-custom-async-sync-thenable). Returns undefined
+  // once `cp` has changed or been emitted. Never copied onto a val refined
+  // from this one: it rebuilds this val's `cp`, not theirs. @as("fu") - fuse
   fu?: (then: string) => string | undefined;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
@@ -1171,10 +1176,6 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  // `S.recursive`'s definitions while a definer runs. A definition enters only
-  // once its own definer returns, so a name missing here while one runs is the
-  // definition being built - which is how `S.optional`'s default refuses one.
-  d?: Record<string, Internal>;
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
 }
@@ -1187,7 +1188,6 @@ export type GlobalConfigOverride = {
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = 0;
 export const globalConfig: GlobalConfig = {
-  d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,
 };

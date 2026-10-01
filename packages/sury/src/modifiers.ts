@@ -12,7 +12,6 @@ import {
   copySchema,
   copyTo,
   functionTag,
-  globalConfig,
   inputExpression,
   type Internal,
   objectTag,
@@ -420,8 +419,6 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
-    // `S.recursive`'s definitions, while its definer is still running.
-    const building = globalConfig.d;
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
       const outputSchema = getOutputSchema(variant);
@@ -429,13 +426,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
-        // A ref carrying definitions of its own is a finished schema instead.
-        if (
-          outputSchema.type === refTag &&
-          outputSchema["$defs"] === U &&
-          building !== U &&
-          building[outputSchema["$ref"]!.slice(8)] === U
-        ) {
+        if (outputSchema.type === refTag && !outputSchema.definition?.()) {
           panic(
             `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
           );

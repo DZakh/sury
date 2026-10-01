@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("R", (r) => S.schema({ x: S.optional(S.schema({ c: S.optional(r) }), {}) }))'
+  input: unknown
+  output: unknown
+  instantiations: 9715
+jsonSchema:
+  input: '{ $ref: "#/$defs/R", $defs: { R: { type: "object", properties: { x: { type: "object", properties: { c: { $ref: "#/$defs/R" } } } } } } }'
+  fromInputType: "{ x?: { c?: ... | undefined; } | undefined; }"
+  output: '{ $ref: "#/$defs/R", $defs: { R: { type: "object", properties: { x: { type: "object", properties: { c: { $ref: "#/$defs/R" } } } }, required: ["x"] } } }'
+  fromOutputType: "{ x: { c?: ... | undefined; }; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare R. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      absent-takes-default:
+        input: "{}"
+        output: "{ x: {} }"
+      nested:
+        input: "{ x: { c: {} } }"
+        output: "{ x: { c: { x: {} } } }"
+      nested-invalid:
+        input: "{ x: { c: { x: 5 } } }"
+        error: "Failed at x.c.x: Expected { c: R | undefined; } | undefined, received 5"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: "{ x: { c: { x: {} } } }"
+        output: "{ x: { c: { x: {} } } }"

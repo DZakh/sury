@@ -188,7 +188,6 @@ type Ctx = {
   // Codegen context, for the embed array (`g.e`) and the op flag. Never
   // merged, never emitted: this operation has no Val chain.
   b: Val;
-  d: Record<string, Internal> | undefined;
   // Hoisted comparators, keyed by the schema they compare so a shape reached
   // twice is compiled once.
   h: Map<Internal, string>;
@@ -628,13 +627,7 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // `S.json` describes every JSON value, which is precisely what the structural
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
-  //
-  // A ref a compiler built carries its definition (`Internal.definition`). None
-  // reaches here from the public API - a codec's declared sides are the schema
-  // its author wrote - but one that did would otherwise compare as whatever the
-  // record holds under its name.
-  const def =
-    schema.name === jsonName ? U : schema.definition || ctx.d?.[schema["$ref"]!.slice(8)];
+  const def = schema.name === jsonName ? U : schema.definition?.();
   if (def === U) return deep(ctx, schema, a, b);
   // A def compiles to its own function and is called, not inlined.
   eqOnly(ctx, schema);
@@ -662,8 +655,6 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
 // "" means "always equal": a position that admits exactly one value contributes
 // no test at all, which is what keeps a literal field out of the emit.
 const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
-  const defs = schema["$defs"];
-  if (defs !== U) ctx.d = ctx.d ? Object.assign({}, ctx.d, defs) : defs;
   // A literal, `S.nan` included: both values are the one the schema admits.
   if (isLiteral(schema)) return "";
   const tagFlag = tagFlags[schema.type]!;
@@ -843,8 +834,8 @@ const cmpMode: Mode = {
 };
 
 const compile = (schema: Internal, flag: Flag, op: Internal, mode: Mode): IsEqual | Compare => {
-  const b = B_operationArg(schema, schema, flag, U);
-  const ctx: Ctx = { b, d: U, h: new Map(), q: "", root: schema, inline: "", op, k: mode };
+  const b = B_operationArg(schema, schema, flag);
+  const ctx: Ctx = { b, h: new Map(), q: "", root: schema, inline: "", op, k: mode };
   const expr = eqExpr(ctx, schema, "a", "b");
   // A root array, dict or typed array is one hoisted call and nothing else, and
   // at the root that call buys nothing: the function it points at IS the body.

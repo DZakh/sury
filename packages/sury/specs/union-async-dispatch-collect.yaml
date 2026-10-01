@@ -18,7 +18,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.f;let v11=Promise.resolve((async(v0)=>{let v6;for(;;){l10:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){let v1=v0.x;typeof v1==="string"||e[0](v1);let v2={t:v0.t,x:v1};e[1](v2)||e[2](v2);v0=v2;break}if(v0.t==="a"){l7:{try{let v4=v0.v;if(!(typeof v4==="string")){v6=[v6,e[5],v4];break l7}let v3=e[3](v4);let v5=v3.then(v3=>{typeof v3==="string"||e[4](v3);return v3});v0=await Promise.all([v5]).then(([v5])=>{return {t:v0.t,v:v5}});break}catch(x){v6=[v6,e[7](x)]}}l9:{let v8=v0.n;if(!(typeof v8==="number"&&v8==v8)){v6=[v6,e[6],v8];break l9}v0={t:v0.t,n:v8};break}}break l10}break}}throw e[8](v0,v6)};return v0})(v0));return Promise.all([v11]).then(([v11])=>{return {f:v11}}).catch(e[10])}catch(v12){return e[11](v12)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.f;let v10=Promise.resolve((async(v0)=>{let v5;for(;;){l9:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){let v1=v0.x;typeof v1==="string"||e[0](v1);let v2={t:v0.t,x:v1};e[1](v2)||e[2](v2);v0=v2;break}if(v0.t==="a"){l6:{try{let v4=v0.v;if(!(typeof v4==="string")){v5=[v5,e[7],v4];break l6}let v3;try{v3=e[6].call(e[3](v4),v3=>{typeof v3==="string"||e[5](v3);return v3},e[4])}catch(x){e[4](x)}v0=await Promise.all([v3]).then(([v3])=>{return {t:v0.t,v:v3}});break}catch(x){v5=[v5,e[9](x)]}}l8:{let v7=v0.n;if(!(typeof v7==="number"&&v7==v7)){v5=[v5,e[8],v7];break l8}v0={t:v0.t,n:v7};break}}break l9}break}}throw e[10](v0,v5)};return v0})(v0));return Promise.all([v10]).then(([v10])=>{return {f:v10}}).catch(e[12])}catch(v11){return e[13](v11)}}
     examples:
       valid:
         input: '{ f: { t: "b", x: "y" } }'
@@ -28,7 +28,7 @@ operations:
         error: "Failed at f.x: Expected string, received 1"
   decode:
     isAsync: true
-    expression: i=>{try{let v0=i.f;let v9=Promise.resolve((async(v0)=>{let v4;for(;;){l8:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l5:{try{let v2=v0.v;if(!(typeof v2==="string")){v4=[v4,e[4],v2];break l5}let v1=e[2](v2);let v3=v1.then(v1=>{typeof v1==="string"||e[3](v1);return v1});v0=await Promise.all([v3]).then(([v3])=>{return {t:v0.t,v:v3}});break}catch(x){v4=[v4,e[6](x)]}}l7:{let v6=v0.n;if(!(typeof v6==="number"&&v6==v6)){v4=[v4,e[5],v6];break l7}v0={t:v0.t,n:v6};break}}break l8}break}}throw e[7](v0,v4)};return v0})(v0));return Promise.all([v9]).then(([v9])=>{return {f:v9}}).catch(e[8])}catch(v10){return e[9](v10)}}
+    expression: i=>{try{let v0=i.f;let v8=Promise.resolve((async(v0)=>{let v3;for(;;){l7:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l4:{try{let v2=v0.v;if(!(typeof v2==="string")){v3=[v3,e[6],v2];break l4}let v1;try{v1=e[5].call(e[2](v2),v1=>{typeof v1==="string"||e[4](v1);return v1},e[3])}catch(x){e[3](x)}v0=await Promise.all([v1]).then(([v1])=>{return {t:v0.t,v:v1}});break}catch(x){v3=[v3,e[8](x)]}}l6:{let v5=v0.n;if(!(typeof v5==="number"&&v5==v5)){v3=[v3,e[7],v5];break l6}v0={t:v0.t,n:v5};break}}break l7}break}}throw e[9](v0,v3)};return v0})(v0));return Promise.all([v8]).then(([v8])=>{return {f:v8}}).catch(e[10])}catch(v9){return e[11](v9)}}
     examples:
       valid:
         input: '{ f: { t: "b", x: "y" } }'

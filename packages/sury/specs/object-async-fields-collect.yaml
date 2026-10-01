@@ -15,7 +15,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.n,v2=i.a,v3=i.list;typeof v0==="number"&&v0==v0||e[0](v0);typeof v2==="string"||e[4](v2);let v1;try{v1=e[1](v2).then(v1=>{typeof v1==="string"||e[3](v1);return v1},e[2])}catch(x){e[2](x)}Array.isArray(v3)||e[9](v3);let v7=new Array(v3.length);for(let v4=0;v4<v3.length;++v4){let v6=v3[v4];typeof v6==="string"||e[8](v6,["list",v4]);let v5;try{v5=e[5](v6).then(v5=>{typeof v5==="string"||e[7](v5,["list",v4]);return v5},x=>e[6](x,["list",v4]))}catch(x){e[6](x,["list",v4])}v7[v4]=v5}let v8=Promise.all(v7);return Promise.all([v1,v8]).then(([v1,v8])=>{return {n:v0,a:v1,list:v8}}).catch(e[11])}catch(v9){return e[12](v9)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.n,v2=i.a,v3=i.list;typeof v0==="number"&&v0==v0||e[0](v0);typeof v2==="string"||e[5](v2);let v1;try{v1=e[4].call(e[1](v2),v1=>{typeof v1==="string"||e[3](v1);return v1},e[2])}catch(x){e[2](x)}Array.isArray(v3)||e[11](v3);let v7=new Array(v3.length);for(let v4=0;v4<v3.length;++v4){let v6=v3[v4];typeof v6==="string"||e[10](v6,["list",v4]);let v5;try{v5=e[9].call(e[6](v6),v5=>{typeof v5==="string"||e[8](v5,["list",v4]);return v5},x=>e[7](x,["list",v4]))}catch(x){e[7](x,["list",v4])}v7[v4]=v5}let v8=Promise.all(v7);return Promise.all([v1,v8]).then(([v1,v8])=>{return {n:v0,a:v1,list:v8}}).catch(e[13])}catch(v9){return e[14](v9)}}
     examples:
       valid:
         input: '{ a: "x", n: 1, list: ["y"] }'
@@ -36,7 +36,7 @@ operations:
           - "Failed at list[0]: item is taken"
   decode:
     isAsync: true
-    expression: i=>{try{let v1=i.list;let v0;try{v0=e[0](i.a).then(v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v4=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[3](v1[v2]).then(v3=>{typeof v3==="string"||e[5](v3,["list",v2]);return v3},x=>e[4](x,["list",v2]))}catch(x){e[4](x,["list",v2])}v4[v2]=v3}let v5=Promise.all(v4);return Promise.all([v0,v5]).then(([v0,v5])=>{return {n:i.n,a:v0,list:v5}}).catch(e[6])}catch(v6){return e[7](v6)}}
+    expression: i=>{try{let v1=i.list;let v0;try{v0=e[3].call(e[0](i.a),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v4=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[7].call(e[4](v1[v2]),v3=>{typeof v3==="string"||e[6](v3,["list",v2]);return v3},x=>e[5](x,["list",v2]))}catch(x){e[5](x,["list",v2])}v4[v2]=v3}let v5=Promise.all(v4);return Promise.all([v0,v5]).then(([v0,v5])=>{return {n:i.n,a:v0,list:v5}}).catch(e[8])}catch(v6){return e[9](v6)}}
     examples:
       valid:
         input: '{ a: "x", n: 1, list: ["y"] }'
