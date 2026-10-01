@@ -85,21 +85,6 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
   },
   {
-    id: "union-json-recursive-member",
-    kind: "bug",
-    summary:
-      "Under `S.json`, a union whose first member is a recursive object compiles to that member alone: " +
-      "a value it rejects gets its error, and the members after it never run.",
-    spec: "codec-json-union-recursive-member",
-    fuzzers: ["union"],
-    matches: (f) =>
-      f.fuzzer === "union" &&
-      f.shape.name === "jsonTo" &&
-      f.property === "acceptance" &&
-      f.shape.args[0]!.args[0]!.name === "recursive" &&
-      f.shape.args[0]!.args[0]!.form !== "union",
-  },
-  {
     id: "union-json-document-member",
     kind: "limitation",
     summary:

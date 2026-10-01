@@ -19,12 +19,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v2;for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}if(typeof i==="string"&&i==="x")break;l3:{for(;;){if(typeof i==="string"){let v1=new Date(i);if(!(!Number.isNaN(v1.getTime()))){v2=[v2,e[1],i];break l3}i=v1;break}if(i===null){i=e[2];break}v2=[v2,e[3](i)];break l3}break}throw e[4](i,v2)}return i}catch(v4){e[5](v4)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0=new Date(i);if(!(!Number.isNaN(v0.getTime()))){v1=[v1,e[0],i];break l2}i=v0;break}}if(typeof i==="string"&&i==="x")break;l4:{for(;;){if(typeof i==="string"){let v3=new Date(i);if(!(!Number.isNaN(v3.getTime()))){v1=[v1,e[1],i];break l4}i=v3;break}if(i===null){i=e[2];break}v1=[v1,e[3](i)];break l4}break}throw e[4](i,v1)}return i}catch(v5){e[5](v5)}}
     examples:
-      # FIXME: the date member counts as native to JSON, so "x" never reaches the literal
       literal:
         input: '"x"'
-        error: Expected Date, received "x"
+        output: '"x"'
       date-text:
         input: '"2020-01-01T00:00:00.000Z"'
         output: new Date("2020-01-01T00:00:00.000Z")

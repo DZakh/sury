@@ -330,6 +330,13 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 // declared source (whose root ref may expose a bounded input tag).
 // A self-describing boundary's definition: what `$ref` + `$defs` resolve to
 // (`S.json`'s recursive union), or undefined for everything else.
+const unionRefDef = (schema: Internal): Internal | undefined => {
+  const defs = schema["$defs"], ref = schema["$ref"];
+  if (defs === U || ref === U) return U;
+  const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
+  return resolved !== U && resolved !== schema ? resolved : U;
+};
+
 // The tags a union's arms take as they are, before the widening that lets an
 // instance arm claim every object `typeof` can't tell from one.
 const unionRaw = (schema: Internal): number => {
@@ -339,13 +346,6 @@ const unionRaw = (schema: Internal): number => {
     mask |= flag & 1 ? ~0 : flag;
   }
   return mask;
-};
-
-const unionRefDef = (schema: Internal): Internal | undefined => {
-  const defs = schema["$defs"], ref = schema["$ref"];
-  if (defs === U || ref === U) return U;
-  const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
-  return resolved !== U && resolved !== schema ? resolved : U;
 };
 
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
@@ -596,7 +596,9 @@ const unionAnalyze = (
     const tag = tagFlags[view.type]!;
     const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
     const d = unionDiscriminator(s);
-    const same = unionRuntimeSame(source, s);
+    // Two refs are one runtime type only as one schema: `S.json` and a
+    // recursive member are both refs.
+    const same = unionRuntimeSame(source, s) && !(s.type === refTag && s !== source);
     const discriminatorDisjoint =
       sourceDiscriminator !== U &&
       d !== U &&
@@ -611,7 +613,10 @@ const unionAnalyze = (
         (isLiteral(s)
           ? unionLiteralEqual(s.const, source.const)
           : sourceMask & inputMask));
-    const native = sourceMask & tag;
+    // A union source's own tags: through the `typeof` widening, a `Date` would
+    // count as native to `S.json`'s objects.
+    const native = (unionSource ? sourceRaw : sourceMask) & tag;
+    const raw = tag & (1 | 256 | 512) ? unionRaw(defTag & 256 ? def! : view) : 0;
     const coerces =
       accepts &&
       !unknownSource &&
@@ -643,8 +648,9 @@ const unionAnalyze = (
                 : s.type === nullTag && (sourceMask & 16)
                   ? 16
                   : // `unknown`, a nested union or a ref takes what its arms
-                    // take as they are, an empty value by whichever one the
-                    // source has (JSON's `null` stands for `undefined`). Past
+                    // take as they are, an empty value or `NaN` by whichever
+                    // empty value the source has (JSON's `null` stands for
+                    // both). Past
                     // that, reached only by coercion. Every built-in cross-tag
                     // coercion parses a string (`BigInt`, `Number`, `new
                     // Date`), so a source that can produce one is assumed to be
@@ -653,7 +659,8 @@ const unionAnalyze = (
                     // that guess describes nothing, and claiming too little
                     // would let the dispatch raise where a later member should
                     // have run, so fall back to "any type the source produces".
-                    (tag & (1 | 256 | 512) ? (unionRaw(defTag & 256 ? def! : view) & sourceRaw) | (inputMask & 48 ? sourceMask & 48 : 0) : 0) |
+                    (raw & sourceRaw) |
+                    (raw & (16 | 32 | 2048) ? sourceMask & 48 : 0) |
                     (sourceMask & 2 ? 2 : sourceMask)
             : sourceMask
         : 0,
