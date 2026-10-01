@@ -693,6 +693,17 @@ export type Val = {
   // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
   // sink.
   ha?: string;
+  // An async coder's val. The parse loop hands this the callback it would
+  // continue the coder's promise with, and the coder's own declaration takes
+  // it as the native `then` called with the callback and the rejection
+  // handler: one promise on the valid path instead of two, still inside the
+  // coder's `try`. The handler runs on the coder's rejection only, so a
+  // failure inside the callback keeps its own path. Set only on the val
+  // B_conversion returns, which the parse loop reads next, and copied by no
+  // builder; the var never holds the promise without its handler. Answers the
+  // new declaration, which is never empty.
+  // @as("r") - continueAsync
+  r?: (then: string) => string;
 }
 
 // Shared `undefined` for every value-position use across the implementation:

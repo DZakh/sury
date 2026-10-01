@@ -250,6 +250,7 @@ export const B_operationArg = (
       x: U,
     },
     o: U,
+    r: U,
   };
 }
 
@@ -660,6 +661,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     path: prev.path,
     g: prev.g,
     o: U,
+    r: U,
   };
 }
 
@@ -689,6 +691,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     path: val.path,
     g: val.g,
     o: U,
+    r: U,
   };
   if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
@@ -785,6 +788,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
     path: pathConcat(from.path, [{ e: locationVar }]),
     g: from.g,
     o: U,
+    r: U,
   };
 }
 
@@ -973,6 +977,7 @@ export const B_scope = (val: Val): Val => {
     path: val.path,
     g: val.g,
     o: U,
+    r: U,
   };
   if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
@@ -1018,13 +1023,27 @@ export const B_conversion = (
     // do escape a union are a getter's, which never enter this try. A
     // rejection left bare would carry no path for an enclosing recursive call
     // to prepend to (specs/codec-protobuf-recursive-async.yaml).
-    // An async coder's failure lands in its `.catch` as often as in the `catch`,
-    // so both raise and share one site; a sync one's may jump.
+    // An async coder's failure lands in its rejection handler as often as in
+    // the `catch`, so both raise and share one site; a sync one's may jump.
     const fail = () => B_fail(output, B_conversionFail(input, target), `x`);
     const failure = isAsync ? B_detached(input.g, fail) : fail();
-    output.cp = `${B_let(input.g, output.i)}try{${output.i}=${embeddedFn}(${inputValue})${
-      isAsync ? `.catch(x=>{${failure}})` : ""
-    }}catch(x)${B_block(failure)}`;
+    // Declared once: in a collecting operation `B_let` hands the name to a
+    // sink, and the fused rewrite below must not hand it over twice.
+    const decl = B_let(input.g, output.i);
+    // Fused, the native `then` is called on the coder's answer rather than the
+    // answer's own: the var holds whatever `then` returns, so it has to be a
+    // promise. Anything but a native one (a value, a thenable whose `then`
+    // returns nothing) throws inside the `try` and is a failed conversion,
+    // as the unfused `.catch` lookup made it.
+    const declare = (then?: string): string => {
+      const call = `${embeddedFn}(${inputValue})`;
+      return (output.cp = `${decl}try{${output.i}=${
+        !isAsync ? call
+        : then ? `${B_embedPure(input, Promise.prototype.then)}.call(${call},${then},x=>{${failure}})`
+        : `${call}.catch(x=>{${failure}})`
+      }}catch(x)${B_block(failure)}`);
+    };
+    declare();
     // A val whose result the target's own refiners can attach to. `val.vc`
     // checks emit at the *pre-transform* slot (`prev.v()` in B_merge), so
     // leaving them on the coder's own val would validate what went into the
@@ -1033,7 +1052,9 @@ export const B_conversion = (
     // hits this: its `unknown` source makes the loop compile the target's
     // decoder, which supplies a val of its own. The trusted seam claims the
     // target outright, so it has to supply one.
-    return output.s === unknown ? output : B_refine(output);
+    const result = output.s === unknown ? output : B_refine(output);
+    if (isAsync) result.r = declare;
+    return result;
   };
 };
 

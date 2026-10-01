@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value.length } }, encode: (value) => "x".repeat(value) }), S.string])'
+  schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: ((value: string) => (value === "sync" ? value.length : Promise.resolve(value.length))) as never }, encode: (value) => "x".repeat(value) }), S.string])'
   input: string
   output: string | number
-  instantiations: 5327
+  instantiations: 5342
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
@@ -19,12 +19,12 @@ operations:
     isAsync: true
     expression: i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){if(typeof i==="string"){try{let v0;try{v0=e[3].call(e[0](i),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},x=>{e[1](x)})}catch(x){e[1](x)}i=await v0;break}catch(x){v1=[v1,e[4](x)]}break}throw e[5](i,v1)};return i})(i)).catch(e[6])}catch(v2){return e[7](v2)}}
     examples:
-      custom-arm:
+      promise:
         input: '"abc"'
         output: "3"
-      rejected-falls-back:
-        input: '"bad"'
-        output: '"bad"'
+      not-a-promise-falls-back:
+        input: '"sync"'
+        output: '"sync"'
       neither:
         input: "5"
         error: Expected string, received 5

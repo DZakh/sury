@@ -224,6 +224,7 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
       path: pathConcat(input.path, [key]),
       g: input.g,
       o: U,
+      r: U,
     };
     if (list) {
       assertListItems(item, present);

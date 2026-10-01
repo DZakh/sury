@@ -90,15 +90,13 @@ export const parse = (input: Val): Val => {
       const operationCode = B_detached(loopInput.g, () =>
         B_merge((operationOutput = parse(operationInput))),
       );
+      const then = `${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
+      // An async coder takes the `.then` into its own declaration (`Val.r`),
+      // after which its var already holds the continued value.
       result =
-        operationInput.i !== operationOutput.i || operationCode !== ""
-          ? B_next(
-              loopInput,
-              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
-              operationOutput.s,
-              operationOutput.e,
-            )
-          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+        (operationInput.i === operationOutput.i && operationCode === "") || loopInput.r?.(then)
+          ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
+          : B_next(loopInput, `${operationInputVar}.then(${then})`, operationOutput.s, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {

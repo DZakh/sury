@@ -174,6 +174,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
   path: prev.path,
   g: prev.g,
   o: U,
+  r: U,
 });
 
 export const makeObjectVal = (prev: Val): Val =>
@@ -926,6 +927,7 @@ export const valGet = (parent: Val, location: string): Val => {
       path: pathConcat(parent.path, [location]),
       g: parent.g,
       o: U,
+      r: U,
     };
     vals[location] = item;
     return item;
