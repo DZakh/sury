@@ -797,7 +797,13 @@ const missingKeyEncoder: Encoder = (input, target) => {
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
   const presentBody = body(item, !unsetIsInput);
-  const absentBody = !unsetIsInput && readsAbsent(target) ? body(target.decoder === noopDecoder ? unit : unknown, false) : "";
+  // A target that never dispatches (`s.fieldOr`) is told the value is absent
+  // and answers with its default alone; a union meeting `unit` would instead
+  // coerce it, so a dispatching target reads it from `unknown`.
+  const absentBody =
+    !unsetIsInput && readsAbsent(target)
+      ? body(target.decoder === noopDecoder ? unit : unknown, false)
+      : "";
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   output.cp = absentBody
     ? presentBody === ""
