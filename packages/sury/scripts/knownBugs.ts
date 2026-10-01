@@ -12,9 +12,9 @@
 // carries a reason instead of a spec.
 //
 // Entries are written against the SHAPE the grammar built the schema from,
-// not its text: "a union with a member that carries a default" is one entry at
-// every depth the grammar reaches, and a substring only covers the depths
-// someone happened to list.
+// not its text: "a member whose default takes a later member's `undefined`" is
+// one entry at every depth the grammar reaches, and a substring only covers the
+// depths someone happened to list.
 
 import {
   absorbs,

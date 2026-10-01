@@ -1009,10 +1009,10 @@ S.parseOrThrow(stringOrNumberSchema, "foo"); // passes
 S.parseOrThrow(stringOrNumberSchema, 14); // passes
 ```
 
-The first member that fits wins for `null` and `undefined` too. Once an earlier member's default takes one, a later member never sees it, though the type still lists it. Put the default on the union instead:
+`null` and `undefined` follow the same rule: once an earlier member's default takes one, a later member never sees it. Put the default on the union instead:
 
 ```ts
-const schema = S.union([S.optional(S.string, "none"), S.optional(S.number)]);
+const schema = S.union([S.optional(S.string, "none"), S.optional(S.number)]); // string | number | undefined
 S.parseOrThrow(schema, undefined); // => "none"
 S.parseOrThrow(schema, S.encodeOrThrow(schema, undefined)); // => "none", not undefined
 

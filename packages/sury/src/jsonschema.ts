@@ -557,10 +557,10 @@ const internalToJSONSchemaBase = (
       (parent.type === arrayTag &&
         typeof parent.additionalItems === "object" &&
         parent.items!.includes(schema));
-    // A missing value reads through the first arm to take it, so that arm's
-    // default is the only one to advertise: the union's own `undefined` arm's,
-    // or the nested member's that renders it. `s.fieldOr`'s own parser reads it
-    // ahead of every arm.
+    // A missing value reads through the first arm that takes it, so only that
+    // arm's default is advertised: the union's own when that arm is its
+    // `undefined`, otherwise the taking member's, which renders it itself.
+    // `s.fieldOr`'s own parser reads it ahead of every arm.
     const taker = optionalSlot && schema.parser === U && anyOf.find(isOptional);
     const ownsEmpty = taker ? taker.type === undefinedTag : schema.default !== U;
     if (schema.default !== U && (!taker || (ownsEmpty && taker.to !== U))) {
