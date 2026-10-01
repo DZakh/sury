@@ -92,6 +92,8 @@ if [ $FAST -eq 0 ]; then
   step "protobuf compliance" . pnpm protobuf:compliance
   step "protobuf fuzz" . pnpm protobuf:fuzz
   step "protobuf conformance" . pnpm protobuf:conformance
+  step "protobuf conformance (generated schema)" . pnpm protobuf:conformance:generated
+  step "protoc-gen-sury" . pnpm protobuf:codegen
   # Needs dune, which the session hook installs.
   step "ppx build" packages/sury-ppx/src dune build
   # Clean first: sury's own build above leaves artifacts the e2e build, which

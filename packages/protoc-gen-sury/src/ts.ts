@@ -209,8 +209,10 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       if (member.kind === "oneof") {
         return `${comment(member.path, `@generated from oneof ${message.typeName}.${member.name}`, false, "  ")}  ${property(member.localName)}:\n${oneofType(member, "  ")};`;
       }
+      // `| undefined` is what S.optional decodes an absent field to, and what a
+      // consumer under exactOptionalPropertyTypes is checked against.
       const optional = wrapperScalar(member) !== undefined || (!member.list && member.mapKey === undefined && (member.optional || member.element.kind === "message"));
-      return `${comment(member.path, `@generated from field: ${fieldDeclaration(member)}`, member.deprecated, "  ")}  ${property(member.localName)}${optional ? "?" : ""}: ${fieldType(member)};`;
+      return `${comment(member.path, `@generated from field: ${fieldDeclaration(member)}`, member.deprecated, "  ")}  ${property(member.localName)}${optional ? "?" : ""}: ${fieldType(member)}${optional ? " | undefined" : ""};`;
     });
     return `${comment(message.path, `@generated from message ${message.typeName}`, message.deprecated)}export type ${names.shape.get(message)} = {${lines.length ? `\n${lines.join("\n\n")}\n` : ""}};\n`;
   };

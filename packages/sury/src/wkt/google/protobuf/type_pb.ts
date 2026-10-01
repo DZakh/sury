@@ -265,7 +265,7 @@ export type Option = {
    *
    * @generated from field: google.protobuf.Any value = 2;
    */
-  value?: Any;
+  value?: Any | undefined;
 };
 
 export const OptionSchema = S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
@@ -414,7 +414,7 @@ export type Type = {
    *
    * @generated from field: google.protobuf.SourceContext source_context = 5;
    */
-  sourceContext?: SourceContext;
+  sourceContext?: SourceContext | undefined;
 
   /**
    * The source syntax.
@@ -517,7 +517,7 @@ export type Enum = {
    *
    * @generated from field: google.protobuf.SourceContext source_context = 4;
    */
-  sourceContext?: SourceContext;
+  sourceContext?: SourceContext | undefined;
 
   /**
    * The source syntax.

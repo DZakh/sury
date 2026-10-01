@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": false
+    "exactOptionalPropertyTypes": true
   },
   "include": ["generated/ts/**/*.ts", "types.generated.ts"]
 }

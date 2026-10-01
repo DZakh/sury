@@ -250,7 +250,7 @@ export type User_Mailbox = {
   /**
    * @generated from field: example.common.Address address = 2;
    */
-  address?: Address;
+  address?: Address | undefined;
 };
 
 export const User_MailboxSchema = S.meta(/* @__PURE__ */ S.schemaOf<User_Mailbox>()({
@@ -287,12 +287,12 @@ export type User = {
   /**
    * @generated from field: example.common.Address home = 5;
    */
-  home?: Address;
+  home?: Address | undefined;
 
   /**
    * @generated from field: optional string nickname = 6;
    */
-  nickname?: string;
+  nickname?: string | undefined;
 
   /**
    * @generated from field: example.v1.User.Kind kind = 7;
@@ -327,7 +327,7 @@ export type User = {
   /**
    * @generated from field: optional example.v1.User.Kind maybe_kind = 15;
    */
-  maybeKind?: User_Kind;
+  maybeKind?: User_Kind | undefined;
 
   /**
    * @generated from field: string deprecated_field = 16 [deprecated = true];
@@ -377,27 +377,27 @@ export type WellKnown = {
   /**
    * @generated from field: google.protobuf.Timestamp at = 1;
    */
-  at?: Timestamp;
+  at?: Timestamp | undefined;
 
   /**
    * @generated from field: google.protobuf.Duration took = 2;
    */
-  took?: Duration;
+  took?: Duration | undefined;
 
   /**
    * @generated from field: google.protobuf.StringValue label = 3;
    */
-  label?: string;
+  label?: string | undefined;
 
   /**
    * @generated from field: google.protobuf.Int64Value count = 4;
    */
-  count?: bigint;
+  count?: bigint | undefined;
 
   /**
    * @generated from field: google.protobuf.Struct meta = 5;
    */
-  meta?: JsonObject;
+  meta?: JsonObject | undefined;
 
   /**
    * @generated from field: repeated google.protobuf.Struct metas = 6;
@@ -412,7 +412,7 @@ export type WellKnown = {
   /**
    * @generated from field: google.protobuf.Value value = 8;
    */
-  value?: Value;
+  value?: Value | undefined;
 
   /**
    * @generated from field: repeated google.protobuf.Int32Value boxed_list = 9;
@@ -451,7 +451,7 @@ export type Node = {
   /**
    * @generated from field: example.v1.Node parent = 3;
    */
-  parent?: Node;
+  parent?: Node | undefined;
 
   /**
    * @generated from oneof example.v1.Node.payload
@@ -489,7 +489,7 @@ export type Branch = {
   /**
    * @generated from field: example.v1.Leaf leaf = 2;
    */
-  leaf?: Leaf;
+  leaf?: Leaf | undefined;
 };
 
 /**

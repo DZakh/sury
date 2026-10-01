@@ -159,6 +159,9 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
   }
   try {
     execFileSync(bin("rescript"), [], { cwd: join(root, "test"), stdio: "pipe" });
+    // Building sury as a dependency cleans the output of its dev sources, the
+    // committed tests/*.res.mjs; its own build puts them back.
+    execFileSync(bin("rescript"), [], { cwd: join(root, "../sury"), stdio: "pipe" });
   } catch (error) {
     const { stdout, stderr } = error as { stdout: Buffer; stderr: Buffer };
     fail(`rescript:\n${stdout.toString()}${stderr.toString()}`);
