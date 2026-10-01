@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: '(() => { const Base = S.Error as unknown as new (details: unknown) => Error; class Named extends Base { name = "MyError" } return S.schema({ a: S.string.with(S.refine, (value: string) => { if (value === "bad") { throw new Named({ code: "invalid_operation", path: [], reason: "nope" }) } return true }) }) })()'
+  schema: '(() => { const Base = S.Error as unknown as new (details: unknown) => Error; class Named extends Base { name = "MyError" } return S.schema({ a: S.string.with(S.refine, (value: string) => { if (value === "bad") { throw new Named({ code: "invalid_operation", path: [], reason: "nope" }) } if (value === "nostack") { const error = new Named({ code: "invalid_operation", path: [], reason: "nope" }); delete (error as { stack?: string }).stack; throw error } return true }) }) })()'
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 5550
@@ -21,6 +21,9 @@ operations:
         output: '{ a: "ok" }'
       subclass-thrown:
         input: '{ a: "bad" }'
+        error: "Named: Failed at a: nope"
+      subclass-thrown-without-own-stack:
+        input: '{ a: "nostack" }'
         error: "Named: Failed at a: nope"
   decode:
     expression: i=>{try{let v0=i.a;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}

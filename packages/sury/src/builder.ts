@@ -25,6 +25,7 @@ import {
   pathToText,
   s,
   stringify,
+  SuryError,
   type SuryErrorRecord,
   toError,
   tagFlags,
@@ -449,20 +450,23 @@ const B_foreignFail = (
 // Onto the SAME prototype: what the failing check settled lives on its site
 // prototype (base.ts, `errorSite`), and a copy without it would read `Expected
 // undefined`. This runs once per recursive level a failure passes back
-// through, so a failure Sury built and nothing has handed out yet - no own
-// `stack` - takes `Object.assign`: its own keys are plain enumerable data.
-// Anything else may carry what a subclass defined (a read-only `name` field,
-// a non-enumerable one), so it gets every own descriptor, and the `stack` as
-// its value: V8's is an accessor reading the instance it was captured on, and
-// copied over it reads `undefined`.
+// through, so one built from `SuryError` itself with no own `stack` takes
+// `Object.assign`: its own keys are plain enumerable data. A subclass may hold
+// a field its prototype keeps read-only (`name = "MyError"`), and an own
+// `stack` (V8 gives every instance one) is an accessor reading the instance it
+// was captured on, so anything else gets every own descriptor and the stack as
+// its value.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
   const proto = Object.getPrototypeOf(error) as object;
   let copy: SuryErrorRecord;
-  if (Object.hasOwn(error, "stack")) {
+  if ((proto as { constructor: unknown }).constructor === SuryError && !Object.hasOwn(error, "stack"))
+    copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
+  else {
     copy = Object.create(proto, Object.getOwnPropertyDescriptors(error)) as SuryErrorRecord;
-    Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
-  } else copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
+    if (Object.hasOwn(error, "stack"))
+      Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
+  }
   copy.path = pathConcat(p, error.path);
   return copy;
 };
