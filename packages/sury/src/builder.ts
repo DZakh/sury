@@ -319,7 +319,6 @@ const B_childExit = (g: BGlobal, label: { l?: string }): NonNullable<BGlobal["x"
   const exit = ((record?: Failure) => {
     const jump = `break ${(label.l ||= `c${++g.v}`)}`;
     if (!record) return jump;
-    g.ku = true;
     g.kj = (g.kj || 0) + 1;
     return `{${g.k}=[${g.k},${record(true)}];${jump}}`;
   }) as NonNullable<BGlobal["x"]> & { k?: 1 };
@@ -358,7 +357,6 @@ export const B_child = (g: BGlobal, emit: () => void): ((code: string, val: Val)
   return (code, val) => {
     if (!code) return code;
     if (g.t !== raises) {
-      g.ku = true;
       g.kj = (g.kj || 0) + 1;
       const e = B_varWithoutAllocation(g);
       const errorOf = B_errorOf(val);

@@ -588,13 +588,11 @@ export type BGlobal = {
   // took `x`. Read the difference, never the value.
   j: number;
   // @as("k") - the var of the failure list an operation that reports every
-  // failure collects into (parse.ts `outcomeOf`). `ku` says a child's exit
-  // named it: until one does, nothing can be on it and the operation reads as
-  // if it answered the first failure.
+  // failure collects into (parse.ts `outcomeOf`).
   k?: string;
-  ku?: boolean;
   // @as("kj") - how many failures children collected, `j`'s twin: read the
-  // difference, never the value.
+  // difference. Unset, nothing can be on the list and the operation reads as
+  // if it answered the first failure.
   kj?: number;
   // @as("y") - where code that must not run after a container's children
   // collected goes instead: out of the innermost collecting child, or out of

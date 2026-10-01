@@ -367,13 +367,13 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
   }
   const failOf = (e?: string): string =>
     list
-      ? `${failure}(${g.ku ? list : 0}${e ? `,1,${e}` : ""})`
+      ? `${failure}(${g.kj ? list : 0}${e ? `,1,${e}` : ""})`
       : flag & 4096
         ? failure
         : `${failure}(${e})`;
   // What the sync phase collected fails the operation after all, async or
   // not - it is only read once the body is done.
-  const done = (success: string): string => (g.ku ? `${list}?${failOf()}:${success}` : success);
+  const done = (success: string): string => (g.kj ? `${list}?${failOf()}:${success}` : success);
   return {
     x,
     t: (code, out, isAsync) => {
@@ -392,7 +392,7 @@ const outcomeOf = (input: Val, flag: Flag, hasDefs: boolean): Outcome => {
       // `safe(() => ...)` wrapper can never make.
       if (code)
         body = `try{${body}}catch(${errVar}){return ${list ? failOf(errVar) : lifted(failOf(errVar))}}`;
-      const names = g.ku || named ? [list, ...g.l!] : g.l || [];
+      const names = g.kj || named ? [list, ...g.l!] : g.l || [];
       return names.length ? `let ${[...new Set(names)]};${body}` : body;
     },
   };
