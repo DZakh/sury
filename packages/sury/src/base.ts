@@ -499,6 +499,7 @@ export type Internal = {
   space?: number;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
+  protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema

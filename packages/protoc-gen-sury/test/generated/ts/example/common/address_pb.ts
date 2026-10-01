@@ -29,7 +29,7 @@ export const Currency = {
  */
 export type Currency = (typeof Currency)[keyof typeof Currency];
 
-export const CurrencySchema = S.union([Currency.UNSPECIFIED, Currency.USD, Currency.EUR]);
+export const CurrencySchema = S.protobufTypeName(S.union([Currency.UNSPECIFIED, Currency.USD, Currency.EUR]), "example.common.Currency");
 
 /**
  * A postal address.
@@ -55,8 +55,8 @@ export type Address = {
   country: string;
 };
 
-export const AddressSchema = S.meta(/* @__PURE__ */ S.schemaOf<Address>()({
+export const AddressSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Address>()({
   street: S.protobufField(S.string, { number: 1, type: "string" }),
   city: S.protobufField(S.string, { number: 2, type: "string" }),
   country: S.protobufField(S.string, { number: 3, type: "string" }),
-}), { name: "Address" });
+}), { name: "Address" }), "example.common.Address");

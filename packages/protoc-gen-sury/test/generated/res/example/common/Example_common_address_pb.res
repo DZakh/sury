@@ -4,7 +4,7 @@
 
 module Currency = {
   type t = | @as(0) Unspecified | @as(1) Usd | @as(2) Eur
-  let schema: S.t<t> = S.enum([Unspecified, Usd, Eur])
+  let schema: S.t<t> = S.enum([Unspecified, Usd, Eur])->S.protobufTypeName("example.common.Currency")
 }
 
 /**
@@ -23,5 +23,5 @@ module Address = {
     street: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     city: s.matches(S.string->S.protobufField(2, ~type_=#string)),
     country: s.matches(S.string->S.protobufField(3, ~type_=#string)),
-  })
+  })->S.protobufTypeName("example.common.Address")
 }

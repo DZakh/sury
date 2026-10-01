@@ -9,12 +9,12 @@ let number = S.union([S.float, S.literal(Float.Constants.nan)])
  */
 module User_Kind = {
   type t = | @as(0) Unspecified | @as(1) Person | @as(2) Robot
-  let schema: S.t<t> = S.enum([Unspecified, Person, Robot])
+  let schema: S.t<t> = S.enum([Unspecified, Person, Robot])->S.protobufTypeName("example.v1.User.Kind")
 }
 
 module Reserved_Enum = {
   type t = | @as(0) Unspecified
-  let schema: S.t<t> = S.enum([Unspecified])
+  let schema: S.t<t> = S.enum([Unspecified])->S.protobufTypeName("example.v1.Reserved.Enum")
 }
 
 /**
@@ -22,12 +22,12 @@ module Reserved_Enum = {
  */
 module Mixed = {
   type t = | @as(0) MixedUnspecified | @as(1) Other
-  let schema: S.t<t> = S.enum([MixedUnspecified, Other])
+  let schema: S.t<t> = S.enum([MixedUnspecified, Other])->S.protobufTypeName("example.v1.Mixed")
 }
 
 module Aliased = {
   type t = | @as(0) Unspecified | @as(1) One
-  let schema: S.t<t> = S.enum([Unspecified, One])
+  let schema: S.t<t> = S.enum([Unspecified, One])->S.protobufTypeName("example.v1.Aliased")
 }
 
 /**
@@ -35,7 +35,7 @@ module Aliased = {
  */
 module Lonely = {
   type t = | @as(0) Unspecified
-  let schema: S.t<t> = S.enum([Unspecified])
+  let schema: S.t<t> = S.enum([Unspecified])->S.protobufTypeName("example.v1.Lonely")
 }
 
 /**
@@ -77,7 +77,7 @@ module Scalars = {
     string: s.matches(S.string->S.protobufField(14, ~type_=#string)),
     bytes: s.matches(S.uint8Array->S.protobufField(15, ~type_=#bytes)),
     asString: s.matches(S.string->S.protobufField(16, ~type_=#int64)),
-  })
+  })->S.protobufTypeName("example.v1.Scalars")
 }
 
 /**
@@ -91,7 +91,7 @@ module User_Mailbox = {
   let schema: S.t<t> = S.schema(s => {
     name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     address: s.matches(S.option(Example_common_address_pb.Address.schema)->S.protobufField(2, ~type_=#message)),
-  })
+  })->S.protobufTypeName("example.v1.User.Mailbox")
 }
 
 /**
@@ -144,7 +144,7 @@ module User = {
     deprecatedField: s.matches(S.string->S.protobufField(16, ~type_=#string)),
     kinds: s.matches(S.array(User_Kind.schema)->S.protobufField(17, ~type_=#enum)),
     byId: s.matches(S.dict(S.string)->S.protobufField(18, ~type_=#string, ~key=#uint64)),
-  })
+  })->S.protobufTypeName("example.v1.User")
 }
 
 module WellKnown = {
@@ -186,7 +186,7 @@ module WellKnown = {
         S.schema(s => After({value: s.matches(SuryProtobuf.Duration.schema->S.protobufField(14, ~type_=#message))})),
       ]),
     )),
-  })
+  })->S.protobufTypeName("example.v1.WellKnown")
 }
 
 @tag("case")
@@ -216,7 +216,7 @@ module Node = {
           S.schema(s => Link({value: s.matches(self->S.protobufField(5, ~type_=#message))})),
         ]),
       )),
-    })
+    })->S.protobufTypeName("example.v1.Node")
   )
 }
 
@@ -239,9 +239,9 @@ module Branch = {
       leaf: s.matches(S.option(S.recursive("Leaf", (_self2: S.t<leaf>) =>
       S.schema(s => {
         branches: s.matches(S.array(self)->S.protobufField(1, ~type_=#message)),
-      })
+      })->S.protobufTypeName("example.v1.Leaf")
     ))->S.protobufField(2, ~type_=#message)),
-    })
+    })->S.protobufTypeName("example.v1.Branch")
   )
 }
 
@@ -253,9 +253,9 @@ module Leaf = {
       S.schema(s => {
         n: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
         leaf: s.matches(S.option(self)->S.protobufField(2, ~type_=#message)),
-      })
+      })->S.protobufTypeName("example.v1.Branch")
     ))->S.protobufField(1, ~type_=#message)),
-    })
+    })->S.protobufTypeName("example.v1.Leaf")
   )
 }
 
@@ -274,12 +274,12 @@ module Reserved = {
     toString_: s.matches(S.string->S.protobufField(2, ~type_=#string)),
     valueOf_: s.matches(S.int->S.protobufField(3, ~type_=#int32)),
     enum: s.matches(Reserved_Enum.schema->S.protobufField(4, ~type_=#enum)),
-  })
+  })->S.protobufTypeName("example.v1.Reserved")
 }
 
 module Empty = {
   type t
-  let schema: S.t<t> = S.schema(_ => %raw(`{}`))
+  let schema: S.t<t> = S.schema(_ => %raw(`{}`))->S.protobufTypeName("example.v1.Empty")
 }
 
 module Uses = {
@@ -296,5 +296,20 @@ module Uses = {
     lonely: s.matches(Lonely.schema->S.protobufField(3, ~type_=#enum)),
     mixes: s.matches(S.array(Mixed.schema)->S.protobufField(4, ~type_=#enum)),
     aliases: s.matches(S.dict(Aliased.schema)->S.protobufField(5, ~type_=#enum, ~key=#string)),
-  })
+  })->S.protobufTypeName("example.v1.Uses")
+}
+
+/**
+ Anys, opaque as protobuf-es holds them; the harness also reads them as a
+ tagged union of the messages they hold.
+ */
+module Envelope = {
+  type t = {
+    payload: option<SuryProtobuf.Any.t>,
+    details: array<SuryProtobuf.Any.t>,
+  }
+  let schema: S.t<t> = S.schema(s => {
+    payload: s.matches(S.option(SuryProtobuf.Any.schema)->S.protobufField(1, ~type_=#message)),
+    details: s.matches(S.array(SuryProtobuf.Any.schema)->S.protobufField(2, ~type_=#message)),
+  })->S.protobufTypeName("example.v1.Envelope")
 }

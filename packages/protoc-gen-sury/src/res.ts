@@ -197,21 +197,17 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const objectSchema = (message: Message, scope: Scope, indent: string): string =>
     message.members.length === 0 ? `${S}schema(_ => %raw(\`{}\`))` : `${S}schema(s => ${recordBody(message, scope, indent)})`;
 
-  // A well-known type is named by Google's full name, which `S.toProtoOrThrow`
-  // imports rather than declares.
-  const google = wktFiles.has(file.proto.name);
-  const protoName = (desc: Message): string => JSON.stringify(google ? desc.typeName : namesOf(file).shape.get(desc));
-  const named = (schema: string, desc: Message | Enum): string =>
-    google ? `${schema}->${S}meta({name: ${JSON.stringify(desc.typeName)}})` : schema;
+  // On the definition itself, so every path to a recursive message reaches it.
+  const named = (schema: string, desc: Message | Enum): string => `${schema}->${S}protobufTypeName(${JSON.stringify(desc.typeName)})`;
 
   function recursiveExpr(message: Message, scope: Scope): string {
     const name = scope.depth === 0 ? "self" : `self${scope.depth + 1}`;
     const inner: Scope = { bindings: new Map(scope.bindings).set(message, name), component: scope.component, depth: scope.depth + 1 };
     const indent = "  ".repeat(scope.depth + 2);
-    const body = objectSchema(message, inner, indent);
+    const body = named(objectSchema(message, inner, indent), message);
     const binder = new RegExp(`\\b${name}\\b`).test(body) ? name : `_${name}`;
     const annotated = scope.depth === 0 ? binder : `(${binder}: ${S}t<${typeRef(message)}>)`;
-    return `${S}recursive(${protoName(message)}, ${annotated} =>\n${indent}${body.replace(new RegExp(`\\b${name}\\b`, "g"), binder)}\n${"  ".repeat(scope.depth + 1)})`;
+    return `${S}recursive(${JSON.stringify(namesOf(file).shape.get(message))}, ${annotated} =>\n${indent}${body.replace(new RegExp(`\\b${name}\\b`, "g"), binder)}\n${"  ".repeat(scope.depth + 1)})`;
   }
 
   const docstring = (path: number[], indent: string): string => {

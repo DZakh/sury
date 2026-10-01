@@ -102,6 +102,7 @@ type protobufType = [
 // A Google well-known type, printed as an import. See `ProtobufWellKnownType`
 // in index.d.ts for the value each takes.
 type protobufWellKnownType = [
+  | #"google.protobuf.Any"
   | #"google.protobuf.Timestamp"
   | #"google.protobuf.Duration"
   | #"google.protobuf.Value"
@@ -648,6 +649,7 @@ type protobufFieldOptions = {
 external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
 let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
   protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
+@module("sury") external protobufTypeName: (t<'value>, string) => t<'value> = "protobufTypeName"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.

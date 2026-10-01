@@ -214,6 +214,51 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
     }
   }
 
+  // ── typed Any ────────────────────────────────────────────────────────────
+  {
+    const file = "example/v1/kitchen_sink_pb";
+    const esModule = await import(pathToFileURL(join(es, `${file}.ts`)).href);
+    const suryModule = await import(pathToFileURL(join(root, "test/generated/ts", `${file}.ts`)).href);
+    const { anyPack } = await import("@bufbuild/protobuf/wkt");
+    const arms = ["User", "Node"].map((name) => ({
+      name,
+      model: messages.find((entry) => entry.message.typeName === `example.v1.${name}`)!.message,
+    }));
+    const member = S.union(arms.map(({ name }) => S.schema({ type: name, value: suryModule[`${name}Schema`] })));
+    const Typed = S.schema({
+      payload: S.protobufField(S.optional(member), 1),
+      details: S.protobufField(S.array(member), 2),
+    });
+    const encodeTyped = S.decodeOrThrow(Typed, S.protobuf) as (value: unknown) => Uint8Array;
+    const decodeTyped = S.decodeOrThrow(S.protobuf, Typed) as (bytes: Uint8Array) => unknown;
+    const pack = (arm: (typeof arms)[number], value: unknown) =>
+      anyPack(esModule[`${arm.name}Schema`], create(esModule[`${arm.name}Schema`], value as never));
+    for (let idx = 0; idx < 60; idx++) {
+      const picked = Array.from({ length: Math.floor(rng() * 3) + 1 }, () => {
+        const arm = arms[Math.floor(rng() * arms.length)]!;
+        return { arm, value: sampleMessage(rng, arm.model) };
+      });
+      const [first, ...rest] = picked;
+      const typed = { payload: { type: first!.arm.name, value: first!.value }, details: rest.map(({ arm, value }) => ({ type: arm.name, value })) };
+      const label = `typed Any #${idx} ${JSON.stringify(normalize(typed))}`;
+      cases++;
+      try {
+        const esBytes = toBinary(
+          esModule.EnvelopeSchema,
+          create(esModule.EnvelopeSchema, { payload: pack(first!.arm, first!.value), details: rest.map(({ arm, value }) => pack(arm, value)) }),
+        );
+        const suryBytes = encodeTyped(typed);
+        if (Buffer.compare(Buffer.from(esBytes), Buffer.from(suryBytes)) !== 0) {
+          fail(`${label}\n  bytes differ: protobuf-es [${[...esBytes]}] Sury [${[...suryBytes]}]`);
+        }
+        const fromEs = JSON.stringify(normalize(decodeTyped(esBytes)));
+        if (fromEs !== JSON.stringify(normalize(typed))) fail(`${label}\n  Sury read protobuf-es's bytes as ${fromEs}`);
+      } catch (error) {
+        fail(`${label}\n  threw ${(error as Error).stack}`);
+      }
+    }
+  }
+
   // ── reprint ──────────────────────────────────────────────────────────────
   const reprint = join(work, "reprint");
   mkdirSync(reprint);
@@ -285,8 +330,8 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
   shakes(
     "one well-known type",
     await bundled('import { TimestampSchema } from "sury/protobuf/wkt";\nconsole.log(TimestampSchema);\n'),
-    ['name: "google.protobuf.Timestamp"', "seconds"],
-    ['name: "google.protobuf.Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "google.protobuf.Int32Value"'],
+    ['name: "Timestamp"', "seconds"],
+    ['name: "Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "Int32Value"'],
   );
   shakes(
     "one ReScript module",

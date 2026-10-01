@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ payload: S.protobufField(S.union([S.schema({ type: "a", value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User"), other: S.protobufTypeName(S.schema({ total: S.protobufField(S.int32, 1) }), "acme.v1.Order") }), S.schema({ type: "b", value: S.protobufTypeName(S.schema({ total: S.protobufField(S.int32, 1) }), "acme.v1.Order") })]), 1) }).with(S.to, S.protobuf)'
+  input: '{ payload: { type: "a"; value: { id: number; }; other: { total: number; }; } | { type: "b"; value: { total: number; }; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 12452
+jsonSchema:
+  input: '{ type: "object", properties: { payload: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "a" }, value: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] }, other: { type: "object", properties: { total: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["total"] } }, required: ["type", "value", "other"] }, { type: "object", properties: { type: { type: "string", const: "b" }, value: { type: "object", properties: { total: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["total"] } }, required: ["type", "value"] }] } }, required: ["payload"] }'
+  output: '[Sury] S.protobuf: Any field "payload" has a member holding two values, "value" and "other"'
+  openapi-3.0:
+    input: '{ type: "object", properties: { payload: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["a"] }, value: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] }, other: { type: "object", properties: { total: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["total"] } }, required: ["type", "value", "other"] }, { type: "object", properties: { type: { type: "string", enum: ["b"] }, value: { type: "object", properties: { total: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["total"] } }, required: ["type", "value"] }] } }, required: ["payload"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.payload.type==="a"?b.payload.type==="a"&&a.payload.value.id===b.payload.value.id&&a.payload.other.total===b.payload.other.total:b.payload.type==="b"&&a.payload.value.total===b.payload.value.total)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { payload: { type: \"a\"; value: { id: int32; }; other: { total: int32; }; } | { type: \"b\"; value: { total: int32; }; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: Any field "payload" has a member holding two values, "value" and "other"'
+  decode: eq-to-parse
+  encode: eq-to-parse

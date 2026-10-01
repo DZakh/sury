@@ -1675,6 +1675,24 @@ need nanoseconds.
 generated code uses them: `SuryProtobuf.Timestamp.t`,
 `SuryProtobuf.Timestamp.schema`.
 
+An `Any` is a variant of the messages it may hold, each named with
+`S.protobufTypeName` and tagged by a literal of your choosing:
+
+```rescript
+@tag("type")
+type event =
+  | @as("user") User({value: user})
+  | @as("order") Order({value: order})
+
+let eventSchema = S.union([
+  S.schema(s => User({value: s.matches(userSchema->S.protobufTypeName("acme.v1.User"))})),
+  S.schema(s => Order({value: s.matches(orderSchema->S.protobufTypeName("acme.v1.Order"))})),
+])->S.protobufField(1)
+```
+
+A type the variant doesn't list fails the decode, unless a case holds
+`SuryProtobuf.Any.schema`, which keeps it as its type URL and bytes.
+
 #### Unknown fields and errors
 
 Fields your schema doesn't declare are skipped, and decoding then encoding

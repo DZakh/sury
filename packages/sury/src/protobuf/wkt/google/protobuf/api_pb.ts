@@ -82,7 +82,7 @@ export type Method = {
   edition: string;
 };
 
-export const MethodSchema = S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
+export const MethodSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   requestTypeUrl: S.protobufField(S.string, { number: 2, type: "string" }),
   requestStreaming: S.protobufField(S.boolean, { number: 3, type: "bool" }),
@@ -91,7 +91,7 @@ export const MethodSchema = S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
   options: S.protobufField(S.array(OptionSchema), { number: 6, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
   edition: S.protobufField(S.string, { number: 8, type: "string" }),
-}), { name: "google.protobuf.Method" });
+}), { name: "Method" }), "google.protobuf.Method");
 
 /**
  * Declares an API Interface to be included in this interface. The including
@@ -192,10 +192,10 @@ export type Mixin = {
   root: string;
 };
 
-export const MixinSchema = S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
+export const MixinSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   root: S.protobufField(S.string, { number: 2, type: "string" }),
-}), { name: "google.protobuf.Mixin" });
+}), { name: "Mixin" }), "google.protobuf.Mixin");
 
 /**
  * Api is a light-weight descriptor for an API Interface.
@@ -294,7 +294,7 @@ export type Api = {
   edition: string;
 };
 
-export const ApiSchema = S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
+export const ApiSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   methods: S.protobufField(S.array(MethodSchema), { number: 2, type: "message" }),
   options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),
@@ -303,4 +303,4 @@ export const ApiSchema = S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
   mixins: S.protobufField(S.array(MixinSchema), { number: 6, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
   edition: S.protobufField(S.string, { number: 8, type: "string" }),
-}), { name: "google.protobuf.Api" });
+}), { name: "Api" }), "google.protobuf.Api");

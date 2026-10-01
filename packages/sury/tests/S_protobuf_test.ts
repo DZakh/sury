@@ -830,7 +830,7 @@ test("protobuf refuses a oneof with no arm for no member set, and a case or numb
 // A throw at schema construction, which a spec can't record.
 // Spelled as a test: a spec can't record a schema whose construction throws.
 test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
-  for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Any", "google.protobuf.constructor"]) {
+  for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Api", "google.protobuf.constructor"]) {
     t.expect(() => S.optional(S.string).with(S.protobufField, { number: 1, type: type as S.ProtobufType })).toThrow(
       "[Sury] S.protobufField requires a protobuf type",
     );
@@ -869,8 +869,8 @@ test("protobufField refuses a value a well-known type doesn't take", (t) => {
   t.expect(() => S.schema({ a: S.string }).with(S.protobufField, { number: 1, type: "google.protobuf.Empty" })).toThrow(
     "[Sury] S.protobufField requires S.schema({}) for google.protobuf.Empty",
   );
-  t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" as never })).toThrow(
-    "[Sury] S.protobufField requires a protobuf type",
+  t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" })).toThrow(
+    "[Sury] S.protobufField requires a message S.protobufTypeName names, or an S.union of them for google.protobuf.Any",
   );
 });
 

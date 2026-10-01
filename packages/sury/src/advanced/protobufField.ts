@@ -4,6 +4,7 @@ import {
   arrayTag,
   bigintTag,
   booleanTag,
+  copySchema,
   instanceTag,
   type Internal,
   numberTag,
@@ -183,8 +184,19 @@ const isSecondsNanos = (shape: Internal): boolean => {
   );
 };
 
+// Which type each message is, `S.protobuf` reads off `S.protobufTypeName` when
+// it compiles.
+const isAnyValue = (shape: Internal): boolean =>
+  shape.type === anyOfTag
+    ? shape.anyOf!.every((member) => {
+        const output = getOutputSchema(member);
+        return output.type === undefinedTag || (isMessageShape(output) && !isContainer(output));
+      })
+    : isMessageShape(shape) && !isContainer(shape);
+
 // The value each well-known type takes, and how an error names it.
 const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) => boolean, string]> = {
+  "google.protobuf.Any": [isAnyValue, "a message S.protobufTypeName names, or an S.union of them"],
   "google.protobuf.Timestamp": [
     (shape) => (shape.type === instanceTag && shape.class === Date) || isSecondsNanos(shape),
     "a Date or { seconds: S.bigint, nanos: S.int32 }",
@@ -218,6 +230,8 @@ const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined
   // The two values with no other wire form.
   if (shape.type === instanceTag && shape.class === Date) return "google.protobuf.Timestamp";
   if (shape.flags & 16) return "google.protobuf.Value";
+  // A union of messages can only be an Any: a oneof has no number of its own.
+  if (shape.type === anyOfTag && isAnyValue(shape)) return "google.protobuf.Any";
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
   if (shape.type === objectTag || shape.type === refTag) return "message";
@@ -228,6 +242,18 @@ const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined
     return "double";
   }
   return U;
+};
+
+// On the schema itself rather than its output: the message is the object the
+// wire speaks, which a `.to` chain starts from.
+// @__NO_SIDE_EFFECTS__
+export const protobufTypeName = (schema: Internal, typeName: string): Internal => {
+  if (!/^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$/.test(typeName)) {
+    return panic(`S.protobufTypeName requires a full name such as "acme.v1.User", not ${JSON.stringify(typeName)}`);
+  }
+  const mut = copySchema(schema);
+  mut.protobufTypeName = typeName;
+  return mut;
 };
 
 // @__NO_SIDE_EFFECTS__

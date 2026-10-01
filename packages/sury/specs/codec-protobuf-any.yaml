@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ payload: S.protobufField(S.optional(S.union([S.schema({ type: "user", value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), name: S.protobufField(S.string, 2) }), "acme.v1.User") }), S.schema({ type: "order", value: S.protobufTypeName(S.schema({ total: S.protobufField(S.bigint, { number: 1, type: "int64" }) }), "acme.v1.Order") }), S.schema({ type: "other", value: S.protobufTypeName(S.schema({ typeUrl: S.protobufField(S.string, 1), value: S.protobufField(S.uint8Array, 2) }), "google.protobuf.Any") })])), 1), many: S.protobufField(S.array(S.union([S.schema({ type: "user", value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), name: S.protobufField(S.string, 2) }), "acme.v1.User") }), S.schema({ type: "order", value: S.protobufTypeName(S.schema({ total: S.protobufField(S.bigint, { number: 1, type: "int64" }) }), "acme.v1.Order") })])), 2) }).with(S.to, S.protobuf)'
+  input: '{ many: ({ type: "user"; value: { id: number; name: string; }; } | { type: "order"; value: { total: bigint; }; })[]; payload?: { type: "user"; value: { id: number; name: string; }; } | { type: "order"; value: { total: bigint; }; } | { ...; } | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 22234
+jsonSchema:
+  input: "Failed at payload.value.total: Expected JSON, received bigint"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(a.payload?.type==="user"?b.payload?.type==="user"&&a.payload.value.id===b.payload.value.id&&a.payload.value.name===b.payload.value.name:a.payload?.type==="order"?b.payload?.type==="order"&&a.payload.value.total===b.payload.value.total:a.payload?.type==="other"?b.payload?.type==="other"&&a.payload.value.typeUrl===b.payload.value.typeUrl&&e[0](a.payload.value.value,b.payload.value.value):b.payload===void 0)&&e[1](a.many,b.many)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { payload: { type: \"user\"; value: { id: int32; name: string; }; } | { type: \"order\"; value: { total: bigint; }; } | { type: \"other\"; value: { typeUrl: string; value: Uint8Array; }; } | undefined; many: ({ type: \"user\"; value: { id: int32; name: string; }; } | { type: \"order\"; value: { total: bigint; }; })[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[28](i);let v0=i.payload,v9=i.many;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="user"){let v1=v0.value;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1.id,v3=v1.name;typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[0](v2);typeof v3==="string"||e[1](v3);v0={type:v0.type,value:{id:v2,name:v3}};break}if(v0.type==="order"){let v4=v0.value;typeof v4==="object"&&v4&&!Array.isArray(v4)||e[4](v4);let v5=v4.total;typeof v5==="bigint"||e[3](v5);v0={type:v0.type,value:{total:v5}};break}if(v0.type==="other"){let v6=v0.value;typeof v6==="object"&&v6&&!Array.isArray(v6)||e[8](v6);let v7=v6.typeUrl,v8=v6.value;typeof v7==="string"||e[5](v7);v8 instanceof e[6]||e[7](v8);v0={type:v0.type,value:{typeUrl:v7,value:v8}};break}throw e[9](v0)}break}if(v0===void 0)break;throw e[9](v0)}Array.isArray(v9)||e[16](v9);let v17=new Array(v9.length);for(let v10=0;v10<v9.length;++v10){let v11=v9[v10];if(typeof v11==="object"&&v11&&!Array.isArray(v11)){for(;;){if(v11.type==="user"){let v12=v11.value;typeof v12==="object"&&v12&&!Array.isArray(v12)||e[12](v12,["many",v10,"value"]);let v13=v12.id,v14=v12.name;typeof v13==="number"&&v13<=2147483647&&v13>=-2147483648&&v13%1==0||e[10](v13,["many",v10,"value","id"]);typeof v14==="string"||e[11](v14,["many",v10,"value","name"]);v11={type:v11.type,value:{id:v13,name:v14}};break}if(v11.type==="order"){let v15=v11.value;typeof v15==="object"&&v15&&!Array.isArray(v15)||e[14](v15,["many",v10,"value"]);let v16=v15.total;typeof v16==="bigint"||e[13](v16,["many",v10,"value","total"]);v11={type:v11.type,value:{total:v16}};break}throw e[15](v11,void 0,["many",v10])}}else{throw e[15](v11,void 0,["many",v10])}v17[v10]=v11}let v18;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[26].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[17](w,v);w.end(h)};f=1;v=v17;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[21](w,v[j++]);w.end(h)}};v18=w.finish()}catch(x){w&&(w.busy=false);x=e[24](x,e[25],f,j,a);e[27](x)}}return v18}catch(v19){e[29](v19)}}
+    examples:
+      each-member:
+        input: '{ payload: { type: "user", value: { id: 1, name: "Ada" } }, many: [{ type: "order", value: { total: 5n } }, { type: "user", value: { id: 0, name: "" } }] }'
+        output: new Uint8Array([10, 43, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 7, 8, 1, 18, 3, 65, 100, 97, 18, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 5, 18, 34, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114])
+      unset:
+        input: "{ many: [] }"
+        output: new Uint8Array([])
+      opaque-other:
+        input: '{ payload: { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Missing", value: new Uint8Array([8, 1]) } }, many: [] }'
+        output: new Uint8Array([10, 41, 10, 35, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 77, 105, 115, 115, 105, 110, 103, 18, 2, 8, 1])
+      wrong-value-for-member:
+        input: '{ payload: { type: "user", value: { total: 5n } }, many: [] }'
+        error: "Failed at payload.value.id: Expected int32, received undefined"
+      unknown-tag:
+        input: '{ payload: { type: "admin", value: { id: 1, name: "" } }, many: [] }'
+        error: 'Failed at payload: Expected { type: "user"; value: { id: int32; name: string; }; } | { type: "order"; value: { total: bigint; }; } | { type: "other"; value: { typeUrl: string; value: Uint8Array; }; } | undefined, received { type: "admin"; value: object; }'
+  decode:
+    expression: i=>{try{let v0=i.many;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=i.payload;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[4](w,v[j++]);w.end(h)}};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v2}catch(v3){e[11](v3)}}
+    examples:
+      each-member:
+        input: '{ payload: { type: "user", value: { id: 1, name: "Ada" } }, many: [{ type: "order", value: { total: 5n } }, { type: "user", value: { id: 0, name: "" } }] }'
+        output: new Uint8Array([10, 43, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 7, 8, 1, 18, 3, 65, 100, 97, 18, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 5, 18, 34, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114])
+      opaque-other:
+        input: '{ payload: { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Missing", value: new Uint8Array([8, 1]) } }, many: [] }'
+        output: new Uint8Array([10, 41, 10, 35, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 77, 105, 115, 115, 105, 110, 103, 18, 2, 8, 1])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v4=v0.many;return v0}catch(v8){e[3](v8)}}
+    examples:
+      custom-prefix:
+        input: new Uint8Array([10, 30, 10, 24, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+        output: '{ many: [], payload: { type: "user", value: { id: 1, name: "" } } }'
+      value-before-type-url:
+        input: new Uint8Array([10, 39, 18, 2, 8, 5, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114])
+        output: '{ many: [], payload: { type: "order", value: { total: 5n } } }'
+      unknown-type-kept-opaque:
+        input: new Uint8Array([10, 41, 10, 35, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 77, 105, 115, 115, 105, 110, 103, 18, 2, 8, 1])
+        output: '{ many: [], payload: { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Missing", value: new Uint8Array([8, 1]) } } }'
+      no-type-url-kept-opaque:
+        input: new Uint8Array([10, 4, 18, 2, 8, 1])
+        output: '{ many: [], payload: { type: "other", value: { typeUrl: "", value: new Uint8Array([8, 1]) } } }'
+      failure-inside-member:
+        input: new Uint8Array([10, 39, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 3, 18, 1, 255])
+        error: "Failed at payload.value.name: Protobuf string is not valid UTF-8"

@@ -336,3 +336,39 @@ message Category {
 `,
   )
 })
+
+type order = {total: int}
+
+@tag("type")
+type event =
+  | @as("address") Address({value: address})
+  | @as("order") Order({value: order})
+
+let namedAddressSchema = addressSchema->S.protobufTypeName("acme.v1.Address")
+let orderSchema = S.schema(s => {total: s.matches(S.int->S.protobufField(1))})->S.protobufTypeName("acme.v1.Order")
+
+type envelope = {event: event}
+
+let envelopeSchema = S.schema(s => {
+  event: s.matches(
+    S.union([
+      S.schema(s => Address({value: s.matches(namedAddressSchema)})),
+      S.schema(s => Order({value: s.matches(orderSchema)})),
+    ])->S.protobufField(1),
+  ),
+})
+
+test("a tagged variant of named messages travels as an Any", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=envelopeSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=envelopeSchema)
+  let order = {event: Order({value: {total: 5}})}
+  let bytes = toBytes(order)
+  // type_url "type.googleapis.com/acme.v1.Order", then the order as value
+  t->Assert.deepEqual(
+    bytes->bytesToArray,
+    [10, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 5],
+  )
+  t->Assert.deepEqual(fromBytes(bytes), order)
+  let address = {event: Address({value: {street: "x"}})}
+  t->Assert.deepEqual(fromBytes(toBytes(address)), address)
+})

@@ -690,11 +690,12 @@ message M {
 `);
 });
 
-test("A message or enum named google.protobuf.* prints as an import", (t) => {
-  const kind = S.meta(S.union([0, 1]), { name: "google.protobuf.Field.Kind" });
-  const any = S.meta(S.schema({ typeUrl: S.string.with(S.protobufField, 1), value: S.uint8Array.with(S.protobufField, 2) }), {
-    name: "google.protobuf.Any",
-  });
+test("A message or enum S.protobufTypeName names google.protobuf.* prints as an import", (t) => {
+  const kind = S.protobufTypeName(S.union([0, 1]), "google.protobuf.Field.Kind");
+  const any = S.protobufTypeName(
+    S.meta(S.schema({ typeUrl: S.string.with(S.protobufField, 1), value: S.uint8Array.with(S.protobufField, 2) }), { name: "Any" }),
+    "google.protobuf.Any",
+  );
   const holder = S.schema({ kind: S.protobufField(kind, { number: 1, type: "enum" }), detail: S.optional(any).with(S.protobufField, 2) });
   t.expect(S.toProtoOrThrow(holder, { name: "Holder" })).toBe(`syntax = "proto3";
 
@@ -706,7 +707,6 @@ message Holder {
   optional google.protobuf.Any detail = 2;
 }
 `);
-  // Printed itself, Google's message is declared under its own short name.
   t.expect(S.toProtoOrThrow(any)).toBe(`syntax = "proto3";
 
 message Any {
@@ -715,8 +715,22 @@ message Any {
 }
 `);
   // A name Google doesn't declare has no file to import it from.
-  const unknown = S.meta(S.schema({ a: S.string.with(S.protobufField, 1) }), { name: "google.protobuf.Nope" });
+  const unknown = S.protobufTypeName(S.schema({ a: S.string.with(S.protobufField, 1) }), "google.protobuf.Nope");
   t.expect(() => S.toProtoOrThrow(S.schema({ x: S.optional(unknown).with(S.protobufField, 1) }))).toThrow(
     "[Sury] S.toProtoOrThrow: google.protobuf.Nope is no well-known type, so there is no file to import it from",
   );
+});
+
+test("A display name of google.protobuf.* declares rather than imports", (t) => {
+  const named = S.meta(S.schema({ a: S.string.with(S.protobufField, 1) }), { name: "google.protobuf.Nope" });
+  t.expect(S.toProtoOrThrow(S.schema({ x: S.optional(named).with(S.protobufField, 1) }), { name: "Holder" })).not.toContain("import");
+});
+
+// A test, not a spec: `ts.constructionError` still asks for every other spec
+// field (CONTRIBUTING.md, Spec Harness Suggestions).
+test("protobufTypeName takes a full name, not a type URL", (t) => {
+  for (const name of ["type.googleapis.com/acme.v1.User", ".acme.v1.User", "acme..User", "", "1acme"]) {
+    t.expect(() => S.protobufTypeName(S.schema({}), name)).toThrow("[Sury] S.protobufTypeName requires a full name such as");
+  }
+  t.expect(S.protobufTypeName(S.schema({}), "acme.v1.User_2")).toBeDefined();
 });

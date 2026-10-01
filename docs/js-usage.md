@@ -1634,6 +1634,44 @@ A `Date` holds milliseconds, so use the `{ seconds, nanos }` form when you need
 nanoseconds. Inside `S.array` or `S.record`, a wrapper's item doesn't need
 `S.optional`.
 
+### Any
+
+A `google.protobuf.Any` holds a message of any type, named by its full proto
+name. Name each message with `S.protobufTypeName`, and list the ones a field
+takes in an `S.union`, each tagged by a literal of your choosing:
+
+```ts
+const User = S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.User");
+const Order = S.schema({ total: S.bigint.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.Order");
+
+const Event = S.schema({
+  payload: S.union([
+    S.schema({ type: "user", value: User }),
+    S.schema({ type: "order", value: Order }),
+  ]).with(S.protobufField, 1),
+});
+
+S.decodeOrThrow(S.protobuf, Event)(bytes);
+// { payload: { type: "order", value: { total: 5n } } }
+```
+
+A numbered union of messages is an Any without saying so. The type URL is
+written as `type.googleapis.com/acme.v1.Order`, and any prefix is accepted
+when reading. A type the union doesn't list fails the decode, so the union is
+also the list of types you accept.
+
+To keep the types you don't list, add a member holding the opaque Any, a
+message of `typeUrl` and `value` named `google.protobuf.Any` (`AnySchema` from
+`sury/protobuf/wkt`):
+
+```ts
+S.schema({ type: "other", value: AnySchema });
+// { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: Uint8Array } }
+```
+
+A field that always holds one type takes the message itself:
+`User.with(S.protobufField, { number: 1, type: "google.protobuf.Any" })`.
+
 ### Generating a `.proto`
 
 `S.toProtoOrThrow` prints the `.proto` file for a message schema, so other
@@ -1680,8 +1718,9 @@ message Address {
   `[deprecated = true]`.
 - Field names print in snake_case, as the proto3 style guide asks. The wire
   only uses field numbers, so this changes nothing about the bytes.
-- Well-known types print as imports, and so does a message or enum named
-  `google.protobuf.X`, as every schema in `sury/protobuf/wkt` is.
+- Well-known types print as imports, and so does a message or enum
+  `S.protobufTypeName` names `google.protobuf.X`, as every schema in
+  `sury/protobuf/wkt` is.
 
 ### Unknown fields and errors
 
@@ -1780,7 +1819,10 @@ object with its prefix dropped (`PhoneType.MOBILE`), a wrapper field as its
 scalar, a Struct as a JSON object, a map with 32-bit keys still string-keyed.
 A well-known type is imported from `sury/protobuf/wkt` (`TimestampSchema`,
 `Timestamp`), where the generated code expects it. A field holding one keeps
-protobuf-es's shape, and `S.toProtoOrThrow` prints it as an import.
+protobuf-es's shape, and `S.toProtoOrThrow` prints it as an import. Every
+generated message and enum carries its full name (`S.protobufTypeName`), so it
+can go straight into an [Any](#any)'s union; the Any fields themselves stay
+opaque, as protobuf-es holds them.
 
 The options:
 

@@ -3,6 +3,7 @@ syntax = "proto3";
 package example.v1;
 
 import "example/common/address.proto";
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
@@ -142,4 +143,11 @@ message Uses {
   Lonely lonely = 3;
   repeated Mixed mixes = 4;
   map<string, Aliased> aliases = 5;
+}
+
+// Anys, opaque as protobuf-es holds them; the harness also reads them as a
+// tagged union of the messages they hold.
+message Envelope {
+  google.protobuf.Any payload = 1;
+  repeated google.protobuf.Any details = 2;
 }

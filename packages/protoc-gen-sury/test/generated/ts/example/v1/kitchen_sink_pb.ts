@@ -4,7 +4,7 @@
 
 import * as S from "sury";
 import { type Address, AddressSchema, Currency, CurrencySchema } from "../common/address_pb";
-import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, TimestampSchema, DurationSchema, ValueSchema } from "sury/protobuf/wkt";
+import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, TimestampSchema, DurationSchema, ValueSchema, type Any, AnySchema } from "sury/protobuf/wkt";
 
 const $number = S.union([S.number, S.schema(NaN)]);
 
@@ -37,7 +37,7 @@ export const User_Kind = {
  */
 export type User_Kind = (typeof User_Kind)[keyof typeof User_Kind];
 
-export const User_KindSchema = S.union([User_Kind.UNSPECIFIED, User_Kind.PERSON, User_Kind.ROBOT]);
+export const User_KindSchema = S.protobufTypeName(S.union([User_Kind.UNSPECIFIED, User_Kind.PERSON, User_Kind.ROBOT]), "example.v1.User.Kind");
 
 /**
  * @generated from enum example.v1.Reserved.Enum
@@ -54,7 +54,7 @@ export const Reserved_Enum = {
  */
 export type Reserved_Enum = (typeof Reserved_Enum)[keyof typeof Reserved_Enum];
 
-export const Reserved_EnumSchema = S.union([Reserved_Enum.UNSPECIFIED]);
+export const Reserved_EnumSchema = S.protobufTypeName(S.union([Reserved_Enum.UNSPECIFIED]), "example.v1.Reserved.Enum");
 
 /**
  * An enum whose values keep their prefix: not every value shares it.
@@ -80,7 +80,7 @@ export const Mixed = {
  */
 export type Mixed = (typeof Mixed)[keyof typeof Mixed];
 
-export const MixedSchema = S.union([Mixed.MIXED_UNSPECIFIED, Mixed.OTHER]);
+export const MixedSchema = S.protobufTypeName(S.union([Mixed.MIXED_UNSPECIFIED, Mixed.OTHER]), "example.v1.Mixed");
 
 /**
  * @generated from enum example.v1.Aliased
@@ -107,7 +107,7 @@ export const Aliased = {
  */
 export type Aliased = (typeof Aliased)[keyof typeof Aliased];
 
-export const AliasedSchema = S.union([Aliased.UNSPECIFIED, Aliased.ONE]);
+export const AliasedSchema = S.protobufTypeName(S.union([Aliased.UNSPECIFIED, Aliased.ONE]), "example.v1.Aliased");
 
 /**
  * Only one value.
@@ -128,7 +128,7 @@ export const Lonely = {
  */
 export type Lonely = (typeof Lonely)[keyof typeof Lonely];
 
-export const LonelySchema = S.union([Lonely.UNSPECIFIED]);
+export const LonelySchema = S.protobufTypeName(S.union([Lonely.UNSPECIFIED]), "example.v1.Lonely");
 
 /**
  * Every scalar protobuf has, once each.
@@ -217,7 +217,7 @@ export type Scalars = {
   asString: string;
 };
 
-export const ScalarsSchema = S.meta(/* @__PURE__ */ S.schemaOf<Scalars>()({
+export const ScalarsSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Scalars>()({
   double: S.protobufField($number, { number: 1, type: "double" }),
   float: S.protobufField($number, { number: 2, type: "float" }),
   int32: S.protobufField(S.int32, { number: 3, type: "int32" }),
@@ -234,7 +234,7 @@ export const ScalarsSchema = S.meta(/* @__PURE__ */ S.schemaOf<Scalars>()({
   string: S.protobufField(S.string, { number: 14, type: "string" }),
   bytes: S.protobufField(S.uint8Array, { number: 15, type: "bytes" }),
   asString: S.protobufField(S.string, { number: 16, type: "int64" }),
-}), { name: "Scalars" });
+}), { name: "Scalars" }), "example.v1.Scalars");
 
 /**
  * Where a user receives mail.
@@ -253,10 +253,10 @@ export type User_Mailbox = {
   address?: Address | undefined;
 };
 
-export const User_MailboxSchema = S.meta(/* @__PURE__ */ S.schemaOf<User_Mailbox>()({
+export const User_MailboxSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<User_Mailbox>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   address: S.protobufField(S.optional(AddressSchema), { number: 2, type: "message" }),
-}), { name: "User_Mailbox" });
+}), { name: "User_Mailbox" }), "example.v1.User.Mailbox");
 
 /**
  * A user of the system.
@@ -346,7 +346,7 @@ export type User = {
   byId: { [key: string]: string };
 };
 
-export const UserSchema = S.meta(/* @__PURE__ */ S.schemaOf<User>()({
+export const UserSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<User>()({
   id: S.protobufField(S.int32, { number: 1, type: "int32" }),
   firstName: S.protobufField(S.string, { number: 2, type: "string" }),
   tags: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
@@ -368,7 +368,7 @@ export const UserSchema = S.meta(/* @__PURE__ */ S.schemaOf<User>()({
   deprecatedField: S.protobufField(S.string, { number: 16, type: "string" }),
   kinds: S.protobufField(S.array(User_KindSchema), { number: 17, type: "enum" }),
   byId: S.protobufField(S.record(S.string), { number: 18, type: "string", key: "uint64" }),
-}), { name: "User" });
+}), { name: "User" }), "example.v1.User");
 
 /**
  * @generated from message example.v1.WellKnown
@@ -443,7 +443,7 @@ export type WellKnown = {
     | { case?: undefined; value?: undefined };
 };
 
-export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
+export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
   at: S.protobufField(S.optional(TimestampSchema), { number: 1, type: "message" }),
   took: S.protobufField(S.optional(DurationSchema), { number: 2, type: "message" }),
   label: S.protobufField(S.optional(S.string), { number: 3, type: "google.protobuf.StringValue" }),
@@ -461,7 +461,7 @@ export const WellKnownSchema = S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
     S.schema({ case: "after", value: S.protobufField(DurationSchema, { number: 14, type: "message" }) }),
     S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
-}), { name: "WellKnown" });
+}), { name: "WellKnown" }), "example.v1.WellKnown");
 
 /**
  * A tree: a message that holds itself.
@@ -494,7 +494,7 @@ export type Node = {
 };
 
 export const NodeSchema = S.recursive<Node>("Node", (self) =>
-  S.schema({
+  S.protobufTypeName(S.schema({
     name: S.protobufField(S.string, { number: 1, type: "string" }),
     children: S.protobufField(S.array(self), { number: 2, type: "message" }),
     parent: S.protobufField(S.optional(self), { number: 3, type: "message" }),
@@ -503,7 +503,7 @@ export const NodeSchema = S.recursive<Node>("Node", (self) =>
       S.schema({ case: "link", value: S.protobufField(self, { number: 5, type: "message" }) }),
       S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
-  }),
+  }), "example.v1.Node"),
 );
 
 /**
@@ -534,25 +534,25 @@ export type Leaf = {
 };
 
 export const BranchSchema = S.recursive<Branch>("Branch", (self) =>
-  S.schema({
+  S.protobufTypeName(S.schema({
     n: S.protobufField(S.int32, { number: 1, type: "int32" }),
     leaf: S.protobufField(S.optional(S.recursive<Leaf>("Leaf", (_self2) =>
-    S.schema({
+    S.protobufTypeName(S.schema({
       branches: S.protobufField(S.array(self), { number: 1, type: "message" }),
-    }),
+    }), "example.v1.Leaf"),
   )), { number: 2, type: "message" }),
-  }),
+  }), "example.v1.Branch"),
 );
 
 export const LeafSchema = S.recursive<Leaf>("Leaf", (self) =>
-  S.schema({
+  S.protobufTypeName(S.schema({
     branches: S.protobufField(S.array(S.recursive<Branch>("Branch", (_self2) =>
-    S.schema({
+    S.protobufTypeName(S.schema({
       n: S.protobufField(S.int32, { number: 1, type: "int32" }),
       leaf: S.protobufField(S.optional(self), { number: 2, type: "message" }),
-    }),
+    }), "example.v1.Branch"),
   )), { number: 1, type: "message" }),
-  }),
+  }), "example.v1.Leaf"),
 );
 
 /**
@@ -582,19 +582,19 @@ export type Reserved = {
   enum: Reserved_Enum;
 };
 
-export const ReservedSchema = S.meta(/* @__PURE__ */ S.schemaOf<Reserved>()({
+export const ReservedSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Reserved>()({
   constructor$: S.protobufField(S.string, { number: 1, type: "string" }),
   toString$: S.protobufField(S.string, { number: 2, type: "string" }),
   valueOf$: S.protobufField(S.int32, { number: 3, type: "int32" }),
   enum: S.protobufField(Reserved_EnumSchema, { number: 4, type: "enum" }),
-}), { name: "Reserved" });
+}), { name: "Reserved" }), "example.v1.Reserved");
 
 /**
  * @generated from message example.v1.Empty
  */
 export type Empty = {};
 
-export const EmptySchema = S.meta(/* @__PURE__ */ S.schemaOf<Empty>()({}), { name: "Empty" });
+export const EmptySchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Empty>()({}), { name: "Empty" }), "example.v1.Empty");
 
 /**
  * @generated from message example.v1.Uses
@@ -626,10 +626,33 @@ export type Uses = {
   aliases: { [key: string]: Aliased };
 };
 
-export const UsesSchema = S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
+export const UsesSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
   mixed: S.protobufField(MixedSchema, { number: 1, type: "enum" }),
   aliased: S.protobufField(AliasedSchema, { number: 2, type: "enum" }),
   lonely: S.protobufField(LonelySchema, { number: 3, type: "enum" }),
   mixes: S.protobufField(S.array(MixedSchema), { number: 4, type: "enum" }),
   aliases: S.protobufField(S.record(AliasedSchema), { number: 5, type: "enum", key: "string" }),
-}), { name: "Uses" });
+}), { name: "Uses" }), "example.v1.Uses");
+
+/**
+ * Anys, opaque as protobuf-es holds them; the harness also reads them as a
+ * tagged union of the messages they hold.
+ *
+ * @generated from message example.v1.Envelope
+ */
+export type Envelope = {
+  /**
+   * @generated from field: google.protobuf.Any payload = 1;
+   */
+  payload?: Any | undefined;
+
+  /**
+   * @generated from field: repeated google.protobuf.Any details = 2;
+   */
+  details: Any[];
+};
+
+export const EnvelopeSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Envelope>()({
+  payload: S.protobufField(S.optional(AnySchema), { number: 1, type: "message" }),
+  details: S.protobufField(S.array(AnySchema), { number: 2, type: "message" }),
+}), { name: "Envelope" }), "example.v1.Envelope");
