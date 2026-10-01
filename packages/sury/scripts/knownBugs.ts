@@ -12,17 +12,16 @@
 // carries a reason instead of a spec.
 //
 // Entries are written against the SHAPE the grammar built the schema from,
-// not its text: "a union with a member that carries a default" is one bug at
-// every depth the grammar reaches, and a substring only covers the depths
-// someone happened to list.
+// not its text: "a member whose default takes a later member's `undefined`" is
+// one entry at every depth the grammar reaches, and a substring only covers the
+// depths someone happened to list.
 
 import {
   absorbs,
   admitsUndefined,
-  hasDefault,
   type Shape,
+  shadowsEmpty,
   some,
-  unionMembers,
 } from "./unionFuzz/shape";
 
 export type Fuzzer = "eq" | "codec" | "union" | "issues";
@@ -46,9 +45,6 @@ export type Known = {
   matches: (finding: Finding) => boolean;
 };
 
-const inUnionWithDefault = (shape: Shape): boolean =>
-  some(shape, (node) => unionMembers(node).some(hasDefault));
-
 // A container carried into a JSON string (unionFuzz/generate.ts `generateSchema`).
 // A leaf's `.with(S.to, ...)` wraps a node with no args; a container has some.
 const intoJsonString = (shape: Shape): boolean =>
@@ -69,18 +65,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-defaulted-member",
-    kind: "bug",
-    summary:
-      "A union member that carries a default takes over the union: `S.union([S.nullable(S.boolean, false), " +
-      "S.string])` rejects `\"x\"`. `S.nullable(S.optional(x, d))` is the same bug, since nullable is a union.",
-    spec: "union-defaulted-member",
-    fuzzers: ["codec", "union"],
-    matches: (f) =>
-      (f.fuzzer === "union" ? f.property === "acceptance" : ["conformance", "round-trip"].includes(f.property)) &&
-      inUnionWithDefault(f.shape),
-  },
-  {
     id: "union-never-member",
     kind: "bug",
     summary:
@@ -92,16 +76,54 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
   },
   {
+    id: "jsonstring-null-default-inlined",
+    kind: "bug",
+    summary:
+      "`S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)` fails to compile " +
+      "its parse: the `null` default is inlined as a literal, and the field's conversion to JSON text then " +
+      "assigns to it as if it were a variable (`null=...`).",
+    spec: "jsonstring-object-optional-null-default",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "setup" &&
+      f.detail.includes("Invalid left-hand side in assignment") &&
+      intoJsonString(f.shape) &&
+      some(f.shape, (node) => node.name === "optional" && node.args[1]?.raw === "null"),
+  },
+  {
+    id: "union-json-document-member",
+    kind: "limitation",
+    summary:
+      "Under `S.json`, a union meets the value whole, so a `S.jsonString` anywhere in a member checks a string " +
+      "where the member's own link would write the value's JSON text (CONTENT_CODEC_SPEC.md: a carrier's reading " +
+      "stops at a union target). The member-by-member reference reads each member through its own link, so it " +
+      "cannot tell that from a bug.",
+    fuzzers: ["union"],
+    matches: (f) =>
+      f.fuzzer === "union" &&
+      f.shape.name === "jsonTo" &&
+      f.property === "acceptance" &&
+      some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
+  },
+  {
     id: "union-overlapping-members",
     kind: "limitation",
     summary:
-      "A member that takes every value of its kind - an object whose every field may be absent, a list of " +
-      "`any` - claims values meant for a later member. The first member that accepts a value wins, which is " +
-      "the documented rule; the round trip and the member-by-member reference cannot tell that from a bug.",
+      "A member that takes every value of its kind - an object whose every field may be absent, a record, " +
+      "a list of `any` - claims values meant for a later member, and so does a wrapper whose default takes the " +
+      "`null` or `undefined` a later member would keep. The first member that accepts a value wins, which is " +
+      "the documented rule. The round trip cannot tell that from a bug, and the member-by-member reference " +
+      "cannot either for a member that takes every value of its kind.",
     fuzzers: ["codec", "union"],
     matches: (f) =>
       (f.fuzzer === "union" ? f.property === "acceptance" : f.property === "round-trip") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some(absorbs)),
+      some(
+        f.shape,
+        (node) =>
+          node.name === "union" &&
+          (node.args.slice(0, -1).some(absorbs) || (f.fuzzer === "codec" && shadowsEmpty(node))),
+      ),
   },
   {
     id: "jsonstring-fieldor-refined-url-encode",

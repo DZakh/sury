@@ -5,8 +5,8 @@ ts:
   output: string | null | undefined
   instantiations: 419
 jsonSchema:
-  input: Expected JSON, received string | undefined | null
-  output: Expected JSON, received string | undefined | null
+  input: Expected JSON, received string | null | undefined
+  output: Expected JSON, received string | null | undefined
 isEqual: strictEqual
 compare: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
 vs:
@@ -26,6 +26,6 @@ operations:
         output: "null"
       invalid-type:
         input: "1"
-        error: Expected string | undefined | null, received 1
+        error: Expected string | null | undefined, received 1
   decode: identity
   encode: identity

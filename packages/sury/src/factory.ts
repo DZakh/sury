@@ -118,7 +118,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, schema.type);
+  setHas(mut.has, schema);
   // A `.to` is what makes reverse start at the item (output is required, not
   // optional), and its reverse step `T -> T | undefined` is the identity. A
   // link's reverse builder is its TARGET's serializer, as `codecTo` places it,

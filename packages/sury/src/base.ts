@@ -470,7 +470,12 @@ export type Internal = {
   // alphabet recoding still sees it after `S.trim`. A carrier packing into a
   // bytes target looks the codec up off its `storedAs`.
   bytesCodec?: BytesCodec;
+  // Every tag the union may take, through nested unions, so `undefined` behind
+  // one still makes it optional. A ref counts as `unknown`.
   has?: Partial<Record<Tag, boolean>>;
+  // Try order, not the type's: a wrapper puts its own empty arm ahead of any
+  // arm that would change it (`unionWrap`), so what prints the type lists
+  // `null` and `undefined` last.
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
@@ -822,17 +827,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
-    const anyOf = schema.anyOf;
     const seen = new Set<string>();
-    let body = "";
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      const expression = inputExpression(anyOf[idx]!);
-      if (!seen.has(expression)) {
-        seen.add(expression);
-        body += (body ? " | " : "") + expression;
-      }
-    }
-    return body;
+    const add = (s: Internal): unknown =>
+      s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
+    schema.anyOf.forEach(add);
+    for (const e of ["null", "undefined"]) seen.delete(e) && seen.add(e);
+    return [...seen].join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
     // produces both at once today, but the shape is representable, and the
@@ -1257,8 +1257,9 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
   return root as unknown as TValue;
 }
 
-export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[(tagFlags[tag]! & (256 | 512)) ? unknownTag : tag] = true;
+export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
+  if (member.has) Object.assign(has, member.has);
+  else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:
