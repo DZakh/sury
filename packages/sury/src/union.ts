@@ -330,6 +330,17 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 // declared source (whose root ref may expose a bounded input tag).
 // A self-describing boundary's definition: what `$ref` + `$defs` resolve to
 // (`S.json`'s recursive union), or undefined for everything else.
+// The tags a union's arms take as they are, before the widening that lets an
+// instance arm claim every object `typeof` can't tell from one.
+const unionRaw = (schema: Internal): number => {
+  let mask = schema.has ? 0 : ~0;
+  for (const tag in schema.has) {
+    const flag = tagFlags[tag as Tag]!;
+    mask |= flag & 1 ? ~0 : flag;
+  }
+  return mask;
+};
+
 const unionRefDef = (schema: Internal): Internal | undefined => {
   const defs = schema["$defs"], ref = schema["$ref"];
   if (defs === U || ref === U) return U;
@@ -565,6 +576,7 @@ const unionAnalyze = (
   const unionSource =
     sourceBoundary &&
     sourceMask !== ~0;
+  const sourceRaw = unionSource ? unionRaw(unionRefDef(source) || source) : 0;
   const sourceDiscriminator = unionDiscriminator(source);
   const exact = flags & 1;
   const broadObject = flags & 64;
@@ -630,18 +642,18 @@ const unionAnalyze = (
                 ? 32
                 : s.type === nullTag && (sourceMask & 16)
                   ? 16
-                  : // A nested union or a ref takes what its arms take, an
-                    // empty value by whichever one the source has (JSON's
-                    // `null` stands for `undefined`). Past that, reached only
-                    // by coercion. Every built-in cross-tag coercion parses a
-                    // string (`BigInt`, `Number`, `new Date`), so a source that
-                    // can produce one is assumed to be coerced through it -
-                    // narrow enough to keep the case out of an unnecessary
-                    // fallback. With no string in the source that guess
-                    // describes nothing, and claiming too little would let the
-                    // dispatch raise where a later member should have run, so
-                    // fall back to "any type the source produces".
-                    (tag & (256 | 512) ? (inputMask & sourceMask) | (inputMask & 48 ? sourceMask & 48 : 0) : 0) |
+                  : // `unknown`, a nested union or a ref takes what its arms
+                    // take as they are, an empty value by whichever one the
+                    // source has (JSON's `null` stands for `undefined`). Past
+                    // that, reached only by coercion. Every built-in cross-tag
+                    // coercion parses a string (`BigInt`, `Number`, `new
+                    // Date`), so a source that can produce one is assumed to be
+                    // coerced through it - narrow enough to keep the case out
+                    // of an unnecessary fallback. With no string in the source
+                    // that guess describes nothing, and claiming too little
+                    // would let the dispatch raise where a later member should
+                    // have run, so fall back to "any type the source produces".
+                    (tag & (1 | 256 | 512) ? (unionRaw(defTag & 256 ? def! : view) & sourceRaw) | (inputMask & 48 ? sourceMask & 48 : 0) : 0) |
                     (sourceMask & 2 ? 2 : sourceMask)
             : sourceMask
         : 0,

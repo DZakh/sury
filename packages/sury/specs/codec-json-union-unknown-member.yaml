@@ -6,8 +6,8 @@ ts:
   instantiations: 7257
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, {}, { type: "object", properties: { b: { type: "string" } }, additionalProperties: false, required: ["b"] }] }'
-  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, {}, { type: "object", properties: { b: { type: "string" } }, additionalProperties: false, required: ["b"] }] }'
-  fromOutputType: "JSON | { a: string; } | { b: string; }"
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, {}] }'
+  fromOutputType: "JSON | { a: string; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare:
   input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
@@ -17,12 +17,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}l4:{let v3=i.b;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={b:v3};break}break l5}break}break}throw e[2](i,v1)}return i}catch(v6){e[3](v6)}}
+    expression: i=>{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}}break}return i}
     examples:
-      # FIXME: the unknown member is reached only by coercion, so the third member takes the object
       unknown-keeps-the-object:
         input: '{ b: "x", c: 1 }'
-        output: '{ b: "x" }'
+        output: '{ b: "x", c: 1 }'
       first-object:
         input: '{ a: "y" }'
         output: '{ a: "y" }'
