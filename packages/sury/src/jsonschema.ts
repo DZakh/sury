@@ -569,13 +569,13 @@ const internalToJSONSchemaBase = (
     const ordered = anyOf.filter((child) => child.type !== nullTag);
     ordered.concat(anyOf.filter((child) => child.type === nullTag)).forEach((childSchema) => {
       if (childSchema.type === undefinedTag && optionalSlot) return;
-      // A union nested in a field's union answers to the same field, so its
-      // own `undefined` is the field being absent too.
+      // A union nested in an optional slot's union answers to the same slot, so
+      // its own `undefined` is the slot being absent too.
       const childJsonSchema = internalToJSONSchema(
         childSchema,
         path,
         defs,
-        childSchema.type === anyOfTag && parent.type === objectTag ? parent : schema,
+        childSchema.type === anyOfTag && optionalSlot ? parent : schema,
         target
       );
       if (childSchema.type === anyOfTag && (ownsEmpty || (taker && childSchema !== taker))) {

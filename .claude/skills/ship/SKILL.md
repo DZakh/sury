@@ -135,7 +135,7 @@ Close with a short status, one fact per line:
 When more than one candidate was measured, add a table. Name each row by what
 it does, not a letter alone, mark the one built, and write each cell as its
 meaning ("+8 B gzip", "adds a try/catch on the valid path"). End with: Reply
-"switch to B" to rework from B.
+"switch to <row>" to rework from that row.
 
 Confidence is low when goals 1-2 were close or the public API changed. "switch
 to X" reruns Change from step 4 with X, keeping the ledger.
