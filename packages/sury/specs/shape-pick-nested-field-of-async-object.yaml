@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ w: S.schema({ inner: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }), y: S.string }), x: S.string }) }).with(S.shape, (v) => ({ p: v.w.inner, q: v.w.inner.y, r: v.w.x }))'
+  input: "{ w: { inner: { a: string; y: string; }; x: string; }; }"
+  output: "{ p: { a: string; y: string; }; q: string; r: string; }"
+  instantiations: 7494
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { inner: { type: "object", properties: { a: { type: "string" }, y: { type: "string" } }, required: ["a", "y"] }, x: { type: "string" } }, required: ["inner", "x"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { p: { type: "object", properties: { a: { type: "string" }, y: { type: "string" } }, required: ["a", "y"] }, q: { type: "string" }, r: { type: "string" } }, required: ["p", "q", "r"] }'
+isEqual:
+  input: (a,b)=>a===b||a.w.inner.a===b.w.inner.a&&a.w.inner.y===b.w.inner.y&&a.w.x===b.w.x
+  output: (a,b)=>a===b||a.p.a===b.p.a&&a.p.y===b.p.y&&a.q===b.q&&a.r===b.r
+compare:
+  input: "throws: [Sury] Can't compare { w: { inner: { a: string; y: string; }; x: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { p: { a: string; y: string; }; q: string; r: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=v0.inner,v7=v0.x;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v3=v1.a,v5=v1.y;typeof v3==="string"||e[3](v3);let v2;try{v2=e[0](v3).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});typeof v5==="string"||e[4](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,y:v5}});typeof v7==="string"||e[6](v7);let v8=Promise.all([v6]).then(([v6])=>{return {inner:v6,x:v7}});return Promise.all([v8]).then(([v8])=>{return {p:v8.inner,q:v5,r:v7}}).catch(e[9])}catch(v9){return e[10](v9)}}
+    examples:
+      picked:
+        input: '{ w: { inner: { a: "a", y: "y" }, x: "x" } }'
+        output: '{ p: { a: "a!", y: "y" }, q: "y", r: "x" }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;let v1=v0.inner;let v2;try{v2=e[0](v1.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v3=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});let v4=Promise.all([v3]).then(([v3])=>{return {a:v3,y:v1.y}});let v5=Promise.all([v4]).then(([v4])=>{return {inner:v4,x:v0.x}});return Promise.all([v5]).then(([v5])=>{return {p:v5.inner,q:v1.y,r:v0.x}}).catch(e[3])}catch(v6){return e[4](v6)}}
+    examples:
+      picked:
+        input: '{ w: { inner: { a: "a", y: "y" }, x: "x" } }'
+        output: '{ p: { a: "a!", y: "y" }, q: "y", r: "x" }'
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0=i.p;let v1;try{v1=e[0](v0.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v3=Promise.all([v2]).then(([v2])=>{return {a:v2,y:v0.y}});return Promise.all([v3]).then(([v3])=>{return {w:{inner:v3,x:i.r}}}).catch(e[3])}catch(v4){return e[4](v4)}}
+    examples:
+      picked:
+        input: '{ p: { a: "a!", y: "y" }, q: "y", r: "x" }'
+        output: '{ w: { inner: { a: "a", y: "y" }, x: "x" } }'

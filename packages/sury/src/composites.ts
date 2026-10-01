@@ -194,6 +194,32 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
+// The join rebinds an async field's var to what its promise resolved to. Its
+// sync fields' vars still hold their values in there; an async one's is a
+// promise, so it is replaced by a read off the resolved value, and so on down.
+const resolveAsyncFields = (val: Val): void => {
+  const fields = val.d;
+  for (const k in fields) {
+    const field = fields[k]!;
+    if (field.f & 1) {
+      const resolved: Val = {
+        ...field,
+        b: U,
+        v: _var,
+        i: val.i + inlinedProperty("", k, val.s.type === arrayTag),
+        prev: U,
+        f: 0,
+        d: field.d && { ...field.d },
+        cp: "",
+        hd: "",
+        vc: U,
+      };
+      resolveAsyncFields(resolved);
+      fields[k] = resolved;
+    }
+  }
+};
+
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
@@ -207,11 +233,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val.i);
-      // The join rebinds `val.i` to what the promise resolved to. A sync
-      // field's var still holds its value in there; an async one's is the
-      // promise, so it goes and is read again off the resolved value.
-      const fields = val.d;
-      for (const k in fields) if (fields[k]!.f & 1) delete fields[k];
+      resolveAsyncFields(val);
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
