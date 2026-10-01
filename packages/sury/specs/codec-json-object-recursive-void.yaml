@@ -34,10 +34,9 @@ operations:
   encode:
     expression: i=>{try{try{e[0](i.a);}catch(v0){v0.path=["a",...v0.path];throw v0}try{e[1](i.a);}catch(v1){v1.path=["a",...v1.path];throw v1}return {a:i.a}}catch(v2){e[2](v2)}}
     examples:
-      # FIXME: known bug json-absent-recursive-undefined. The field's `undefined`
-      # sits behind the ref, so the absent key reaches the union as present.
-      # Without S.json, parse reads `{}` as `{ a: undefined }`.
-      # FIXME: known bug json-absent-recursive-undefined, from the encode side.
+      # FIXME: known bug json-absent-recursive-undefined, from the encode side. The
+      # field's `undefined` sits behind the ref, so it reaches S.json as a value and
+      # is rejected instead of left out.
       absent:
         input: "{}"
         error: "Failed at a: Expected JSON, received undefined"

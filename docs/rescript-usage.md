@@ -2147,7 +2147,7 @@ let toJsonString = S.compileConvertOrThrow(~from=schema, ~to=S.jsonString)
 
 `~via` runs that schema's own validation, so `~via=S.json` rejects a JSON string that parses to something `S.json` doesn't accept.
 
-Converting from `S.json` or `S.jsonString` reads a JSON `null` as `None` for a field with no `null` of its own, where `S.parseOrThrow` rejects it. An absent key stays `None`:
+Converting from `S.json` or `S.jsonString` reads a JSON `null` as `None` for a field with no `null` of its own, where `S.parseOrThrow` rejects it. An absent key reads as `None`, never `Some(Null)`:
 
 ```rescript
 type patch = {name: option<string>, bio: option<null<string>>}

@@ -113,7 +113,12 @@ export const KNOWN_BUGS: Known[] = [
     spec: "codec-record-object-union-env-default",
     fuzzers: ["codec"],
     matches: (f) =>
-      f.fuzzer === "codec" && f.property === "absent" && some(f.shape, (node) => node.name === "envTo"),
+      f.fuzzer === "codec" &&
+      f.property === "absent" &&
+      some(
+        f.shape,
+        (node) => node.name === "union" && node.args.some((member) => some(member, (n) => n.name === "envTo")),
+      ),
   },
   {
     id: "union-never-member",

@@ -145,8 +145,8 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {
-          // `null` for an undefined arm: JSON has no undefined, and an absent
-          // key never reaches here - objectDecoder leaves it absent.
+          // `null` for an undefined arm: JSON has no undefined, and objectDecoder
+          // routes an absent key to the field's absent branch before this runs.
           const from = storedApart(variant) ?? (isOptional(variant) ? nullLiteral : U);
           if (from === U) {
             return variant;

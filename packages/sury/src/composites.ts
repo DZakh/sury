@@ -635,9 +635,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // An absent key of a JSON document reaches an optional field as absent,
-    // not as `null`: read as `null` it would clear a `T | null | undefined`
-    // field instead of skipping it, and skip a default.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
@@ -648,6 +645,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
+      // An absent key of a JSON document stays absent rather than reading as
+      // `null`: as `null` it would set a `T | null | undefined` field to `null`
+      // and bypass a default.
       if (isJsonParent && isOptional(schema)) {
         itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
