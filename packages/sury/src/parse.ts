@@ -89,10 +89,11 @@ export const parse = (input: Val): Val => {
         B_merge((operationOutput = parse(operationInput))),
       );
       const then = `${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
-      let fused: string | undefined;
+      const fused =
+        operationInput.i === operationOutput.i && operationCode === "" ? "" : loopInput.fu?.(then);
+      if (fused) loopInput.cp = fused;
       result =
-        (operationInput.i === operationOutput.i && operationCode === "") ||
-        ((fused = loopInput.fu?.(then)) !== U && (loopInput.cp = fused))
+        fused !== U
           ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
           : B_next(loopInput, `${operationInputVar}.then(${then})`, operationOutput.s, operationOutput.e);
       result.f |= 1;
