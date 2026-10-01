@@ -5,7 +5,7 @@
   "label": "Schema",
   "blurb": "Describing a shape, checking a value against it, and getting a TypeScript type out of it: the job every one of these libraries is for. Sury compiles the schema into a function, which is why the parse row reads the way it does.",
   "versions": [
-    "sury 11.0.0",
+    "sury 11.1.0-rc.0",
     "zod 4.4.3",
     "@sinclair/typebox 0.34.52",
     "valibot 1.4.2",
@@ -24,7 +24,7 @@
         "label": "What this schema ships",
         "note": "the seven fields above, after tree-shaking",
         "cells": [
-          9326,
+          11132,
           64686,
           22568,
           1304,
@@ -37,7 +37,7 @@
         "label": "Everything the library exports",
         "note": "the ceiling, for an app that ends up using all of it",
         "cells": [
-          64106,
+          66006,
           65989,
           31148,
           15101,
@@ -125,9 +125,9 @@
       },
       {
         "label": "Reports every problem, not just the first",
-        "note": "Sury stops at the first, which is part of why it parses as fast as it does",
+        "note": "through Standard Schema validate, the way a form library reads it",
         "cells": [
-          "❌",
+          "✅",
           "✅",
           "❌",
           "✅",

@@ -32,6 +32,9 @@ operations:
       wrong-value-for-member:
         input: '{ payload: { type: "user", value: { total: 5n } }, many: [] }'
         error: "Failed at payload.value.id: Expected int32, received undefined"
+        issues:
+          - "Failed at payload.value.id: Expected int32, received undefined"
+          - "Failed at payload.value.name: Expected string, received undefined"
       other-holding-a-listed-type:
         input: '{ payload: { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) } }, many: [] }'
         error: 'Failed at payload.value: Protobuf Any holds acme.v1.User, which type: "user" is for'

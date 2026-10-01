@@ -3,10 +3,10 @@ ts:
   schema: S.nullish(1)
   input: 1 | null | undefined
   output: 1 | null | undefined
-  instantiations: 387
+  instantiations: 390
 jsonSchema:
-  input: Expected JSON, received 1 | undefined | null
-  output: Expected JSON, received 1 | undefined | null
+  input: Expected JSON, received 1 | null | undefined
+  output: Expected JSON, received 1 | null | undefined
 isEqual: strictEqual
 compare: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===null?b===null?0:-1:b===null?1:0)
 vs:
@@ -26,6 +26,6 @@ operations:
         output: undefined
       wrong-literal:
         input: "2"
-        error: Expected 1 | undefined | null, received 2
+        error: Expected 1 | null | undefined, received 2
   decode: identity
   encode: identity

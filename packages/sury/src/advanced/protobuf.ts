@@ -33,6 +33,7 @@ import {
 } from "../base";
 import {
   _notVarBeforeValidation,
+  B_let,
   _var,
   B_embed,
   B_embedPure,
@@ -239,7 +240,7 @@ const anyOf = (members: Internal[]): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = members;
   mut.has = {};
-  for (let idx = 0; idx < members.length; idx++) setHas(mut.has, members[idx]!.type);
+  for (let idx = 0; idx < members.length; idx++) setHas(mut.has, members[idx]!);
   return mut;
 };
 
@@ -307,7 +308,7 @@ const optionalMessage = (raw: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [raw, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, raw.type);
+  setHas(mut.has, raw);
   mut.encoder = optionalMessageEncoder;
   mut.flags = mut.flags | 64;
   return mut;
@@ -467,7 +468,9 @@ const armParse = (input: Val, holder: string, key: string, raw: Internal, declar
   const valueOut = parse(valueIn);
   const code = B_merge(valueOut);
   if (valueOut.t) return `${code}${read}=${valueOut.i};`;
-  return code === "" || code === `let ${valueOut.i}=${read};` ? "" : code + (valueOut.i === read ? "" : `${read}=${valueOut.i};`);
+  // A bare alias of the field, declared inline or collected for a later `let`.
+  const alias = `${valueOut.i}=${read};`;
+  return code === "" || code === alias || code === "let " + alias ? "" : code + (valueOut.i === read ? "" : `${read}=${valueOut.i};`);
 };
 
 // `tag` unset: a lone arm, converted whatever it holds.
@@ -2390,7 +2393,7 @@ const protobufDecoder = (input: Val): Val => {
   // The root's frame is the operation's catch: its locals are declared outside
   // the `try` for it to read.
   const frame = fails ? `x=${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
-  output.cp = `let ${outVar};{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
+  output.cp = `${B_let(input.g, outVar)}{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
   output.io = true;
   return output;
 };
@@ -2436,7 +2439,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const output = B_next(input, outVar, wire, top);
   output.v = _var;
   // Braced, for the reader, as the writer above.
-  output.cp = `let ${outVar};{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
+  output.cp = `${B_let(input.g, outVar)}{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
   // Whatever runs after the wire object: a `.to` on the target - which is where
   // a ref carries it, the definition it names having none - or one on the
   // object the walk ended at.

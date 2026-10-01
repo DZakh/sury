@@ -132,11 +132,14 @@ const transformingContainer = (S: Sury, rng: Rng): MemberSpec => {
   };
 };
 
-// `S.optional(x, d)` / `S.nullable(x, d)`. Deliberately NOT guarded: a default
-// the sampler drew off the Output side is one the schema has to accept, so a
-// throw here is the finding (#452), and the runners report it against this id.
+// Deliberately NOT guarded: a default the sampler drew off the Output side is
+// one the schema has to accept, so a throw here is the finding (#452), and the
+// runners report it against this id.
 const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
-  const name = rng() < 0.5 ? "optional" : "nullable";
+  const r = rng();
+  // One draw, and optional keeps the half it had before nullish took defaults:
+  // the issues gate reaches jsonstring-null-default-inlined only through it.
+  const name = r < 0.5 ? "optional" : r < 0.75 ? "nullable" : "nullish";
   const value = defaultFor(S, rng, inner);
   if (value === NO_SAMPLE) {
     return {
@@ -181,6 +184,31 @@ const fieldOrMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
           lossy: inner.lossy,
         };
       })();
+};
+
+// A wrapper around one of these still owns its own empty value, and a union
+// holding one next to that value is where the planner has to fall through.
+// Every one is lossy: an env var reads `""` as unset and port text as a number.
+const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
+  const takers: [string, () => unknown, string][] = [
+    ['env->nullable(string,"d")', () => S.env.with(S.to, S.nullable(S.string, "d")), "envTo"],
+    [
+      "env->nullable(string)->optional(string)",
+      () => S.env.with(S.to, S.nullable(S.string).with(S.to, S.optional(S.string))),
+      "envTo",
+    ],
+    ['env->optional(string,"dev")', () => S.env.with(S.to, S.optional(S.string, "dev")), "envTo"],
+    ["env->port", () => S.env.with(S.to, S.port), "envTo"],
+    ["null->0", () => S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }), "fromEmpty"],
+    [
+      "unknown->string",
+      () => S.unknown.with(S.to, S.string, { decode: (v: unknown) => String(v), encode: (v: string) => v }),
+      "fromAny",
+    ],
+  ];
+  const [id, schema, shape] = pick(rng, takers);
+  const taker: MemberSpec = { id, schema: schema(), shape: node(shape), lossy: true };
+  return rng() < 0.5 ? applyWrap(S, rng, taker) : taker;
 };
 
 const applyModify = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec | undefined => {
@@ -252,8 +280,8 @@ const nestedUnion = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 const recursiveMember = (S: Sury, rng: Rng): MemberSpec => {
   const leaf = leafSchema(S, rng);
   const name = `R${Math.floor(rng() * 4)}`;
-  const shape = node("recursive", leaf.shape);
   const form = Math.floor(rng() * 3);
+  const shape: Shape = { ...node("recursive", leaf.shape), form: (["list", "tree", "union"] as const)[form] };
   if (form === 0) {
     return {
       id: `${name}{head:${leaf.id},next?:${name}}`,
@@ -282,9 +310,10 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
   if (roll < 0.06) {
     return { id: "enum(e0,e1)", schema: S.enum(["e0", "e1"]), shape: node("enum") };
   }
-  if (roll < 0.1) {
+  if (roll < 0.08) {
     return { id: "null", schema: S.schema(null), shape: node("null") };
   }
+  if (roll < 0.1) return emptyTaker(S, rng);
   if (roll < 0.14) {
     return { id: "instance(Error)", schema: S.instance(Error), shape: node("instance") };
   }
@@ -333,7 +362,22 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 
 // One schema from the same grammar the union members come from, for a fuzzer
 // whose subject is a schema rather than a union of them (`fuzz:schema`).
-export const generateSchema = (S: Sury, rng: Rng): MemberSpec => memberAt(S, rng, 0);
+//
+// A container is sometimes carried into a JSON string, which `jsonString` can
+// fuse into one aggregate that validates while it renders. Chosen off the drawn
+// id rather than a draw of its own, so every seed still replays the same
+// schemas and only some of them gain the wrapper.
+export const generateSchema = (S: Sury, rng: Rng): MemberSpec => {
+  const member = memberAt(S, rng, 0);
+  const type = (member.schema as { type?: string }).type;
+  if ((type !== "object" && type !== "array") || member.id.length % 4) return member;
+  return {
+    id: `${member.id}.with(to,jsonString)`,
+    shape: { name: "with", args: [member.shape], raw: "to" },
+    schema: (member.schema as { with: Function }).with(S.to, S.jsonString),
+    lossy: true,
+  };
+};
 
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
   taggedRescript(S, "One", { id: "string", schema: S.string, shape: node("string") }),

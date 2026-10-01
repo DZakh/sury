@@ -5,7 +5,7 @@
   "label": "JSON Schema",
   "blurb": "Sury converts in both directions: a schema you wrote becomes a JSON Schema for the other side, and a JSON Schema somebody published becomes a schema that checks values and infers types.",
   "versions": [
-    "sury 11.0.0",
+    "sury 11.1.0-rc.0",
     "zod 4.4.3",
     "@sinclair/typebox 0.34.52",
     "arktype 2.2.3",
@@ -23,7 +23,7 @@
       {
         "label": "Emit a JSON Schema",
         "cells": [
-          10744,
+          12642,
           64648,
           11931,
           47735,
@@ -36,7 +36,7 @@
         "label": "Check values against a published document",
         "note": "the JSON Schema is the input, not the output",
         "cells": [
-          28972,
+          31232,
           64655,
           null,
           null,

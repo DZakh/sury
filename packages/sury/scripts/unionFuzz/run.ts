@@ -6,13 +6,15 @@ import {
   flattenVariants,
   referenceEncode,
   referenceParse,
+  tryEachParser,
+  variantsOf,
 } from "./reference";
 import type { DiffClass, Outcome, Sury } from "./types";
 import { JUNK, NO_WITNESS, witnessOf } from "./witness";
 
-// The directions past `encode` compare an answering outcome to the same
-// compile's `parseOrThrow`, not to the reference: see `outcomeDiffs`.
-export type Direction = "parse" | "encode" | "is" | "result" | "validate" | "promise";
+// `is`, `result`, `validate` and `promise` compare an answering outcome to the
+// same compile's `parseOrThrow`, not to the reference: see `outcomeDiffs`.
+export type Direction = "parse" | "encode" | "json" | "is" | "result" | "validate" | "promise";
 
 export type Comparison = {
   direction: Direction;
@@ -147,7 +149,54 @@ export const diffsForUnion = async (
   const outcomes = await outcomeDiffs(S, unionSchema, inputs.map((input) => input.value));
   diffs.push(...outcomes.diffs);
   compared += outcomes.compared;
+  const json = jsonDiffs(S, unionSchema, inputs.map((input) => input.value));
+  diffs.push(...json.diffs);
+  compared += json.compared;
   return { diffs, compared, skipped: 0 };
+};
+
+// Under `S.json` the planner reads what reaches each member off the source's
+// types rather than `unknown`'s, and the first member whose own link accepts
+// still wins.
+const jsonDiffs = (
+  S: Sury,
+  unionSchema: unknown,
+  values: readonly unknown[],
+): { diffs: Comparison[]; compared: number } => {
+  const diffs: Comparison[] = [];
+  // A link that refuses to compile, the union's or a member's, is an answer
+  // rather than a value to compare; a member no JSON reaches rejects every value.
+  const build = (schema: unknown): unknown[] => {
+    try {
+      const link = S.json.with(S.to, schema);
+      S.parseOrThrow(link);
+      return [link];
+    } catch {
+      return [];
+    }
+  };
+  const [linked] = build(unionSchema);
+  const links = variantsOf(unionSchema).flatMap(build);
+  if (linked === undefined || !links.length) return { diffs, compared: 0 };
+  const inputs = new Map<string, unknown>();
+  const isJson = S.isInput(S.json);
+  for (const value of values) if (isJson(value)) inputs.set(show(value), value);
+  // The JSON each member's link writes joins the inputs, so an arm reached
+  // only by coercion (a bigint from its text) is exercised.
+  for (const link of links) {
+    try {
+      const output = witnessOf(S.reverse(link));
+      if (output !== NO_WITNESS) {
+        const written = S.encodeOrThrow(link)(output);
+        inputs.set(show(written), written);
+      }
+    } catch {}
+  }
+  for (const input of inputs.values()) {
+    const diff = asDiff("json", input, compiledParse(S, linked, input), tryEachParser(S, links, input));
+    if (diff) diffs.push(diff);
+  }
+  return { diffs, compared: inputs.size };
 };
 
 // The outcomes that answer a failure rather than throw it - `isInput`,

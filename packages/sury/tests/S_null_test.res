@@ -50,7 +50,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){try{let v0=e[0](i);i=await v0;break}catch(x){v1=[v1,e[1](x)]}if(i===null){i=void 0;break}throw e[2](i,v1)};return i})(i)).catch(e[3])}catch(v2){return e[4](v2)}}`,
+      `i=>{try{return Promise.resolve((async(i)=>{for(;;){if(i===null){i=void 0;break}let v0=e[0](i);i=await v0;break};return i})(i)).catch(e[1])}catch(v1){return e[2](v1)}}`,
     )
   })
 

@@ -116,17 +116,26 @@ Stop after round 8 regardless.
 
 ## Reply
 
-Who it's for and what they notice first. Name each principle that changed a
-decision. End with:
+Plain markdown for someone reading on a phone, never a code block around the
+summary. Lead with what they notice first:
 
-```
-Done: pnpm verify green (full), 0 blocking, 3 rounds.   [or: Stopped: <why>]
-Decision (confidence: high|low): <approach>
-| | approach | bundle gz | codegen | perf | judge |
-| A (built) | ... |
-| B | ... |
-Reply "switch to B" to rework from B.
-```
+- **What changes for you**: the schema they write and what it reads back,
+  before and after.
+- **Why it happened**: one or two sentences, in their terms.
+- **What else moved**: error messages, speed, size, a spec whose schema
+  changed. Skip what nobody would notice.
+- Name each principle next to the decision it changed.
+
+Close with a short status, one fact per line:
+
+**Done**: `pnpm verify` green (full), nothing blocking, 3 rounds. (Or
+**Stopped**, and why.)
+**Chosen** (confidence high|low): the approach in one sentence.
+
+When more than one candidate was measured, add a table. Name each row by what
+it does, not a letter alone, mark the one built, and write each cell as its
+meaning ("+8 B gzip", "adds a try/catch on the valid path"). End with: Reply
+"switch to <row>" to rework from that row.
 
 Confidence is low when goals 1-2 were close or the public API changed. "switch
 to X" reruns Change from step 4 with X, keeping the ledger.
