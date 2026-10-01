@@ -6,7 +6,7 @@
 
 Describing a shape, checking a value against it, and getting a TypeScript type out of it: the job every one of these libraries is for. Sury compiles the schema into a function, which is why the parse row reads the way it does.
 
-Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.2, arktype 2.2.3.
+Measured against sury 11.1.0-rc.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.2, arktype 2.2.3.
 
 ## Features
 
