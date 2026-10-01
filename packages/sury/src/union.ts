@@ -942,7 +942,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     if (laterMask & group.m) {
       group.f |= 32;
     }
-    laterMask |= group.m;
+    laterMask |= group.m | (tagFlags[head.n.type]! & (256 | 512) ? head.t : 0);
   }
   return plan;
 };
