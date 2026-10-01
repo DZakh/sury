@@ -7,7 +7,6 @@ import {
   copySchema,
   inputExpression,
   type Internal,
-  isOptional,
   nullTag,
   setHas,
   tagFlags,
@@ -47,7 +46,7 @@ export const presentArm = (schema: Internal): Internal => {
   for (const variant of schema.anyOf!) {
     if (variant.type !== undefinedTag && variant.type !== nullTag) {
       present.push(variant);
-      setHas(has, variant.type);
+      setHas(has, variant);
     }
   }
   if (present.length < 2) {
@@ -76,10 +75,12 @@ export const admitsBlank = (schema: Internal): boolean =>
   schema.const === "" ||
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
 
-export const isAbsent = (schema: Internal): boolean =>
-  isOptional(schema) ||
-  schema.type === nullTag ||
-  (schema.type === anyOfTag && !!schema.has![nullTag]);
+// Direct arms, not `has`: a nested union reads its own empty arm, with the
+// default or conversion an entry reader would skip.
+export const absentArm = (schema: Internal): Internal | undefined => {
+  const arms = schema.anyOf || [schema];
+  return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
+};
 
 export const beforeTo = (schema: Internal): Internal => {
   if (schema.to === U) {
@@ -126,17 +127,13 @@ export const armCode = (item: Val, source: Internal, target: Internal): string =
   return B_merge(armOut) + `${item.i}=${armOut.i};`;
 };
 
-export const absentArm = (schema: Internal): Internal =>
-  schema.anyOf?.find(
-    (variant) => variant.type === (isOptional(schema) ? undefinedTag : nullTag),
-  ) || schema;
+export const keepsUndefined = (absent: Internal): boolean => absent.type === undefinedTag && absent.to === U;
 
-export const absentCode = (item: Val, schema: Internal): string => {
-  const absent = absentArm(schema);
+export const absentCode = (item: Val, absent: Internal): string => {
   if (absent.to !== U) {
     return armCode(item, absent, absent);
   }
-  if (isOptional(schema)) {
+  if (absent.type === undefinedTag) {
     return "";
   }
   rebinds(item);
@@ -156,7 +153,7 @@ export const readWrapped = (
   const presentCode = armCode(item, present.format === "json" ? openedText(present) : item.s, present);
   let code = presentCode;
   if (folds !== U) {
-    const absent = absentCode(item, schema);
+    const absent = absentCode(item, absentArm(schema)!);
     code = presentCode
       ? `if(${folds ? v : `${v}!==void 0`}){${presentCode}}${absent && `else{${absent}}`}`
       : absent
@@ -179,20 +176,21 @@ export const convertTextEntry = (
   self: Internal,
   blank?: boolean,
 ): Val => {
-  const present = isAbsent(target) ? presentArm(target) : target;
+  const absent = absentArm(target);
+  const present = absent ? presentArm(target) : target;
   // Same split as a form field: a required `S.string` must choose, an
   // optional/nullable one reads `""` as absent - unless its present arm keeps
   // the blank entry, and then only a missing one is. Either way the arm runs
   // behind the test, never on the entry that is not there. `self` is the
   // no-blank converter so the present arm does not re-enter this check.
-  if (blank && isAbsent(target)) {
+  if (blank && absent) {
     // Chained, not scoped: a parse checked the text on `input`, and only a
     // `prev` walk emits it.
     const item = B_next(input, input.i, self, target);
     item.v = _var;
     // The form loop does `||void 0` before this wrap. Env fields are already
     // in the object, so `""` would otherwise survive an optional with no else.
-    if (!admitsBlank(present) && isOptional(target) && absentArm(target).to === U) {
+    if (!admitsBlank(present) && keepsUndefined(absent)) {
       item.cp = `${item.i}=${item.i}||void 0;`;
       rebinds(item);
     }

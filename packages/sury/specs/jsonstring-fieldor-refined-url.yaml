@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.url.with(S.refine, () => true)), null) })).with(S.to, S.jsonString)'
+  input: "{ [x: string]: unknown; }"
+  output: string
+  instantiations: 5416
+jsonSchema:
+  input: "Failed at f: Expected JSON, received URL | null"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.f,b.f)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { f: URL | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(v0 instanceof e[2]){e[0](v0)||e[1](v0);break}if(v0===null)break;throw e[3](v0)}}for(;;){if(v0 instanceof e[8]){e[4](v0)||e[7](v0);v0=e[6](e[5](v0));break}if(v0===null){v0="null";break}throw e[9](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[11](v1)}}
+    examples:
+      null-default:
+        input: "{}"
+        output: '"{\"f\":null}"'
+      url:
+        input: '{ f: new URL("https://a.b/") }'
+        output: '"{\"f\":\"https://a.b/\"}"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(v0 instanceof e[2]){e[0](v0)||e[1](v0);break}if(v0===null)break;throw e[3](v0)}}for(;;){if(v0 instanceof e[8]){e[4](v0)||e[7](v0);v0=e[6](e[5](v0));break}if(v0===null){v0="null";break}throw e[9](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[10](v1)}}
+    examples:
+      null-default:
+        input: "{}"
+        output: '"{\"f\":null}"'
+      url:
+        input: '{ f: new URL("https://a.b/") }'
+        output: '"{\"f\":\"https://a.b/\"}"'
+  encode:
+    # FIXME: known bug jsonstring-fieldor-refined-url-encode - reversing a
+    # `fieldOr` default over a refined instance into jsonString crashes the
+    # compile instead of building the encode.
+    creationError: "TypeError: Cannot read properties of undefined (reading 't')"

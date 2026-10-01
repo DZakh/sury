@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.union([S.literal(NaN), S.string.with(S.to, S.number)]).with(S.refine, () => true), S.literal(null)]))
+  input: JSON
+  output: number | null
+  instantiations: 6960
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  fromInputType: string | null
+  output: Expected JSON, received NaN | number
+  openapi-3.0:
+    input: '{ type: "string", nullable: true }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare NaN | number | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){l2:{try{for(;;){if(i===null){i=NaN;break}if(typeof i==="string"){let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}v1=[v1,e[1](i)];break l2}if(!(e[2](i))){v1=[v1,e[3],i];break l2}break}catch(x){v1=[v1,e[4](x)]}}if(i===null)break;throw e[5](i,v1)}return i}catch(v3){e[6](v3)}}
+    examples:
+      nan-from-null:
+        input: "null"
+        output: NaN
+      number-text:
+        input: '"2"'
+        output: "2"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(i===null)break;l1:{try{for(;;){if(Number.isNaN(i)){if(!(e[0](i))){v0=[v0,e[1],i];break l1}i=null;break}if(typeof i==="number"&&i==i){if(!(e[0](i))){v0=[v0,e[2],i];break l1}i=""+i;break}v0=[v0,e[3](i)];break l1}break}catch(x){v0=[v0,e[4](x)]}}throw e[5](i,v0)}return i}catch(v2){e[6](v2)}}
+    examples:
+      number:
+        input: "2"
+        output: '"2"'

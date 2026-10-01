@@ -8,9 +8,7 @@ jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | undefined
 isEqual: strictEqual
-compare:
-  input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
-  output: "throws: [Sury] Can't compare string | string | undefined | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+compare: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
@@ -39,4 +37,4 @@ operations:
         output: undefined
       nested-none-marker-is-not-output:
         input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
-        error: "Expected string | string | undefined | undefined, received { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
+        error: "Expected string | undefined, received { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
