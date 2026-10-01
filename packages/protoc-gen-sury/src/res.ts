@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, isStruct, wellKnownType, wktFiles, wrapperScalar } from "./shared";
+import { type Options, componentsOf, messageOf, isStruct, wktFiles, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -73,21 +73,15 @@ export type ResContext = {
   s: string;
   // Where a well-known type another file declares lives.
   wkt: (desc: Message | Enum) => string;
-  // Whether that type is already defined, so a field can declare it by name.
-  imported: (desc: Message) => boolean;
 };
 
 // The well-known types ship in sury as `SuryProtobuf`: a module of its own, so
 // a ReScript program that never names one never loads them.
 export const wktModule = "SuryProtobuf";
 
-const fromWkt = (desc: Message | Enum, generating: Set<string>): boolean =>
-  wktFiles.has(desc.file.proto.name) && !generating.has(desc.file.proto.name);
-
 export const consumerContext = (generating: Set<string>): ResContext => ({
   s: "S.",
-  wkt: (desc) => (fromWkt(desc, generating) ? `${wktModule}.${moduleOf(desc)}` : ""),
-  imported: (desc) => fromWkt(desc, generating),
+  wkt: (desc) => (wktFiles.has(desc.file.proto.name) && !generating.has(desc.file.proto.name) ? `${wktModule}.${moduleOf(desc)}` : ""),
 });
 
 // The modules of a file: each enum and message a module holding its type `t`
@@ -140,16 +134,11 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return field.optional || field.element.kind === "message" ? `option<${element}>` : element;
   };
 
-  const wellKnownTypeOf = (element: Element): string => {
-    const type = element.kind === "message" ? wellKnownType(element, ctx.imported(element.message)) : undefined;
-    return type === undefined ? "#message" : `#"${type}"`;
-  };
-
   const wireType = (field: Field, element: Element): string =>
     element.kind === "scalar" ? `#${element.scalar}`
     : element.kind === "enum" ? "#enum"
     : isStruct(field, element) ? `#"google.protobuf.Struct"`
-    : wellKnownTypeOf(element);
+    : "#message";
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let args = `${field.number}, ~type_=${type}`;
@@ -208,6 +197,13 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const objectSchema = (message: Message, scope: Scope, indent: string): string =>
     message.members.length === 0 ? `${S}schema(_ => %raw(\`{}\`))` : `${S}schema(s => ${recordBody(message, scope, indent)})`;
 
+  // A well-known type is named by Google's full name, which `S.toProtoOrThrow`
+  // imports rather than declares.
+  const google = wktFiles.has(file.proto.name);
+  const protoName = (desc: Message): string => JSON.stringify(google ? desc.typeName : namesOf(file).shape.get(desc));
+  const named = (schema: string, desc: Message | Enum): string =>
+    google ? `${schema}->${S}meta({name: ${JSON.stringify(desc.typeName)}})` : schema;
+
   function recursiveExpr(message: Message, scope: Scope): string {
     const name = scope.depth === 0 ? "self" : `self${scope.depth + 1}`;
     const inner: Scope = { bindings: new Map(scope.bindings).set(message, name), component: scope.component, depth: scope.depth + 1 };
@@ -215,7 +211,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     const body = objectSchema(message, inner, indent);
     const binder = new RegExp(`\\b${name}\\b`).test(body) ? name : `_${name}`;
     const annotated = scope.depth === 0 ? binder : `(${binder}: ${S}t<${typeRef(message)}>)`;
-    return `${S}recursive(${JSON.stringify(namesOf(file).shape.get(message))}, ${annotated} =>\n${indent}${body.replace(new RegExp(`\\b${name}\\b`, "g"), binder)}\n${"  ".repeat(scope.depth + 1)})`;
+    return `${S}recursive(${protoName(message)}, ${annotated} =>\n${indent}${body.replace(new RegExp(`\\b${name}\\b`, "g"), binder)}\n${"  ".repeat(scope.depth + 1)})`;
   }
 
   const docstring = (path: number[], indent: string): string => {
@@ -252,7 +248,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     out.push(
       `${docstring(desc.path, "")}module ${moduleOf(desc)} = {\n` +
         `  type t =${values.map((value, idx) => ` | @as(${value.number}) ${constructors[idx]}`).join("")}\n` +
-        `  let schema: ${S}t<t> = ${S}enum([${constructors.join(", ")}])\n}\n`,
+        `  let schema: ${S}t<t> = ${named(`${S}enum([${constructors.join(", ")}])`, desc)}\n}\n`,
     );
   }
 
@@ -283,7 +279,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     const type = message.members.length === 0 ? "  type t\n" : `  type t = ${recordDecl(message, "  ")}\n`;
     out.push(
       `${docstring(message.path, "")}module ${moduleOf(message)} = {\n${oneofs}${type}` +
-        `  let schema: ${S}t<t> = ${objectSchema(message, { bindings: new Map(), depth: 0 }, "  ")}\n}\n`,
+        `  let schema: ${S}t<t> = ${named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message)}\n}\n`,
     );
   }
   return { body: out.join("\n"), usesNumber };

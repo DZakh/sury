@@ -8,24 +8,28 @@ let number = Sury.union([
   Sury.literal(NaN)
 ]);
 
-let schema = Sury.$schema(s => ({
+let schema = Sury.meta(Sury.$schema(s => ({
   typeUrl: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   value: s.m(S.protobufField(Sury.uint8Array, 2, "bytes", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Any"
+});
 
 let Any = {
   schema: schema
 };
 
-let schema$1 = Sury.$schema(s => ({
+let schema$1 = Sury.meta(Sury.$schema(s => ({
   fileName: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.SourceContext"
+});
 
 let SourceContext = {
   schema: schema$1
 };
 
-let schema$2 = Sury.enum([
+let schema$2 = Sury.meta(Sury.enum([
   0,
   1,
   2,
@@ -45,43 +49,51 @@ let schema$2 = Sury.enum([
   16,
   17,
   18
-]);
+]), {
+  name: "google.protobuf.Field.Kind"
+});
 
 let Field_Kind = {
   schema: schema$2
 };
 
-let schema$3 = Sury.enum([
+let schema$3 = Sury.meta(Sury.enum([
   0,
   1,
   2,
   3
-]);
+]), {
+  name: "google.protobuf.Field.Cardinality"
+});
 
 let Field_Cardinality = {
   schema: schema$3
 };
 
-let schema$4 = Sury.enum([
+let schema$4 = Sury.meta(Sury.enum([
   0,
   1,
   2
-]);
+]), {
+  name: "google.protobuf.Syntax"
+});
 
 let Syntax = {
   schema: schema$4
 };
 
-let schema$5 = Sury.$schema(s => ({
+let schema$5 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   value: s.m(S.protobufField(Sury.$option(schema), 2, "message", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Option"
+});
 
 let Option = {
   schema: schema$5
 };
 
-let schema$6 = Sury.$schema(s => ({
+let schema$6 = Sury.meta(Sury.$schema(s => ({
   kind: s.m(S.protobufField(schema$2, 1, "enum", undefined, undefined, undefined)),
   cardinality: s.m(S.protobufField(schema$3, 2, "enum", undefined, undefined, undefined)),
   number: s.m(S.protobufField(Sury.int32, 3, "int32", undefined, undefined, undefined)),
@@ -92,13 +104,15 @@ let schema$6 = Sury.$schema(s => ({
   options: s.m(S.protobufField(Sury.array(schema$5), 9, "message", undefined, undefined, undefined)),
   jsonName: s.m(S.protobufField(Sury.string, 10, "string", undefined, undefined, undefined)),
   defaultValue: s.m(S.protobufField(Sury.string, 11, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Field"
+});
 
 let Field = {
   schema: schema$6
 };
 
-let schema$7 = Sury.$schema(s => ({
+let schema$7 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   fields: s.m(S.protobufField(Sury.array(schema$6), 2, "message", undefined, undefined, undefined)),
   oneofs: s.m(S.protobufField(Sury.array(Sury.string), 3, "string", undefined, undefined, undefined)),
@@ -106,36 +120,42 @@ let schema$7 = Sury.$schema(s => ({
   sourceContext: s.m(S.protobufField(Sury.$option(schema$1), 5, "message", undefined, undefined, undefined)),
   syntax: s.m(S.protobufField(schema$4, 6, "enum", undefined, undefined, undefined)),
   edition: s.m(S.protobufField(Sury.string, 7, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Type"
+});
 
 let Type = {
   schema: schema$7
 };
 
-let schema$8 = Sury.$schema(s => ({
+let schema$8 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   number: s.m(S.protobufField(Sury.int32, 2, "int32", undefined, undefined, undefined)),
   options: s.m(S.protobufField(Sury.array(schema$5), 3, "message", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.EnumValue"
+});
 
 let EnumValue = {
   schema: schema$8
 };
 
-let schema$9 = Sury.$schema(s => ({
+let schema$9 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   enumvalue: s.m(S.protobufField(Sury.array(schema$8), 2, "message", undefined, undefined, undefined)),
   options: s.m(S.protobufField(Sury.array(schema$5), 3, "message", undefined, undefined, undefined)),
   sourceContext: s.m(S.protobufField(Sury.$option(schema$1), 4, "message", undefined, undefined, undefined)),
   syntax: s.m(S.protobufField(schema$4, 5, "enum", undefined, undefined, undefined)),
   edition: s.m(S.protobufField(Sury.string, 6, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Enum"
+});
 
 let Enum = {
   schema: schema$9
 };
 
-let schema$10 = Sury.$schema(s => ({
+let schema$10 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   requestTypeUrl: s.m(S.protobufField(Sury.string, 2, "string", undefined, undefined, undefined)),
   requestStreaming: s.m(S.protobufField(Sury.boolean, 3, "bool", undefined, undefined, undefined)),
@@ -144,22 +164,26 @@ let schema$10 = Sury.$schema(s => ({
   options: s.m(S.protobufField(Sury.array(schema$5), 6, "message", undefined, undefined, undefined)),
   syntax: s.m(S.protobufField(schema$4, 7, "enum", undefined, undefined, undefined)),
   edition: s.m(S.protobufField(Sury.string, 8, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Method"
+});
 
 let Method = {
   schema: schema$10
 };
 
-let schema$11 = Sury.$schema(s => ({
+let schema$11 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   root: s.m(S.protobufField(Sury.string, 2, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Mixin"
+});
 
 let Mixin = {
   schema: schema$11
 };
 
-let schema$12 = Sury.$schema(s => ({
+let schema$12 = Sury.meta(Sury.$schema(s => ({
   name: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
   methods: s.m(S.protobufField(Sury.array(schema$10), 2, "message", undefined, undefined, undefined)),
   options: s.m(S.protobufField(Sury.array(schema$5), 3, "message", undefined, undefined, undefined)),
@@ -168,43 +192,53 @@ let schema$12 = Sury.$schema(s => ({
   mixins: s.m(S.protobufField(Sury.array(schema$11), 6, "message", undefined, undefined, undefined)),
   syntax: s.m(S.protobufField(schema$4, 7, "enum", undefined, undefined, undefined)),
   edition: s.m(S.protobufField(Sury.string, 8, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Api"
+});
 
 let Api = {
   schema: schema$12
 };
 
-let schema$13 = Sury.$schema(s => ({
+let schema$13 = Sury.meta(Sury.$schema(s => ({
   seconds: s.m(S.protobufField(Sury.bigint, 1, "int64", undefined, undefined, undefined)),
   nanos: s.m(S.protobufField(Sury.int32, 2, "int32", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Duration"
+});
 
 let Duration = {
   schema: schema$13
 };
 
-let schema$14 = Sury.$schema(param => ({}));
+let schema$14 = Sury.meta(Sury.$schema(param => ({})), {
+  name: "google.protobuf.Empty"
+});
 
 let Empty = {
   schema: schema$14
 };
 
-let schema$15 = Sury.$schema(s => ({
+let schema$15 = Sury.meta(Sury.$schema(s => ({
   paths: s.m(S.protobufField(Sury.array(Sury.string), 1, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.FieldMask"
+});
 
 let FieldMask = {
   schema: schema$15
 };
 
-let schema$16 = Sury.enum([0]);
+let schema$16 = Sury.meta(Sury.enum([0]), {
+  name: "google.protobuf.NullValue"
+});
 
 let NullValue = {
   schema: schema$16
 };
 
-let schema$17 = Sury.recursive("Struct", self => Sury.$schema(s => ({
-  fields: s.m(S.protobufField(Sury.record(Sury.recursive("Value", self2 => Sury.$schema(s => ({
+let schema$17 = Sury.recursive("google.protobuf.Struct", self => Sury.$schema(s => ({
+  fields: s.m(S.protobufField(Sury.record(Sury.recursive("google.protobuf.Value", self2 => Sury.$schema(s => ({
     kind: s.m(Sury.$option(Sury.union([
       Sury.$schema(s => ({
         case: "nullValue",
@@ -228,7 +262,7 @@ let schema$17 = Sury.recursive("Struct", self => Sury.$schema(s => ({
       })),
       Sury.$schema(s => ({
         case: "listValue",
-        value: s.m(S.protobufField(Sury.recursive("ListValue", _self3 => Sury.$schema(s => ({
+        value: s.m(S.protobufField(Sury.recursive("google.protobuf.ListValue", _self3 => Sury.$schema(s => ({
           values: s.m(S.protobufField(Sury.array(self2), 1, "message", undefined, undefined, undefined))
         }))), 6, "message", undefined, undefined, undefined))
       }))
@@ -240,7 +274,7 @@ let Struct = {
   schema: schema$17
 };
 
-let schema$18 = Sury.recursive("Value", self => Sury.$schema(s => ({
+let schema$18 = Sury.recursive("google.protobuf.Value", self => Sury.$schema(s => ({
   kind: s.m(Sury.$option(Sury.union([
     Sury.$schema(s => ({
       case: "nullValue",
@@ -260,13 +294,13 @@ let schema$18 = Sury.recursive("Value", self => Sury.$schema(s => ({
     })),
     Sury.$schema(s => ({
       case: "structValue",
-      value: s.m(S.protobufField(Sury.recursive("Struct", _self2 => Sury.$schema(s => ({
+      value: s.m(S.protobufField(Sury.recursive("google.protobuf.Struct", _self2 => Sury.$schema(s => ({
         fields: s.m(S.protobufField(Sury.record(self), 1, "message", undefined, "string", undefined))
       }))), 5, "message", undefined, undefined, undefined))
     })),
     Sury.$schema(s => ({
       case: "listValue",
-      value: s.m(S.protobufField(Sury.recursive("ListValue", _self2 => Sury.$schema(s => ({
+      value: s.m(S.protobufField(Sury.recursive("google.protobuf.ListValue", _self2 => Sury.$schema(s => ({
         values: s.m(S.protobufField(Sury.array(self), 1, "message", undefined, undefined, undefined))
       }))), 6, "message", undefined, undefined, undefined))
     }))
@@ -277,8 +311,8 @@ let Value = {
   schema: schema$18
 };
 
-let schema$19 = Sury.recursive("ListValue", self => Sury.$schema(s => ({
-  values: s.m(S.protobufField(Sury.array(Sury.recursive("Value", self2 => Sury.$schema(s => ({
+let schema$19 = Sury.recursive("google.protobuf.ListValue", self => Sury.$schema(s => ({
+  values: s.m(S.protobufField(Sury.array(Sury.recursive("google.protobuf.Value", self2 => Sury.$schema(s => ({
     kind: s.m(Sury.$option(Sury.union([
       Sury.$schema(s => ({
         case: "nullValue",
@@ -298,7 +332,7 @@ let schema$19 = Sury.recursive("ListValue", self => Sury.$schema(s => ({
       })),
       Sury.$schema(s => ({
         case: "structValue",
-        value: s.m(S.protobufField(Sury.recursive("Struct", _self3 => Sury.$schema(s => ({
+        value: s.m(S.protobufField(Sury.recursive("google.protobuf.Struct", _self3 => Sury.$schema(s => ({
           fields: s.m(S.protobufField(Sury.record(self2), 1, "message", undefined, "string", undefined))
         }))), 5, "message", undefined, undefined, undefined))
       })),
@@ -314,82 +348,102 @@ let ListValue = {
   schema: schema$19
 };
 
-let schema$20 = Sury.$schema(s => ({
+let schema$20 = Sury.meta(Sury.$schema(s => ({
   seconds: s.m(S.protobufField(Sury.bigint, 1, "int64", undefined, undefined, undefined)),
   nanos: s.m(S.protobufField(Sury.int32, 2, "int32", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Timestamp"
+});
 
 let Timestamp = {
   schema: schema$20
 };
 
-let schema$21 = Sury.$schema(s => ({
+let schema$21 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(number, 1, "double", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.DoubleValue"
+});
 
 let DoubleValue = {
   schema: schema$21
 };
 
-let schema$22 = Sury.$schema(s => ({
+let schema$22 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(number, 1, "float", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.FloatValue"
+});
 
 let FloatValue = {
   schema: schema$22
 };
 
-let schema$23 = Sury.$schema(s => ({
+let schema$23 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.bigint, 1, "int64", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Int64Value"
+});
 
 let Int64Value = {
   schema: schema$23
 };
 
-let schema$24 = Sury.$schema(s => ({
+let schema$24 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.bigint, 1, "uint64", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.UInt64Value"
+});
 
 let UInt64Value = {
   schema: schema$24
 };
 
-let schema$25 = Sury.$schema(s => ({
+let schema$25 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.int32, 1, "int32", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.Int32Value"
+});
 
 let Int32Value = {
   schema: schema$25
 };
 
-let schema$26 = Sury.$schema(s => ({
+let schema$26 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.integer, 1, "uint32", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.UInt32Value"
+});
 
 let UInt32Value = {
   schema: schema$26
 };
 
-let schema$27 = Sury.$schema(s => ({
+let schema$27 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.boolean, 1, "bool", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.BoolValue"
+});
 
 let BoolValue = {
   schema: schema$27
 };
 
-let schema$28 = Sury.$schema(s => ({
+let schema$28 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.StringValue"
+});
 
 let StringValue = {
   schema: schema$28
 };
 
-let schema$29 = Sury.$schema(s => ({
+let schema$29 = Sury.meta(Sury.$schema(s => ({
   value: s.m(S.protobufField(Sury.uint8Array, 1, "bytes", undefined, undefined, undefined))
-}));
+})), {
+  name: "google.protobuf.BytesValue"
+});
 
 let BytesValue = {
   schema: schema$29

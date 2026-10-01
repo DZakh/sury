@@ -79,7 +79,7 @@ module Any = {
   let schema: S.t<t> = S.schema(s => {
     typeUrl: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     value: s.matches(S.uint8Array->S.protobufField(2, ~type_=#bytes)),
-  })
+  })->S.meta({name: "google.protobuf.Any"})
 }
 
 // google/protobuf/source_context.proto
@@ -98,7 +98,7 @@ module SourceContext = {
   }
   let schema: S.t<t> = S.schema(s => {
     fileName: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.SourceContext"})
 }
 
 // google/protobuf/type.proto
@@ -108,7 +108,7 @@ module SourceContext = {
  */
 module Field_Kind = {
   type t = | @as(0) TypeUnknown | @as(1) TypeDouble | @as(2) TypeFloat | @as(3) TypeInt64 | @as(4) TypeUint64 | @as(5) TypeInt32 | @as(6) TypeFixed64 | @as(7) TypeFixed32 | @as(8) TypeBool | @as(9) TypeString | @as(10) TypeGroup | @as(11) TypeMessage | @as(12) TypeBytes | @as(13) TypeUint32 | @as(14) TypeEnum | @as(15) TypeSfixed32 | @as(16) TypeSfixed64 | @as(17) TypeSint32 | @as(18) TypeSint64
-  let schema: S.t<t> = S.enum([TypeUnknown, TypeDouble, TypeFloat, TypeInt64, TypeUint64, TypeInt32, TypeFixed64, TypeFixed32, TypeBool, TypeString, TypeGroup, TypeMessage, TypeBytes, TypeUint32, TypeEnum, TypeSfixed32, TypeSfixed64, TypeSint32, TypeSint64])
+  let schema: S.t<t> = S.enum([TypeUnknown, TypeDouble, TypeFloat, TypeInt64, TypeUint64, TypeInt32, TypeFixed64, TypeFixed32, TypeBool, TypeString, TypeGroup, TypeMessage, TypeBytes, TypeUint32, TypeEnum, TypeSfixed32, TypeSfixed64, TypeSint32, TypeSint64])->S.meta({name: "google.protobuf.Field.Kind"})
 }
 
 /**
@@ -116,7 +116,7 @@ module Field_Kind = {
  */
 module Field_Cardinality = {
   type t = | @as(0) Unknown | @as(1) Optional | @as(2) Required | @as(3) Repeated
-  let schema: S.t<t> = S.enum([Unknown, Optional, Required, Repeated])
+  let schema: S.t<t> = S.enum([Unknown, Optional, Required, Repeated])->S.meta({name: "google.protobuf.Field.Cardinality"})
 }
 
 /**
@@ -124,7 +124,7 @@ module Field_Cardinality = {
  */
 module Syntax = {
   type t = | @as(0) Proto2 | @as(1) Proto3 | @as(2) Editions
-  let schema: S.t<t> = S.enum([Proto2, Proto3, Editions])
+  let schema: S.t<t> = S.enum([Proto2, Proto3, Editions])->S.meta({name: "google.protobuf.Syntax"})
 }
 
 /**
@@ -155,7 +155,7 @@ module Option = {
   let schema: S.t<t> = S.schema(s => {
     name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     value: s.matches(S.option(Any.schema)->S.protobufField(2, ~type_=#message)),
-  })
+  })->S.meta({name: "google.protobuf.Option"})
 }
 
 /**
@@ -222,7 +222,7 @@ module Field = {
     options: s.matches(S.array(Option.schema)->S.protobufField(9, ~type_=#message)),
     jsonName: s.matches(S.string->S.protobufField(10, ~type_=#string)),
     defaultValue: s.matches(S.string->S.protobufField(11, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Field"})
 }
 
 /**
@@ -272,7 +272,7 @@ module Type = {
     sourceContext: s.matches(S.option(SourceContext.schema)->S.protobufField(5, ~type_=#message)),
     syntax: s.matches(Syntax.schema->S.protobufField(6, ~type_=#enum)),
     edition: s.matches(S.string->S.protobufField(7, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Type"})
 }
 
 /**
@@ -302,7 +302,7 @@ module EnumValue = {
     name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     number: s.matches(S.int->S.protobufField(2, ~type_=#int32)),
     options: s.matches(S.array(Option.schema)->S.protobufField(3, ~type_=#message)),
-  })
+  })->S.meta({name: "google.protobuf.EnumValue"})
 }
 
 /**
@@ -347,7 +347,7 @@ module Enum = {
     sourceContext: s.matches(S.option(SourceContext.schema)->S.protobufField(4, ~type_=#message)),
     syntax: s.matches(Syntax.schema->S.protobufField(5, ~type_=#enum)),
     edition: s.matches(S.string->S.protobufField(6, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Enum"})
 }
 
 // google/protobuf/api.proto
@@ -410,7 +410,7 @@ module Method = {
     options: s.matches(S.array(Option.schema)->S.protobufField(6, ~type_=#message)),
     syntax: s.matches(Syntax.schema->S.protobufField(7, ~type_=#enum)),
     edition: s.matches(S.string->S.protobufField(8, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Method"})
 }
 
 /**
@@ -508,7 +508,7 @@ module Mixin = {
   let schema: S.t<t> = S.schema(s => {
     name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
     root: s.matches(S.string->S.protobufField(2, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Mixin"})
 }
 
 /**
@@ -592,7 +592,7 @@ module Api = {
     mixins: s.matches(S.array(Mixin.schema)->S.protobufField(6, ~type_=#message)),
     syntax: s.matches(Syntax.schema->S.protobufField(7, ~type_=#enum)),
     edition: s.matches(S.string->S.protobufField(8, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.Api"})
 }
 
 // google/protobuf/duration.proto
@@ -679,7 +679,7 @@ module Duration = {
   let schema: S.t<t> = S.schema(s => {
     seconds: s.matches(S.bigint->S.protobufField(1, ~type_=#int64)),
     nanos: s.matches(S.int->S.protobufField(2, ~type_=#int32)),
-  })
+  })->S.meta({name: "google.protobuf.Duration"})
 }
 
 // google/protobuf/empty.proto
@@ -696,7 +696,7 @@ module Duration = {
  */
 module Empty = {
   type t
-  let schema: S.t<t> = S.schema(_ => %raw(`{}`))
+  let schema: S.t<t> = S.schema(_ => %raw(`{}`))->S.meta({name: "google.protobuf.Empty"})
 }
 
 // google/protobuf/field_mask.proto
@@ -909,7 +909,7 @@ module FieldMask = {
   }
   let schema: S.t<t> = S.schema(s => {
     paths: s.matches(S.array(S.string)->S.protobufField(1, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.FieldMask"})
 }
 
 // google/protobuf/struct.proto
@@ -927,7 +927,7 @@ module FieldMask = {
  */
 module NullValue = {
   type t = | @as(0) NullValue
-  let schema: S.t<t> = S.enum([NullValue])
+  let schema: S.t<t> = S.enum([NullValue])->S.meta({name: "google.protobuf.NullValue"})
 }
 
 type rec struct = {
@@ -971,9 +971,9 @@ and listValue = {
  */
 module Struct = {
   type t = struct
-  let schema: S.t<t> = S.recursive("Struct", self =>
+  let schema: S.t<t> = S.recursive("google.protobuf.Struct", self =>
     S.schema(s => {
-      fields: s.matches(S.dict(S.recursive("Value", (self2: S.t<value>) =>
+      fields: s.matches(S.dict(S.recursive("google.protobuf.Value", (self2: S.t<value>) =>
       S.schema(s => {
         kind: s.matches(S.option(
           S.union([
@@ -982,7 +982,7 @@ module Struct = {
             S.schema(s => StringValue({value: s.matches(S.string->S.protobufField(3, ~type_=#string))})),
             S.schema(s => BoolValue({value: s.matches(S.bool->S.protobufField(4, ~type_=#bool))})),
             S.schema(s => StructValue({value: s.matches(self->S.protobufField(5, ~type_=#message))})),
-            S.schema(s => ListValue({value: s.matches(S.recursive("ListValue", (_self3: S.t<listValue>) =>
+            S.schema(s => ListValue({value: s.matches(S.recursive("google.protobuf.ListValue", (_self3: S.t<listValue>) =>
         S.schema(s => {
           values: s.matches(S.array(self2)->S.protobufField(1, ~type_=#message)),
         })
@@ -1005,7 +1005,7 @@ module Struct = {
  */
 module Value = {
   type t = value
-  let schema: S.t<t> = S.recursive("Value", self =>
+  let schema: S.t<t> = S.recursive("google.protobuf.Value", self =>
     S.schema(s => {
       kind: s.matches(S.option(
         S.union([
@@ -1013,12 +1013,12 @@ module Value = {
           S.schema(s => NumberValue({value: s.matches(number->S.protobufField(2, ~type_=#double))})),
           S.schema(s => StringValue({value: s.matches(S.string->S.protobufField(3, ~type_=#string))})),
           S.schema(s => BoolValue({value: s.matches(S.bool->S.protobufField(4, ~type_=#bool))})),
-          S.schema(s => StructValue({value: s.matches(S.recursive("Struct", (_self2: S.t<struct>) =>
+          S.schema(s => StructValue({value: s.matches(S.recursive("google.protobuf.Struct", (_self2: S.t<struct>) =>
       S.schema(s => {
         fields: s.matches(S.dict(self)->S.protobufField(1, ~type_=#message, ~key=#string)),
       })
     )->S.protobufField(5, ~type_=#message))})),
-          S.schema(s => ListValue({value: s.matches(S.recursive("ListValue", (_self2: S.t<listValue>) =>
+          S.schema(s => ListValue({value: s.matches(S.recursive("google.protobuf.ListValue", (_self2: S.t<listValue>) =>
       S.schema(s => {
         values: s.matches(S.array(self)->S.protobufField(1, ~type_=#message)),
       })
@@ -1034,9 +1034,9 @@ module Value = {
  */
 module ListValue = {
   type t = listValue
-  let schema: S.t<t> = S.recursive("ListValue", self =>
+  let schema: S.t<t> = S.recursive("google.protobuf.ListValue", self =>
     S.schema(s => {
-      values: s.matches(S.array(S.recursive("Value", (self2: S.t<value>) =>
+      values: s.matches(S.array(S.recursive("google.protobuf.Value", (self2: S.t<value>) =>
       S.schema(s => {
         kind: s.matches(S.option(
           S.union([
@@ -1044,7 +1044,7 @@ module ListValue = {
             S.schema(s => NumberValue({value: s.matches(number->S.protobufField(2, ~type_=#double))})),
             S.schema(s => StringValue({value: s.matches(S.string->S.protobufField(3, ~type_=#string))})),
             S.schema(s => BoolValue({value: s.matches(S.bool->S.protobufField(4, ~type_=#bool))})),
-            S.schema(s => StructValue({value: s.matches(S.recursive("Struct", (_self3: S.t<struct>) =>
+            S.schema(s => StructValue({value: s.matches(S.recursive("google.protobuf.Struct", (_self3: S.t<struct>) =>
         S.schema(s => {
           fields: s.matches(S.dict(self2)->S.protobufField(1, ~type_=#message, ~key=#string)),
         })
@@ -1172,7 +1172,7 @@ module Timestamp = {
   let schema: S.t<t> = S.schema(s => {
     seconds: s.matches(S.bigint->S.protobufField(1, ~type_=#int64)),
     nanos: s.matches(S.int->S.protobufField(2, ~type_=#int32)),
-  })
+  })->S.meta({name: "google.protobuf.Timestamp"})
 }
 
 // google/protobuf/wrappers.proto
@@ -1194,7 +1194,7 @@ module DoubleValue = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(number->S.protobufField(1, ~type_=#double)),
-  })
+  })->S.meta({name: "google.protobuf.DoubleValue"})
 }
 
 /**
@@ -1214,7 +1214,7 @@ module FloatValue = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(number->S.protobufField(1, ~type_=#float)),
-  })
+  })->S.meta({name: "google.protobuf.FloatValue"})
 }
 
 /**
@@ -1234,7 +1234,7 @@ module Int64Value = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.bigint->S.protobufField(1, ~type_=#int64)),
-  })
+  })->S.meta({name: "google.protobuf.Int64Value"})
 }
 
 /**
@@ -1254,7 +1254,7 @@ module UInt64Value = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.bigint->S.protobufField(1, ~type_=#uint64)),
-  })
+  })->S.meta({name: "google.protobuf.UInt64Value"})
 }
 
 /**
@@ -1274,7 +1274,7 @@ module Int32Value = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
-  })
+  })->S.meta({name: "google.protobuf.Int32Value"})
 }
 
 /**
@@ -1294,7 +1294,7 @@ module UInt32Value = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.integer->S.protobufField(1, ~type_=#uint32)),
-  })
+  })->S.meta({name: "google.protobuf.UInt32Value"})
 }
 
 /**
@@ -1314,7 +1314,7 @@ module BoolValue = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.bool->S.protobufField(1, ~type_=#bool)),
-  })
+  })->S.meta({name: "google.protobuf.BoolValue"})
 }
 
 /**
@@ -1334,7 +1334,7 @@ module StringValue = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-  })
+  })->S.meta({name: "google.protobuf.StringValue"})
 }
 
 /**
@@ -1354,5 +1354,5 @@ module BytesValue = {
   }
   let schema: S.t<t> = S.schema(s => {
     value: s.matches(S.uint8Array->S.protobufField(1, ~type_=#bytes)),
-  })
+  })->S.meta({name: "google.protobuf.BytesValue"})
 }

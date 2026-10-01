@@ -200,36 +200,12 @@ const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) =
   ],
 };
 
-// The one property a well-known message holds, as protobuf-es names it, and its
-// number: Value's is a oneof, which has none of its own.
-const messageForms: Record<string, [string, number?]> = {
-  "google.protobuf.Value": ["kind"],
-  "google.protobuf.Struct": ["fields", 1],
-  "google.protobuf.ListValue": ["values", 1],
-  "google.protobuf.FieldMask": ["paths", 1],
-};
-
-const messageForm = (type: string): [string, number?] | undefined =>
-  messageForms[type] ?? (wrappers[type] !== U ? ["value", 1] : U);
-
-// The message itself written out, the shape protobuf-es holds it in and
-// `sury/protobuf/wkt` exports. A ref - Value, Struct and ListValue hold each
-// other - is read through its definition.
-const isWrittenOut = (type: string, shape: Internal): boolean => {
-  const form = messageForm(type);
-  const message = shape.type === refTag && !(shape.flags & 16) ? shape["$defs"]?.[shape["$ref"]!.slice(8)] : shape;
-  if (form === U || message === U || message.type !== objectTag || isContainer(message) || message.properties === U) return false;
-  const keys = Object.keys(message.properties);
-  return keys.length === 1 && keys[0] === form[0] && fieldMetadata(message.properties[form[0]]!)?.number === form[1];
-};
-
 // Whether a value is one of the well-known type itself, not a list or map of
 // it: `S.array(S.string)` is one FieldMask, `S.array(S.array(S.string))` a
 // repeated one.
 export const wellKnownTakes = (type: WellKnownType, value: Internal): boolean => {
   const shape = getOutputSchema(value);
   const takes = wellKnown[type]?.[0];
-  if (isWrittenOut(type, shape)) return true;
   if (takes !== U) return takes(shape, isContainer(shape) ? getOutputSchema(shape.additionalItems as Internal) : U);
   return !isContainer(shape) && !isMessageShape(shape);
 };
@@ -286,12 +262,9 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
     const wellKnownType = type as WellKnownType;
     const one = wellKnownTakes(wellKnownType, value);
     if (!one && !(isContainer(value) && wellKnownTakes(wellKnownType, value.additionalItems as Internal))) {
-      const form = messageForm(type);
-      return panic(
-        `S.protobufField requires ${wellKnown[type]?.[1] ?? `an S.optional ${wrappers[type]} value`}${form ? `, or its message { ${form[0]} },` : ""} for ${type}`,
-      );
+      return panic(`S.protobufField requires ${wellKnown[type]?.[1] ?? `an S.optional ${wrappers[type]} value`} for ${type}`);
     }
-    if (one && wrappers[type] !== U && !hasUndefined && !isWrittenOut(type, getOutputSchema(value))) {
+    if (one && wrappers[type] !== U && !hasUndefined) {
       return panic(`S.protobufField requires S.optional for ${type}: presence is what a wrapper is for`);
     }
   }

@@ -1614,15 +1614,6 @@ const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?:
   "google.protobuf.ListValue": [readList, writeList],
 };
 
-const wellKnownFile = (type: WellKnownType): string =>
-  `google/protobuf/${
-    type === "google.protobuf.Timestamp" ? "timestamp"
-    : type === "google.protobuf.Duration" ? "duration"
-    : type === "google.protobuf.FieldMask" ? "field_mask"
-    : type === "google.protobuf.Empty" ? "empty"
-    : wrappers[type] !== U ? "wrappers"
-    : "struct"
-  }.proto`;
 
 const secondsNanos: Record<string, StoredField> = {
   seconds: { number: 1, type: "int64", packed: true, key: "string", numberedAs: bigint },
@@ -1630,15 +1621,12 @@ const secondsNanos: Record<string, StoredField> = {
 };
 
 // A well-known type as the message it is on the wire, one per type and value
-// schema. A message written out - `{ seconds, nanos }`, Empty, or the shape
-// protobuf-es holds any of them in - compiles as the message it spells; a
+// schema. `{ seconds, nanos }` and Empty compile as the message they spell; a
 // wrapper and a FieldMask as the one field they hold; the rest take a codec,
 // whose raw side is the value's schema without the checks the caller put on
 // it, which run when the value is parsed into that schema after.
 const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx): Message | undefined => {
-  if ((shape.type === objectTag && typeof shape.additionalItems !== objectTag) || (shape.type === refTag && !(shape.flags & 16))) {
-    return compileMessage(shape, ctx, type);
-  }
+  if (shape.type === objectTag && typeof shape.additionalItems !== objectTag) return compileMessage(shape, ctx, type);
   const memo = type + shape.seq;
   let msg = ctx.messages.get(memo);
   if (msg !== U) return msg;
@@ -2355,9 +2343,10 @@ const snakeCase = (name: string): string =>
 const protoFieldName = (key: string): string =>
   /^[a-z][a-zA-Z0-9]*$/.test(key) ? snakeCase(key) : key.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=[0-9])/, "_") || "_";
 
+// A qualified name declares its last part.
 const protoTypeName = (name: string): string =>
   (
-    protoFieldName(name)
+    protoFieldName(name.slice(name.lastIndexOf(".") + 1))
       .split("_")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join("") || "Type"
@@ -2396,11 +2385,58 @@ const messageKey = (proto: Proto, properties: object, name: string | undefined):
   return `${id}:${name}`;
 };
 
+// The file Google declares each of its types in, by the top-level type's name.
+const googleFiles: Record<string, string> = {
+  Any: "any",
+  Api: "api",
+  Method: "api",
+  Mixin: "api",
+  Duration: "duration",
+  Empty: "empty",
+  FieldMask: "field_mask",
+  SourceContext: "source_context",
+  Struct: "struct",
+  Value: "struct",
+  ListValue: "struct",
+  NullValue: "struct",
+  Timestamp: "timestamp",
+  Type: "type",
+  Field: "type",
+  Enum: "type",
+  EnumValue: "type",
+  Option: "type",
+  Syntax: "type",
+  DoubleValue: "wrappers",
+  FloatValue: "wrappers",
+  Int64Value: "wrappers",
+  UInt64Value: "wrappers",
+  Int32Value: "wrappers",
+  UInt32Value: "wrappers",
+  BoolValue: "wrappers",
+  StringValue: "wrappers",
+  BytesValue: "wrappers",
+};
+
+const googleFile = (type: string): string => {
+  const top = type.slice(16).split(".")[0]!;
+  return Object.hasOwn(googleFiles, top)
+    ? `google/protobuf/${googleFiles[top]}.proto`
+    : panic(`S.toProtoOrThrow: ${type} is no well-known type, so there is no file to import it from`);
+};
+
+// A message or enum named `google.protobuf.X` - every schema sury/protobuf/wkt
+// exports - is Google's own, imported rather than declared, as is a value a
+// well-known type holds as something other than its message.
+const googleType = (use: Use): string | undefined => {
+  const name = use.field.message?.wellKnown ?? (use.field.message !== U || isEnumShape(use) ? nameOf(use) : U);
+  return name?.startsWith("google.protobuf.") ? name : U;
+};
+
 const typeKey = (proto: Proto, use: Use): unknown => {
   const { field, shape } = use;
   const name = nameOf(use);
-  // A well-known type is imported, never declared.
-  if (field.message !== U) return field.message.wellKnown === U ? messageKey(proto, shape.properties!, name) : U;
+  if (googleType(use) !== U) return U;
+  if (field.message !== U) return messageKey(proto, shape.properties!, name);
   if (!isEnumShape(use)) return U;
   return name ? `${name}:${enumValues(shape).join(",")}` : field;
 };
@@ -2490,7 +2526,7 @@ const reserveNames = (proto: Proto, message: Message, seen: Set<unknown>): void 
     const key = typeKey(proto, use);
     const name = key !== U ? nameOf(use) : U;
     if (name && !proto.names.has(key)) proto.names.set(key, uniqueName(protoTypeName(name), proto.used));
-    if (use.field.message !== U && use.field.message.wellKnown === U) reserveNames(proto, use.field.message, seen);
+    if (use.field.message !== U && googleType(use) === U) reserveNames(proto, use.field.message, seen);
   }
 };
 
@@ -2609,10 +2645,10 @@ const messageBody = (
     const { field } = use;
     const key = typeKey(proto, use);
     let type: string;
-    const known = field.message?.wellKnown;
-    if (known !== U) {
-      type = known;
-      proto.imports.add(wellKnownFile(known));
+    const google = googleType(use);
+    if (google !== U) {
+      type = google;
+      proto.imports.add(googleFile(google));
     } else if (field.message !== U) {
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner) =>
         messageBody(proto, fieldDecl, field.message!, typeName, proto.names.get(key)!, inner)

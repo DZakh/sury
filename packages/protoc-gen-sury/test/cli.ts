@@ -285,8 +285,8 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
   shakes(
     "one well-known type",
     await bundled('import { TimestampSchema } from "sury/protobuf/wkt";\nconsole.log(TimestampSchema);\n'),
-    ['"Timestamp"', "seconds"],
-    ['"Duration"', '"Struct"', '"Value"', "typeUrl", "fileName", "responseStreaming", '"Int32Value"'],
+    ['name: "google.protobuf.Timestamp"', "seconds"],
+    ['name: "google.protobuf.Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "google.protobuf.Int32Value"'],
   );
   shakes(
     "one ReScript module",

@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, wellKnownType, outputPath, wrapperScalar, wktImport } from "./shared";
+import { type Options, componentsOf, messageOf, importPath, isStruct, jsdoc, outputPath, wrapperScalar, wktFiles, wktImport } from "./shared";
 
 const is64 = (scalar: Scalar): boolean => scalar.includes("64");
 
@@ -148,7 +148,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     element.kind === "scalar" ? element.scalar
     : element.kind === "enum" ? "enum"
     : isStruct(field, element) ? "google.protobuf.Struct"
-    : wellKnownType(element, wktImport(messageOf(element).file, generating) !== undefined) ?? "message";
+    : "message";
 
   const numbered = (field: Field, schema: string, type: string): string => {
     let opts = `number: ${field.number}, type: ${JSON.stringify(type)}`;
@@ -201,7 +201,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     const body = objectBody(message, inner, indent);
     // A member only its siblings refer back to leaves its own binding unread.
     const binder = new RegExp(`\\b${self}\\b`).test(body) ? self : `_${self}`;
-    return `${S}.recursive<${names.shape.get(message)}>(${JSON.stringify(names.shape.get(message))}, (${binder}) =>\n${indent}${S}.schema(${body}),\n${"  ".repeat(scope.depth)})`;
+    return `${S}.recursive<${names.shape.get(message)}>(${protoName(message)}, (${binder}) =>\n${indent}${S}.schema(${body}),\n${"  ".repeat(scope.depth)})`;
   }
 
   const typeDecl = (message: Message): string => {
@@ -220,6 +220,11 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const out: string[] = [];
   const enums = [...nestedTypes(file)].filter((desc): desc is Enum => desc.kind === "enum");
   const messages = [...nestedTypes(file)].filter((desc): desc is Message => desc.kind === "message");
+  // The name a schema carries, which `S.toProtoOrThrow` and an error print: a
+  // well-known type's is Google's full name, which the printer imports rather
+  // than declares.
+  const google = wktFiles.has(file.proto.name);
+  const protoName = (desc: Message | Enum): string => JSON.stringify(google ? desc.typeName : names.shape.get(desc));
 
   for (const desc of enums) {
     const name = names.shape.get(desc)!;
@@ -234,7 +239,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     out.push(
       `${doc}export const ${name} = {\n${members.join("\n\n")}\n} as const;\n\n` +
         `${doc}export type ${name} = (typeof ${name})[keyof typeof ${name}];\n\n` +
-        `export const ${names.schema.get(desc)} = ${S}.union([${literals.join(", ")}]);\n`,
+        `export const ${names.schema.get(desc)} = ${google ? `${S}.meta(${S}.union([${literals.join(", ")}]), { name: ${protoName(desc)} })` : `${S}.union([${literals.join(", ")}])`};\n`,
     );
   }
 
@@ -252,7 +257,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
         const body = objectBody(message, { bindings: new Map(), depth: 0 }, "");
         // `S.schemaOf` is annotated, the function it returns can't be: without
         // this, a bundler keeps every message of a file once one is imported.
-        out.push(`export const ${schema} = ${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} });\n`);
+        out.push(`export const ${schema} = ${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${protoName(message)} });\n`);
       }
     }
   }

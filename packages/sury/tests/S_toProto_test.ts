@@ -689,3 +689,34 @@ message M {
 }
 `);
 });
+
+test("A message or enum named google.protobuf.* prints as an import", (t) => {
+  const kind = S.meta(S.union([0, 1]), { name: "google.protobuf.Field.Kind" });
+  const any = S.meta(S.schema({ typeUrl: S.string.with(S.protobufField, 1), value: S.uint8Array.with(S.protobufField, 2) }), {
+    name: "google.protobuf.Any",
+  });
+  const holder = S.schema({ kind: S.protobufField(kind, { number: 1, type: "enum" }), detail: S.optional(any).with(S.protobufField, 2) });
+  t.expect(S.toProtoOrThrow(holder, { name: "Holder" })).toBe(`syntax = "proto3";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/type.proto";
+
+message Holder {
+  google.protobuf.Field.Kind kind = 1;
+  optional google.protobuf.Any detail = 2;
+}
+`);
+  // Printed itself, Google's message is declared under its own short name.
+  t.expect(S.toProtoOrThrow(any)).toBe(`syntax = "proto3";
+
+message Any {
+  string type_url = 1;
+  bytes value = 2;
+}
+`);
+  // A name Google doesn't declare has no file to import it from.
+  const unknown = S.meta(S.schema({ a: S.string.with(S.protobufField, 1) }), { name: "google.protobuf.Nope" });
+  t.expect(() => S.toProtoOrThrow(S.schema({ x: S.optional(unknown).with(S.protobufField, 1) }))).toThrow(
+    "[Sury] S.toProtoOrThrow: google.protobuf.Nope is no well-known type, so there is no file to import it from",
+  );
+});

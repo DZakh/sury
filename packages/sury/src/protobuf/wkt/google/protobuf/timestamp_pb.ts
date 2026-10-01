@@ -123,4 +123,4 @@ export type Timestamp = {
 export const TimestampSchema = S.meta(/* @__PURE__ */ S.schemaOf<Timestamp>()({
   seconds: S.protobufField(S.bigint, { number: 1, type: "int64" }),
   nanos: S.protobufField(S.int32, { number: 2, type: "int32" }),
-}), { name: "Timestamp" });
+}), { name: "google.protobuf.Timestamp" });

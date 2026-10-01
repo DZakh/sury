@@ -67,7 +67,7 @@ export const generateWktRes = (): string => {
   for (const name of wktFiles) visit(name);
   let usesNumber = false;
   const bodies = ordered.map((name) => {
-    const result = resModules(registry.files.get(name)!, { s: "S.", wkt: (desc) => moduleOf(desc), imported: () => false });
+    const result = resModules(registry.files.get(name)!, { s: "S.", wkt: (desc) => moduleOf(desc) });
     usesNumber ||= result.usesNumber;
     return `// ${name}\n\n${result.body}`;
   });

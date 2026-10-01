@@ -18,7 +18,7 @@
       {
         "label": "Encode",
         "cells": [
-          19775,
+          19771,
           0,
           57204
         ],
@@ -29,7 +29,7 @@
         "label": "Encode and decode",
         "note": "the same schema read back, checked against itself",
         "cells": [
-          19798,
+          19796,
           0,
           null
         ],

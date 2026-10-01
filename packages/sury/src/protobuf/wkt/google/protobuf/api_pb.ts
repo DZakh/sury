@@ -91,7 +91,7 @@ export const MethodSchema = S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
   options: S.protobufField(S.array(OptionSchema), { number: 6, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
   edition: S.protobufField(S.string, { number: 8, type: "string" }),
-}), { name: "Method" });
+}), { name: "google.protobuf.Method" });
 
 /**
  * Declares an API Interface to be included in this interface. The including
@@ -195,7 +195,7 @@ export type Mixin = {
 export const MixinSchema = S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   root: S.protobufField(S.string, { number: 2, type: "string" }),
-}), { name: "Mixin" });
+}), { name: "google.protobuf.Mixin" });
 
 /**
  * Api is a light-weight descriptor for an API Interface.
@@ -303,4 +303,4 @@ export const ApiSchema = S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
   mixins: S.protobufField(S.array(MixinSchema), { number: 6, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
   edition: S.protobufField(S.string, { number: 8, type: "string" }),
-}), { name: "Api" });
+}), { name: "google.protobuf.Api" });

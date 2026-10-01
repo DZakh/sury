@@ -153,7 +153,7 @@ export const Field_Kind = {
  */
 export type Field_Kind = (typeof Field_Kind)[keyof typeof Field_Kind];
 
-export const Field_KindSchema = S.union([Field_Kind.TYPE_UNKNOWN, Field_Kind.TYPE_DOUBLE, Field_Kind.TYPE_FLOAT, Field_Kind.TYPE_INT64, Field_Kind.TYPE_UINT64, Field_Kind.TYPE_INT32, Field_Kind.TYPE_FIXED64, Field_Kind.TYPE_FIXED32, Field_Kind.TYPE_BOOL, Field_Kind.TYPE_STRING, Field_Kind.TYPE_GROUP, Field_Kind.TYPE_MESSAGE, Field_Kind.TYPE_BYTES, Field_Kind.TYPE_UINT32, Field_Kind.TYPE_ENUM, Field_Kind.TYPE_SFIXED32, Field_Kind.TYPE_SFIXED64, Field_Kind.TYPE_SINT32, Field_Kind.TYPE_SINT64]);
+export const Field_KindSchema = S.meta(S.union([Field_Kind.TYPE_UNKNOWN, Field_Kind.TYPE_DOUBLE, Field_Kind.TYPE_FLOAT, Field_Kind.TYPE_INT64, Field_Kind.TYPE_UINT64, Field_Kind.TYPE_INT32, Field_Kind.TYPE_FIXED64, Field_Kind.TYPE_FIXED32, Field_Kind.TYPE_BOOL, Field_Kind.TYPE_STRING, Field_Kind.TYPE_GROUP, Field_Kind.TYPE_MESSAGE, Field_Kind.TYPE_BYTES, Field_Kind.TYPE_UINT32, Field_Kind.TYPE_ENUM, Field_Kind.TYPE_SFIXED32, Field_Kind.TYPE_SFIXED64, Field_Kind.TYPE_SINT32, Field_Kind.TYPE_SINT64]), { name: "google.protobuf.Field.Kind" });
 
 /**
  * Whether a field is optional, required, or repeated.
@@ -197,7 +197,7 @@ export const Field_Cardinality = {
  */
 export type Field_Cardinality = (typeof Field_Cardinality)[keyof typeof Field_Cardinality];
 
-export const Field_CardinalitySchema = S.union([Field_Cardinality.UNKNOWN, Field_Cardinality.OPTIONAL, Field_Cardinality.REQUIRED, Field_Cardinality.REPEATED]);
+export const Field_CardinalitySchema = S.meta(S.union([Field_Cardinality.UNKNOWN, Field_Cardinality.OPTIONAL, Field_Cardinality.REQUIRED, Field_Cardinality.REPEATED]), { name: "google.protobuf.Field.Cardinality" });
 
 /**
  * The syntax in which a protocol buffer element is defined.
@@ -234,7 +234,7 @@ export const Syntax = {
  */
 export type Syntax = (typeof Syntax)[keyof typeof Syntax];
 
-export const SyntaxSchema = S.union([Syntax.PROTO2, Syntax.PROTO3, Syntax.EDITIONS]);
+export const SyntaxSchema = S.meta(S.union([Syntax.PROTO2, Syntax.PROTO3, Syntax.EDITIONS]), { name: "google.protobuf.Syntax" });
 
 /**
  * A protocol buffer option, which can be attached to a message, field,
@@ -271,7 +271,7 @@ export type Option = {
 export const OptionSchema = S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   value: S.protobufField(S.optional(AnySchema), { number: 2, type: "message" }),
-}), { name: "Option" });
+}), { name: "google.protobuf.Option" });
 
 /**
  * A single field of a message type.
@@ -368,7 +368,7 @@ export const FieldSchema = S.meta(/* @__PURE__ */ S.schemaOf<Field>()({
   options: S.protobufField(S.array(OptionSchema), { number: 9, type: "message" }),
   jsonName: S.protobufField(S.string, { number: 10, type: "string" }),
   defaultValue: S.protobufField(S.string, { number: 11, type: "string" }),
-}), { name: "Field" });
+}), { name: "google.protobuf.Field" });
 
 /**
  * A protocol buffer message type.
@@ -439,7 +439,7 @@ export const TypeSchema = S.meta(/* @__PURE__ */ S.schemaOf<Type>()({
   sourceContext: S.protobufField(S.optional(SourceContextSchema), { number: 5, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 6, type: "enum" }),
   edition: S.protobufField(S.string, { number: 7, type: "string" }),
-}), { name: "Type" });
+}), { name: "google.protobuf.Type" });
 
 /**
  * Enum value definition.
@@ -478,7 +478,7 @@ export const EnumValueSchema = S.meta(/* @__PURE__ */ S.schemaOf<EnumValue>()({
   name: S.protobufField(S.string, { number: 1, type: "string" }),
   number: S.protobufField(S.int32, { number: 2, type: "int32" }),
   options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),
-}), { name: "EnumValue" });
+}), { name: "google.protobuf.EnumValue" });
 
 /**
  * Enum type definition.
@@ -541,4 +541,4 @@ export const EnumSchema = S.meta(/* @__PURE__ */ S.schemaOf<Enum>()({
   sourceContext: S.protobufField(S.optional(SourceContextSchema), { number: 4, type: "message" }),
   syntax: S.protobufField(SyntaxSchema, { number: 5, type: "enum" }),
   edition: S.protobufField(S.string, { number: 6, type: "string" }),
-}), { name: "Enum" });
+}), { name: "google.protobuf.Enum" });

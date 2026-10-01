@@ -93,4 +93,4 @@ export type Duration = {
 export const DurationSchema = S.meta(/* @__PURE__ */ S.schemaOf<Duration>()({
   seconds: S.protobufField(S.bigint, { number: 1, type: "int64" }),
   nanos: S.protobufField(S.int32, { number: 2, type: "int32" }),
-}), { name: "Duration" });
+}), { name: "google.protobuf.Duration" });
