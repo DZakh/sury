@@ -875,10 +875,8 @@ export const valGet = (parent: Val, location: string): Val => {
         const s = additionalItems;
         // A `dict<V>` read by a fixed key may be absent (dicts have no required
         // keys), so model it as `option<V>` and let the union coercion handle a
-        // missing key uniformly. Scoped to dict parents (objectTag) with a
-        // concrete value type - array->tuple rest reads (arrayTag) and
-        // json/unknown values read as-is. Light T|undefined wrap (not
-        // S.option) so this decoder SCC does not statically retain union.
+        // missing key uniformly. Light T|undefined wrap (not S.option) so this
+        // decoder SCC does not statically retain union.
         if (
           parent.s.type === objectTag &&
           s.type !== unknownTag &&
