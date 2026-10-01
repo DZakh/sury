@@ -115,8 +115,6 @@ const mapOutputArms = (arm: Internal, step: (arm: Internal) => Internal): Intern
     : arm;
 };
 
-// One `optionFactory` step on a member: the inner `None` becomes the nested
-// `Some(None)` marker, and a marker already there goes one deeper.
 const nestArm = (arm: Internal): Internal => {
   const out = getOutputSchema(arm);
   const marker = out.properties?.[nestedLoc];
@@ -129,15 +127,15 @@ const nestArm = (arm: Internal): Internal => {
         : arm;
 };
 
-// The step back, for a default that peels one option off: the outer
-// `Some(None)` marker is the inner option's `None`.
+// Once a default peels one option off, the outer `Some(None)` marker is the
+// inner option's `None`.
 const unnestArm = (arm: Internal): Internal => {
   const out = getOutputSchema(arm);
   const marker = out.properties?.[nestedLoc];
   if (marker === U) return out.anyOf ? mapOutputArms(arm, unnestArm) : arm;
   const depth = marker.const as number;
   if (depth) return renest(arm, marker, depth - 1);
-  // A bare marker, from a union of outputs: an earlier default's.
+  // A bare marker is an arm of an earlier default's output union.
   if (arm.to === U) return unit;
   const root = copySchema(arm);
   let mut = root;
@@ -149,8 +147,7 @@ const unnestArm = (arm: Internal): Internal => {
 }
 
 export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  // Only a union of its own takes the empty value among its arms. Anything
-  // else, a coder whose output is a union included, gets it as an arm beside.
+  // A coder's own `anyOf` is its input union, not the values the option wraps.
   if (item.anyOf === U || item.to) return unionWrap(nestArm(item), [unitSchema]);
   return updateOutput<Internal>(item, (mut) => {
     mut.anyOf = item.anyOf!.map(nestArm);
@@ -457,6 +454,18 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         }
         originalItems.push(variant);
       }
+    }
+
+    // `None` over a nested option: the peeled arms already read the absent
+    // value as `None`, so there is nothing to replace, and a later default
+    // still sees a plain `undefined` arm to take.
+    if (
+      default_.type === "value" &&
+      default_.value === U &&
+      outputItems.some((output) => output.type === undefinedTag)
+    ) {
+      mut.anyOf = items;
+      return;
     }
 
     const item: Internal =

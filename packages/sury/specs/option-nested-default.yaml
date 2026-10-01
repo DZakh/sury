@@ -14,7 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i=void 0;break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"a"'
@@ -25,16 +25,5 @@ operations:
       nested-none-marker-is-not-input:
         input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
         error: "Expected string | undefined, received { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
-  decode: eq-to-parse
-  encode:
-    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
-    examples:
-      string:
-        input: '"a"'
-        output: '"a"'
-      none-encodes-to-undefined:
-        input: undefined
-        output: undefined
-      nested-none-marker-is-not-output:
-        input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
-        error: "Expected string | undefined, received { BS_PRIVATE_NESTED_SOME_NONE: 0; }"
+  decode: identity
+  encode: identity

@@ -23,7 +23,6 @@ operations:
       string:
         input: '"a"'
         output: '"a"'
-      # FIXME: the outer option's None goes behind the inner default
       undefined-is-the-outer-none:
         input: undefined
         output: undefined

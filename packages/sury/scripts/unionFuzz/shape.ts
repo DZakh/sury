@@ -26,7 +26,7 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
   return false;
 };
 
-// ---- predicates the known-bug registry is written in ----------------------
+// ---- predicates over a shape ----------------------------------------------
 
 // `env` reads an unset variable, so its input admits `undefined` too.
 export const admitsUndefined = (node: Shape): boolean =>

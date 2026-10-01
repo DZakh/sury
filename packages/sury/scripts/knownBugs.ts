@@ -127,6 +127,21 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
   },
   {
+    id: "union-ambiguous-member",
+    kind: "limitation",
+    summary:
+      "A member whose encode is ambiguous - the grammar's `x.with(S.to, S.option(x))` where nothing says " +
+      "how `None` goes back to `x` - refuses to compile, and so does the union around it, naming the `S.to` " +
+      "that settles it. The " +
+      "member-by-member reference skips the refusing member and accepts a sibling's value instead.",
+    fuzzers: ["union"],
+    matches: (f) =>
+      f.fuzzer === "union" &&
+      f.property === "acceptance" &&
+      f.detail.includes("Ambiguous") &&
+      some(f.shape, (node) => node.name === "toOption"),
+  },
+  {
     id: "union-overlapping-members",
     kind: "limitation",
     summary:

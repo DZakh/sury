@@ -170,7 +170,9 @@ const defaultedMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
 const nestedOptionMember = (S: Sury, rng: Rng, inner: MemberSpec): MemberSpec => {
   const coder = rng() < 0.5 && !admitsUndefined(inner.shape);
   const name = coder ? "toOption" : "option";
-  const item = coder ? inner.schema.with(S.to, S.$option(inner.schema)) : S.$option(inner.schema);
+  const item = coder
+    ? (inner.schema as Sury).with(S.to, S.$option(inner.schema))
+    : S.$option(inner.schema);
   const drawn = !coder && rng() < 0.5 ? NO_SAMPLE : defaultFor(S, rng, { ...inner, schema: item });
   const nested = S.$option(item);
   const shape = node("option", node(name, inner.shape));
