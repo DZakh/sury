@@ -35,9 +35,16 @@ import {
 
 // The `undefined` sentinel an assert/validate operation decodes to: the value
 // runs the whole pipeline and the result is dropped.
+//
+// The oldest `seq` there is, so `getOp` never caches on it. It outlives every
+// schema and holds none, so a node on the checked schema keeps nothing alive
+// that was not already; cached here, the check of every interned primitive
+// (`S.isInput(x, S.string)`, a `fromJSONSchema` keyword's sub-schema) shared one
+// list, and each call walked past the others.
 export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
   s.noValidation = true;
+  s.seq = 0;
 });
 
 // ── Call-form dispatch ───────────────────────────────────────────────────────

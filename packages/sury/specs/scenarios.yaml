@@ -65,6 +65,15 @@ assert-input-or-throw:
     const data = { id: "u1", age: 30 };
   run: S.assertInputOrThrow(schema, data)
 
+is-input-primitives:
+  prepare: |
+    const id = "u1";
+    const age = 30;
+    const active = true;
+  # Each interned primitive keeps its own cache. Cached on the assert sentinel
+  # they all share, every check walked past the other primitives' entries.
+  run: S.isInput(S.string, id) && S.isInput(S.number, age) && S.isInput(S.boolean, active)
+
 make-output:
   prepare: |
     const schema = S.schema({ id: S.string, age: S.number });
