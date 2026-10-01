@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.union([S.schema({ a: S.string }), S.optional(S.date, new Date(0)), S.schema({ b: S.string })]))"
+  input: JSON
+  output: "{ a: string; } | Date | { b: string; }"
+  instantiations: 8188
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, { type: "string", format: "date-time" }, { type: "object", properties: { b: { type: "string" } }, additionalProperties: false, required: ["b"] }] }'
+  fromInputType: "string | { a: string; } | { b: string; }"
+  output: Expected JSON, received Date
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; } | Date | { b: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}}l4:{for(;;){if(typeof i==="string"){let v3=new Date(i);if(!(!Number.isNaN(v3.getTime()))){v1=[v1,e[1],i];break l4}i=v3;break}if(i===null){i=e[2];break}v1=[v1,e[3](i)];break l4}break}if(typeof i==="object"&&i&&!Array.isArray(i)){l6:{let v5=i.b;if(!(typeof v5==="string")){v1=[v1,e[4],v5];break l6}i={b:v5};break}}throw e[5](i,v1)}return i}catch(v7){e[6](v7)}}
+    examples:
+      # FIXME: the Date member splits the object members' case, so { b } goes through its failure first
+      second-object:
+        input: '{ b: "x" }'
+        output: '{ b: "x" }'
+      first-object:
+        input: '{ a: "y" }'
+        output: '{ a: "y" }'
+      date-text:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0=i.a;if(!(typeof v0==="string")){v1=[v1,e[0],v0];break l2}i={a:v0};break}}l4:{if(i instanceof e[2]){let v3;try{v3=i.toISOString()}catch(_){v1=[v1,e[1],i];break l4}i=v3;}else{v1=[v1,e[3](i)];break l4}break}if(typeof i==="object"&&i&&!Array.isArray(i)){l6:{let v5=i.b;if(!(typeof v5==="string")){v1=[v1,e[4],v5];break l6}i={b:v5};break}}throw e[5](i,v1)}return i}catch(v7){e[6](v7)}}
+    examples:
+      second-object:
+        input: '{ b: "x" }'
+        output: '{ b: "x" }'
+      date:
+        input: new Date("2020-01-01T00:00:00.000Z")
+        output: '"2020-01-01T00:00:00.000Z"'
