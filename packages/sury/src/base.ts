@@ -18,9 +18,9 @@ export type Flag = number;
 //
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
 // itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
-// read or a protobuf wire step inside a union case lets a foreign exception
-// escape raw rather than count as the case not matching; a custom coder's
-// never does, #347), 64 flatten.
+// read inside a union case lets its failure escape raw rather than count as
+// the case not matching; a coder's or a protobuf wire failure never does), 64
+// flatten.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation's outcome (parse.ts `outcomeOf`): 128 JS Result
