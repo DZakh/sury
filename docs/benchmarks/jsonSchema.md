@@ -6,7 +6,7 @@
 
 Sury converts in both directions: a schema you wrote becomes a JSON Schema for the other side, and a JSON Schema somebody published becomes a schema that checks values and infers types.
 
-Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype 2.2.3, ajv 8.20.0.
+Measured against sury 11.1.0-rc.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype 2.2.3, ajv 8.20.0.
 
 ## Features
 

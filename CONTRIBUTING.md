@@ -211,11 +211,11 @@ the release is published.
 `sury`
 
 ```ts
-export * as S from "sury@11.0.0";
+export * as S from "sury@11.1.0-rc.0";
 ```
 
 ```ts
-import * as S from "sury@11.0.0";
+import * as S from "sury@11.1.0-rc.0";
 
 const schema = S.schema({
   number: S.number,
