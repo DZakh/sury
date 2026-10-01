@@ -27,6 +27,9 @@ operations:
       getter-throws-at-root:
         input: '{ get v() { throw new RangeError("getter boom") } }'
         error: "RangeError: getter boom"
+      rejects-at-depth-8:
+        input: '{ v: "a", kid: { v: "a", kid: { v: "a", kid: { v: "a", kid: { v: "a", kid: { v: "a", kid: { v: "a", kid: { v: "a", kid: { v: 1 } } } } } } } } }'
+        error: "Failed at kid.kid.kid.kid.kid.kid.kid.kid.v: Expected string, received 1"
   decode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
