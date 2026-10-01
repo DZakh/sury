@@ -446,17 +446,20 @@ const B_foreignFail = (
 // the instance to the prototype it already has changes nothing, its stack
 // included.
 //
-// Own descriptors onto the SAME prototype, not a spread: what the failing check
-// settled lives on its site prototype (base.ts, `errorSite`), and a spread
-// copies own properties only - the copy would come out reading `Expected
-// undefined`. Descriptors rather than `Object.assign` so an own `reason` is
-// carried as the data property it is instead of being pushed through a setter.
+// Onto the SAME prototype: what the failing check settled lives on its site
+// prototype (base.ts, `errorSite`), and a copy without it would read `Expected
+// undefined`. `Object.assign` rather than every own descriptor, which measured
+// 36 times slower and is paid once per recursive level a failure passes back
+// through: an own `reason` goes through `reasonSet`, which writes the same data
+// property. The one non-enumerable own field is a `stack`, there only on an
+// error user code built (Sury's own get theirs at the boundary), and it goes
+// across as its value: V8's is an accessor reading the instance it was captured
+// on, so the copied descriptor reads `undefined`.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
-  const copy = Object.create(
-    Object.getPrototypeOf(error) as object,
-    Object.getOwnPropertyDescriptors(error)
-  ) as SuryErrorRecord;
+  const copy = Object.assign(Object.create(Object.getPrototypeOf(error) as object), error) as SuryErrorRecord;
+  if (Object.hasOwn(error, "stack"))
+    Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
   copy.path = pathConcat(p, error.path);
   return copy;
 };
