@@ -5,7 +5,7 @@
   "label": "JSON Encoding",
   "blurb": "`S.jsonString` compiles the schema into the JSON text: the structure is baked in as literals and only the values are spliced, so nothing is allocated between the value and the string. The same schema reads the text back, checked.",
   "versions": [
-    "sury 11.0.0",
+    "sury 11.1.0-rc.0",
     "fast-json-stringify 7.0.1"
   ],
   "bundleSize": {
@@ -18,7 +18,7 @@
       {
         "label": "Encode",
         "cells": [
-          21775,
+          21779,
           0,
           57204
         ],
@@ -29,7 +29,7 @@
         "label": "Encode and decode",
         "note": "the same schema read back, checked against itself",
         "cells": [
-          21803,
+          21807,
           0,
           null
         ],
