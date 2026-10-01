@@ -67,7 +67,7 @@ operations:
         output: '{ many: [], payload: { type: "other", value: { typeUrl: "", value: new Uint8Array([8, 1]) } } }'
       second-copy-changes-type-without-value:
         input: new Uint8Array([10, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 7, 10, 35, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114])
-        error: "Failed at payload: Protobuf Any changes its type without a value to read as it"
+        error: "Failed at payload: Protobuf Any names its type in one copy and its value in another"
       failure-inside-member:
         input: new Uint8Array([10, 39, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 3, 18, 1, 255])
         error: "Failed at payload.value.name: Protobuf string is not valid UTF-8"

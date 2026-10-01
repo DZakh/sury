@@ -1832,7 +1832,7 @@ const anyDecodeSource = (msg: Message, fns: Map<Message, string>, name: string):
   return (
     `function ${name}(r,d,o){if(d>=100)fail("Protobuf message nesting limit exceeded");var t,u="",s=-1,e=-1,g,x;` +
     `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();if(t===10)u=r.string();else if(t===18){g=r.sub();s=r.pos;e=r.limit;r.pos=e;r.limit=g}else{if(t<8)${zeroField};skip(r,t&7,t>>>3,0)}}` +
-    `if(o!==void 0){x=${earlier};if(!u)u=x;if(s<0){if(u.slice(u.lastIndexOf("/")+1)===x.slice(x.lastIndexOf("/")+1))return o;fail("Protobuf Any changes its type without a value to read as it")}}` +
+    `if(o!==void 0){x=${earlier};if(!u)u=x;if(s<0){if(u.slice(u.lastIndexOf("/")+1)===x.slice(x.lastIndexOf("/")+1))return o;fail("Protobuf Any names its type in one copy and its value in another")}}` +
     `g=r.limit;if(s<0)s=e=g;switch(u.slice(u.lastIndexOf("/")+1)){${cases}}` +
     (other || `fail(u?"Protobuf Any holds "+u.slice(u.lastIndexOf("/")+1)+", which this field doesn't take":"Protobuf Any has no type URL")`) +
     "}"
