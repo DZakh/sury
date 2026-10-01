@@ -19,14 +19,14 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=v0.inner,v7=v0.x;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v3=v1.a,v5=v1.y;typeof v3==="string"||e[3](v3);let v2;try{v2=e[0](v3).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});typeof v5==="string"||e[4](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,y:v5}});typeof v7==="string"||e[6](v7);let v8=Promise.all([v6]).then(([v6])=>{return {inner:v6,x:v7}});return Promise.all([v8]).then(([v8])=>{return {p:v8.inner,q:v5,r:v7}}).catch(e[9])}catch(v9){return e[10](v9)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=v0.inner,v7=v0.x;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v3=v1.a,v5=v1.y;typeof v3==="string"||e[3](v3);let v2;try{v2=e[0](v3).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});typeof v5==="string"||e[4](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,y:v5}});typeof v7==="string"||e[6](v7);let v8=Promise.all([v6]).then(([v6])=>{return {inner:v6,x:v7}});return Promise.all([v8]).then(([v8])=>{return {p:v8.inner,q:v8.inner.y,r:v8.x}}).catch(e[9])}catch(v9){return e[10](v9)}}
     examples:
       picked:
         input: '{ w: { inner: { a: "a", y: "y" }, x: "x" } }'
         output: '{ p: { a: "a!", y: "y" }, q: "y", r: "x" }'
   decode:
     isAsync: true
-    expression: i=>{try{let v0=i.w;let v1=v0.inner;let v2;try{v2=e[0](v1.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v3=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});let v4=Promise.all([v3]).then(([v3])=>{return {a:v3,y:v1.y}});let v5=Promise.all([v4]).then(([v4])=>{return {inner:v4,x:v0.x}});return Promise.all([v5]).then(([v5])=>{return {p:v5.inner,q:v1.y,r:v0.x}}).catch(e[3])}catch(v6){return e[4](v6)}}
+    expression: i=>{try{let v0=i.w;let v1=v0.inner;let v2;try{v2=e[0](v1.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v3=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});let v4=Promise.all([v3]).then(([v3])=>{return {a:v3,y:v1.y}});let v5=Promise.all([v4]).then(([v4])=>{return {inner:v4,x:v0.x}});return Promise.all([v5]).then(([v5])=>{return {p:v5.inner,q:v5.inner.y,r:v5.x}}).catch(e[3])}catch(v6){return e[4](v6)}}
     examples:
       picked:
         input: '{ w: { inner: { a: "a", y: "y" }, x: "x" } }'

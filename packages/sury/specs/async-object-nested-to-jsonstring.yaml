@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ w: S.schema({ x: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) }), b: S.string }) }).with(S.to, S.jsonString)'
+  input: "{ w: { x: { a: string; }; b: string; }; }"
+  output: string
+  instantiations: 7341
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { x: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, b: { type: "string" } }, required: ["x", "b"] } }, required: ["w"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { w: { type: "object", properties: { x: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, b: { type: "string" } }, required: ["x", "b"] } }, required: ["w"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.w.x.a===b.w.x.a&&a.w.b===b.w.b
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { w: { x: { a: string; }; b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0.x,v6=v0.b;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v3=v1.a;typeof v3==="string"||e[3](v3);let v2;try{v2=e[0](v3).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});let v5=Promise.all([v4]).then(([v4])=>{return {a:v4}});typeof v6==="string"||e[5](v6);let v7=Promise.all([v5]).then(([v5])=>{return {x:v5,b:v6}});return Promise.all([v7]).then(([v7])=>{return "{\"w\":{\"x\":{\"a\":"+e[7](v7.x.a)+"},\"b\":"+e[7](v7.b)+"}}"}).catch(e[9])}catch(v8){return e[10](v8)}}
+    examples:
+      nested:
+        input: '{ w: { x: { a: "1" }, b: "2" } }'
+        output: '"{\"w\":{\"x\":{\"a\":\"1!\"},\"b\":\"2\"}}"'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;let v1=v0.x;let v2;try{v2=e[0](v1.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v3=v2.then(v2=>{typeof v2==="string"||e[2](v2);return v2});let v4=Promise.all([v3]).then(([v3])=>{return {a:v3}});let v5=Promise.all([v4]).then(([v4])=>{return {x:v4,b:v0.b}});return Promise.all([v5]).then(([v5])=>{return "{\"w\":{\"x\":{\"a\":"+e[3](v5.x.a)+"},\"b\":"+e[3](v5.b)+"}}"}).catch(e[4])}catch(v6){return e[5](v6)}}
+    examples:
+      nested:
+        input: '{ w: { x: { a: "1" }, b: "2" } }'
+        output: '"{\"w\":{\"x\":{\"a\":\"1!\"},\"b\":\"2\"}}"'
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v1=v0.w;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[7](v1);let v2=v1.x,v7=v1.b;typeof v2==="object"&&v2&&!Array.isArray(v2)||e[5](v2);let v4=v2.a;typeof v4==="string"||e[4](v4);let v3;try{v3=e[1](v4).catch(x=>{e[2](x)})}catch(x){e[2](x)}let v5=v3.then(v3=>{typeof v3==="string"||e[3](v3);return v3});let v6=Promise.all([v5]).then(([v5])=>{return {a:v5}});typeof v7==="string"||e[6](v7);let v8=Promise.all([v6]).then(([v6])=>{return {x:v6,b:v7}});return Promise.all([v8]).then(([v8])=>{return {w:v8}}).catch(e[9])}catch(v9){return e[10](v9)}}
+    examples:
+      nested:
+        input: '"{\"w\":{\"x\":{\"a\":\"1!\"},\"b\":\"2\"}}"'
+        output: '{ w: { x: { a: "1" }, b: "2" } }'

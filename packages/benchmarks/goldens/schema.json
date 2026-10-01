@@ -24,7 +24,7 @@
         "label": "What this schema ships",
         "note": "the seven fields above, after tree-shaking",
         "cells": [
-          11191,
+          11193,
           64686,
           22568,
           1304,

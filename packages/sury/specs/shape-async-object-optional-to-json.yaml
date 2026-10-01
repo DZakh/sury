@@ -21,7 +21,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.TAG,v1=i._0;v0==="Wrap"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[6](v1);let v3=v1.a,v5=v1.b;typeof v3==="string"||e[4](v3);let v2;try{v2=e[1](v3).catch(x=>{e[2](x)})}catch(x){e[2](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[3](v2);return v2});(typeof v5==="string"||v5===void 0)||e[5](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,b:v5}});return Promise.all([v6]).then(([v6])=>{let v7={a:v6.a};if(v5!==void 0){v7.b=v5}return v7}).catch(e[8])}catch(v8){return e[9](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.TAG,v1=i._0;v0==="Wrap"||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[6](v1);let v3=v1.a,v5=v1.b;typeof v3==="string"||e[4](v3);let v2;try{v2=e[1](v3).catch(x=>{e[2](x)})}catch(x){e[2](x)}let v4=v2.then(v2=>{typeof v2==="string"||e[3](v2);return v2});(typeof v5==="string"||v5===void 0)||e[5](v5);let v6=Promise.all([v4]).then(([v4])=>{return {a:v4,b:v5}});return Promise.all([v6]).then(([v6])=>{let v7={a:v6.a};if(v6.b!==void 0){v7.b=v6.b}return v7}).catch(e[8])}catch(v8){return e[9](v8)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x!" } }'
@@ -31,7 +31,7 @@ operations:
         output: '{ a: "x", b: "y" }'
   decode:
     isAsync: true
-    expression: i=>{try{let v0=i._0;let v1;try{v1=e[0](v0.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v3=Promise.all([v2]).then(([v2])=>{return {a:v2,b:v0.b}});return Promise.all([v3]).then(([v3])=>{let v4={a:v3.a};if(v0.b!==void 0){v4.b=v0.b}return v4}).catch(e[3])}catch(v5){return e[4](v5)}}
+    expression: i=>{try{let v0=i._0;let v1;try{v1=e[0](v0.a).catch(x=>{e[1](x)})}catch(x){e[1](x)}let v2=v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1});let v3=Promise.all([v2]).then(([v2])=>{return {a:v2,b:v0.b}});return Promise.all([v3]).then(([v3])=>{let v4={a:v3.a};if(v3.b!==void 0){v4.b=v3.b}return v4}).catch(e[3])}catch(v5){return e[4](v5)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x!" } }'
