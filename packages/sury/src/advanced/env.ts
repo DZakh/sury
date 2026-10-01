@@ -7,7 +7,7 @@
 import { type Check, initSchema, stringTag, tagFlags, U, type Internal, type Val } from "../base";
 import { B_next, B_refine, B_unsupportedDecode, failInvalidType } from "../builder";
 import { string, typeofCond } from "../primitives";
-import { convertTextEntry, isAbsent } from "./entries";
+import { absentArm, convertTextEntry } from "./entries";
 
 const definedCheck: Check = { c: (inputVar) => `${inputVar}!==void 0`, f: failInvalidType };
 
@@ -16,7 +16,7 @@ const definedCheck: Check = { c: (inputVar) => `${inputVar}!==void 0`, f: failIn
 // coercion or a jsonString rejects it itself, naming the unset var as what it
 // was handed.
 const rejectsUnset = (target: Internal): boolean =>
-  ((tagFlags[target.type]! & 2) !== 0 || target.class === Uint8Array) && target.format !== "json" && !isAbsent(target);
+  ((tagFlags[target.type]! & 2) !== 0 || target.class === Uint8Array) && target.format !== "json" && !absentArm(target);
 
 // Walks the chain and the scopes it was taken from: a union case scopes the
 // group's narrow, whose check became the case condition.

@@ -5,7 +5,7 @@ ts:
   output: string
   instantiations: 4571
 jsonSchema:
-  input: Expected JSON, received string | undefined | null
+  input: Expected JSON, received string | null | undefined
   output: '{ type: "string" }'
 isEqual: strictEqual
 compare:
@@ -28,7 +28,7 @@ operations:
         output: '"bar"'
       invalid-type:
         input: "1"
-        error: Expected string | undefined | null, received 1
+        error: Expected string | null | undefined, received 1
   decode: eq-to-parse
   encode:
     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}

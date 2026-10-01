@@ -7,14 +7,14 @@ ts:
 jsonSchema:
   input: Expected JSON, received string | null | undefined
   # FIXME: the defaulted output repeats the inner string | null arm (optional and nullable do too), should be { anyOf: [{ type: "string" }, { type: "null" }] }
-  output: '{ anyOf: [{ type: "string" }, { type: "null" }, { anyOf: [{ type: "string" }, { type: "null" }] }] }'
+  output: '{ anyOf: [{ type: "string" }, { anyOf: [{ type: "string" }, { type: "null" }] }, { type: "null" }] }'
   openapi-3.0:
-    output: '{ anyOf: [{ type: "string" }, { enum: [null] }, { type: "string", nullable: true }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "string", nullable: true }, { enum: [null] }] }'
 isEqual: strictEqual
 compare:
   input: "throws: [Sury] Can't compare string | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   # FIXME: same repeated arm, string | null is orderable
-  output: "throws: [Sury] Can't compare string | null | string | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: 'z.string().nullable().optional().transform((value) => value === undefined ? "bar" : value)'
 operations:

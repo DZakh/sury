@@ -68,9 +68,9 @@ import {
  nullLiteral,
  unit
 } from "./primitives";
-import { nullableAsOption } from "./refinements";
 import {
- unionFactory
+ unionFactory,
+ unionWrap
 } from "./union";
 
 // ── Schema singletons (shared by both surfaces) ──────────────────────────────
@@ -424,43 +424,37 @@ export const refine = (
 
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
-  const schema = unionFactory([definitionToSchema(definition), unit]);
-  if (maybeOr !== U && typeof maybeOr === functionTag) {
-    return Option_getOrWith(schema, maybeOr as () => unknown);
-  } else if (maybeOr !== U) {
-    return Option_getOr(schema, maybeOr);
-  } else {
+  const schema = unionWrap(definitionToSchema(definition), [unit]);
+  if (maybeOr === U) {
     return schema;
+  } else if (typeof maybeOr === functionTag) {
+    return Option_getOrWith(schema, maybeOr as () => unknown);
+  } else {
+    return Option_getOr(schema, maybeOr);
   }
 };
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
-  const schema = definitionToSchema(definition);
-  if (maybeOr !== U) {
-    const schema2 = unionFactory([schema, nullAsUnit]);
-    if (typeof maybeOr === functionTag) {
-      return Option_getOrWith(schema2, maybeOr as () => unknown);
-    } else {
-      return Option_getOr(schema2, maybeOr);
-    }
+  const schema = unionWrap(definitionToSchema(definition), [maybeOr === U ? nullLiteral : nullAsUnit]);
+  if (maybeOr === U) {
+    return schema;
+  } else if (typeof maybeOr === functionTag) {
+    return Option_getOrWith(schema, maybeOr as () => unknown);
   } else {
-    return unionFactory([schema, nullLiteral]);
+    return Option_getOr(schema, maybeOr);
   }
 };
 
 // @__NO_SIDE_EFFECTS__
 export const nullish = (definition: unknown, maybeOr: unknown): Internal => {
-  const schema = definitionToSchema(definition);
-  if (maybeOr !== U) {
-    const option = nullableAsOption(schema);
-    if (typeof maybeOr === functionTag) {
-      return Option_getOrWith(option, maybeOr as () => unknown);
-    } else {
-      return Option_getOr(option, maybeOr);
-    }
+  const schema = unionWrap(definitionToSchema(definition), [unit, maybeOr === U ? nullLiteral : nullAsUnit]);
+  if (maybeOr === U) {
+    return schema;
+  } else if (typeof maybeOr === functionTag) {
+    return Option_getOrWith(schema, maybeOr as () => unknown);
   } else {
-    return unionFactory([schema, unit, nullLiteral]);
+    return Option_getOr(schema, maybeOr);
   }
 };
 

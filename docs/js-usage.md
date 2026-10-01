@@ -311,24 +311,22 @@ A schema read from a file or an API needs no cast: a non-literal argument - `unk
 
 ### Standard Schema
 
-**Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
+**Sury** implements the [Standard Schema](https://standardschema.dev/) specification, so a schema works with any library that accepts one, such as form libraries. It reports every issue, not only the first:
 
 ```ts
-schema["~standard"].validate({ name: "Dmitry" });
-// { value: { name: "Dmitry" } }
+const schema = S.schema({ name: S.string, age: S.number });
 
-schema["~standard"].validate({ name: 1 });
-// { issues: [{ message: "Expected string, received 1", path: ["name"] }] }
+schema["~standard"].validate({ name: "Dmitry", age: 30 }).value;
+// { name: "Dmitry", age: 30 }
+
+schema["~standard"].validate({ name: 1, age: "30" }).issues;
+// [
+//   { message: "Expected string, received 1", path: ["name"] },
+//   { message: 'Expected number, received "30"', path: ["age"] },
+// ]
 ```
 
-A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
-
-The `AsResult` outcomes answer in this shape too - `S.parseAsResult(schema, data)` carries `issues` beside its `success`/`value`/`error`, so a Sury `Result` is a Standard Schema result and needs no translation on the way to one:
-
-```ts
-S.parseAsResult(schema, { name: 1 }).issues;
-// [{ message: "Expected string, received 1", path: ["name"] }]
-```
+A schema with an async codec answers with a promise.
 
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
@@ -1662,16 +1660,24 @@ Fields your schema doesn't declare are skipped, so a sender can add fields
 without breaking you. They are not kept, so decoding and then encoding drops
 them. Use `S.strict` on the message to throw on them instead.
 
-Bad input throws an `S.Error` that points to the field:
+Bad input throws an `S.Error` that points to the field, and so does a value
+its field's type can't hold when encoding:
 
 ```ts
 const Account = S.schema({
   id: S.int32.with(S.protobufField, 1),
   address: S.optional(Address).with(S.protobufField, 2),
+  tags: S.array(S.string).with(S.protobufField, 3),
 });
 
 S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
-// S.Error: protobuf string is not valid UTF-8 at address.street (field 1, wire type 2)
+// S.Error: Failed at address.street: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([26, 1, 97, 26, 1, 255]));
+// S.Error: Failed at tags[1]: Protobuf string is not valid UTF-8
+
+S.decodeOrThrow(Account, S.protobuf)({ id: 2 ** 40, tags: [] });
+// S.Error: Failed at id: Expected int32, received 1099511627776
 ```
 
 A schema that can't be a message, such as a field without a number or two
@@ -2046,7 +2052,7 @@ A suffix names the failure mechanism only when the return type doesn't reveal it
 
 `parse`, `decode`, `encode`, `makeInput` and `makeOutput` each take all five.
 
-There is no promisable *throwing* variant, in either language: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
+There is no promisable *throwing* variant: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
 
 ```ts
 S.parseOrThrow(userSchema, data);          //? { id: string }
@@ -2065,10 +2071,47 @@ S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
 
-A `Result` is also a [Standard Schema](#standard-schema) result, so it goes straight to anything that reads one:
+#### Every issue at once
+
+A failed `Result` lists every problem in `issues`, so a form can show them all. `error` is the first one, the same error `OrThrow` would throw:
 
 ```ts
-S.parseAsResult(S.string, 42).issues; // [{ message: "Expected string, received 42" }]
+const signup = S.schema({
+  email: S.email,
+  password: S.string.with(S.minLength, 8),
+  tags: S.array(S.string),
+});
+
+S.parseAsResult(signup, { email: "x", password: "123", tags: ["a", 1] }).issues;
+// [
+//   { message: 'Expected email, received "x"', path: ["email"] },
+//   { message: 'Expected string.length >= 8, received "123"', path: ["password"] },
+//   { message: "Expected string, received 1", path: ["tags", 1] },
+// ]
+```
+
+A `Result` is a Standard Schema result, the same one [`~standard.validate`](#standard-schema) returns.
+
+A refine on an object runs only when all its fields are valid, so it never sees a broken value:
+
+```ts
+const passwords = S.schema({ password: S.string.with(S.minLength, 8), confirm: S.string })
+  .with(S.refine, (v) => v.password === v.confirm, { error: "Passwords must match" });
+
+S.parseAsResult(passwords, { password: "123", confirm: "x" }).issues;
+// [{ message: 'Expected string.length >= 8, received "123"', path: ["password"] }]
+```
+
+A union reports one issue for itself, and async fields report theirs after the sync ones (`activeUser` is the async check from [Refinements](#refinements)):
+
+```ts
+const account = S.schema({ id: activeUser, age: S.number });
+
+(await S.parseAsResultPromise(account, { id: inactiveId, age: "x" })).issues;
+// [
+//   { message: 'Expected number, received "x"', path: ["age"] },
+//   { message: `The user ${inactiveId} is inactive.`, path: ["id"] },
+// ]
 ```
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
@@ -2561,8 +2604,8 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it. The same failure is also on `result.issues`, in the Standard Schema
-shape - `message` without the path prefix, and the `path` beside it.
+supplied it. `result.issues` lists every failure (see
+[Every issue at once](#every-issue-at-once)).
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's
@@ -2577,7 +2620,7 @@ is created, which for an immediate call form is that same call.
 
 `defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
-```rescript
+```ts
 S.global({
   defaultAdditionalItems: "strict",
 })
@@ -2587,7 +2630,7 @@ S.global({
 
 `disableNanNumberValidation` is an option that controls whether the library should check for NaN values when parsing numbers. The default value is `false`, but you can globally change it to `true` to allow NaN values. If you parse many numbers which are guaranteed to be non-NaN, you can set it to `true` to improve performance ~10%, depending on the case.
 
-```rescript
+```ts
 S.global({
   disableNanNumberValidation: true,
 })

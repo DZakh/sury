@@ -18,7 +18,7 @@ correct its `FIXME: known bug` example.
 | equality, compare, defaults, containers, `reverse`, the Output type | `pnpm fuzz:schema` | **eq**: equivalence laws, `compare` antisymmetry and agreement with `isEqual`; **codec**: decode passes `isOutput`, encode passes `isInput`, round trips, encode = decode of reverse |
 | `S.formData` | `pnpm fuzz:formdata` | every wrapper × leaf works both ways or neither, encode doesn't mutate, round trip, any client entry list is rejected or valid |
 | `S.to` links, pack/unpack | `pnpm fuzz:content` | every source × target × slot compiles both ways or neither, reverse mirrors, round trip, an ambiguous link refuses; any crash is a finding |
-| the protobuf codec | `pnpm protobuf:fuzz` | generated message graphs and mutated bytes against protobufjs and protobuf-es |
+| the protobuf codec | `pnpm protobuf:fuzz` | generated message graphs and mutated bytes against protobufjs and protobuf-es; one leaf or map key corrupted, and the encode error's path must walk from the value to it |
 | a format's regex or `escapeFree` | `pnpm fuzz:escfree` | a flagged format never needs JSON escaping |
 
 Unsure: run all six, a few minutes in total.

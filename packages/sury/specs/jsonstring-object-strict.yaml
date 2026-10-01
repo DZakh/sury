@@ -36,6 +36,9 @@ operations:
       wrong-field-and-unknown-key:
         input: '{ f: "c", n: 1, x: 2 }'
         error: 'Failed at f: Expected "a" | "b", received "c"'
+        issues:
+          - 'Failed at f: Expected "a" | "b", received "c"'
+          - Unrecognized key "x"
   decode:
     expression: i=>{try{let v0=i.n;return "{\"f\":\""+i.f+"\",\"n\":"+(Number.isFinite(v0)?v0:e[0](v0))+"}"}catch(v1){e[1](v1)}}
     examples:

@@ -53,7 +53,7 @@ import {
  getOutputSchema
 } from "./parse";
 import {
- unionFactory
+ unionWrap
 } from "./union";
 
 // Re-exports, not `const object = schemaObject` aliases: an alias makes the
@@ -71,7 +71,7 @@ export const nullAsOption = (item: Internal): Internal =>
 // as `null_`.
 // @__NO_SIDE_EFFECTS__
 export const null_ = (item: Internal): Internal =>
-  unionFactory([item, nullLiteral]);
+  unionWrap(item, [nullLiteral]);
 
 // =============
 // Built-in refinements
@@ -801,7 +801,7 @@ export const trim = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
-  return unionFactory([schema, unit, nullAsUnit]);
+  return unionWrap(schema, [unit, nullAsUnit]);
 }
 
 // Anchoring is a call rather than a bare `"^" + p + "$"` because esbuild keeps
