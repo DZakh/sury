@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(S as any).$option((S as any).$Option_getOr((S as any).$option((S as any).$option(S.string)), "x")) as S.Schema<string | undefined, string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0 }>'
+  input: string | undefined
+  output: "string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined"
+  instantiations: 445
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | undefined
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i="x";break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      # FIXME: the outer option's None goes behind the inner default
+      undefined-is-the-outer-none:
+        input: undefined
+        output: '"x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      outer-none-encodes-to-undefined:
+        input: undefined
+        output: undefined
+      inner-none-encodes-to-undefined:
+        input: "{ BS_PRIVATE_NESTED_SOME_NONE: 0 }"
+        output: undefined
