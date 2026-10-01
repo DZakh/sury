@@ -69,5 +69,8 @@ export const shadowsEmpty = (union: Shape): boolean =>
   union.args.some((node, idx) => {
     if (node.args[1]?.name !== "#value") return false;
     const later = union.args.slice(idx + 1);
-    return node.name === "optional" ? later.some(admitsUndefined) : node.name === "nullable" && later.some(admitsNull);
+    return (
+      ((node.name === "optional" || node.name === "nullish") && later.some(admitsUndefined)) ||
+      ((node.name === "nullable" || node.name === "nullish") && later.some(admitsNull))
+    );
   });
