@@ -450,17 +450,22 @@ const B_foreignFail = (
 // Onto the SAME prototype: what the failing check settled lives on its site
 // prototype (base.ts, `errorSite`), and a copy without it would read `Expected
 // undefined`. This runs once per recursive level a failure passes back
-// through, so one built from `SuryError` itself with no own `stack` takes
-// `Object.assign`: its own keys are plain enumerable data. A subclass may hold
-// a field its prototype keeps read-only (`name = "MyError"`), and an own
-// `stack` (V8 gives every instance one) is an accessor reading the instance it
-// was captured on, so anything else gets every own descriptor and the stack as
-// its value.
+// through, so a compiled failure - its prototype a check's site, below
+// `SuryError`'s own - takes `Object.assign` while it has no own `stack`: its own
+// keys are plain data. Anything the constructor built (`new S.Error`, a
+// subclass with a field its prototype keeps read-only, `name = "MyError"`) may
+// define more, and an own `stack` (V8 gives every instance one) is an accessor
+// reading the instance it was captured on, so those get every own descriptor
+// and the stack as its value.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
   const proto = Object.getPrototypeOf(error) as object;
   let copy: SuryErrorRecord;
-  if ((proto as { constructor: unknown }).constructor === SuryError && !Object.hasOwn(error, "stack"))
+  if (
+    proto !== SuryError.prototype &&
+    (proto as { constructor: unknown }).constructor === SuryError &&
+    !Object.hasOwn(error, "stack")
+  )
     copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
   else {
     copy = Object.create(proto, Object.getOwnPropertyDescriptors(error)) as SuryErrorRecord;

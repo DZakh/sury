@@ -132,6 +132,26 @@ test("a chosen stack survives the copy that prepends a path", () => {
   }
 });
 
+test("an error built by hand keeps what it defined through the copy that prepends a path", () => {
+  // Without an own `stack`, the way SpiderMonkey builds every instance.
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const refined = S.schema({
+    a: S.string.with(S.refine, () => {
+      const error = new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
+      delete (error as { stack?: string }).stack;
+      Object.defineProperty(error, "meta", { value: 1 });
+      throw error;
+    }),
+  });
+  try {
+    S.parseOrThrow(refined, { a: "x" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect((error as { meta?: number }).meta).toBe(1);
+  }
+});
+
 test("prepending a path keeps what the failing check knew", () => {
   // The inner parse throws a compiled failure; the refiner's wrapper catches it
   // and rebuilds it with the outer path prepended.
