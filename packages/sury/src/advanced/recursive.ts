@@ -7,17 +7,20 @@ import {
   type Builder,
   defsPath,
   type Internal,
+  pathExpr,
   refTag,
   U,
   type Val
 } from "../base";
 import {
+  B_asyncTry,
   B_let,
   B_embed,
   B_invalidOperation,
   B_mergeWithPathPrepend,
   B_nextVar,
-  B_refine
+  B_refine,
+  rethrowWithPath
 } from "../builder";
 import {
  addOpNode,
@@ -126,13 +129,18 @@ export const recursiveDecoder: Builder = (input) => {
   let output: Val;
   if (hasTransform || isAsync) {
     output = B_nextVar(input, expectedSchema);
-    outputDecl = B_let(input.g, output.i);
-
-    output.cp = `${output.i}=${recOperation}(${input.i});`;
-
+    const call = `${recOperation}(${input.i})`;
     if (isAsync) {
       output.f |= 1;
+      // The rejection gets the path the same way a throw does, and whatever
+      // continues the value can join that `.then` (base.ts `fu`).
+      if (input.path.length) {
+        B_asyncTry(output, call, B_embed(output, rethrowWithPath), `,${pathExpr(input.path)}`);
+        return output;
+      }
     }
+    outputDecl = B_let(input.g, output.i);
+    output.cp = `${output.i}=${call};`;
   } else {
     // No transform: call for validation but don't capture result
     output = B_refine(input, expectedSchema, U, expectedSchema);

@@ -361,13 +361,13 @@ module SerializesDeepRecursive = {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#Encode,
-      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){throw e[1](v1,["condition"])}return {condition:v0}}catch(v2){e[2](v2)}}`,
+      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){e[1](v1,["condition"])}return {condition:v0}}catch(v2){e[2](v2)}}`,
     )
     // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#EncodeToJson,
-      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){throw e[1](v1,["condition"])}try{e[2](v0);}catch(v2){throw e[3](v2,["condition"])}return {condition:v0}}catch(v3){e[4](v3)}}`,
+      `i=>{try{let v0;try{v0=e[0](i.condition);}catch(v1){e[1](v1,["condition"])}try{e[2](v0);}catch(v2){e[3](v2,["condition"])}return {condition:v0}}catch(v3){e[4](v3)}}`,
     )
 
     t->Assert.deepEqual(

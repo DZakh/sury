@@ -30,7 +30,7 @@ operations:
         output: '"a"'
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v3;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}Array.isArray(v0)||e[4](v0);for(let v1=0;v1<v0.length;++v1){try{e[2](v0[v1]);}catch(v2){throw e[3](v2,[v1])}}i=v0;break}try{e[5](i);e[6](i);break}catch(x){v3=[v3,e[7](x)]}throw e[8](i,v3)}return i}catch(v4){e[9](v4)}}
+    expression: i=>{try{let v3;for(;;){if(typeof i==="number"&&i==i){let v0;try{v0=e[0](i)}catch(x){e[1](x)}Array.isArray(v0)||e[4](v0);for(let v1=0;v1<v0.length;++v1){try{e[2](v0[v1]);}catch(v2){e[3](v2,[v1])}}i=v0;break}try{e[5](i);e[6](i);break}catch(x){v3=[v3,e[7](x)]}throw e[8](i,v3)}return i}catch(v4){e[9](v4)}}
     examples:
       list:
         input: '["a"]'

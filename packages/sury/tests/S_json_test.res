@@ -89,7 +89,7 @@ test("Fails to parse undefined", t => {
 })
 
 let jsonParseCode = `i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
-JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i==i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){throw e[1](v1,[v0])}}break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[2](i[v2]);}catch(v3){throw e[3](v3,[v2])}}break}throw e[4](i)}return i}`
+JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&i==i&&Number.isFinite(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[2](i[v2]);}catch(v3){e[3](v3,[v2])}}break}throw e[4](i)}return i}`
 test("Compiled parse code snapshot", t => {
   let schema = S.json
 

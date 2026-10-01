@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.u,v3=i.j,v6=i.big,v7=i.d;let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){throw e[1](v1,["u"])}v2=JSON.stringify(v0)}try{e[2](v3);}catch(v4){throw e[3](v4,["j"])}let v5=JSON.stringify(v3);typeof v6==="bigint"||e[4](v6);v7 instanceof e[7]||e[8](v7);!Number.isNaN(v7.getTime())||e[6](v7);let v8;try{v8=v7.toISOString()}catch(_){e[5](v7)}let v9="";if(v2!==void 0){v9+="\"u\":"+v2}if(v5!==void 0){v9+=(v9?",":"")+"\"j\":"+v5}v9+=(v9?",":"")+"\"big\":\""+v6+"\",\"d\":\""+v8+"\"";return "{"+v9+"}"}catch(v10){e[10](v10)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.u,v3=i.j,v6=i.big,v7=i.d;let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){e[1](v1,["u"])}v2=JSON.stringify(v0)}try{e[2](v3);}catch(v4){e[3](v4,["j"])}let v5=JSON.stringify(v3);typeof v6==="bigint"||e[4](v6);v7 instanceof e[7]||e[8](v7);!Number.isNaN(v7.getTime())||e[6](v7);let v8;try{v8=v7.toISOString()}catch(_){e[5](v7)}let v9="";if(v2!==void 0){v9+="\"u\":"+v2}if(v5!==void 0){v9+=(v9?",":"")+"\"j\":"+v5}v9+=(v9?",":"")+"\"big\":\""+v6+"\",\"d\":\""+v8+"\"";return "{"+v9+"}"}catch(v10){e[10](v10)}}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
@@ -32,7 +32,7 @@ operations:
         input: '{ u: new (class { toJSON() {} })(), j: 1, big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'
         output: '"{\"j\":1,\"big\":\"1\",\"d\":\"1970-01-01T00:00:00.000Z\"}"'
   decode:
-    expression: i=>{try{let v0=i.u,v5=i.d;let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){throw e[1](v1,["u"])}v2=JSON.stringify(v0)}let v3=JSON.stringify(i.j);let v4;try{v4=v5.toISOString()}catch(_){e[2](v5)}let v6="";if(v2!==void 0){v6+="\"u\":"+v2}if(v3!==void 0){v6+=(v6?",":"")+"\"j\":"+v3}v6+=(v6?",":"")+"\"big\":\""+i.big+"\",\"d\":\""+v4+"\"";return "{"+v6+"}"}catch(v7){e[3](v7)}}
+    expression: i=>{try{let v0=i.u,v5=i.d;let v2;if(v0!==void 0){try{e[0](v0);}catch(v1){e[1](v1,["u"])}v2=JSON.stringify(v0)}let v3=JSON.stringify(i.j);let v4;try{v4=v5.toISOString()}catch(_){e[2](v5)}let v6="";if(v2!==void 0){v6+="\"u\":"+v2}if(v3!==void 0){v6+=(v6?",":"")+"\"j\":"+v3}v6+=(v6?",":"")+"\"big\":\""+i.big+"\",\"d\":\""+v4+"\"";return "{"+v6+"}"}catch(v7){e[3](v7)}}
     examples:
       valid:
         input: '{ u: { any: [1] }, j: ["j", null], big: 1n, d: new Date("1970-01-01T00:00:00.000Z") }'

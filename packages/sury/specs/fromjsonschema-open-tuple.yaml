@@ -13,7 +13,7 @@ vs:
   zod: z.tuple([z.string().optional(), z.number().optional()]).rest(z.boolean())
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)||e[3](i);e[2](i)||e[4](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){throw e[1](v1,[v0])}}return i}catch(v2){e[5](v2)}}
+    expression: i=>{try{Array.isArray(i)||e[3](i);e[2](i)||e[4](i);for(let v0=0;v0<i.length;++v0){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}return i}catch(v2){e[5](v2)}}
     examples:
       empty:
         input: "[]"

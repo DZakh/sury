@@ -393,9 +393,9 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   const cp = (value: string) => `${decl}try{${output.i}=${value}}catch(x){${raise}(x${path})}`;
   const built = (output.cp = cp(`${call}.catch(${rj})`));
   output.fu = (then) =>
-    output.cp === built && !output.fz
-      ? cp(`${B_embedPure(output, Promise.prototype.then)}.call(${call},${then},${rj})`)
-      : U;
+    output.cp === built &&
+    !output.fz &&
+    !!(output.cp = cp(`${B_embedPure(output, Promise.prototype.then)}.call(${call},${then},${rj})`));
 };
 
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
@@ -742,8 +742,11 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
   // is: inside a `.then`, the way the parse loop continues an async val.
   if (outC && (val.f & 1)) {
     const v = val.v();
-    val.i = `${v}.then(${v}=>{${B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC)))}return ${v}})`;
-    val.v = _notVar;
+    const then = `${v}=>{${B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC)))}return ${v}}`;
+    if (!val.fu?.(then)) {
+      val.i = `${v}.then(${then})`;
+      val.v = _notVar;
+    }
   } else if (outC) val = B_refine(val, U, outC);
   val.io = true;
   return val;
@@ -1159,19 +1162,18 @@ export const B_invalidOperation = (val: Val, description: string): never =>
 // A failure an opaque embed throws is rooted at its own `[]`, so the path it
 // was reached through goes in front. Only a Sury failure has a path: a foreign
 // error (a getter's throw, a file read) leaves with its identity.
-const prependPath = (error: unknown, path: Path): unknown =>
-  error && (error as { s?: symbol }).s === s ? B_prefixPath(error as SuryErrorRecord, path) : error;
+export const rethrowWithPath = (error: unknown, path: Path): never => {
+  throw error && (error as { s?: symbol }).s === s ? B_prefixPath(error as SuryErrorRecord, path) : error;
+};
 
 // Opaque embed (a recursive self-call): a compiled function that does not take
-// a path. Inlined item parsers thread the path to the fail helper instead.
+// a path. Inlined item parsers thread the path to the fail helper instead. Sync
+// only: an async call keeps its value a var (recursive.ts, `B_asyncTry`).
 export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
   if (!parent.path.length) return B_merge(val);
   const valCode = B_merge(val);
   const errorVar = B_varWithoutAllocation(val.g);
-  B_markThrow(val);
-  const rethrow = `throw ${B_embedPure(val, prependPath)}(${errorVar},${pathExpr(parent.path)})`;
-  if (val.f & 1) val.i = `${val.i}.catch(${errorVar}=>{${rethrow}})`;
-  return `try{${valCode}}catch(${errorVar}){${rethrow}}`;
+  return `try{${valCode}}catch(${errorVar}){${B_embed(val, rethrowWithPath)}(${errorVar},${pathExpr(parent.path)})}`;
 };
 
 export const noopOperation = (i: unknown): unknown => i;

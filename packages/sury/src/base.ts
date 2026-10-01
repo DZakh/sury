@@ -659,18 +659,20 @@ export type Val = {
   fv?: Val[];
   // @as("cp") - codeFromPrev
   cp: string;
-  // Set by an async coder whose `cp` ends its promise with `.catch(H)`: given
-  // the parse loop's continuation `ok`, it returns `cp` calling the native
-  // `then` with `ok` and H instead, one promise hop fewer, still inside the
-  // coder's `try`. Equivalent only because H always throws: a `.then` second
+  // Set by an async val whose `cp` ends its promise with `.catch(H)` (a coder, a
+  // file read, a recursive call): given a continuation `ok` - the parse loop's,
+  // or `B_markOutput`'s for output refiners - it rewrites `cp` to call the
+  // native `then` with `ok` and H instead, one promise hop fewer, still inside
+  // the same `try`. Equivalent only because H always throws: a `.then` second
   // argument never sees a throw from the first, and neither did the `.catch`
-  // ahead of it. The native `then`, not the answer's own: anything but a
-  // native promise fails inside the `try` as the `.catch` lookup made it,
-  // where a thenable could call H synchronously and have the `try` wrap its
-  // error a second time (codec-custom-async-sync-thenable). Returns undefined
-  // once `cp` has changed or been emitted. Never copied onto a val refined
-  // from this one: it rebuilds this val's `cp`, not theirs. @as("fu") - fuse
-  fu?: (then: string) => string | undefined;
+  // ahead of it. The native `then`, not the answer's own: anything but a native
+  // promise fails inside the `try` as the `.catch` lookup made it, where a
+  // thenable could call H synchronously and have the `try` wrap its error a
+  // second time (codec-custom-async-sync-thenable). Returns false, and leaves
+  // `cp` alone, once `cp` has changed or been emitted. Never copied onto a val
+  // refined from this one: it rebuilds this val's `cp`, not theirs.
+  // @as("fu") - fuse
+  fu?: (then: string) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
   // old varsAllocation slot). @as("hd") - hoistedDecls

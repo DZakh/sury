@@ -16,7 +16,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0;try{v0=e[0](i.x);}catch(v1){throw e[1](v1,["x"])}let v2;try{v2=e[2](i.y);}catch(v3){throw e[3](v3,["y"])}return {x:v0,y:v2}}catch(v4){e[5](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0;try{v0=e[0](i.x);}catch(v1){e[1](v1,["x"])}let v2;try{v2=e[2](i.y);}catch(v3){e[3](v3,["y"])}return {x:v0,y:v2}}catch(v4){e[5](v4)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
@@ -31,13 +31,13 @@ operations:
         input: '{ x: { a: "s", kid: { b: 2 } }, y: { b: 1 } }'
         error: "Failed at x.kid.a: Expected string, received undefined"
   decode:
-    expression: i=>{try{try{e[0](i.x);}catch(v0){throw e[1](v0,["x"])}try{e[2](i.y);}catch(v1){throw e[3](v1,["y"])}return i}catch(v2){e[4](v2)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){e[1](v0,["x"])}try{e[2](i.y);}catch(v1){e[3](v1,["y"])}return i}catch(v2){e[4](v2)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
         output: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
   encode:
-    expression: i=>{try{try{e[0](i.x);}catch(v0){throw e[1](v0,["x"])}try{e[2](i.y);}catch(v1){throw e[3](v1,["y"])}return i}catch(v2){e[4](v2)}}
+    expression: i=>{try{try{e[0](i.x);}catch(v0){e[1](v0,["x"])}try{e[2](i.y);}catch(v1){e[3](v1,["y"])}return i}catch(v2){e[4](v2)}}
     examples:
       both:
         input: '{ x: { a: "s", kid: { a: "t" } }, y: { b: 1, kid: { b: 2 } } }'
