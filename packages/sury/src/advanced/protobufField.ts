@@ -196,7 +196,7 @@ const isAnyValue = (shape: Internal): boolean =>
 
 // The value each well-known type takes, and how an error names it.
 const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) => boolean, string]> = {
-  "google.protobuf.Any": [isAnyValue, "a message S.protobufTypeName names, or an S.union of them"],
+  "google.protobuf.Any": [isAnyValue, "S.protobufAny, a message S.protobufTypeName names, or an S.union of them"],
   "google.protobuf.Timestamp": [
     (shape) => (shape.type === instanceTag && shape.class === Date) || isSecondsNanos(shape),
     "a Date or { seconds: S.bigint, nanos: S.int32 }",
@@ -276,7 +276,10 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // A union of int32 literals is an enum; a lone literal is a number, since
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
-  const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
+  const type =
+    typeof field === "number" || field.type === U
+      ? itemOf(present(schema)).protobufTypeName === "google.protobuf.Any" ? "google.protobuf.Any" : inferType(shape, literalEnum)
+      : field.type;
   // The prefix first: the tables are plain objects, and `"constructor"` is a
   // key of every one.
   const known =

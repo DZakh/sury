@@ -605,6 +605,28 @@ export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
 export const protobuf: Schema<Uint8Array, Uint8Array>;
 
 /**
+ * A `google.protobuf.Any`: a message of any type, as its type URL and its bytes.
+ * Convert it with `S.to` to a message `S.protobufTypeName` names, or to an
+ * `S.union` of them, each one such message or an object holding one beside
+ * literals:
+ *
+ * ```ts
+ * const Event = S.protobufAny.with(S.to, S.union([
+ *   S.schema({ type: "user", value: UserSchema }),
+ *   S.schema({ type: "other", value: S.protobufAny }),
+ * ]));
+ * ```
+ *
+ * The type is the name after the URL's last `/`, so any prefix reads, and
+ * `type.googleapis.com/` is written. A member holding `S.protobufAny` itself
+ * takes the types no other member names; without one, an unlisted type fails.
+ */
+export const protobufAny: Schema<
+  { typeUrl: string; value: Uint8Array },
+  { typeUrl: string; value: Uint8Array }
+>;
+
+/**
  * The proto3 source describing the wire `S.protobuf` speaks for a message
  * schema: every field with its number and wire type, `optional`, `repeated`,
  * `map<K, V>`, `oneof` blocks, nested messages and enums. A schema's `name`
@@ -653,11 +675,9 @@ export type ProtobufType =
  * - `Value`: `S.json` (implied by it), `Struct`: `S.record(S.json)`, `ListValue`: `S.array(S.json)`
  * - `FieldMask`: `S.array(S.string)`, `Empty`: `S.schema({})`
  * - the wrappers: an `S.optional` of their scalar, since presence is what a wrapper is for
- * - `Any`: a message `S.protobufTypeName` names, or an `S.union` of them, each
- *   one such message or an object holding one beside literals, such as
- *   `S.schema({ type: "user", value: UserSchema })`. A union of messages is
- *   an `Any` without saying so. A member holding the `google.protobuf.Any`
- *   message itself takes the types no other member names.
+ * - `Any`: `S.protobufAny`, or what it converts to: a message `S.protobufTypeName`
+ *   names, or an `S.union` of them. A union of messages is an `Any` without
+ *   saying so.
  *
  * An `S.array` or `S.record` of any of these is a repeated or map field of it.
  */

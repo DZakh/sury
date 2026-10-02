@@ -250,6 +250,9 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       if (recursive) {
         const scope: Scope = { bindings: new Map(), component: members, depth: 0 };
         out.push(`export const ${schema} = ${recursiveExpr(message, scope)};\n`);
+      } else if (message.typeName === "google.protobuf.Any") {
+        // Built from its fields, Any would lack the pack and unpack `S.protobufAny` carries.
+        out.push(`export const ${schema}: ${S}.Schema<${shape}, ${shape}> = ${S}.protobufAny;\n`);
       } else {
         const body = objectBody(message, { bindings: new Map(), depth: 0 }, "");
         // `S.schemaOf` is annotated, the function it returns can't be: without

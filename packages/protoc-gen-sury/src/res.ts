@@ -272,10 +272,11 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     }
     const message = component[0]!;
     const oneofs = message.oneofs.map((oneof) => oneofDecl(message, oneof, "type", "  ")).join("");
-    const type = message.members.length === 0 ? "  type t\n" : `  type t = ${recordDecl(message, "  ")}\n`;
+    const any = message.typeName === "google.protobuf.Any";
+    const type = message.members.length === 0 ? "  type t\n" : `  type t = ${any ? `${S}protobufAny = ` : ""}${recordDecl(message, "  ")}\n`;
     out.push(
       `${docstring(message.path, "")}module ${moduleOf(message)} = {\n${oneofs}${type}` +
-        `  let schema: ${S}t<t> = ${named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message)}\n}\n`,
+        `  let schema: ${S}t<t> = ${any ? `${S}protobufAny` : named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message)}\n}\n`,
     );
   }
   return { body: out.join("\n"), usesNumber };

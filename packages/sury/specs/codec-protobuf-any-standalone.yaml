@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.union([S.schema({ type: "user", value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User") }), S.schema({ type: "other", value: S.protobufAny })]))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '{ type: "user"; value: { id: number; }; } | { type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; }'
+  instantiations: 9653
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "Failed at value.value: Expected JSON, received Uint8Array"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||(a.type==="user"?b.type==="user"&&a.value.id===b.value.id:b.type==="other"&&a.value.typeUrl===b.value.typeUrl&&e[0](a.value.value,b.value.value))
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { type: \"user\"; value: { id: int32; }; } | { type: \"other\"; value: Any; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v6={typeUrl:v0,value:v1};let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.User"){let v5=v1;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}v3={"type":"user","value":v4};}else{let v7=v6;v3={"type":"other","value":v7};}return v3}catch(v8){e[7](v8)}}
+    examples:
+      user:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "user", value: { id: 1 } }'
+      any-prefix:
+        input: '{ typeUrl: "example.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "user", value: { id: 1 } }'
+      unlisted-goes-to-other:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Refund", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: new Uint8Array([8, 1]) } }'
+      empty-any-goes-to-other:
+        input: '{ typeUrl: "", value: new Uint8Array([]) }'
+        output: '{ type: "other", value: { typeUrl: "", value: new Uint8Array([]) } }'
+      bad-bytes:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8]) }'
+        error: "Failed at value.id: Truncated protobuf message"
+      not-an-any:
+        input: '{ type: "user", value: { id: 1 } }'
+        error: "Failed at typeUrl: Expected string, received undefined"
+        issues:
+          - "Failed at typeUrl: Expected string, received undefined"
+          - "Failed at value: Expected Uint8Array, received { id: 1; }"
+  decode:
+    expression: i=>{try{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;if(v0==="acme.v1.User"){let v3=i.value;let v2;{let r;try{r=e[1].acquire(v3);v2=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}v1={"type":"user","value":v2};}else{let v4=i;v1={"type":"other","value":v4};}return v1}catch(v5){e[3](v5)}}
+    examples:
+      user:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "user", value: { id: 1 } }'
+      any-prefix:
+        input: '{ typeUrl: "example.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "user", value: { id: 1 } }'
+      unlisted-goes-to-other:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Refund", value: new Uint8Array([8, 1]) }'
+        output: '{ type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: new Uint8Array([8, 1]) } }'
+      empty-any-goes-to-other:
+        input: '{ typeUrl: "", value: new Uint8Array([]) }'
+        output: '{ type: "other", value: { typeUrl: "", value: new Uint8Array([]) } }'
+      bad-bytes:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8]) }'
+        error: "Failed at value.id: Truncated protobuf message"
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="user"){let v0=i.value;let v1;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=v0.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}i={typeUrl:"type.googleapis.com/acme.v1.User",value:v1};break}if(i.type==="other"){let v2=i.value;let v3=v2.typeUrl;v3=v3.slice(v3.lastIndexOf("/")+1);!(v3==="acme.v1.User")||e[5](v3);i=v2;break}throw e[6](i)}}else{throw e[6](i)}return i}catch(v4){e[7](v4)}}
+    examples:
+      user:
+        input: '{ type: "user", value: { id: 1 } }'
+        output: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+      other-as-is:
+        input: '{ type: "other", value: { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([1]) } }'
+        output: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([1]) }'

@@ -1691,7 +1691,12 @@ let eventSchema = S.union([
 ```
 
 A type the variant doesn't list fails the decode, unless a case holds
-`SuryProtobuf.Any.schema`, which keeps it as its type URL and bytes.
+`S.protobufAny`, which keeps it as its type URL and bytes. The same conversion
+works outside a message, on an `S.protobufAny` you already have:
+
+```rescript
+let event = S.protobufAny->S.to(eventSchema)
+```
 
 #### Unknown fields and errors
 

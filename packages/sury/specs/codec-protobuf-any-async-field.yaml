@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ u: S.protobufField(S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU"), { number: 1, type: "google.protobuf.Any" }) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ u: { name: string; }; }"
+  instantiations: 7051
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { u: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["u"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.u.name===b.u.name
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { u: { name: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[10]||e[11](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[6](v4.name).catch(x=>{e[7](x)})}catch(x){e[7](x)}let v7=v6.then(v6=>{typeof v6==="string"||e[8](v6);return v6});v2=Promise.all([v7]).then(([v7])=>{return {name:v7}}).then(x=>(x));}else{e[9](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[12])}catch(v8){return e[13](v8)}}
+    examples:
+      member:
+        input: new Uint8Array([10, 37, 10, 30, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 65, 85, 18, 3, 10, 1, 97])
+        output: '{ u: { name: "a!" } }'
+        # FIXME: the async assert reads the field's promise as the message; a
+        # plain message field (not an Any) fails the same way.
+        divergence:
+          reason: The async assert checks the field's promise, not its message
+          check: "Failed at u: Expected { name: string; }, received undefined"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[6](v4.name).catch(x=>{e[7](x)})}catch(x){e[7](x)}let v7=v6.then(v6=>{typeof v6==="string"||e[8](v6);return v6});v2=Promise.all([v7]).then(([v7])=>{return {name:v7}}).then(x=>(x));}else{e[9](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[10])}catch(v8){return e[11](v8)}}
+    examples:
+      member:
+        input: new Uint8Array([10, 37, 10, 30, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 65, 85, 18, 3, 10, 1, 97])
+        output: '{ u: { name: "a!" } }'
+  encode:
+    expression: i=>{try{let v0=i.u;let v1;try{v1=e[0](v0.name)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v={name:v1};if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v2}catch(v3){e[10](v3)}}
+    examples:
+      member:
+        input: '{ u: { name: "a!" } }'
+        output: new Uint8Array([10, 37, 10, 30, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 65, 85, 18, 3, 10, 1, 97])

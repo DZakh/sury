@@ -870,7 +870,7 @@ test("protobufField refuses a value a well-known type doesn't take", (t) => {
     "[Sury] S.protobufField requires S.schema({}) for google.protobuf.Empty",
   );
   t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" })).toThrow(
-    "[Sury] S.protobufField requires a message S.protobufTypeName names, or an S.union of them for google.protobuf.Any",
+    "[Sury] S.protobufField requires S.protobufAny, a message S.protobufTypeName names, or an S.union of them for google.protobuf.Any",
   );
 });
 
@@ -951,4 +951,29 @@ message Holder {
   google.protobuf.Syntax syntax = 4;
 }
 `);
+});
+
+// The spec format runs neither isOutput nor assertOutput, and a payload nested
+// 150 Anys deep is no literal to write in one.
+test("S.protobufAny checks and asserts its unpacked value", (t) => {
+  const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
+  const Payload = S.protobufAny.with(S.to, S.union([S.schema({ type: "user", value: User }), S.schema({ type: "other", value: S.protobufAny })]));
+  const other = { type: "other" as const, value: { typeUrl: "x/acme.v1.Refund", value: new Uint8Array() } };
+  t.expect(S.isOutput(Payload)(other)).toBe(true);
+  t.expect(S.isOutput(Payload)({ type: "user", value: { id: "1" } })).toBe(false);
+  t.expect(() => S.assertOutputOrThrow(Payload)(other)).not.toThrow();
+});
+
+test("an Any holding its own message counts toward the nesting limit", (t) => {
+  const Node: S.Schema<any, any> = S.recursive("Node", (self) =>
+    S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node"),
+  );
+  const url = new TextEncoder().encode("type.googleapis.com/acme.v1.Node");
+  const length = (n: number): number[] => (n < 128 ? [n] : [(n & 127) | 128, ...length(n >>> 7)]);
+  let bytes = new Uint8Array([8, 1]);
+  for (let depth = 0; depth < 150; depth++) {
+    const any = [10, ...length(url.length), ...url, 18, ...length(bytes.length), ...bytes];
+    bytes = new Uint8Array([8, 1, 18, ...length(any.length), ...any]);
+  }
+  t.expect(() => S.decodeOrThrow(S.protobuf, Node)(bytes)).toThrow("Protobuf message nesting limit exceeded");
 });

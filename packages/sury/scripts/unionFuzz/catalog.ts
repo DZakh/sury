@@ -178,6 +178,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   pattern: modify(["string"], (S, schema) => schema.with(S.pattern, /(?:)/)),
   port: schema((S) => S.port),
   protobuf: schema((S) => S.protobuf),
+  protobufAny: skip("its own conversions need messages S.protobufTypeName names, which the grammar never draws; otherwise it is an object of a string and bytes, both drawn already"),
   protobufField: skip("field metadata, does not change parse"),
   protobufTypeName: skip("message name metadata, does not change parse"),
   queryString: schema((S) => S.queryString),

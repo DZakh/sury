@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.union([S.schema({ type: "au", value: S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU") }), S.schema({ type: "other", value: S.protobufAny })]))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '{ type: "au"; value: { name: string; }; } | { type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; }'
+  instantiations: 10029
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "Failed at value.value: Expected JSON, received Uint8Array"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||(a.type==="au"?b.type==="au"&&a.value.name===b.value.name:b.type==="other"&&a.value.typeUrl===b.value.typeUrl&&e[0](a.value.value,b.value.value))
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { type: \"au\"; value: { name: string; }; } | { type: \"other\"; value: Any; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v8={typeUrl:v0,value:v1};let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.AU"){let v5=v1;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[6](v4.name).catch(x=>{e[7](x)})}catch(x){e[7](x)}let v7=v6.then(v6=>{typeof v6==="string"||e[8](v6);return v6});v3=Promise.all([v7]).then(([v7])=>{return {name:v7}}).then(x=>({"type":"au","value":x}));}else{let v9=v8;v3=Promise.resolve({"type":"other","value":v9});}return v3.catch(e[10])}catch(v10){return e[11](v10)}}
+    examples:
+      member:
+        input: '{ typeUrl: "x/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'
+        output: '{ type: "au", value: { name: "a!" } }'
+      other:
+        input: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }'
+        output: '{ type: "other", value: { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) } }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;if(v0==="acme.v1.AU"){let v3=i.value;let v2;{let r;try{r=e[1].acquire(v3);v2=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v4;try{v4=e[3](v2.name).catch(x=>{e[4](x)})}catch(x){e[4](x)}let v5=v4.then(v4=>{typeof v4==="string"||e[5](v4);return v4});v1=Promise.all([v5]).then(([v5])=>{return {name:v5}}).then(x=>({"type":"au","value":x}));}else{let v6=i;v1=Promise.resolve({"type":"other","value":v6});}return v1.catch(e[6])}catch(v7){return e[7](v7)}}
+    examples:
+      member:
+        input: '{ typeUrl: "x/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'
+        output: '{ type: "au", value: { name: "a!" } }'
+      other:
+        input: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }'
+        output: '{ type: "other", value: { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) } }'
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="au"){let v0=i.value;let v1;try{v1=e[0](v0.name)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}i={typeUrl:"type.googleapis.com/acme.v1.AU",value:v2};break}if(i.type==="other"){let v3=i.value;let v4=v3.typeUrl;v4=v4.slice(v4.lastIndexOf("/")+1);!(v4==="acme.v1.AU")||e[7](v4);i=v3;break}throw e[8](i)}}else{throw e[8](i)}return i}catch(v5){e[9](v5)}}
+    examples:
+      member:
+        input: '{ type: "au", value: { name: "a!" } }'
+        output: '{ typeUrl: "type.googleapis.com/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'

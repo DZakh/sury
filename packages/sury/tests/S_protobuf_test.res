@@ -372,3 +372,23 @@ test("a tagged variant of named messages travels as an Any", t => {
   let address = {event: Address({value: {street: "x"}})}
   t->Assert.deepEqual(fromBytes(toBytes(address)), address)
 })
+
+test("S.protobufAny unpacks to a variant of named messages and packs it back", t => {
+  let eventSchema = S.protobufAny->S.to(
+    S.union([
+      S.schema(s => Address({value: s.matches(namedAddressSchema)})),
+      S.schema(s => Order({value: s.matches(orderSchema)})),
+    ]),
+  )
+  let any: S.protobufAny = {
+    typeUrl: "example.com/acme.v1.Order",
+    value: Uint8Array.fromArray([8, 5]),
+  }
+  t->Assert.deepEqual(
+    any->S.convertOrThrow(~from=S.protobufAny, ~to=eventSchema),
+    Order({value: {total: 5}}),
+  )
+  let packed = Order({value: {total: 5}})->S.convertOrThrow(~from=eventSchema, ~to=S.protobufAny)
+  t->Assert.deepEqual(packed.typeUrl, "type.googleapis.com/acme.v1.Order")
+  t->Assert.deepEqual(packed.value->bytesToArray, [8, 5])
+})

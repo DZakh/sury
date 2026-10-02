@@ -8,10 +8,7 @@ let number = Sury.union([
   Sury.literal(NaN)
 ]);
 
-let schema = Sury.protobufTypeName(Sury.$schema(s => ({
-  typeUrl: s.m(S.protobufField(Sury.string, 1, "string", undefined, undefined, undefined)),
-  value: s.m(S.protobufField(Sury.uint8Array, 2, "bytes", undefined, undefined, undefined))
-})), "google.protobuf.Any");
+let schema = Sury.protobufAny;
 
 let Any = {
   schema: schema

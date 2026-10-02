@@ -6,7 +6,7 @@ ts:
   instantiations: 11711
 jsonSchema:
   input: '{ type: "object", properties: { payload: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "a" }, value: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] } }, required: ["type", "value"] }, { type: "object", properties: { type: { type: "string", const: "other" }, value: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } }, required: ["type", "value"] }] } }, required: ["payload"] }'
-  output: '[Sury] S.protobuf: Any field "payload" keeps other types in google.protobuf.Any, which has to be { typeUrl: string = 1, value: bytes = 2 }'
+  output: "[Sury] S.protobufAny: a member keeps other types in google.protobuf.Any, which has to be { typeUrl: string, value: Uint8Array }"
   openapi-3.0:
     input: '{ type: "object", properties: { payload: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["a"] }, value: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] } }, required: ["type", "value"] }, { type: "object", properties: { type: { type: "string", enum: ["other"] }, value: { type: "object", properties: { url: { type: "string" } }, required: ["url"] } }, required: ["type", "value"] }] } }, required: ["payload"] }'
 isEqual:
@@ -20,6 +20,6 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    creationError: 'Error: [Sury] S.protobuf: Any field "payload" keeps other types in google.protobuf.Any, which has to be { typeUrl: string = 1, value: bytes = 2 }'
+    creationError: "Error: [Sury] S.protobufAny: a member keeps other types in google.protobuf.Any, which has to be { typeUrl: string, value: Uint8Array }"
   decode: eq-to-parse
   encode: eq-to-parse

@@ -7,6 +7,7 @@ import {
   compilePath,
   conversionSite,
   copySchema,
+  copyTo,
   defsPath,
   type Encoder,
   type ErrorDetails,
@@ -39,17 +40,23 @@ import {
   B_embedPure,
   B_fail,
   B_conversionFail,
+  B_inlineConst,
+  B_markAsync,
+  B_markOutput,
   B_merge,
+  B_mergeWithPathPrepend,
+  B_pathSnap,
   B_next,
   B_scope,
   B_unsupportedDecode,
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayFactory, dictFactory, objectDecoder } from "../composites";
-import { getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
+import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
-import { fieldMetadata, wellKnownTakes, wrappers } from "./protobufField";
+import { fieldMetadata, protobufField, wellKnownTakes, wrappers } from "./protobufField";
+import { uint8Array } from "./uint8Array";
 
 type Field = {
   number: number;
@@ -71,6 +78,9 @@ type Field = {
   unset?: string;
   // A 64-bit field held as its decimal string, whose zero is "0".
   text?: boolean;
+  // A typed Any, written by the codec's own message writers: the value reaches
+  // the write as it stands, as every nested message's does.
+  anyWriter?: Message;
 };
 
 type Message = {
@@ -90,10 +100,10 @@ type Message = {
   // The Google type it is, printed as an import rather than declared.
   wellKnown?: WellKnownType;
   typeName?: string;
-  // A google.protobuf.Any's members, and the literal its value is told apart
-  // by when it has several.
-  any?: AnyArm[];
-  anyTag?: string;
+  // An Any's writer: each member's message, by name, where it sits in the
+  // member, and the literal that picks it. The catch-all is named
+  // google.protobuf.Any and holds the Any message itself.
+  any?: { arms: [name: string, message: Message, key: string | undefined, literal: string | undefined][]; tag?: string };
   // Whether a hand-written codec (`codecs`) stands in for the functions a
   // message's fields would compile to, for a value that is not the message's
   // shape: a `Date` for a Timestamp, JSON for a Value, Struct or ListValue.
@@ -102,10 +112,6 @@ type Message = {
   // scalar, a FieldMask's paths.
   unwrap?: boolean;
 };
-
-// One message an Any holds: its full name, and where it sits in the member - a
-// property beside the member's literals, or the member itself (`key` unset).
-type AnyArm = { name: string; message: Message; key?: string; literals: Record<string, Internal> };
 
 type Defs = Record<string, Internal>;
 
@@ -127,13 +133,19 @@ type Ctx = {
   // The messages currently building: a field whose message is on it closes a
   // cycle.
   stack: Message[];
+  // `S.protobufAny`, handed in by the codec only: referenced from
+  // `compileMessage`, it would keep the codec in every `toProtoOrThrow` bundle.
+  any?: Internal;
 };
 
-const newCtx = (): Ctx => ({
-  defs: Object.create(null),
+// `defs`: the definitions the operation already holds, for a message reached
+// through a ref that carries none - the payload an Any unpacks into, say.
+const newCtx = (any?: Internal, defs?: Defs): Ctx => ({
+  defs: Object.assign(Object.create(null), defs),
   names: new Map(),
   messages: new Map(),
   stack: [],
+  any,
 });
 
 // A `$ref` stands for its definition. `S.recursive` puts every definition on
@@ -473,21 +485,19 @@ const armParse = (input: Val, holder: string, key: string, raw: Internal, declar
   return code === "" || code === alias || code === "let " + alias ? "" : code + (valueOut.i === read ? "" : `${read}=${valueOut.i};`);
 };
 
-// `tag` unset: a lone arm, converted whatever it holds.
-type Conversion = [tag: string | undefined, is: string, key: string, raw: Internal, declared: Internal];
+type Conversion = [caseJson: string, raw: Internal, declared: Internal];
 
-// Converts a decoded tagged object - a oneof's `{ case, value }`, an Any's
-// member - into the declared arm, and only where an arm has anything to
-// convert - a nested message's defaults, a field read as a string - so a union
-// of plain values decodes straight into its final shape. The decoder built the
-// object, so the value is replaced in place.
-const taggedRaw = (members: Internal[], conversions: Conversion[], optional: boolean): Internal => {
+// Converts a decoded `{ case, value }` into the declared arm, and only where an
+// arm has anything to convert - a nested message's defaults, a field read as a
+// string - so a oneof of plain values decodes straight into its final shape.
+// The decoder built the object, so the value is replaced in place.
+const oneofRaw = (members: Internal[], conversions: Conversion[], optional: boolean): Internal => {
   const mut = anyOf(members);
   mut.encoder = (input, target) => {
     let work = false;
     for (let idx = 0; idx < conversions.length && !work; idx++) {
-      const [, , key, raw, declared] = conversions[idx]!;
-      work = armParse(input, input.i, key, raw, declared) !== "";
+      const [, raw, declared] = conversions[idx]!;
+      work = armParse(input, input.i, "value", raw, declared) !== "";
     }
     if (!work) {
       const output = B_next(input, input.i, getOutputSchema(target), target);
@@ -496,14 +506,11 @@ const taggedRaw = (members: Internal[], conversions: Conversion[], optional: boo
     }
     const v = input.v();
     let body = "";
-    for (const [tag, is, key, raw, declared] of conversions) {
-      const arm = armParse(input, v, key, raw, declared);
+    for (const [caseJson, raw, declared] of conversions) {
+      const arm = armParse(input, v, "value", raw, declared);
       if (arm === "") continue;
-      if (tag === U) body += arm;
-      else {
-        const read = inlinedProperty(v, tag);
-        body += `${body ? "else " : ""}if(${optional ? `(${v}&&${read})` : read}===${is}){${arm}}`;
-      }
+      const read = inlinedProperty(v, "case");
+      body += `${body ? "else " : ""}if(${optional ? `(${v}&&${read})` : read}===${caseJson}){${arm}}`;
     }
     const output = B_next(input, v, getOutputSchema(target), target);
     output.v = _var;
@@ -514,12 +521,13 @@ const taggedRaw = (members: Internal[], conversions: Conversion[], optional: boo
   return mut;
 };
 
-const armObject = (literals: Record<string, Internal>, key: string, value: Internal): Internal => {
+const oneofArm = (tag: Internal, value: Internal): Internal => {
   const mut = baseSchema(objectTag, false, objectDecoder);
-  const properties: Record<string, Internal> = Object.assign(Object.create(null), literals);
-  properties[key] = value;
+  const properties: Record<string, Internal> = Object.create(null);
+  properties["case"] = tag;
+  properties["value"] = value;
   mut.properties = properties;
-  mut.required = Object.keys(properties);
+  mut.required = ["case", "value"];
   mut.additionalItems = "strip";
   return mut;
 };
@@ -531,6 +539,30 @@ const armObject = (literals: Record<string, Internal>, key: string, value: Inter
 const keepsShape = (type: ProtobufType, shape: Internal): boolean =>
   (type === "enum" && (shape.type === anyOfTag || shape.const !== U)) ||
   ((type === "double" || type === "float") && !!shape.anyOf?.some((member) => member.const !== member.const));
+
+// A typed Any is the Any message on the wire, read into `S.protobufAny`, whose
+// conversion turns it into the value the field declares.
+const anyWire = (shape: Internal, ctx: Ctx, where: string): [Message, Internal, Message | undefined] => {
+  // Numbered as an Any, a value with no message to unpack into is a mistake,
+  // where `S.protobufAny.with(S.to, ...)` alone converts it as an object.
+  const known = anyArms(shape, ctx);
+  if (known === U) {
+    return panic(`S.protobuf: ${where} is an Any, which takes a message S.protobufTypeName names, or an object holding one beside literals`);
+  }
+  if (ctx.any === U) return [{ fields: [], object: shape, raw: shape, schema: shape, typeName: "google.protobuf.Any" }, shape, U];
+  const message = compileMessage(ctx.any, ctx)!;
+  const [arms, other, tag] = known;
+  const writer: Message = { fields: [], object: shape, raw: shape, schema: shape, any: { arms: [], tag } };
+  for (const [name, payload, key, member] of other === U ? arms : [...arms, other]) {
+    const literal = tag === U ? U : JSON.stringify(literalOf(member.properties![tag]));
+    const armMessage = name === "google.protobuf.Any" ? message : compileMessage(payload, ctx);
+    if (armMessage === U) return panic(`S.protobuf: ${where} holds ${name}, whose schema is not an object`);
+    // A message an Any holds again is recursive, as one a field holds again is.
+    if (ctx.stack.includes(armMessage)) recurse(armMessage, ctx);
+    writer.any!.arms.push([name, armMessage, key, literal]);
+  }
+  return [message, ctx.any, writer];
+};
 
 const isContainer = (shape: Internal): boolean =>
   (shape.type === arrayTag || shape.type === objectTag) && typeof shape.additionalItems === objectTag;
@@ -601,7 +633,10 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
         let message: Message | undefined;
         let rawValue: Internal;
         let declaredValue = arm.value;
-        if (m.type === "message" || known !== U) {
+        let anyWriter: Message | undefined;
+        if (known === "google.protobuf.Any" && typeNameOf(armShape, ctx) !== known) {
+          [message, rawValue, anyWriter] = anyWire(armShape, ctx, where);
+        } else if (m.type === "message" || known !== U) {
           message = known !== U ? wellKnownMessage(known, armShape, ctx, where) : compileMessage(armValue, ctx);
           if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
           if (getOutputSchema(message.object) !== message.object) {
@@ -611,8 +646,8 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           rawValue = raw;
           if (!message.unwrap) declaredValue = refinedAs(arm.value, value);
         } else rawValue = keepsShape(m.type as ProtobufType, armShape) ? armShape : scalarSchema(m.type as ProtobufType);
-        rawMembers.push(armObject({ case: arm.tag }, "value", rawValue));
-        conversions.push(["case", JSON.stringify(arm.case), "value", rawValue, declaredValue]);
+        rawMembers.push(oneofArm(arm.tag, rawValue));
+        conversions.push([JSON.stringify(arm.case), rawValue, declaredValue]);
         const type = message !== U ? "message" : (m.type as ProtobufType);
         fields.push({
           number: m.number,
@@ -629,12 +664,13 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           arm: arm.value,
           unset: unsetArm === U ? "void 0" : "{case:void 0}",
           text: armShape.type === stringTag && type.includes("64"),
+          anyWriter,
         });
       }
       if (unsetArm !== U) rawMembers.push(unsetArm);
       if (groupOptional) rawMembers.push(unit);
       else rawRequired.push(key);
-      rawProperties[key] = taggedRaw(rawMembers, conversions, groupOptional);
+      rawProperties[key] = oneofRaw(rawMembers, conversions, groupOptional);
       normalizedProperties[key] = property;
       continue;
     }
@@ -664,7 +700,12 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     let messageValue: Internal | undefined;
     let raw: Internal;
     let normalizedProperty = optional ? propertyValue : property;
-    if (metadata.type === "message" || known !== U) {
+    let anyWriter: Message | undefined;
+    if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) {
+      [message, raw, anyWriter] = anyWire(shape, ctx, `field "${key}"`);
+      messageValue = normalizedProperty = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
+      if (optional && absent === U) raw = optionalMessage(raw);
+    } else if (metadata.type === "message" || known !== U) {
       const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
       message = known !== U ? wellKnownMessage(known, shape, ctx, `field "${key}"`) : compileMessage(at, ctx);
       if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
@@ -722,6 +763,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       oneof: metadata.oneof,
       wire: wireType(type),
       text: shape.type === stringTag && type.includes("64"),
+      anyWriter,
     };
     fields.push(field);
   }
@@ -1442,11 +1484,14 @@ export class Writer {
     this.pos += len;
   }
   busy = false;
-  // A field getter or a custom coder may run another protobuf encode in
-  // the middle of this one, so a busy scratch writer hands out a fresh one
-  // rather than resetting under the outer call.
+  // The writer an encode started in the middle of this one takes - a field
+  // getter's, a custom coder's, an Any packing its message - kept for the
+  // next, so a nested encode allocates no buffer once warm.
+  inner?: Writer;
+  // A busy scratch writer hands out the next level rather than resetting
+  // under the outer call.
   acquire(): Writer {
-    if (this.busy) return new Writer();
+    if (this.busy) return (this.inner ??= new Writer()).acquire();
     this.busy = true;
     if (this.buf.length - this.base < 1024) {
       this.buf = new Uint8Array(8192);
@@ -1663,10 +1708,6 @@ const secondsNanos: Record<string, StoredField> = {
 // whose raw side is the value's schema without the checks the caller put on
 // it, which run when the value is parsed into that schema after.
 const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where: string): Message | undefined => {
-  if (type === "google.protobuf.Any") {
-    const any = anyMessage(shape, ctx, where);
-    if (any !== U) return any;
-  }
   if (shape.type === objectTag && typeof shape.additionalItems !== objectTag) return compileMessage(shape, ctx, type);
   const memo = type + shape.seq;
   let msg = ctx.messages.get(memo);
@@ -1699,147 +1740,6 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
   }
   ctx.messages.set(memo, msg);
   return msg;
-};
-
-const literalOf = (schema: Internal): string | undefined => {
-  const value = getOutputSchema(schema).const;
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? JSON.stringify(value) : U;
-};
-
-// An Any's value: a message `S.protobufTypeName` names, or a union of members,
-// each such a message or an object holding one beside literals. A member
-// holding google.protobuf.Any itself - the opaque `{ typeUrl, value }` - takes
-// every type no other member names. A lone object that is no member - named
-// google.protobuf.Any, or naming nothing and holding no named message - is the
-// Any message itself, which compiles like any other (`undefined`).
-const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message | undefined => {
-  if (shape.type !== anyOfTag) {
-    const name = typeNameOf(shape, ctx);
-    const holds = shape.properties !== U && Object.values(shape.properties).some((property) => typeNameOf(property, ctx) !== U);
-    if (name === "google.protobuf.Any" || (name === U && !holds)) return U;
-  }
-  const memo = "google.protobuf.Any" + shape.seq;
-  const built = ctx.messages.get(memo);
-  if (built !== U) return built;
-  const msg: Message = { fields: [], object: shape, raw: shape, schema: shape, wellKnown: "google.protobuf.Any", any: [] };
-  ctx.messages.set(memo, msg);
-  const members = shape.type === anyOfTag ? shape.anyOf! : [shape];
-  const rawMembers: Internal[] = [];
-  const conversions: Conversion[] = [];
-  for (let idx = 0; idx < members.length; idx++) {
-    const member = getOutputSchema(members[idx]!);
-    let payload = member;
-    let key: string | undefined;
-    const literals: Record<string, Internal> = Object.create(null);
-    if (typeNameOf(member, ctx) === U && member.type === objectTag && member.properties !== U) {
-      for (const property of Object.keys(member.properties)) {
-        const schema = member.properties[property]!;
-        if (literalOf(schema) !== U) literals[property] = schema;
-        else if (key !== U) return panic(`S.protobuf: Any ${where} has a member holding two values, "${key}" and "${property}"`);
-        else (key = property), (payload = schema);
-      }
-    }
-    const name = typeNameOf(payload, ctx);
-    if (name === U) {
-      return panic(`S.protobuf: Any ${where} takes a message S.protobufTypeName names, or an object holding one beside literals`);
-    }
-    if (msg.any!.some((arm) => arm.name === name)) return panic(`S.protobuf: Any ${where} holds ${name} in two members`);
-    const message = compileMessage(payload, ctx);
-    if (message === U) return panic(`S.protobuf: Any ${where} holds ${name}, whose schema is not an object`);
-    if (
-      name === "google.protobuf.Any" &&
-      !(message.fields.length === 2 && message.fields[0]!.number === 1 && message.fields[0]!.type === "string" && message.fields[1]!.number === 2 && message.fields[1]!.type === "bytes")
-    ) {
-      return panic(`S.protobuf: Any ${where} keeps other types in google.protobuf.Any, which has to be { typeUrl: string = 1, value: bytes = 2 }`);
-    }
-    const [raw, value] = ctx.stack.includes(message) ? recurse(message, ctx) : [message.raw, message.schema];
-    msg.any!.push({ name, message, key, literals });
-    rawMembers.push(key === U ? raw : armObject(literals, key, raw));
-    conversions.push([U, "", key!, raw, refinedAs(payload, value)]);
-  }
-  const arms = msg.any!;
-  if (arms.length === 1 && arms[0]!.key === U) {
-    msg.raw = conversions[0]![3];
-    msg.schema = conversions[0]![4];
-    return msg;
-  }
-  let tag: string | undefined;
-  if (arms.length > 1) {
-    // Encode picks a member by one literal they all hold, a different one each.
-    tag = Object.keys(arms[0]!.literals).find((property) => {
-      const seen = new Set(arms.map((arm) => (arm.literals[property] && literalOf(arm.literals[property]!)) ?? ""));
-      return !seen.has("") && seen.size === arms.length;
-    });
-    if (tag === U || arms.some((arm) => arm.key === U)) {
-      return panic(`S.protobuf: Any ${where} can't tell its members apart. Give each a literal, such as type: "user", beside the message it holds`);
-    }
-  }
-  msg.anyTag = tag;
-  if (tag !== U) conversions.forEach((conversion, idx) => ((conversion[0] = tag), (conversion[1] = literalOf(arms[idx]!.literals[tag]!)!)));
-  msg.raw = taggedRaw(rawMembers, conversions, false);
-  return msg;
-};
-
-const anyFrame = (x: unknown, key: string): unknown => {
-  if (isFailure(x)) (x.path as (string | number)[]).unshift(key);
-  return x;
-};
-
-// The message is left out when empty, as protobuf-es leaves it.
-const anyEncodeBody = (msg: Message, fns: Map<Message, string>): string => {
-  const write = (arm: AnyArm): string => {
-    const at = arm.key === U ? "value" : inlinedProperty("value", arm.key);
-    // A type another member names belongs to that member: decoded, it would
-    // come back as that one.
-    const listed = msg.any!
-      .filter((other) => other !== arm)
-      .map((other) => `case ${JSON.stringify(other.name)}:fail(${JSON.stringify(`Protobuf Any holds ${other.name}, which ${msg.anyTag}: ${literalOf(other.literals[msg.anyTag!]!)} is for`)});`)
-      .join("");
-    const code =
-      arm.name === "google.protobuf.Any"
-        ? `${listed && `g=${inlinedProperty(at, arm.message.fields[0]!.key)};switch(g.slice(g.lastIndexOf("/")+1)){${listed}}`}${fns.get(arm.message)!}(w,${at})`
-      : `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${arm.name}`)});q=w.pos;${writeTag(18)};g=w.begin();${fns.get(arm.message)!}(w,${at});w.end(g);if(w.pos===q+2)w.pos=q`;
-    return arm.key === U ? code : `try{${code}}catch(x){throw pre(x,${JSON.stringify(arm.key)})}`;
-  };
-  const arms = msg.any!;
-  if (!msg.anyTag) return write(arms[0]!);
-  return `switch(${inlinedProperty("value", msg.anyTag)}){${arms.map((arm) => `case ${literalOf(arm.literals[msg.anyTag!]!)}:${write(arm)};break;`).join("")}}`;
-};
-
-// type_url may follow value, so value's span is held and read last. A copy
-// seen again merges into the first, as a message does: a type_url or value it
-// leaves out keeps the earlier one (`o`, the member read so far).
-const anyDecodeSource = (msg: Message, fns: Map<Message, string>, name: string): string => {
-  let cases = "";
-  let other = "";
-  const nameIn = (arm: AnyArm): string => {
-    const at = arm.key === U ? "o" : inlinedProperty("o", arm.key);
-    return arm.name === "google.protobuf.Any" ? inlinedProperty(at, arm.message.fields[0]!.key) : JSON.stringify(arm.name);
-  };
-  const tag = msg.anyTag;
-  const earlier =
-    tag === U ? nameIn(msg.any![0]!)
-    : msg.any!.reduceRight((rest, arm) => `${inlinedProperty("o", tag)}===${literalOf(arm.literals[tag]!)}?${nameIn(arm)}:${rest}`, '""');
-  for (const arm of msg.any!) {
-    const build = (value: string) =>
-      arm.key === U ? value
-      : `{${Object.keys(arm.literals).map((literal) => `${JSON.stringify(literal)}:${literalOf(arm.literals[literal]!)},`).join("")}${JSON.stringify(arm.key)}:${value}}`;
-    if (arm.name === "google.protobuf.Any") {
-      const [typeUrl, value] = arm.message.fields;
-      other = `return ${build(`{${JSON.stringify(typeUrl!.key)}:u,${JSON.stringify(value!.key)}:r.buf.slice(s,e)}`)}`;
-      continue;
-    }
-    const read = `r.pos=s;r.limit=e;x=${fns.get(arm.message)!}(r,d+1)`;
-    cases += `case ${JSON.stringify(arm.name)}:${arm.key === U ? read : `try{${read}}catch(y){throw pre(y,${JSON.stringify(arm.key)})}`};r.pos=r.limit=g;return ${build("x")};`;
-  }
-  return (
-    `function ${name}(r,d,o){if(d>=100)fail("Protobuf message nesting limit exceeded");var t,u="",s=-1,e=-1,g,x;` +
-    `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else t=r.tag();if(t===10)u=r.string();else if(t===18){g=r.sub();s=r.pos;e=r.limit;r.pos=e;r.limit=g}else{if(t<8)${zeroField};skip(r,t&7,t>>>3,0)}}` +
-    `if(o!==void 0){x=${earlier};if(!u)u=x;if(s<0){if(u.slice(u.lastIndexOf("/")+1)===x.slice(x.lastIndexOf("/")+1))return o;fail("Protobuf Any names its type in one copy and its value in another")}}` +
-    `g=r.limit;if(s<0)s=e=g;switch(u.slice(u.lastIndexOf("/")+1)){${cases}}` +
-    (other || `fail(u?"Protobuf Any holds "+u.slice(u.lastIndexOf("/")+1)+", which this field doesn't take":"Protobuf Any has no type URL")`) +
-    "}"
-  );
 };
 
 // `lists` are the message's repeated fields in field order, as `decodeFnSource`
@@ -1953,7 +1853,32 @@ const writeTag = (tag: number): string =>
 const writeVarint32 = (expr: string): string =>
   `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
 
-const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict, fail };
+const anyFrame = (x: unknown, key: string): unknown => {
+  if (isFailure(x)) (x.path as (string | number)[]).unshift(key);
+  return x;
+};
+
+// The message is left out when empty, as protobuf-es leaves it.
+const anyEncodeBody = ({ arms, tag }: NonNullable<Message["any"]>, fns: Map<Message, string>): string => {
+  const write = ([name, message, key]: (typeof arms)[number]): string => {
+    const at = key === U ? "value" : inlinedProperty("value", key);
+    // A type another member names belongs to that member: decoded, it would
+    // come back as that one.
+    const listed = arms
+      .filter((other) => other[0] !== name && other[0] !== "google.protobuf.Any")
+      .map((other) => `case ${JSON.stringify(other[0])}:fail(${JSON.stringify(`Protobuf Any holds ${other[0]}, which ${tag}: ${other[3]} is for`)});`)
+      .join("");
+    const code =
+      name === "google.protobuf.Any"
+        ? `${listed && `g=${inlinedProperty(at, "typeUrl")};switch(g.slice(g.lastIndexOf("/")+1)){${listed}}`}${fns.get(message)!}(w,${at})`
+        : `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${name}`)});q=w.pos;${writeTag(18)};g=w.begin();${fns.get(message)!}(w,${at});w.end(g);if(w.pos===q+2)w.pos=q`;
+    return key === U ? code : `try{${code}}catch(x){throw pre(x,${JSON.stringify(key)})}`;
+  };
+  if (tag === U) return write(arms[0]!);
+  return `switch(${inlinedProperty("value", tag)}){${arms.map((arm) => `case ${arm[3]}:${write(arm)};break;`).join("")}}`;
+};
+
+const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict };
 type Helper = keyof typeof encodeHelpers;
 type Encoding = (helper: Helper) => string;
 
@@ -2070,6 +1995,7 @@ type Read = (key: string) => { expr: string; numeric: boolean };
 // reads to name the field a failure hit.
 const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
   const body: string[] = [];
+  const writer = (field: Field): string => fns.get(field.anyWriter ?? field.message!)!;
   // proto3 lets at most one member of a oneof be set, and decode enforces it
   // by clearing the siblings. Encode is handed a value the schema cannot
   // constrain - every member is an independent optional property - so it
@@ -2113,7 +2039,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
         if (member.key !== field.key) continue;
         arms += `case ${JSON.stringify(member.case)}:f=${other};${writeTag(member.number * 8 + member.wire)};${
           member.type === "message"
-            ? `h=w.begin();${fns.get(member.message!)!}(w,v.value);w.end(h)`
+            ? `h=w.begin();${writer(member)}(w,v.value);w.end(h)`
             : writeCall(member.type, "v.value", enc, member.text ? 3 : 0)
         };break;`;
       }
@@ -2127,7 +2053,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       const entryTag = writeTag(field.number * 8 + 2);
       const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, 2)}`;
       const valuePart = field.type === "message"
-        ? `${writeTag(16 + 2)};g=w.begin();${fns.get(field.message!)!}(w,c);w.end(g)`
+        ? `${writeTag(16 + 2)};g=w.begin();${writer(field)}(w,c);w.end(g)`
         : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc, field.text ? 3 : 0)}`;
       body.push(`${at}v=${src};a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`);
     } else if (field.repeated) {
@@ -2140,14 +2066,14 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
           : `j=0;while(j<n){${writeCall(field.type, "v[j++]", enc, field.text ? 3 : 0)}}`;
         loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${packed}w.end(h)`;
       } else if (field.type === "message") {
-        loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v[j++]);w.end(h)}`;
+        loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${writer(field)}(w,v[j++]);w.end(h)}`;
       } else {
         loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", enc, field.text ? 3 : 0)}}`;
       }
       body.push(`${at}v=${src};n=v.length;if(n){${loop}}`);
     } else if (field.type === "message") {
       // `null` is a value to a well-known type: JSON's own.
-      body.push(`${at}v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${oneof}${writeTag(tag)};h=w.begin();${fns.get(field.message!)!}(w,v);w.end(h)}`);
+      body.push(`${at}v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${oneof}${writeTag(tag)};h=w.begin();${writer(field)}(w,v);w.end(h)}`);
     } else {
       body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc, field.text ? 3 : numeric ? 0 : 1)}}`);
     }
@@ -2159,10 +2085,11 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
   if (fns.has(message)) return;
   fns.set(message, `m${fns.size}`);
   for (let idx = 0; idx < message.fields.length; idx++) {
-    const nested = message.fields[idx]!.message;
-    if (nested) nameMessages(nested, fns);
+    const field = message.fields[idx]!;
+    if (field.message) nameMessages(field.message, fns);
+    if (field.anyWriter) nameMessages(field.anyWriter, fns);
   }
-  message.any?.forEach((arm) => nameMessages(arm.message, fns));
+  message.any?.arms.forEach((arm) => nameMessages(arm[1], fns));
 };
 
 // Message codecs are built once per operation with `Function` and embedded
@@ -2171,8 +2098,8 @@ const nameMessages = (message: Message, fns: Map<Message, string>): void => {
 const compileEncoders = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
   let src = "";
   const messages: Message[] = [];
-  const params: string[] = [...Object.keys(encodeHelpers), "at", "M", "pre"];
-  const args: unknown[] = [...Object.values(encodeHelpers), encodeFrame, messages, anyFrame];
+  const params: string[] = [...Object.keys(encodeHelpers), "at", "M", "pre", "fail"];
+  const args: unknown[] = [...Object.values(encodeHelpers), encodeFrame, messages, anyFrame, fail];
   const names: string[] = [];
   // The root's fields are read from the vals the operation already has, so its
   // body is inlined there rather than called; it needs a function of its own
@@ -2184,7 +2111,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
       params.push(name);
       args.push(codecs[msg.wellKnown!]![1]);
     } else if (msg.any !== U) {
-      src += `function ${name}(w,value){var g,q;${anyEncodeBody(msg, fns)}}`;
+      src += `function ${name}(w,value){var g,q;${anyEncodeBody(msg.any, fns)}}`;
     } else {
       const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
       const body = encodeBody(msg, fns, read, (helper) => helper);
@@ -2287,10 +2214,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
     if (field.type === "message" && !field.repeated && !field.optional && field.map === U) {
       // A required message absent on the wire is its default instance, so
       // the schema's type holds; `S.optional` is how presence is asked for.
-      // An Any has no default instance to fill in: it names no type.
-      fill += field.message!.any !== U
-        ? `if(${local}===void 0)try{fail("Protobuf Any is absent. Make the field S.optional to read it as undefined")}catch(x){throw pre(x,${key})}`
-        : `if(${local}===void 0){g=r.limit;r.limit=r.pos;${local}=${fns.get(field.message!)!}(r,d+1);r.limit=g}`;
+      fill += `if(${local}===void 0){g=r.limit;r.limit=r.pos;${local}=${fns.get(field.message!)!}(r,d+1);r.limit=g}`;
     }
     if (field.map === U && field.optional) {
       optional += field.key === "__proto__"
@@ -2314,14 +2238,13 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
   // `M` is read only on a failure, so the field lookup a frame needs stays
   // out of the generated code and off the decode path.
   const messages: Message[] = [];
-  const params = ["skip", "at", "unknown", "fail", "M", "pre"];
-  const args: unknown[] = [skip, wireFrame, unknownField, fail, messages, anyFrame];
+  const params = ["skip", "at", "unknown", "fail", "M"];
+  const args: unknown[] = [skip, wireFrame, unknownField, fail, messages];
   fns.forEach((name, msg) => {
     if (msg.codec !== U) {
       params.push(name);
       args.push(codecs[msg.wellKnown!]![0]);
-    } else if (msg.any !== U) src += anyDecodeSource(msg, fns, name);
-    else src += decodeFnSource(msg, fns, messages.push(msg) - 1);
+    } else if (msg.any === U) src += decodeFnSource(msg, fns, messages.push(msg) - 1);
   });
   return new Function(...params, `${src}return ${fns.get(root)!}`)(...args);
 };
@@ -2364,7 +2287,7 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileMessage(objectSchemaOf(input), newCtx());
+  const message = compileMessage(objectSchemaOf(input), newCtx(protobufAny, input.g.d));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
@@ -2422,7 +2345,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   // those bytes, and the parse loop carries them on down its `.to`. Decoding
   // here would hand that link a decoded value where it reads bytes.
   if (target.flags & 256) return input;
-  const message = compileMessage(target, newCtx());
+  const message = compileMessage(target, newCtx(protobufAny, input.g.d));
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
@@ -2469,6 +2392,275 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   chained.io = true;
   return chained;
 };
+
+// Walks the whole chain: reversed, the message is its last link. Bounded as
+// `typeNameOf` is.
+const chainName = (schema: Internal, ctx: Ctx): string | undefined => {
+  for (let current: Internal | undefined = schema, steps = 0; current !== U && ++steps < 50; current = current.type === refTag ? deref(current, ctx) : current.to) {
+    if (current.protobufTypeName !== U) return current.protobufTypeName;
+  }
+  return U;
+};
+
+// `key` unset: the member is the message itself.
+type AnyArm = [name: string, payload: Internal, key: string | undefined, member: Internal];
+
+const anyArm = (member: Internal, ctx: Ctx): AnyArm | undefined => {
+  const name = typeNameOf(member, ctx);
+  if (name !== U) return [name, member, U, member];
+  const properties = member.properties;
+  if (member.type !== objectTag || properties === U || typeof member.additionalItems === objectTag) return U;
+  const values = Object.keys(properties).filter((property) => getOutputSchema(properties[property]!).const === U);
+  const key = values.find((property) => chainName(properties[property]!, ctx) !== U);
+  if (key === U) return U;
+  if (values.length > 1) return panic(`S.protobufAny: a member holds two values, "${values[0]}" and "${values[1]}"`);
+  return [chainName(properties[key]!, ctx)!, properties[key]!, key, member];
+};
+
+const literalOf = (schema: Internal | undefined): unknown =>
+  schema === U ? U : getOutputSchema(schema).const;
+
+// The members a conversion to `target` unpacks into: `undefined` where one
+// holds no message. Refused where a value couldn't come back as the member it
+// left: two members holding one message, or several with no literal telling
+// them apart, which is all an encode has to go by.
+type AnyArms = [arms: AnyArm[], other: AnyArm | undefined, tag: string | undefined];
+
+const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
+  const arms: AnyArm[] = [];
+  let other: AnyArm | undefined;
+  for (const member of target.type === anyOfTag ? target.anyOf! : [target]) {
+    // An absent Any never reaches a conversion.
+    if (getOutputSchema(member).type === undefinedTag) continue;
+    const arm = anyArm(member, ctx);
+    if (arm === U) return U;
+    if (arm[0] === "google.protobuf.Any" ? other !== U : arms.some((known) => known[0] === arm[0])) {
+      return panic(`S.protobufAny: ${arm[0]} is held by two members`);
+    }
+    if (arm[0] !== "google.protobuf.Any") arms.push(arm);
+    else if (["typeUrl", "value"].every((key) => getOutputSchema(arm[1]).properties?.[key] !== U)) other = arm;
+    else return panic(`S.protobufAny: a member keeps other types in google.protobuf.Any, which has to be { typeUrl: string, value: Uint8Array }`);
+  }
+  const all = other === U ? arms : [...arms, other];
+  if (all.length === 0) return U;
+  let tag: string | undefined;
+  if (all.length > 1) {
+    tag = Object.keys(all[0]![3].properties ?? {}).find((property) => {
+      const seen = new Set(all.map((arm) => (arm[2] === U ? U : literalOf(arm[3].properties![property]))));
+      return !seen.has(U) && seen.size === all.length;
+    });
+    if (tag === U) {
+      return panic(`S.protobufAny can't tell its members apart. Give each a literal, such as type: "user", beside the message it holds`);
+    }
+  }
+  return [arms, other, tag];
+};
+
+const anyListed = (input: Val, owners: Map<string, string>): ((name: string, path?: Path) => ErrorDetails) => {
+  const snap = B_pathSnap(input);
+  let site: object;
+  return (name, path) => {
+    const error = Object.create((site ??= conversionSite(input.s, input.e))) as SuryErrorRecord;
+    error.code = "invalid_conversion";
+    error.path = snap ?? path!;
+    error.reason = `Protobuf Any holds ${name}, which ${owners.get(name)} is for`;
+    return error as unknown as ErrorDetails;
+  };
+};
+
+const anyMismatch = (input: Val, target: Internal, names: string[]): ((name: string, path?: Path) => ErrorDetails) => {
+  const snap = B_pathSnap(input);
+  const expected = names.join(" or ");
+  let site: object;
+  return (name, path) => {
+    const error = Object.create((site ??= conversionSite(input.s, target))) as SuryErrorRecord;
+    error.code = "invalid_conversion";
+    error.path = snap ?? path!;
+    error.reason = `Protobuf Any ${name ? `holds ${name}` : "has no type URL"}, expected ${expected}`;
+    return error as unknown as ErrorDetails;
+  };
+};
+
+// An absent Any field arrives as the empty Any, which only a catch-all takes.
+const anyUnpack: Encoder = (input, target) => {
+  const ctx = newCtx(U, input.g.d);
+  if (typeNameOf(target, ctx) === "google.protobuf.Any") return input;
+  const known = anyArms(target, ctx);
+  // No message to unpack into: the Any converts as the object it is.
+  if (known === U) return input;
+  const [arms, other] = known;
+  const g = input.g;
+  // Reads the vals the preceding validation left, so the object is built only
+  // for a catch-all that keeps it whole.
+  const fields = fieldValsOf(input);
+  const field = (key: string): string => fields?.[key]?.i ?? inlinedProperty(input.v(), key);
+  const name = B_varWithoutAllocation(g);
+  const out = B_varWithoutAllocation(g);
+  const build = ([, , key, member]: AnyArm, value: string): string => {
+    if (key === U) return value;
+    let fields = "";
+    for (const property of Object.keys(member.properties!)) {
+      fields += `${JSON.stringify(property)}:${property === key ? value : B_inlineConst(input, getOutputSchema(member.properties![property]!))},`;
+    }
+    return `{${fields.slice(0, -1)}}`;
+  };
+  let code = `${B_let(g, name, field("typeUrl"))}${name}=${name}.slice(${name}.lastIndexOf("/")+1);${B_let(g, out)}`;
+  // Each arm as its code and the value it lands, a promise where it is async.
+  const convert = (arm: AnyArm, read: string, source: Internal): [code: string, value: string, async: boolean] => {
+    if (source === protobuf && arm[1].type === refTag) {
+      const callIn = B_scope(input);
+      if (arm[2] !== U) callIn.path = pathConcat(input.path, [arm[2]]);
+      const x = B_varWithoutAllocation(g);
+      const call = B_next(callIn, x, arm[1], arm[1]);
+      const decode = unpackOf(arm[1], ctx.defs);
+      call.cp = `${x}=${B_embed(input, decode)}(${read});`;
+      call.prev = U;
+      return [`${B_let(g, x)}${B_mergeWithPathPrepend(call, callIn)}`, x, false];
+    }
+    const valueIn = B_scope(input);
+    valueIn.i = read;
+    valueIn.v = _notVarBeforeValidation;
+    valueIn.io = false;
+    valueIn.s = source;
+    valueIn.e = arm[1];
+    valueIn.d = U;
+    if (arm[2] !== U) valueIn.path = pathConcat(input.path, [arm[2]]);
+    const valueOut = parse(valueIn);
+    return [B_merge(valueOut), valueOut.i, !!(valueOut.f & 1)];
+  };
+  const converted = arms.map((arm) => convert(arm, field("value"), protobuf));
+  const rest = other !== U ? convert(other, input.v(), protobufAny) : U;
+  // One async arm makes the whole value a promise, the sync ones resolved.
+  const async = converted.some((arm) => arm[2]) || !!rest?.[2];
+  const land = (arm: AnyArm, [code, value, isAsync]: [string, string, boolean]): string =>
+    `${code}${out}=${
+      isAsync ? `${value}.then(x=>(${build(arm, "x")}))` : async ? `Promise.resolve(${build(arm, value)})` : build(arm, value)
+    };`;
+  arms.forEach((arm, idx) => {
+    code += `${idx ? "else " : ""}if(${name}===${JSON.stringify(arm[0])}){${land(arm, converted[idx]!)}}`;
+  });
+  const last = rest !== U ? land(other!, rest) : `${B_fail(input, anyMismatch(input, target, arms.map((arm) => arm[0])), name)};`;
+  code += arms.length ? `else{${last}}` : last;
+  const output = B_next(input, out, target, target);
+  output.v = _var;
+  output.cp = code;
+  if (async) B_markAsync(input, output);
+  return B_markOutput(output, input);
+};
+
+// Packs one member, which is what reaches it: a union converts into it member
+// by member. Anything else is the Any's own object shape.
+// The union whose conversion leads into this val's target, if one does.
+const convertingUnion = (input: Val): Internal | undefined => {
+  const stack: (Val | undefined)[] = [input];
+  const seen = new Set<Val>();
+  while (stack.length) {
+    const val = stack.pop();
+    if (val === U || seen.has(val)) continue;
+    seen.add(val);
+    if (val.e.type === anyOfTag && val.e.to === input.e) return val.e;
+    stack.push(val.prev, val.b);
+  }
+  return U;
+};
+
+const anyPack: Builder = (input) => {
+  const source = objectSchemaOf(input);
+  const ctx = newCtx(U, input.g.d);
+  const arm = typeNameOf(source, ctx) === "google.protobuf.Any" ? U : anyArm(source, ctx);
+  if (arm === U) {
+    const output = objectDecoder(input);
+    // `objectDecoder` rebuilds the schema from the fields it parsed, without the
+    // unpack a `.to` past it needs; the rest of what the rebuild says stays.
+    if (input.e.to !== U) {
+      output.s = copySchema(output.s);
+      output.s.encoder = anyUnpack;
+    }
+    return output;
+  }
+  const [name, payload, key] = arm;
+  // The val the union's validation left, read once.
+  const read = key === U ? input : fieldValsOf(input)?.[key];
+  const valueIn = B_scope(read ?? input);
+  if (read === U) {
+    valueIn.i = inlinedProperty(input.v(), key!);
+    valueIn.v = _notVarBeforeValidation;
+    // The member's field vals would be read as the payload's.
+    valueIn.d = U;
+    valueIn.path = pathConcat(input.path, [key!]);
+  }
+  valueIn.io = false;
+  valueIn.s = payload;
+  valueIn.e = name === "google.protobuf.Any" ? input.e : protobuf;
+  const valueOut = parse(valueIn);
+  const packed = (value: string): string =>
+    name === "google.protobuf.Any" ? value : `{typeUrl:${JSON.stringify(`type.googleapis.com/${name}`)},value:${value}}`;
+  const async = valueOut.f & 1;
+  const output = B_next(input, async ? `${valueOut.i}.then(x=>(${packed("x")}))` : packed(valueOut.i), input.e, input.e);
+  output.cp = B_merge(valueOut);
+  if (async) B_markAsync(input, output);
+  // A union hands over one member at a time, so its siblings - which the bytes
+  // must not come back as - are found in the value's history.
+  const union = convertingUnion(input);
+  const known = union === U ? U : anyArms(union, ctx);
+  if (known !== U && name === "google.protobuf.Any" && known[0].length) {
+    const held = B_varWithoutAllocation(input.g);
+    const tag = known[2]!;
+    const owners = new Map(known[0].map((arm) => [arm[0], `${tag}: ${JSON.stringify(literalOf(arm[3].properties![tag]))}`]));
+    output.cp +=
+      `${B_let(input.g, held, `${valueIn.i}.typeUrl`)}${held}=${held}.slice(${held}.lastIndexOf("/")+1);` +
+      B_fail(valueIn, anyListed(valueIn, owners), held, `!(${known[0].map((arm) => `${held}===${JSON.stringify(arm[0])}`).join("||")})`);
+  }
+  return B_markOutput(output, input);
+};
+
+export const protobufAny: Internal = /* @__PURE__ */ initSchema(objectTag, anyPack, (schema) => {
+  schema.encoder = anyUnpack;
+  schema.properties = {
+    typeUrl: protobufField(string, { number: 1, type: "string" }),
+    value: protobufField(uint8Array, { number: 2, type: "bytes" }),
+  };
+  schema.required = ["typeUrl", "value"];
+  schema.additionalItems = "strip";
+  schema.name = "Any";
+  schema.protobufTypeName = "google.protobuf.Any";
+});
+
+type Op = (value: unknown) => unknown;
+
+const unpacks = /* @__PURE__ */ new WeakMap<Internal, Op>();
+
+// A message unpacked from an Any decodes in an operation of its own, whose
+// reader starts its nesting count over: the levels are counted here instead,
+// against the same limit.
+let anyDepth = 0;
+
+// Compiled on first use, once per message: a message holding itself through an
+// Any would otherwise compile its unpack while compiling it. The operation
+// knows only the definitions its schema carries, so they ride on it.
+const unpackOf = (schema: Internal, defs: Defs): Op => {
+  let unpack = unpacks.get(schema);
+  if (unpack === U) {
+    let op: Op | undefined;
+    unpack = (value) => {
+      if (op === U) {
+        const carried = copySchema(schema);
+        carried["$defs"] = { ...schema["$defs"], ...defs };
+        op = getOp(0, 2, protobuf, carried);
+      }
+      if (anyDepth >= 100) fail("Protobuf message nesting limit exceeded");
+      anyDepth++;
+      try {
+        return op(value);
+      } finally {
+        anyDepth--;
+      }
+    };
+    unpacks.set(schema, unpack);
+  }
+  return unpack;
+};
+
 
 export const protobuf: Internal = /* @__PURE__ */ initSchema(instanceTag, protobufDecoder, (schema) => {
   schema.class = Uint8Array;

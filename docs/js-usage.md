@@ -1644,42 +1644,50 @@ nanoseconds. Inside `S.array` or `S.record`, a wrapper's item doesn't need
 
 ### Any
 
-A `google.protobuf.Any` holds a message of any type, named by its full proto
-name. Name each message with `S.protobufTypeName`, and list the ones a field
-takes in an `S.union`, each tagged by a literal of your choosing:
+`S.protobufAny` is a `google.protobuf.Any`: a message of any type, as its type
+URL and its bytes. Name each message with `S.protobufTypeName`, and convert the
+Any to the one it holds, or to an `S.union` of them, each tagged by a literal of
+your choosing:
 
 ```ts
 const User = S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.User");
 const Order = S.schema({ total: S.bigint.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.Order");
 
+const Payload = S.protobufAny.with(S.to, S.union([
+  S.schema({ type: "user", value: User }),
+  S.schema({ type: "order", value: Order }),
+]));
+
+S.decodeOrThrow(Payload)({ typeUrl: "type.googleapis.com/acme.v1.Order", value: new Uint8Array([8, 5]) });
+// { type: "order", value: { total: 5n } }
+S.encodeOrThrow(Payload)({ type: "user", value: { id: 1 } });
+// { typeUrl: "type.googleapis.com/acme.v1.User", value: Uint8Array [8, 1] }
+```
+
+The type is the name after the URL's last `/`, so `example.com/acme.v1.Order`
+reads as an order too. A type the union doesn't list fails, so the union is also
+the list of types you accept. To keep the rest, add a member holding
+`S.protobufAny` itself:
+
+```ts
+S.schema({ type: "other", value: S.protobufAny });
+// { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: Uint8Array } }
+```
+
+It works anywhere an Any arrives as `{ typeUrl, value }`: a gRPC error detail,
+a row of an outbox table, an `Any` from protobuf-es. Inside a message you number
+what it converts to, and a union of messages is an Any without saying so. A field
+that always holds one type is that message, typed as an Any:
+
+```ts
 const Event = S.schema({
   payload: S.union([
     S.schema({ type: "user", value: User }),
     S.schema({ type: "order", value: Order }),
   ]).with(S.protobufField, 1),
+  author: User.with(S.protobufField, { number: 2, type: "google.protobuf.Any" }),
 });
-
-S.decodeOrThrow(S.protobuf, Event)(bytes);
-// { payload: { type: "order", value: { total: 5n } } }
 ```
-
-A numbered union of messages is an Any without saying so, and each member needs
-a literal, like `type` here, to tell it from the others. The type URL is written
-as `type.googleapis.com/acme.v1.Order`, and `example.com/acme.v1.Order` reads
-as an order too. A type the union doesn't list fails the decode, so the union is
-also the list of types you accept.
-
-To keep the types you don't list, add a member holding the opaque Any, a
-message of `typeUrl` and `value` named `google.protobuf.Any` (`AnySchema` from
-`sury/protobuf/wkt`):
-
-```ts
-S.schema({ type: "other", value: AnySchema });
-// { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: Uint8Array } }
-```
-
-A field that always holds one type takes the message itself:
-`User.with(S.protobufField, { number: 1, type: "google.protobuf.Any" })`.
 
 ### Generating a `.proto`
 
@@ -1830,8 +1838,9 @@ A well-known type is imported from `sury/protobuf/wkt` (`TimestampSchema`,
 `Timestamp`), where the generated code expects it. A field holding one keeps
 protobuf-es's shape, and `S.toProtoOrThrow` prints it as an import. Every
 generated message and enum carries its full name (`S.protobufTypeName`), so it
-can go straight into an [Any](#any)'s union; the Any fields themselves stay
-opaque, as protobuf-es holds them.
+can go straight into an [Any](#any)'s union. A generated Any field holds
+`AnySchema`, which is `S.protobufAny`, so it keeps protobuf-es's
+`{ typeUrl, value }` until you convert it with `S.to`.
 
 The options:
 

@@ -511,6 +511,10 @@ type json = JSON.t
 @module("sury") external arrayBuffer: t<ArrayBuffer.t> = "arrayBuffer"
 /** The Protocol Buffers binary wire format. */
 @module("sury") external protobuf: t<Uint8Array.t> = "protobuf"
+
+type protobufAny = {typeUrl: string, value: Uint8Array.t}
+/** A `google.protobuf.Any`. Convert it with `S.to` to a message `S.protobufTypeName` names, or to an `S.union` of them. */
+@module("sury") external protobufAny: t<protobufAny> = "protobufAny"
 type protoOptions = {name?: string, package?: string}
 @module("sury") external toProtoOrThrow_: (t<'value>, protoOptions) => string = "toProtoOrThrow"
 let toProtoOrThrow = (schema, ~name=?, ~package=?) => toProtoOrThrow_(schema, {?name, ?package})

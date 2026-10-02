@@ -38,7 +38,7 @@ let number = S.union([S.float, S.literal(Float.Constants.nan)])
  `foo.Bar` message may be written `[type.googleapis.com/foo.Bar] { a: 2 }`.
  */
 module Any = {
-  type t = {
+  type t = S.protobufAny = {
     /**
      Identifies the type of the serialized Protobuf message with a URI reference
      consisting of a prefix ending in a slash and the fully-qualified type name.
@@ -76,10 +76,7 @@ module Any = {
      */
     value: Uint8Array.t,
   }
-  let schema: S.t<t> = S.schema(s => {
-    typeUrl: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-    value: s.matches(S.uint8Array->S.protobufField(2, ~type_=#bytes)),
-  })->S.protobufTypeName("google.protobuf.Any")
+  let schema: S.t<t> = S.protobufAny
 }
 
 // google/protobuf/source_context.proto
