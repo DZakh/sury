@@ -2586,6 +2586,20 @@ console.log(e);
 e.expected; // => S.string
 ```
 
+An `S.Error` your refine or coder throws - from an operation it runs, say - keeps its code and reason and gets the path where it was thrown. Under a field it comes back as the `cause` of the failure you catch, exactly as it was thrown:
+
+```ts
+const parseCount = S.parseOrThrow(S.number);
+const schema = S.schema({ a: S.unknown.with(S.refine, (value) => (parseCount(value), true)) });
+
+try {
+  S.parseOrThrow(schema, { a: "x" });
+} catch (e) {
+  e.message; // => 'Failed at a: Expected number, received "x"'
+  e.cause; // => the error parseCount threw, with its own stack
+}
+```
+
 Or ask the operation for a result instead of an exception - the `AsResult` and
 `AsResultPromise` outcomes build it into the compiled operation, so there is no
 callback to wrap and nothing to remember to catch:

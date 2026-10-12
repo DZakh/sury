@@ -1975,6 +1975,8 @@ S.Error.make(
 )->S.Error.throw
 ```
 
+Thrown under a field, the error you built comes back as the `cause` of the failure you catch, exactly as you threw it; that failure carries its code and reason with the path in front.
+
 ## Functions on schema
 
 ### At a glance
