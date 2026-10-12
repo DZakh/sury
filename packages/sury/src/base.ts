@@ -28,7 +28,8 @@ export type Flag = number;
 // 256 ReScript Result (`{TAG, _0}`), 512 promisable (1 without lifting a
 // synchronous result into a promise), 2048 yield the operation's input rather
 // than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
-// (`isInput`/`isOutput`).
+// (`isInput`/`isOutput`), 1024 the chain ends in a sentinel passed after the
+// counted schemas (parse.ts `getOp`).
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".

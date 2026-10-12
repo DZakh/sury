@@ -905,7 +905,7 @@ const withRequired = (schema: Internal, required: string[]): Internal =>
 // conversion.
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
-    return (getOp(4096, 3, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
+    return (getOp(4096 | 1024, 2, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
   } catch {
     return false;
   }

@@ -35,16 +35,9 @@ import {
 
 // The `undefined` sentinel an assert/validate operation decodes to: the value
 // runs the whole pipeline and the result is dropped.
-//
-// The oldest `seq` there is, so `getOp` never caches on it. It outlives every
-// schema and holds none, so a node on the checked schema keeps nothing alive
-// that was not already; cached here, the check of every interned primitive
-// (`S.isInput(x, S.string)`, a `fromJSONSchema` keyword's sub-schema) shared one
-// list, and each call walked past the others.
 export const assertResult: Internal = /* @__PURE__ */ initSchema(undefinedTag, literalDecoder, (s) => {
   s.const = U;
   s.noValidation = true;
-  s.seq = 0;
 });
 
 // ── Call-form dispatch ───────────────────────────────────────────────────────
@@ -114,17 +107,17 @@ const dispatch = (
   // encode direction. `tail` closes the chain: `assertResult` for the families
   // that validate and discard (`is`, `assert`, `make`).
   const first = (rev ? reverse(a as Internal) : a) as Internal;
-  // The chain, in order: the caller's schemas, then the tail. `getOp` reads
-  // exactly as many positional arguments as it is told, so the tail has to sit
-  // right after the last schema - which is why each arity is written out with
-  // its own count rather than padded with `U`; it also allocates nothing on a
-  // cache hit.
+  // The caller's schemas are the key; the tail sits right after the last one,
+  // outside it (flag 1024), so `assertResult` never becomes the schema an
+  // operation is cached on. Each arity is written out with its own count
+  // rather than padded with `U`, which allocates nothing on a cache hit.
+  const f = tail ? flag | 1024 : flag;
   const op =
     k > 2
-      ? getOp(flag, tail ? 4 : 3, first, b as Internal, c as Internal, tail)
+      ? getOp(f, 3, first, b as Internal, c as Internal, tail)
       : k > 1
-        ? getOp(flag, tail ? 3 : 2, first, b as Internal, tail)
-        : getOp(flag, tail ? 2 : 1, first, tail);
+        ? getOp(f, 2, first, b as Internal, tail)
+        : getOp(f, 1, first, tail);
   return immediate ? op(data) : op;
 };
 

@@ -668,12 +668,14 @@ export const findOpNode = (
 const compileChain = (
   cacheTarget: Internal,
   args: Internal[],
-  flag: Flag
+  flag: Flag,
+  tail: Internal | undefined
 ): (from: unknown) => unknown => {
-  let schema: Internal = args[args.length - 1]!;
-  for (let i = args.length - 2; i >= 0; i--) {
+  const chain = tail ? [...args, tail] : args;
+  let schema: Internal = chain[chain.length - 1]!;
+  for (let i = chain.length - 2; i >= 0; i--) {
     const to = schema;
-    schema = updateOutput(args[i]!, (mut) => {
+    schema = updateOutput(chain[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
       // reason: `reverse` re-points `.to` and would lose it. A `.to` of
@@ -747,7 +749,11 @@ export const getOp = (
 
   // The one allocation, on the miss path only: a compile dwarfs the spare
   // array a `slice` copies out of.
-  return compileChain(cacheTarget, [a0, a1!, a2!, a3!].slice(0, n), flag);
+  // Flag 1024: the argument after the counted ones closes the chain
+  // (`assertResult`) without entering the key, so a sentinel never decides
+  // where an operation is cached.
+  const all = [a0, a1!, a2!, a3!];
+  return compileChain(cacheTarget, all.slice(0, n), flag, flag & 1024 ? all[n] : U);
 };
 
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
