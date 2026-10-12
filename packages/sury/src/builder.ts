@@ -23,9 +23,9 @@ import {
   pathEmpty,
   pathExpr,
   pathToText,
+  constructed,
   s,
   stringify,
-  SuryError,
   type SuryErrorRecord,
   toError,
   tagFlags,
@@ -440,40 +440,34 @@ const B_foreignFail = (
   };
 };
 
-// Copied rather than mutated: user code may throw one retained instance more
-// than once, and prepending onto the instance makes the second parse report
-// `a.a` (specs/recursive-retained-error.yaml). Nothing to prepend means nothing
-// to copy - `B_throw` reparents whichever of the two it gets, and reparenting
-// the instance to the prototype it already has changes nothing, its stack
-// included.
-//
+// A failure Sury built in this operation is copied rather than mutated: user
+// code may throw one retained instance more than once, and prepending onto the
+// instance makes the second parse report `a.a` (specs/recursive-retained-error.yaml).
 // Onto the SAME prototype: what the failing check settled lives on its site
-// prototype (base.ts, `errorSite`), and a copy without it would read `Expected
-// undefined`.
+// prototype (base.ts, `errorSite`). This runs once per recursive level a failure
+// passes back through, and such a failure owns only enumerable data, so
+// `Object.assign` copies it.
 //
-// This runs once per recursive level a failure passes back through, so a
-// compiled failure takes `Object.assign` while it has no own `stack`: everything
-// it owns is enumerable data. A constructor (`new S.Error`, a subclass) can own
-// what `Object.assign` drops or throws on: a non-enumerable key, or one
-// shadowing a read-only key on the prototype. Those copy by descriptor. A
-// `stack` - V8's own, SpiderMonkey's on `Error.prototype` - is an accessor that
-// reads the instance it was captured on, so it is copied as a value; an own
-// data one already came across with the rest, and may refuse a redefinition.
+// Anything else - what the constructor built (`new S.Error`, a subclass), or a
+// failure that left an inner operation with its stack - is the caller's and may
+// own what a copy can't carry: a field shadowing a read-only key on the
+// prototype, a non-enumerable one, a stack read off its own instance, a frozen
+// object. It goes in as `cause`, untouched, under a fresh failure with its
+// details and prototype; that failure is a record, so deeper levels copy it.
+//
+// Nothing to prepend means nothing to copy - `B_throw` reparents whichever it
+// gets, and reparenting the instance to its own prototype changes nothing.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
   const proto = Object.getPrototypeOf(error) as object;
   let copy: SuryErrorRecord;
-  if (
-    proto !== SuryError.prototype &&
-    (proto as { constructor: unknown }).constructor === SuryError &&
-    !Object.hasOwn(error, "stack")
-  )
+  if (!constructed.has(error) && !Object.hasOwn(error, "stack"))
     copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
   else {
-    copy = Object.create(proto, Object.getOwnPropertyDescriptors(error)) as SuryErrorRecord;
-    const stack = Object.getOwnPropertyDescriptor(error, "stack");
-    if (stack ? stack.get && stack.configurable : "stack" in error)
-      Object.defineProperty(copy, "stack", { value: error.stack, writable: true, configurable: true });
+    copy = Object.create(proto) as SuryErrorRecord;
+    for (const key of ["code", "reason", "expected", "received", "input", "unionErrors", "from", "to", "key"])
+      if (Object.hasOwn(error, key)) copy[key] = error[key];
+    copy.cause = error;
   }
   copy.path = pathConcat(p, error.path);
   return copy;

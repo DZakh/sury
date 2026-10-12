@@ -980,10 +980,16 @@ export const __setExnId = (id: unknown): void => {
 // `received`, a compiled one does not. That is the constructor's contract
 // rather than an oversight: it is handed a bag of fields and has nothing to
 // share them with.
+// Every instance the constructor built, so a path goes in front of one by
+// wrapping it as `cause` instead of copying it (builder.ts `B_prefixPath`). A
+// record is never in here, which is what tells the two apart on any engine.
+export const constructed: WeakSet<object> = new WeakSet();
+
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
     Object.assign(this, params);
+    constructed.add(this);
   }
   get message(): string {
     return formatErrorMessage(this as unknown as SuryErrorRecord);

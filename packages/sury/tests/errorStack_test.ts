@@ -114,63 +114,37 @@ test("a check that names its own message says it without rendering one", () => {
   expect(S.parseAsResult(named, 1).error!.reason).toBe("Give me a string");
 });
 
-test("a chosen stack survives the copy that prepends a path", () => {
+test("an error thrown under a field is the cause, untouched", () => {
   const SuryError = S.Error as unknown as new (details: unknown) => Error;
-  const refined = S.schema({
-    a: S.string.with(S.refine, (value: string) => {
-      if (value !== "ok")
-        throw new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
-      return true;
-    }),
-  });
-  try {
-    S.parseOrThrow(refined, { a: "no" });
-    expect.unreachable();
-  } catch (error) {
-    expect((error as Error).message).toBe("Failed at a: nope");
-    expect((error as Error).stack!.split("\n")[1]).toContain("errorStack_test.ts");
+  let thrown: Error | undefined;
+  function thrower(): never {
+    thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
+    throw thrown;
   }
-});
-
-test("an error built by hand keeps what it defined through the copy that prepends a path", () => {
-  // Without an own `stack`, the way SpiderMonkey builds every instance.
-  const SuryError = S.Error as unknown as new (details: unknown) => Error;
-  const refined = S.schema({
-    a: S.string.with(S.refine, () => {
-      const error = new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
-      delete (error as { stack?: string }).stack;
-      Object.defineProperty(error, "meta", { value: 1 });
-      throw error;
-    }),
-  });
+  const refined = S.schema({ a: S.string.with(S.refine, () => thrower()) });
   try {
     S.parseOrThrow(refined, { a: "x" });
     expect.unreachable();
   } catch (error) {
     expect((error as Error).message).toBe("Failed at a: nope");
-    expect((error as { meta?: number }).meta).toBe(1);
+    expect(error).toBeInstanceOf(S.Error);
+    expect((error as { cause?: unknown }).cause).toBe(thrown);
+    expect((thrown as unknown as { path: unknown[] }).path).toEqual([]);
+    expect(thrown!.stack!.split("\n")[1]).toContain("thrower");
     expect(typeof (error as Error).stack).toBe("string");
   }
 });
 
-test("a stack the prototype reads off its instance survives the copy that prepends a path", () => {
-  // SpiderMonkey's `stack` is an accessor on `Error.prototype` that reads the
-  // instance, so the copy has to take the value: modelled with a private slot.
+test("a subclass thrown under a field keeps its class on both sides", () => {
   const SuryError = S.Error as unknown as new (details: unknown) => Error;
-  const stacks = new WeakMap<object, string>();
-  class Slotted extends SuryError {
-    constructor(details: unknown) {
-      super(details);
-      delete (this as { stack?: string }).stack;
-      stacks.set(this, "Slotted: nope\n    at thrower");
-    }
-    override get stack(): string | undefined {
-      return stacks.get(this);
-    }
+  class Named extends SuryError {
+    override name = "MyError";
   }
+  const thrown = new Named({ code: "invalid_operation", path: [], reason: "nope" });
+  Object.defineProperty(thrown, "meta", { value: 1 });
   const refined = S.schema({
     a: S.string.with(S.refine, () => {
-      throw new Slotted({ code: "invalid_operation", path: [], reason: "nope" });
+      throw thrown;
     }),
   });
   try {
@@ -178,11 +152,12 @@ test("a stack the prototype reads off its instance survives the copy that prepen
     expect.unreachable();
   } catch (error) {
     expect((error as Error).message).toBe("Failed at a: nope");
-    expect((error as Error).stack).toBe("Slotted: nope\n    at thrower");
+    expect(error).toBeInstanceOf(Named);
+    expect((error as { cause?: unknown }).cause).toBe(thrown);
   }
 });
 
-test("a failure that left an inner operation keeps that operation's stack", () => {
+test("a failure that left an inner operation is the cause, with that operation's stack", () => {
   const inner = S.parseOrThrow(S.number);
   function innerCaller(value: unknown) {
     inner(value);
@@ -198,7 +173,8 @@ test("a failure that left an inner operation keeps that operation's stack", () =
     expect.unreachable();
   } catch (error) {
     expect((error as Error).message).toBe(`Failed at a: Expected number, received "not a number"`);
-    expect((error as Error).stack!.split("\n")[1]).toContain("innerCaller");
+    expect(invalidInput(error as S.Error).expected).toBe(S.number);
+    expect((error as { cause?: Error }).cause!.stack!.split("\n")[1]).toContain("innerCaller");
   }
 });
 
