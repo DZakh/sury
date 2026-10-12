@@ -20,21 +20,20 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[6](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){let v1;try{v1=e[2](v0.n)}catch(x){e[3](x)}typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[4](v1);v0={type:"a",n:v1};break}if(v0.type==="b")break;throw e[5](v0)}}else{throw e[5](v0)}return v0}catch(v2){e[7](v2)}}
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}
     examples:
-      # FIXME: the field's coder ran again over the number the outer coder returned.
       coder-result-is-the-output:
         input: '"abc"'
-        error: "Failed at n: Expected int32, received undefined"
+        output: '{ type: "a", n: 3 }'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){let v1;try{v1=e[2](v0.n)}catch(x){e[3](x)}typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[4](v1);v0={type:"a",n:v1};break}if(v0.type==="b")break;throw e[5](v0)}}else{throw e[5](v0)}return v0}catch(v2){e[6](v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       coder-result-is-the-output:
         input: '"abc"'
-        error: "Failed at n: Expected int32, received undefined"
+        output: '{ type: "a", n: 3 }'
   encode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="a"){let v0;try{v0=e[0](i.n)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i={type:"a",n:v0};break}if(i.type==="b")break;throw e[3](i)}}else{throw e[3](i)}let v1;try{v1=e[4](i)}catch(x){e[5](x)}return v1}catch(v2){e[6](v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       coder-takes-the-output:
         input: '{ type: "a", n: 3 }'
-        output: '""'
+        output: '"xxx"'

@@ -448,3 +448,20 @@ test("Picks a reading for a content link the way the ambiguity report says to", 
     `Ambiguous base64 -> JSON string. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
   )
 })
+
+test("A target's field coder doesn't run again over the coder's result", t => {
+  let bang = S.string->S.to(
+    S.string,
+    ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.slice(~start=0, ~end=-1))},
+  )
+  let target = S.schema(s => {"name": s.matches(bang)})
+  let schema = S.string->S.to(
+    target,
+    ~custom={
+      decode: Sync(s => {"name": s ++ "!"}),
+      encode: Sync(o => o["name"]->String.slice(~start=0, ~end=-1)),
+    },
+  )
+  t->Assert.deepEqual("x"->S.parseOrThrow(~to=schema), {"name": "x!"})
+  t->Assert.deepEqual({"name": "x!"}->S.convertOrThrow(~from=schema, ~to=S.string), "x")
+})

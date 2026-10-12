@@ -46,7 +46,8 @@ import {
   B_isText,
   B_conversion,
   B_invalidOperation,
-  B_neverSlot
+  B_neverSlot,
+  B_outputView
 } from "./builder";
 import {
  definitionToSchema,
@@ -406,6 +407,12 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
       `The target already converts. Chain S.to instead of passing a custom codec`,
     );
   }
+  // An output-seam coder hands over and takes the target's output, so the link
+  // is to what that output claims - the target's own conversions, a field's
+  // coder among them, would run again over a value already past them. Only
+  // where both directions are coders: a reading or "auto" converts the target
+  // itself, through its own chain.
+  if (outputSeam && typeof decode === functionTag && typeof encode === functionTag) target = B_outputView(target);
   // Interned when the third argument is bounded by construction - absent, or
   // one of the two reading strings. A coder is not: `{decode, encode}` and an
   // inline function are fresh objects, so keying on them would miss every time

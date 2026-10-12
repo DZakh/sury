@@ -1,5 +1,7 @@
 import {
   arrayTag,
+  copySchema,
+  setHas,
   type BGlobal,
   type Check,
   compilePath,
@@ -977,6 +979,39 @@ export const B_scope = (val: Val): Val => {
   if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
 }
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again. The schema itself where nothing in it converts.
+export const B_outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  const view = copySchema(last);
+  let changed = last !== schema || !!(last.parser || last.serializer);
+  delete view.parser;
+  delete view.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const childView = B_outputView(child);
+    if (childView !== child) changed = true;
+    return childView;
+  };
+  const viewDict = (dict: Record<string, Internal>): Record<string, Internal> => {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in dict) views[key] = viewOf(dict[key]!);
+    return views;
+  };
+  if (view.properties) view.properties = viewDict(view.properties);
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  if (view["$defs"]) view["$defs"] = viewDict(view["$defs"]);
+  return changed ? view : schema;
+};
 
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in
 // exactly one thing: what the coder's result claims to already be, which is
