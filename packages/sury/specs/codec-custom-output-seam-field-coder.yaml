@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with(S.to, S.schema({ type: "a", name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decodeToOutput: (v: string) => ({ type: "a" as const, name: v + "!" }), encodeFromOutput: (o: { name: string }) => o.name.slice(0, -1) } as any)'
+  input: string
+  output: '{ type: "a"; name: string; }'
+  instantiations: 6212
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { type: { type: "string", const: "a" }, name: { type: "string" } }, required: ["type", "name"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { type: { type: "string", enum: ["a"] }, name: { type: "string" } }, required: ["type", "name"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.name===b.name
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { type: \"a\"; name: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[5](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0.name)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return {type:"a",name:v1}}catch(v2){e[6](v2)}}
+    examples:
+      # FIXME: the coder returned the output, and the field's coder ran again over it.
+      coder-result-is-the-output:
+        input: '"x"'
+        output: '{ type: "a", name: "x!!" }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0.name)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return {type:"a",name:v1}}catch(v2){e[5](v2)}}
+    examples:
+      coder-result-is-the-output:
+        input: '"x"'
+        output: '{ type: "a", name: "x!!" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.name)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]({type:"a",name:v0})}catch(x){e[4](x)}return v1}catch(v2){e[5](v2)}}
+    examples:
+      # FIXME: the field's coder ran before the outer one took the output.
+      coder-takes-the-output:
+        input: '{ type: "a", name: "x!" }'
+        output: '""'
