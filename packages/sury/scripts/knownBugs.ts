@@ -24,7 +24,7 @@ import {
   some,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union" | "issues";
+export type Fuzzer = "eq" | "codec" | "union" | "issues" | "seam";
 
 export type Finding = {
   fuzzer: Fuzzer;

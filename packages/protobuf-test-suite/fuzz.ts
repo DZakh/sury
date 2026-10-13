@@ -14,6 +14,7 @@
 // protobuf-es each decode the result: they must agree on whether it is a
 // message, and where both say it is, re-encode it to the same bytes.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
+import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
@@ -559,6 +560,78 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
   return findings;
 };
 
+// The graph's message held by an Any, against protobuf-es's anyPack and
+// anyUnpack: as a typed union member (and a list of them), read back whatever
+// prefix its type URL carries, and an unlisted type kept whole by the catch-all.
+// Its own stream, so a seed's other draws replay unchanged.
+const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[] => {
+  const findings: Finding[] = [];
+  const r = rng(seed ^ 0x2545f491);
+  let message: S.Schema<unknown, unknown>;
+  let esType: DescMessage;
+  try {
+    message = S.protobufTypeName(suryMessage(fields), "M") as never;
+    esType = protobufEsType(fields);
+  } catch {
+    return findings;
+  }
+  const members = S.union([S.schema({ type: "m", value: message }), S.schema({ type: "other", value: S.protobufAny })]);
+  const envelope = S.schema({ one: S.protobufField(members, 1), many: S.protobufField(S.array(members), 2) });
+  let encode: (value: unknown) => Uint8Array;
+  let decode: (bytes: Uint8Array) => unknown;
+  let encodeMessage: (value: unknown) => Uint8Array;
+  let unpack: (any: unknown) => unknown;
+  let pack: (member: unknown) => unknown;
+  try {
+    encode = S.decodeOrThrow(envelope, S.protobuf) as never;
+    decode = S.decodeOrThrow(S.protobuf, envelope) as never;
+    encodeMessage = S.decodeOrThrow(message, S.protobuf) as never;
+    unpack = S.decodeOrThrow(S.protobufAny.with(S.to, members)) as never;
+    pack = S.encodeOrThrow(S.protobufAny.with(S.to, members)) as never;
+  } catch (e) {
+    findings.push({ kind: `any: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: "" });
+    return findings;
+  }
+  const esAny = (bytes: Uint8Array): Uint8Array => toBinary(wkt.AnySchema, anyPack(esType, fromBinary(esType, bytes)));
+  for (let i = 0; i < values; i++) {
+    const value = genValue(r, fields, 0);
+    const other = { typeUrl: `type.googleapis.com/Other${i}`, value: genScalar(r, "bytes") as Uint8Array };
+    try {
+      const inner = encodeMessage(value).slice();
+      const one = { type: "m", value };
+      const bytes = encode({ one, many: [one, { type: "other", value: other }] }).slice();
+      // field 1 is the first Any, written first: its tag, its length, its bytes
+      const sury = payload(bytes).subarray(0, esAny(inner).length);
+      if (bytesOf(sury).join() !== bytesOf(esAny(inner)).join()) {
+        findings.push({ kind: "any: Sury packs a message protobuf-es packs differently", seed, detail: `value=${show(value)} sury=[${bytesOf(sury)}] es=[${bytesOf(esAny(inner))}]` });
+        continue;
+      }
+      const back = decode(bytes) as { one: { value: unknown }; many: { type: string; value: unknown }[] };
+      if (!equalValue(back.one.value, value) || !equalValue(back.many[0]!.value, value) || back.many[1]!.type !== "other" || !equalValue(back.many[1]!.value, other)) {
+        findings.push({ kind: "any: Sury reads its own Any back as another value", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const unpacked = anyUnpack(fromBinary(wkt.AnySchema, sury), esType);
+      if (unpacked === undefined || bytesOf(toBinary(esType, unpacked)).join() !== bytesOf(inner).join()) {
+        findings.push({ kind: "any: protobuf-es unpacks Sury's Any as another message", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const packed = pack(one) as { typeUrl: string; value: Uint8Array };
+      if (packed.typeUrl !== "type.googleapis.com/M" || bytesOf(packed.value).join() !== bytesOf(inner).join() || !equalValue(pack({ type: "other", value: other }), other)) {
+        findings.push({ kind: "any: S.protobufAny packs a member as another Any than S.protobuf writes", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const prefixed = unpack({ typeUrl: "example.com/a/b/M", value: inner }) as { type: string; value: unknown };
+      if (prefixed.type !== "m" || !equalValue(prefixed.value, value)) {
+        findings.push({ kind: "any: a type URL's prefix changes what Sury reads", seed, detail: `value=${show(value)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `any: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `value=${show(value)}` });
+    }
+  }
+  return findings;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -582,6 +655,8 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
       findings.push({ kind: "compile", seed, detail: (e as Error).message });
       continue;
     }
+    findings.push(...anyFindings(seed, fields, values));
+    checks += values;
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;
