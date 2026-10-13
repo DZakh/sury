@@ -107,10 +107,8 @@ const dispatch = (
   // encode direction. `tail` closes the chain: `assertResult` for the families
   // that validate and discard (`is`, `assert`, `make`).
   const first = (rev ? reverse(a as Internal) : a) as Internal;
-  // The caller's schemas are the key; the tail sits right after the last one,
-  // outside it (flag 1024), so `assertResult` never becomes the schema an
-  // operation is cached on. Each arity is written out with its own count
-  // rather than padded with `U`, which allocates nothing on a cache hit.
+  // `getOp` takes the tail from position `n` (flag 1024), so each arity passes
+  // its own schema count rather than padding with `U`.
   const f = tail ? flag | 1024 : flag;
   const op =
     k > 2

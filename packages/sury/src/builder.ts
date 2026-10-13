@@ -440,23 +440,21 @@ const B_foreignFail = (
   };
 };
 
-// A failure Sury built in this operation is copied rather than mutated: user
-// code may throw one retained instance more than once, and prepending onto the
-// instance makes the second parse report `a.a` (specs/recursive-retained-error.yaml).
-// Onto the SAME prototype: what the failing check settled lives on its site
-// prototype (base.ts, `errorSite`). This runs once per recursive level a failure
-// passes back through, and such a failure owns only enumerable data, so
-// `Object.assign` copies it.
+// A failure record (compiled, never through the constructor, no own `stack`)
+// is copied rather than mutated: user code may throw one retained instance more
+// than once, and prepending onto it makes the second parse report `a.a`
+// (specs/recursive-retained-error.yaml). The copy keeps the record's prototype,
+// where its check settled `expected` (base.ts `errorSite`); without it the copy
+// reads `Expected undefined`. A record owns only enumerable data, so
+// `Object.assign` is enough, and this runs once per recursive level a failure
+// passes back through.
 //
-// Anything else - what the constructor built (`new S.Error`, a subclass), or a
-// failure that left an inner operation with its stack - is the caller's and may
-// own what a copy can't carry: a field shadowing a read-only key on the
-// prototype, a non-enumerable one, a stack read off its own instance, a frozen
-// object. It goes in as `cause`, untouched, under a fresh failure with its
-// details and prototype; that failure is a record, so deeper levels copy it.
-//
-// Nothing to prepend means nothing to copy - `B_throw` reparents whichever it
-// gets, and reparenting the instance to its own prototype changes nothing.
+// Anything else is the caller's: an `S.Error` or subclass instance, or a failure
+// that left an inner operation with its stack. It may be frozen, own a
+// non-enumerable field or one shadowing a read-only key on the prototype, or
+// read its stack off itself, so it is never copied. It becomes the `cause` of a
+// fresh record on its prototype carrying the detail keys below, which deeper
+// levels copy like any record.
 const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
   if (!p.length) return error;
   const proto = Object.getPrototypeOf(error) as object;

@@ -2586,7 +2586,7 @@ console.log(e);
 e.expected; // => S.string
 ```
 
-An `S.Error` your refine or coder throws - from an operation it runs, say - keeps its code and reason and gets the path where it was thrown. Under a field it comes back as the `cause` of the failure you catch, exactly as it was thrown:
+An `S.Error` thrown inside a refine or coder, your own or one from an operation it calls, is what you catch at the root. Under a field you catch a new one with its code and reason and the path in front, and the one you threw is its `cause`, untouched:
 
 ```ts
 const parseCount = S.parseOrThrow(S.number);

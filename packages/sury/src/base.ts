@@ -28,8 +28,10 @@ export type Flag = number;
 // 256 ReScript Result (`{TAG, _0}`), 512 promisable (1 without lifting a
 // synchronous result into a promise), 2048 yield the operation's input rather
 // than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
-// (`isInput`/`isOutput`), 1024 the chain ends in a sentinel passed after the
-// counted schemas (parse.ts `getOp`).
+// (`isInput`/`isOutput`).
+//
+// 1024 is read by parse.ts `getOp` alone: the argument after the `n` counted
+// schemas closes the chain without entering the cache key.
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
@@ -334,6 +336,8 @@ export type UnrecognizedKeyDetails = {
   reason: string;
   key: string;
 }
+// builder.ts `B_prefixPath` carries exactly these types' fields, by name, onto
+// the failure it wraps a caller's error in. A field added here goes there too.
 export type ErrorDetails =
   | InvalidInputDetails
   | InvalidOperationDetails
@@ -970,6 +974,12 @@ export const __setExnId = (id: unknown): void => {
   exnId = id;
 }
 
+// What `SuryError`'s constructor built (`new S.Error`, a subclass). A compiled
+// failure record never goes through it. builder.ts `B_prefixPath` wraps these
+// as `cause` instead of copying them. An own `stack` can't tell the two apart:
+// V8 puts one on every instance, SpiderMonkey puts it on `Error.prototype`.
+export const constructed: WeakSet<object> = new WeakSet();
+
 // The public `S.Error`: what a refiner constructs to throw a failure of its
 // own, so `super()` gives it a stack the way any hand-written throw has one.
 // The library never builds a failure this way - see `toError`.
@@ -980,11 +990,6 @@ export const __setExnId = (id: unknown): void => {
 // `received`, a compiled one does not. That is the constructor's contract
 // rather than an oversight: it is handed a bag of fields and has nothing to
 // share them with.
-// Every instance the constructor built, so a path goes in front of one by
-// wrapping it as `cause` instead of copying it (builder.ts `B_prefixPath`). A
-// record is never in here, which is what tells the two apart on any engine.
-export const constructed: WeakSet<object> = new WeakSet();
-
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();

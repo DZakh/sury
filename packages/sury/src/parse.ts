@@ -747,11 +747,10 @@ export const getOp = (
     node = node.n;
   }
 
-  // The one allocation, on the miss path only: a compile dwarfs the spare
-  // array a `slice` copies out of.
-  // Flag 1024: the argument after the counted ones closes the chain
-  // (`assertResult`) without entering the key, so a sentinel never decides
-  // where an operation is cached.
+  // Allocated on the miss path only, where a compile dwarfs them. Flag 1024: the
+  // argument after the `n` counted ones closes the chain (`assertResult`) without
+  // entering the key. Keyed, the sentinel would outrank every interned primitive
+  // by `seq`, and every check of one would share a single memo list on it.
   const all = [a0, a1!, a2!, a3!];
   return compileChain(cacheTarget, all.slice(0, n), flag, flag & 1024 ? all[n] : U);
 };
