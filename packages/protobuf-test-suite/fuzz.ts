@@ -565,8 +565,7 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
 };
 
 // Its own stream, so a seed's other draws replay unchanged.
-const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[] => {
-  const findings: Finding[] = [];
+const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
   const r = rng(seed ^ 0x2545f491);
   let message: S.Schema<unknown, unknown>;
   let esType: DescMessage;
@@ -574,7 +573,7 @@ const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[
     message = S.protobufTypeName(suryMessage(fields), "M") as never;
     esType = protobufEsType(fields);
   } catch {
-    return findings;
+    return 0;
   }
   const members = S.union([S.schema({ type: "m", value: message }), S.schema({ type: "other", value: S.protobufAny })]);
   const envelope = S.schema({ one: S.protobufField(members, 1), many: S.protobufField(S.array(members), 2) });
@@ -591,7 +590,7 @@ const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[
     pack = S.encodeOrThrow(S.protobufAny.with(S.to, members)) as never;
   } catch (e) {
     findings.push({ kind: `any: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: "" });
-    return findings;
+    return 1;
   }
   const esAny = (bytes: Uint8Array): Uint8Array => toBinary(wkt.AnySchema, anyPack(esType, fromBinary(esType, bytes)));
   for (let i = 0; i < values; i++) {
@@ -630,7 +629,7 @@ const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[
       findings.push({ kind: `any: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `value=${show(value)}` });
     }
   }
-  return findings;
+  return values;
 };
 
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
@@ -656,8 +655,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
       findings.push({ kind: "compile", seed, detail: (e as Error).message });
       continue;
     }
-    findings.push(...anyFindings(seed, fields, values));
-    checks += values;
+    checks += anyChecks(findings, seed, fields, values);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;

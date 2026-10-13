@@ -1,4 +1,5 @@
-// The seam family: a ReScript `~custom` coder in front of the drawn schema.
+// The seam family: an output-seam coder (`decodeToOutput`/`encodeFromOutput`,
+// what ReScript's `~custom` compiles to) in front of the drawn schema.
 //
 // That coder hands over and takes the schema's Output (the output seam,
 // CODEC_SPEC.md "Custom conversions"), so whatever the schema converts on its
