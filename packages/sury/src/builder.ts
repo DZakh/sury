@@ -440,35 +440,33 @@ const B_foreignFail = (
   };
 };
 
-// A failure record (compiled, never through the constructor, no own `stack`)
-// is copied rather than mutated: user code may throw one retained instance more
-// than once, and prepending onto it makes the second parse report `a.a`
-// (specs/recursive-retained-error.yaml). The copy keeps the record's prototype,
-// where its check settled `expected` (base.ts `errorSite`); without it the copy
-// reads `Expected undefined`. A record owns only enumerable data, so
-// `Object.assign` is enough, and this runs once per recursive level a failure
-// passes back through.
+// A failure Sury built in this operation is copied rather than mutated: user
+// code may throw one retained instance more than once, and prepending onto it
+// makes the second parse report `a.a` (specs/recursive-retained-error.yaml).
+// The copy keeps the record's prototype, where its check settled `expected`
+// (base.ts `errorSite`); without it the copy reads `Expected undefined`. A record
+// owns only enumerable data, so `Object.assign` is enough, and this runs once
+// per recursive level a failure passes back through.
 //
-// Anything else is the caller's: an `S.Error` or subclass instance, or a failure
-// that left an inner operation with its stack. It may be frozen, own a
-// non-enumerable field or one shadowing a read-only key on the prototype, or
-// read its stack off itself, so it is never copied. It becomes the `cause` of a
-// fresh record on its prototype carrying the detail keys below, which deeper
-// levels copy like any record.
-const B_prefixPath = (error: SuryErrorRecord, p: Path): SuryErrorRecord => {
+// What user code threw (`caller`, or anything the constructor built) is never
+// copied: it may be frozen, read its stack off itself, or own a field shadowing
+// a read-only key on the prototype. The failure takes it as its prototype, so
+// its code, reason, class and fields read through, and owns only `path` and
+// `cause`. A deeper level wraps the same original again rather than nesting.
+const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
   if (!p.length) return error;
-  const proto = Object.getPrototypeOf(error) as object;
-  let copy: SuryErrorRecord;
-  if (!constructed.has(error) && !Object.hasOwn(error, "stack"))
-    copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
-  else {
-    copy = Object.create(proto) as SuryErrorRecord;
-    for (const key of ["code", "reason", "expected", "received", "input", "unionErrors", "from", "to", "key"])
-      if (Object.hasOwn(error, key)) copy[key] = error[key];
-    copy.cause = error;
+  const path = pathConcat(p, error.path);
+  const proto = Object.getPrototypeOf(error) as SuryErrorRecord;
+  const original = Object.hasOwn(error, "cause") && error.cause === proto ? proto : caller || constructed.has(error) ? error : U;
+  if (original === U) {
+    const copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
+    copy.path = path;
+    return copy;
   }
-  copy.path = pathConcat(p, error.path);
-  return copy;
+  return Object.create(original, {
+    path: { value: path, enumerable: true, writable: true, configurable: true },
+    cause: { value: original, enumerable: true, writable: true, configurable: true },
+  }) as SuryErrorRecord;
 };
 
 export const B_conversionFail = (
@@ -483,7 +481,7 @@ export const B_conversionFail = (
 
       // A SuryError thrown by user code carries only the path it named, so the
       // path it was reached through is prepended here.
-      return B_prefixPath(error, p) as unknown as ErrorDetails;
+      return B_prefixPath(error, p, true) as unknown as ErrorDetails;
     }
     return foreign(cause, p);
   };

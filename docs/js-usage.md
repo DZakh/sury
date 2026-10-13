@@ -2554,7 +2554,7 @@ Every error carries:
 - `code` - which kind of failure, with extra fields per kind:
   - `"invalid_input"` - the value doesn't match. `expected` and `received` are schemas describing both sides, `input` is the value, and `unionErrors` lists each member's failure when a union rejected it.
   - `"unrecognized_key"` - a `strict` object saw a key it doesn't declare, named in `key`. One key per error.
-  - `"invalid_conversion"` - a custom `decode`/`encode` threw. `from`/`to` are the schemas and `cause` is what it threw.
+  - `"invalid_conversion"` - a custom `decode`/`encode` threw. `from`/`to` are the schemas and `cause` is what it threw (one level further down when it came through a refine under a field, see below).
   - `"unsupported_decode"` - the two schemas have no conversion between them. See [When a conversion is rejected](#when-a-conversion-is-rejected).
   - `"invalid_operation"` - the schema itself can't run this way, such as an async schema under a sync operation.
 
@@ -2586,7 +2586,7 @@ console.log(e);
 e.expected; // => S.string
 ```
 
-An `S.Error` thrown inside a refine or coder, your own or one from an operation it calls, is what you catch at the root. Under a field you catch a new one with its code and reason and the path in front, and the one you threw is its `cause`, untouched:
+An `S.Error` thrown inside a refine or coder, your own or one from an operation it calls, is what you catch at the root. Under a field you catch a new one with its code, reason and class and the path in front, and the one you threw is its `cause`, untouched. An `invalid_conversion` from an operation it calls keeps what that coder threw on its own `cause`, so it reads `e.cause.cause`:
 
 ```ts
 const parseCount = S.parseOrThrow(S.number);

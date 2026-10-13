@@ -336,8 +336,6 @@ export type UnrecognizedKeyDetails = {
   reason: string;
   key: string;
 }
-// builder.ts `B_prefixPath` carries exactly these types' fields, by name, onto
-// the failure it wraps a caller's error in. A field added here goes there too.
 export type ErrorDetails =
   | InvalidInputDetails
   | InvalidOperationDetails
@@ -976,8 +974,9 @@ export const __setExnId = (id: unknown): void => {
 
 // What `SuryError`'s constructor built (`new S.Error`, a subclass). A compiled
 // failure record never goes through it. builder.ts `B_prefixPath` wraps these
-// as `cause` instead of copying them. An own `stack` can't tell the two apart:
-// V8 puts one on every instance, SpiderMonkey puts it on `Error.prototype`.
+// as `cause` instead of copying them, and parse.ts `captureStackAt` leaves their
+// stack alone. An own `stack` can't tell the two apart: V8 puts one on every
+// instance, SpiderMonkey puts it on `Error.prototype`.
 export const constructed: WeakSet<object> = new WeakSet();
 
 // The public `S.Error`: what a refiner constructs to throw a failure of its

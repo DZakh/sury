@@ -4,6 +4,7 @@ import {
   baseSchema,
   type Builder,
   configurableValueOptions,
+  constructed,
   copySchema,
   getOrRethrow,
   type Encoder,
@@ -141,10 +142,11 @@ export const parse = (input: Val): Val => {
 // them at the build boundary: more than `Error.stackTraceLimit` allows, so the
 // line the caller actually wrote falls off the end of its own stack trace.
 //
-// Ours and stack-free only. `"stack" in` rather than reading it: on an error
-// that has one the read formats the trace, and anything arriving with a stack -
-// a foreign exception, one user code built with `new S.Error` and threw - is
-// already pointing at a better line than this.
+// Only what Sury built. A foreign exception, or one user code built with `new
+// S.Error` and threw, already points at a better line than this; asking by
+// ownership rather than `"stack" in` keeps that true on SpiderMonkey, whose
+// accessor on `Error.prototype` answers for every error, and never reads (and
+// formats) a stack to decide.
 //
 // `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
 // it can drop the frames between the raise and the caller. Every other engine
@@ -161,7 +163,7 @@ export const parse = (input: Val): Val => {
 // Hands back what it was given, so each boundary reads as the one expression
 // it rethrows or rejects with.
 const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): SuryErrorRecord => {
-  if (thrown && thrown.s === s && !("stack" in thrown)) {
+  if (thrown && thrown.s === s && !Object.hasOwn(thrown, "stack") && !constructed.has(thrown)) {
     const capture = (
       Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
     ).captureStackTrace;
@@ -752,7 +754,7 @@ export const getOp = (
   // entering the key. Keyed, the sentinel would outrank every interned primitive
   // by `seq`, and every check of one would share a single memo list on it.
   const all = [a0, a1!, a2!, a3!];
-  return compileChain(cacheTarget, all.slice(0, n), flag, flag & 1024 ? all[n] : U);
+  return compileChain(cacheTarget, all.slice(0, n), flag, all[n]);
 };
 
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
