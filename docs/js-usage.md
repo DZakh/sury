@@ -2586,7 +2586,7 @@ console.log(e);
 e.expected; // => S.string
 ```
 
-An `S.Error` thrown inside a refine or coder, your own or one from an operation it calls, is what you catch at the root. Under a field you catch a new one with its code, reason and class and the path in front, and the one you threw is its `cause`, untouched. An `invalid_conversion` from an operation it calls keeps what that coder threw on its own `cause`, so it reads `e.cause.cause`:
+An `S.Error` thrown inside a refine or coder, your own or one from an operation it calls, is what you catch at the root. Under a field you catch a new one with its code, reason and class and the path in front, and the one you threw (or, if that already wrapped one, the one it wraps) is its `cause`, untouched. An `invalid_conversion` from an operation it calls keeps what that coder threw on its own `cause`, so it reads `e.cause.cause`:
 
 ```ts
 const parseCount = S.parseOrThrow(S.number);

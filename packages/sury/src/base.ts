@@ -30,8 +30,9 @@ export type Flag = number;
 // than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
 //
-// 1024 keys a chain closed by the argument after the `n` counted schemas,
-// which parse.ts `getOp` hands on as the tail without keying it.
+// 1024 is not a return mode (`outcomeOf` never reads it): it keys a chain
+// closed by the argument after the `n` counted schemas, which parse.ts `getOp`
+// hands on as the tail without keying it.
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
