@@ -862,10 +862,11 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   }
 
   // A ref to a union has no narrow to guard its case, and neither has a nested
-  // union whose arms convert (a defaulted `S.nullable` carries its default, so
-  // it stays whole): only a union of checks folds into one condition. Once no
-  // later group shares a type with it, it stops falling through and would
-  // shadow them all.
+  // union the factory kept whole. Even one made only of checks guards itself
+  // only when its narrows hoist into the case condition, which its own fallback
+  // (a refined arm beside a plain one) or a converted value in front of it
+  // prevents, and the plan can't tell which. Unguarded, once no later group
+  // shares a type with it, it stops falling through and would shadow them all.
   // It runs after the groups it shares no type with instead - order between
   // disjoint groups is unobservable - and before the first one it does share
   // a type with. It still falls, into that group or the union's own failure,
@@ -875,7 +876,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     const head = group.a[0]!;
     if (
       group.a[1] ||
-      !(head.n.type === refTag || (head.n.type === anyOfTag && !unionIsNoop(head.s))) ||
+      !(head.n.type === refTag || head.n.type === anyOfTag) ||
       group.m === ~0
     ) continue;
     group.f |= 8 | 2;

@@ -13,7 +13,7 @@ vs:
   zod: z.union([z.union([z.int32(), z.string().min(3)]).describe("d"), z.boolean()])
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="number"&&i==i&&i<=2147483647&&i>=-2147483648&&i%1==0)break;if(typeof i==="string"){i.length>2||e[0](i);break}throw e[1](i)}break}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{let v0;for(;;){if(typeof i==="boolean")break;l1:{for(;;){if(typeof i==="number"&&i==i&&i<=2147483647&&i>=-2147483648&&i%1==0)break;if(typeof i==="string"){if(!(i.length>2)){v0=[v0,e[0],i];break l1}break}v0=[v0,e[1](i)];break l1}break}throw e[2](i,v0)}return i}catch(v2){e[3](v2)}}
     examples:
       int:
         input: "1"
@@ -23,16 +23,16 @@ operations:
         output: '"abc"'
       short-string:
         input: '"ab"'
-        error: Expected string.length >= 3, received "ab"
+        error: |-
+          Expected int32 | string.length >= 3 | boolean, received "ab"
+          - Expected string.length >= 3, received "ab"
       fraction:
         input: "1.5"
-        error: Expected int32 | string.length >= 3, received 1.5
-      # FIXME: the described union has no guard, so it rejects what the later member accepts
+        error: |-
+          Expected int32 | string.length >= 3 | boolean, received 1.5
+          - Expected int32 | string.length >= 3, received 1.5
       boolean:
         input: "true"
-        error: Expected int32 | string.length >= 3, received true
-        divergence:
-          reason: the described union is dispatched with no guard and fails for the whole union
-          zod: "true"
+        output: "true"
   decode: identity
   encode: identity
