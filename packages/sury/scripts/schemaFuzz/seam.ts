@@ -28,8 +28,6 @@ const check = (ctx: Ctx): void => {
   // A target with a chain of its own is refused with "The target already
   // converts": the coder would skip that chain, and no Output names its input.
   if (!outputs.length || (schema as { to?: unknown }).to !== undefined) return;
-  // The coder's own side: a box, so the drawn Output travels inside a value of
-  // a fixed shape whatever it is.
   const box = S.schema({ v: S.unknown });
   const seam = compile<Op>("seam", () =>
     S.to(box, schema, { decodeToOutput: (input: { v: unknown }) => input.v, encodeFromOutput: (output: unknown) => ({ v: output }) }),

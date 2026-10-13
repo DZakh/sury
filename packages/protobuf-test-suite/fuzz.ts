@@ -3,7 +3,7 @@
 // holding a oneof, a packed field beside an unpacked one of the same type, a
 // message that reaches itself two fields down.
 //
-// Three properties per graph. Every generated value goes through `runRoundTrip`,
+// Four properties per graph. Every generated value goes through `runRoundTrip`,
 // the check each corpus round trip gets: Sury's bytes equal protobufjs's, both
 // decode back to the value, and protobuf-es reads Sury's bytes and the printed
 // `.proto` alike. Then one leaf of the value - a field, a list element, a map
@@ -12,7 +12,11 @@
 // reason shows what it found. Last the valid encoding is mutated - a byte
 // flipped, a truncation, a slice repeated or spliced in - and Sury and
 // protobuf-es each decode the result: they must agree on whether it is a
-// message, and where both say it is, re-encode it to the same bytes.
+// message, and where both say it is, re-encode it to the same bytes. The
+// graph's message is also held by an Any, through S.protobuf and through
+// S.protobufAny, against protobuf-es's anyPack and anyUnpack: packed to the
+// same bytes, read back whatever prefix its type URL carries, and an unlisted
+// type kept whole by the catch-all.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
@@ -560,9 +564,6 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
   return findings;
 };
 
-// The graph's message held by an Any, against protobuf-es's anyPack and
-// anyUnpack: as a typed union member (and a list of them), read back whatever
-// prefix its type URL carries, and an unlisted type kept whole by the catch-all.
 // Its own stream, so a seed's other draws replay unchanged.
 const anyFindings = (seed: number, fields: FieldDef[], values: number): Finding[] => {
   const findings: Finding[] = [];
