@@ -30,8 +30,8 @@ export type Flag = number;
 // than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
 //
-// 1024 is read by parse.ts `getOp` alone: the argument after the `n` counted
-// schemas closes the chain without entering the cache key.
+// 1024 keys a chain closed by the argument after the `n` counted schemas,
+// which parse.ts `getOp` hands on as the tail without keying it.
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
@@ -1101,7 +1101,11 @@ Object.defineProperty(sitePrototype, "reason", {
   configurable: true,
   set: reasonSet,
   get(this: SuryErrorRecord): string {
-    const site = Object.getPrototypeOf(this) as SuryErrorRecord;
+    let site = Object.getPrototypeOf(this) as SuryErrorRecord;
+    // A failure wrapping a caller's record (builder.ts `B_prefixPath`) has that
+    // record as its prototype and as its own `cause`; the site is one further,
+    // and the memo must not land on the record it promises to leave untouched.
+    if (Object.hasOwn(this, "cause") && this.cause === site) site = Object.getPrototypeOf(site) as SuryErrorRecord;
     return renderReason(
       this,
       (site.expectedExpression ??= inputExpression(site.expected as Internal)) as string

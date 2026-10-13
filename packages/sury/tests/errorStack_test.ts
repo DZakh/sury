@@ -241,10 +241,55 @@ test("a failure that left an inner operation is the cause, with that operation's
     S.parseOrThrow(outer, { a: "not a number" });
     expect.unreachable();
   } catch (error) {
+    const cause = (error as { cause?: Error }).cause!;
+    const keys = Object.keys(cause);
     expect((error as Error).message).toBe(`Failed at a: Expected number, received "not a number"`);
     expect(invalidInput(error as S.Error).expected).toBe(S.number);
-    expect((error as { cause?: Error }).cause!.stack!.split("\n")[1]).toContain("innerCaller");
+    expect(cause.stack!.split("\n")[1]).toContain("innerCaller");
+    expect(Object.keys(cause)).toEqual(keys);
   }
+});
+
+test("a failure that left an inner operation at the root keeps that operation's stack", () => {
+  const inner = S.parseOrThrow(S.number);
+  function innerCaller(value: unknown) {
+    inner(value);
+  }
+  const outer = S.unknown.with(S.refine, (value: unknown) => {
+    innerCaller(value);
+    return true;
+  });
+  try {
+    S.parseOrThrow(outer, "x");
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).stack!.split("\n")[1]).toContain("innerCaller");
+  }
+});
+
+test("an error built by hand and frozen without a stack comes out as itself at the root", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const thrown = new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
+  delete (thrown as { stack?: string }).stack;
+  Object.freeze(thrown);
+  const refined = S.string.with(S.refine, () => {
+    throw thrown;
+  });
+  expect(() => S.parseOrThrow(refined, "x")).toThrow(thrown);
+});
+
+test("an error a recursive node's own refine throws is the cause at every depth", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
+  const node = S.recursive("N", (n) =>
+    S.schema({ kid: S.optional(n) }).with(S.refine, (x: unknown) => {
+      if (!(x as { kid?: unknown }).kid) throw thrown;
+      return true;
+    }),
+  );
+  const { error } = S.parseAsResult(node, { kid: { kid: {} } });
+  expect(error!.message).toBe("Failed at kid.kid: nope");
+  expect((error as { cause?: unknown }).cause).toBe(thrown);
 });
 
 test("prepending a path keeps what the failing check knew", () => {
