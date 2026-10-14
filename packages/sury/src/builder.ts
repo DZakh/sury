@@ -2,6 +2,7 @@ import {
   arrayTag,
   type BGlobal,
   type Check,
+  type Continuation,
   compilePath,
   type Failure,
   type ErrorDetails,
@@ -237,6 +238,7 @@ export const B_operationArg = (
     fv: U,
     cp: "",
     fu: U,
+    fs: U,
     hd: "",
     fz: U,
     vc: U,
@@ -388,15 +390,33 @@ export const B_detached = (g: BGlobal, body: () => string): string => {
   }
 };
 
+export const B_then = (param: string, body: string, ret: string): Continuation => (settle) =>
+  `${param}=>{${settle ? `try{${body}}catch(x){return ${settle}(x)}` : body}return ${ret}}`;
+
 export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
+  const name = output.i;
   const rj = path ? `x=>${raise}(x${path})` : raise;
-  const decl = B_let(output.g, output.i);
-  const cp = (value: string) => `${decl}try{${output.i}=${value}}catch(x){${raise}(x${path})}`;
+  const decl = B_let(output.g, name);
+  const cp = (value: string) => `${decl}try{${name}=${value}}catch(x){${raise}(x${path})}`;
+  const native = (ok: string, no: string) =>
+    cp(`${B_embedPure(output, Promise.prototype.then)}.call(${call},${ok},${no})`);
   const built = (output.cp = cp(`${call}.catch(${rj})`));
-  output.fu = (then) =>
-    output.cp === built &&
-    !output.fz &&
-    !!(output.cp = cp(`${B_embedPure(output, Promise.prototype.then)}.call(${call},${then},${rj})`));
+  let fused: string | undefined, then: Continuation | undefined, settled = false;
+  output.fu = (ok, same) => {
+    if (output.cp !== built || output.fz) return false;
+    output.cp = fused = native(ok(), rj);
+    if (same) then = ok;
+    return true;
+  };
+  output.fs = (val, apply) => {
+    if (val.i !== name) return false;
+    if (apply && !settled && then && output.cp === fused && !output.fz) {
+      const s = B_embedPure(output, settle);
+      output.cp = native(then(s), `x=>{try{${raise}(x${path})}catch(y){return ${s}(y)}}`);
+      settled = true;
+    }
+    return settled;
+  };
 };
 
 export const B_raiser = <TArg>(b: Val, fn: (arg: TArg, path?: Path) => ErrorDetails): string =>
@@ -678,6 +698,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     fv: U,
     cp: "",
     fu: U,
+    fs: U,
     hd: "",
     fz: U,
     vc: U,
@@ -708,6 +729,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     fv: U,
     cp: "",
     fu: U,
+    fs: U,
     hd: "",
     fz: U,
     vc: checks,
@@ -753,9 +775,9 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
   // is: inside a `.then`, the way the parse loop continues an async val.
   if (outC && (val.f & 1)) {
     const v = val.v();
-    const then = `${v}=>{${B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC)))}return ${v}}`;
-    if (!val.fu?.(then)) {
-      val.i = `${v}.then(${then})`;
+    const then = B_then(v, B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC))), v);
+    if (!val.fu?.(then, true)) {
+      val.i = `${v}.then(${then()})`;
       val.v = _notVar;
     }
   } else if (outC) val = B_refine(val, U, outC);
@@ -808,6 +830,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
     fv: U,
     cp: "",
     fu: U,
+    fs: U,
     hd: "",
     fz: U,
     vc: U,
@@ -864,8 +887,12 @@ export const settledTag = {};
 export type Settled = { t: typeof settledTag; l: unknown[] };
 const settle = (thrown: unknown): Settled =>
   (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
-export const B_settle = (val: Val, promise: string): string =>
-  `${promise}.then(void 0,${B_embedPure(val, settle)})`;
+// The child's promise as the join reads it. Ask `fs` to take the settle into
+// the child's own `then` before its merge emits it, and this reads it back.
+export const B_settle = (container: Val, child: Val, guard?: boolean): string =>
+  child.fs?.(child)
+    ? child.i
+    : `${guard ? `${child.i}&&` : ""}${child.i}.then(void 0,${B_embedPure(container, settle)})`;
 // Answers for the container's sync children too, so it clears `k`. The failed
 // test is a snapshot of the list, and a sibling that collected after it reads
 // as this container failing: harmless, the operation fails with it either way.
@@ -922,7 +949,12 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   // asyncVal's inline is a Promise.all(...) expression, not a var.
   // This has to happen before val->merge, which finalizes the prev
   // chain and locks the emitted code.
-  if (val.f & 1) val.v(); // 1
+  if (val.f & 1) { // 1
+    val.v();
+    // completeObjectVal's join settles a field on this same answer, read from
+    // the container's scope, which a child's exit answers the same way.
+    if (B_collects(val.g) && val.g.k) val.fs?.(val, true);
+  }
   objectVal.cp += B_merge(val);
   objectVal.d![location] = val;
 }
@@ -986,6 +1018,7 @@ export const B_scope = (val: Val): Val => {
     fv: U,
     cp: "",
     fu: U,
+    fs: U,
     hd: "",
     fz: U,
     vc: U,

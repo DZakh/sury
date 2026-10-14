@@ -167,6 +167,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
   fv: U,
   cp: "",
   fu: U,
+  fs: U,
   hd: "",
   fz: U,
   vc: U,
@@ -198,7 +199,7 @@ export const makeArrayVal = (prev: Val): Val =>
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
-  const promised: string[] = [];
+  const promised: Val[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
@@ -207,7 +208,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
-      promised.push(val.i);
+      promised.push(val);
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -230,7 +231,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
   objectVal.i = isArray ? "[" + inline.slice(0, -1) + "]" : "{" + inline.slice(0, -1) + "}";
 
   if (promised.length) {
-    const promiseAllContent = promised.join(",");
+    const promiseAllContent = promised.map((val) => val.i).join(",");
     const g = objectVal.g;
     const collects = B_collects(g) && g.k;
     const joinCode = collects ? B_join(objectVal, `[${promiseAllContent}]`) : "";
@@ -264,7 +265,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
               // A field whose sync part failed never made its promise; the
               // collected failure already fails the join, so its slot only
               // has to not be read.
-              .map((p) => `${p}&&${B_settle(objectVal, p)}`)
+              .map((val) => B_settle(objectVal, val, true))
               .join(",")
           : promiseAllContent
       }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`;
@@ -370,20 +371,22 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       let itemOutput!: Val, output2!: Val;
       const collected = input.g.kj;
       const itemCode = B_sink(input.g, () => {
-        let itemMerge = "";
+        let itemMerge = "", settles = false;
+        const collects = B_collects(input.g);
         const emit = () => {
           itemOutput = parse(itemInput);
           output2 = itemOutput.t!
             ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
               B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
             : B_refine(input, expectedSchema);
+          if ((settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k))) itemOutput.fs?.(itemOutput, true);
           itemMerge = B_merge(itemOutput);
         };
-        const wrap = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
+        const wrap = collects ? B_child(input.g, emit) : (emit(), U);
         const code = itemOutput.t!
           ? itemMerge +
-            (itemOutput.f & 1 && B_collects(input.g) && input.g.k
-              ? `${output2.v()}[${iteratorVar}]=${B_settle(output2, itemOutput.i)}`
+            (settles
+              ? `${output2.v()}[${iteratorVar}]=${B_settle(output2, itemOutput)}`
               : B_addKey(output2, iteratorVar, itemOutput))
           : input.g.t + input.g.j === failCountBefore
             ? ""
@@ -546,20 +549,22 @@ export const objectDecoder = (unknownInput: Val): Val => {
     let itemOutput!: Val, output2!: Val;
     const collected = input.g.kj;
     const itemCode = B_sink(input.g, () => {
-      let itemMerge = "";
+      let itemMerge = "", settles = false;
+      const collects = B_collects(input.g);
       const emit = () => {
         itemOutput = parse(itemInput);
         output2 = itemOutput.t!
           ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
             B_next(input, "{}", dictFactory(itemOutput.s))
           : B_refine(input, expectedSchema);
+        if ((settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k))) itemOutput.fs?.(itemOutput, true);
         itemMerge = B_merge(itemOutput);
       };
-      const wrap = B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
+      const wrap = collects ? B_child(input.g, emit) : (emit(), U);
       const code = itemOutput.t!
         ? itemMerge +
-          (itemOutput.f & 1 && B_collects(input.g) && input.g.k
-            ? `${output2.v()}[${keyVar}]=${B_settle(output2, itemOutput.i)}`
+          (settles
+            ? `${output2.v()}[${keyVar}]=${B_settle(output2, itemOutput)}`
             : B_addKey(output2, keyVar, itemOutput))
         : input.g.t + input.g.j === failCountBefore
           ? ""
@@ -920,6 +925,7 @@ export const valGet = (parent: Val, location: string): Val => {
       fv: U,
       cp: "",
       fu: U,
+      fs: U,
       hd: "",
       fz: U,
       vc: U,

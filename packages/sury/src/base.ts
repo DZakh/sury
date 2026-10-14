@@ -636,6 +636,10 @@ export type Check = {
   f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
 
+// A `.then` handler as code. Given `settle`, the form that returns
+// `settle(raised)` instead of raising (`fs`).
+export type Continuation = (settle?: string) => string;
+
 export type Val = {
   // We might have the same value, but different instances of the val
   // object. Use the bond field, to connect the var call. @as("b") - bond
@@ -676,7 +680,19 @@ export type Val = {
   // `cp` alone, once `cp` has changed or been emitted. Never copied onto a val
   // refined from this one: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
-  fu?: (then: string) => boolean;
+  fu?: (ok: Continuation, same?: boolean) => boolean;
+  // Set alongside `fu`, for a collecting container's async child: once `fu` has
+  // fused an `ok` that hands back the value it was given (`same`),
+  // `fs(val, true)` moves the join's `settle` into that same `then` - a `try` in
+  // `ok` and one around H - instead of the `.then(void 0, settle)` hop
+  // `B_settle` adds. Only that `ok`: one returning another value could return a
+  // promise, and a rejection the `then` adopts would skip the `try`. `fs(val)`
+  // answers whether it has, so the join knows the promise no longer rejects.
+  // Copied onto the val the parse loop refines from this one, which names the
+  // same promise; it reads false for any val whose `i` is no longer this one's
+  // var.
+  // @as("fs") - fuseSettle
+  fs?: (val: Val, apply?: boolean) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. Emitted after this val's checks in `merge` (the
   // old varsAllocation slot). @as("hd") - hoistedDecls

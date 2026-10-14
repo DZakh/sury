@@ -45,6 +45,7 @@ import {
   B_markOutput,
   B_merge,
   B_next,
+  B_then,
   B_operationArg,
   B_refine,
   B_scope,
@@ -89,11 +90,14 @@ export const parse = (input: Val): Val => {
       const operationCode = B_detached(loopInput.g, () =>
         B_merge((operationOutput = parse(operationInput))),
       );
-      const then = `${operationInputVar}=>{${operationCode}return ${operationOutput.i}}`;
-      result =
-        (operationInput.i === operationOutput.i && operationCode === "") || loopInput.fu?.(then)
-          ? B_refine(loopInput, operationOutput.s, U, operationOutput.e)
-          : B_next(loopInput, `${operationInputVar}.then(${then})`, operationOutput.s, operationOutput.e);
+      const then = B_then(operationInputVar, operationCode, operationOutput.i);
+      if (
+        (operationInput.i === operationOutput.i && operationCode === "") ||
+        loopInput.fu?.(then, !operationOutput.t && !(operationOutput.f & 1))
+      ) {
+        result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+        result.fs = loopInput.fs;
+      } else result = B_next(loopInput, `${operationInputVar}.then(${then()})`, operationOutput.s, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {
