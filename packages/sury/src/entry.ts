@@ -301,17 +301,16 @@ const conversionBuilder = (
   }
 };
 
-// `seam` is `$to`'s output seam: given, the coders hand over and take the
-// target's output, and it answers the target the link is made to. Passed in
-// rather than imported here so a bundle reaching only `to` carries none of it.
+// `seam` is passed in rather than called here so a bundle reaching only `to`
+// carries none of it.
 const link = (
   schema: Internal,
   target: Internal,
   custom: unknown,
   seam?: (target: Internal, decode: unknown, encode: unknown) => Internal,
 ) => {
-  // A misspelled export arrives as `undefined`, which used to link to nothing
-  // and hand back the source unchanged - the conversion silently absent.
+  // A misspelled export arrives as `undefined`, which would otherwise hand back
+  // the source unchanged.
   if (!target) {
     return panic(`Expected a schema to convert to`);
   }
@@ -334,18 +333,17 @@ const link = (
     const codecs = custom as Record<string, unknown>;
     const decodeSlot = codecs["decode"];
     const encodeSlot = codecs["encode"];
-    // The key count rejects a typo instead of reading it as a missing direction.
     if (!decodeSlot || !encodeSlot || Object.keys(codecs).length !== 2) {
       return panic(`Expected {decode, encode}. Use "auto" for the built-in conversion`);
     }
     decode = conversionBuilder("decode", decodeSlot, !outputSeam);
     encode = conversionBuilder("encode", encodeSlot, !outputSeam);
-    // Each reading names what its direction does to its own source, so the two
-    // directions can't both open (or both store) - there would be no side of
-    // the link left holding the payload - and a reading opposite the built-in
-    // conversion leaves that side still asking the question the reading just
-    // answered. A coder opposite one is fine: it answers for itself.
   }
+  // Each reading names what its direction does to its own source, so the two
+  // directions can't both open (or both store) - there would be no side of
+  // the link left holding the payload - and a reading opposite the built-in
+  // conversion leaves that side still asking the question the reading just
+  // answered. A coder opposite one is fine: it answers for itself.
   if (typeof decode === "boolean" || typeof encode === "boolean") {
     if (decode === encode || decode === U || encode === U) {
       return panic(`Expected "pack" opposite "unpack"`);

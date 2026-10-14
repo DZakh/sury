@@ -577,8 +577,6 @@ test("Custom codecs type their coders against the junction, and stay assignable"
 test("An output-seam codec rejects a target that already converts", (t) => {
   const target = S.string.with(S.to, S.number);
 
-  // Only the ReScript adapter can reach this seam, and only it is restricted:
-  // the JS pair feeds the target's chain instead of replacing it.
   t.expect(() =>
     (S as any).$to(S.string, target, {
       decode: (value: string) => value.length,
