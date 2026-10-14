@@ -331,8 +331,8 @@ const unionWiden = (tagFlag: number, nan: number): number =>
 
 // Mode 0 describes produced output, 1 a member's accepted input, and 2 the
 // declared source (whose root ref may expose a bounded input tag).
-// A self-describing boundary's definition (`S.json`'s recursive union): a ref
-// that publishes `$defs` of its own, not one reached inside a definition.
+// A root ref's definition: one that publishes `$defs` (`S.json`, an outer
+// `S.recursive`), not a self-reference reached inside a definition.
 const unionRefDef = (schema: Internal): Internal | undefined => {
   const resolved = schema["$defs"] && schema.definition?.();
   return resolved !== schema ? resolved : U;
@@ -590,7 +590,7 @@ const unionAnalyze = (
     // member claims every type, so `S.optional(self)` tried the recursive call
     // on `undefined` and caught its throw at every leaf of a tree. The case
     // still calls through the ref, so the definition compiles once.
-    const def = s.type === refTag ? s.definition?.() : U;
+    const def = s.type === refTag ? s.definition!() : U;
     const defTag = def === U ? 0 : tagFlags[def.type]!;
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
@@ -1923,7 +1923,7 @@ const unionChanges = (s: Internal, tag: Tag, refs?: Internal[]): boolean => {
   if (!(unionMask(s, 1, 0) & tagFlags[tag]!)) return false;
   if (s.type === refTag) {
     if (refs?.includes(s)) return false;
-    const def = s.definition?.();
+    const def = s.definition!();
     // A ref still being defined has nothing to read yet, so it counts.
     return def === U || unionChanges(def, tag, [...(refs || []), s]);
   }

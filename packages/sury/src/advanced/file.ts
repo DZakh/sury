@@ -66,14 +66,13 @@ const fromArrayBuffer =
 // that is what makes `.`'s precedence a non-question, where a val handed over as
 // a ternary would otherwise have the method read off the wrong branch.
 const read = (input: Val, call: string, schema: Internal): Val => {
-  // Caught the way `B_conversion` catches a coder's failure, both halves: the
-  // call itself throws on a value an operation trusted rather than checked, and
-  // the promise rejects when the read fails (the backing file moved, say).
-  // Uncaught, a `TypeError` or `DOMException` escapes either way.
+  // The call throws on a value an operation trusted rather than checked, and
+  // the promise rejects when the read fails (the backing file moved, say);
+  // uncaught, either escapes as a `TypeError` or `DOMException`.
   //
-  // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
-  // a case that didn't match, and classifying it as one would let the dispatch
-  // fall through to a sibling and hand back the container unread. The cost is
+  // Bare inside a union (flag 4): a read that fails is not a case that didn't
+  // match, and classifying it as one would let the dispatch fall through to a
+  // sibling and hand back the container unread. The cost is
   // the convention's: a Sury error is what an enclosing object stamps a path
   // onto, so a rejection under `S.optional(…)` arrives raw where the same field
   // required arrives at `["a"]`.

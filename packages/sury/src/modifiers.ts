@@ -426,7 +426,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
-        if (outputSchema.type === refTag && !outputSchema.definition?.()) {
+        if (outputSchema.type === refTag && !outputSchema.definition!()) {
           panic(
             `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
           );

@@ -333,17 +333,15 @@ const applyMetadataOverlay = (
   if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
 }
 
-// The definitions a document publishes, in first-reference order: key and
-// definition. A ref is published by the definition it carries, under its name
-// unless another definition already took that key
-// (specs/recursive-same-name.yaml).
+// A ref is published by the definition it carries, under its name unless
+// another definition already took that key (specs/recursive-same-name.yaml).
 type Defs = [string, Internal][];
 
 const refKey = (defs: Defs, ref: Internal): string => {
-  const name = ref["$ref"]!.slice(8);
   const def = ref.definition!()!;
   let entry = defs.find((e) => e[1] === def);
   if (entry === U) {
+    const name = ref["$ref"]!.slice(8);
     let key = name;
     for (let i = 2; defs.some((e) => e[0] === key); i++) key = name + i;
     defs.push((entry = [key, def]));
@@ -1045,9 +1043,9 @@ type RefContext = {
   // pays for a call per value only where recursion makes one unavoidable.
   cyc: Record<string, true>;
   defs: Record<string, Internal>;
-  // Def names already taken. `S.json` names its def `JSON` in the `$defs`
-  // `withDefs` folds into, so a document's own `JSON` has to be renamed rather
-  // than shadow it there.
+  // Def names already taken. `JSON` is how `S.json` is recognised (the
+  // renderer's `{}`, eq.ts), so a document's own `JSON` is renamed rather than
+  // read back as `S.json`.
   names: Record<string, true>;
 };
 
@@ -1167,16 +1165,6 @@ const jsonDefinitionToSchema = (
   ctx: RefContext
 ): Internal =>
   typeof definition !== "boolean" ? fromJSONSchema(definition, ctx) : definition ? json : never_;
-
-// The document's cycles, named on the outermost schema for reading the way
-// `S.recursive` names its own. `S.json` names itself through a `$defs` of its
-// own, so fold rather than replace.
-const withDefs = (schema: Internal, ctx: RefContext): Internal => {
-  const copy = copySchema(schema);
-  if (copy["$defs"] !== U) Object.assign(ctx.defs, copy["$defs"]);
-  copy["$defs"] = ctx.defs;
-  return copy;
-};
 
 type PatternProp = { re: RegExp; schema: Internal };
 
@@ -2033,11 +2021,15 @@ export const fromJSONSchema = (
     });
   }
 
-  // `cyc` rather than `defs`, which `withDefs` also folds unrelated defs into:
-  // what decides whether the outermost schema needs one is whether the document
-  // had a cycle to name.
+  // The document's cycles, named on the outermost schema for reading the way
+  // `S.recursive` names its own. `cyc` rather than `defs`, which also holds
+  // unrelated defs: what decides whether it needs `$defs` is whether the
+  // document had a cycle to name. `S.json` names itself through a `$defs` of
+  // its own, so fold rather than replace.
   if (parentCtx === U && Object.keys(ctx.cyc).length !== 0) {
-    schema = withDefs(schema, ctx);
+    schema = copySchema(schema);
+    if (schema["$defs"] !== U) Object.assign(ctx.defs, schema["$defs"]);
+    schema["$defs"] = ctx.defs;
   }
 
   return schema;

@@ -1,7 +1,3 @@
-// `S.recursive` - a schema that refers to itself. The decoder compiles the
-// body once and routes every self-reference back through it by the definition
-// the ref carries.
-
 import {
   baseSchema,
   type Builder,
@@ -32,9 +28,9 @@ import {
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
-  // Nothing to compile while the definer runs - a default checked inside it
-  // reaches the ref first. `invalid_operation` is what leaves such a default
-  // unchecked, the way a never encode does.
+  // Nothing to compile while the definer runs: a default checked inside it
+  // reaches the ref first, and `invalid_operation` is what `decodeOutput`
+  // (parse.ts) reads as nothing to check.
   const def =
     expectedSchema.definition!() ||
     B_invalidOperation(input, `${expectedSchema.name} is used before S.recursive returns its definition`);
@@ -132,8 +128,8 @@ export const recursiveDecoder: Builder = (input) => {
     const call = `${recOperation}(${input.i})`;
     if (isAsync) {
       output.f |= 1;
-      // The rejection gets the path the same way a throw does, and whatever
-      // continues the value can join that `.then` (base.ts `fu`).
+      // B_asyncTry's own `try` prefixes a sync throw too, so the merge below
+      // has nothing to add.
       if (input.path.length) {
         B_asyncTry(output, call, B_embed(output, rethrowWithPath), `,${pathExpr(input.path)}`);
         return output;
@@ -142,7 +138,6 @@ export const recursiveDecoder: Builder = (input) => {
     outputDecl = B_let(input.g, output.i);
     output.cp = `${output.i}=${call};`;
   } else {
-    // No transform: call for validation but don't capture result
     output = B_refine(input, expectedSchema, U, expectedSchema);
     output.cp = `${recOperation}(${input.i});`;
   }

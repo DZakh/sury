@@ -87,8 +87,7 @@ type Message = {
   unwrap?: boolean;
 };
 
-// One compile of a message tree. `messages` is the message per object, so a
-// message used twice compiles once and a cycle closes on the one it started.
+// One compile of a message tree.
 type Ctx = {
   // Per object, not the last name a walk passed: `toProtoOrThrow` resolves the
   // wire object in one walk and compiles it in another.
@@ -111,10 +110,8 @@ const newCtx = (): Ctx => ({
   stack: [],
 });
 
-// A `$ref` stands for its definition. Only the refs the user built are walked -
-// the standins `recurse` makes are handed to `parse`, never resolved again here.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
-  const def = ref.definition?.();
+  const def = ref.definition!();
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;

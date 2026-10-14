@@ -301,8 +301,6 @@ test("an error a recursive node's own refine throws is the cause at every depth"
 });
 
 test("prepending a path keeps what the failing check knew", () => {
-  // The inner parse throws a compiled failure; the refiner's wrapper catches it
-  // and rebuilds it with the outer path prepended.
   const inner = S.parseOrThrow(S.number);
   const outer = S.schema({
     a: S.unknown.with(S.refine, (value: unknown) => {

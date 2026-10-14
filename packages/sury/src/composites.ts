@@ -379,7 +379,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
             ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
               B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
             : B_refine(input, expectedSchema);
-          if ((settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k))) itemOutput.fs?.(itemOutput, true);
+          settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k);
+          if (settles) itemOutput.fs?.(itemOutput, true);
           itemMerge = B_merge(itemOutput);
         };
         const wrap = collects ? B_child(input.g, emit) : (emit(), U);
@@ -557,7 +558,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
           ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
             B_next(input, "{}", dictFactory(itemOutput.s))
           : B_refine(input, expectedSchema);
-        if ((settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k))) itemOutput.fs?.(itemOutput, true);
+        settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k);
+        if (settles) itemOutput.fs?.(itemOutput, true);
         itemMerge = B_merge(itemOutput);
       };
       const wrap = collects ? B_child(input.g, emit) : (emit(), U);

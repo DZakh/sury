@@ -398,10 +398,10 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   const rj = path ? `x=>${raise}(x${path})` : raise;
   const decl = B_let(output.g, name);
   const cp = (value: string) => `${decl}try{${name}=${value}}catch(x){${raise}(x${path})}`;
+  let thenRef: string | undefined, fused: string | undefined, then: Continuation | undefined, settled = false;
   const native = (ok: string, no: string) =>
-    cp(`${B_embedPure(output, Promise.prototype.then)}.call(${call},${ok},${no})`);
+    cp(`${(thenRef ??= B_embedPure(output, Promise.prototype.then))}.call(${call},${ok},${no})`);
   const built = (output.cp = cp(`${call}.catch(${rj})`));
-  let fused: string | undefined, then: Continuation | undefined, settled = false;
   output.fu = (ok, same) => {
     if (output.cp !== built || output.fz) return false;
     output.cp = fused = native(ok(), rj);
@@ -411,8 +411,8 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   output.fs = (val, apply) => {
     if (val.i !== name) return false;
     if (apply && !settled && then && output.cp === fused && !output.fz) {
-      const s = B_embedPure(output, settle);
-      output.cp = native(then(s), `x=>{try{${raise}(x${path})}catch(y){return ${s}(y)}}`);
+      const settleRef = B_embedPure(output, settle);
+      output.cp = native(then(settleRef), `x=>{try{${raise}(x${path})}catch(y){return ${settleRef}(y)}}`);
       settled = true;
     }
     return settled;
@@ -465,8 +465,7 @@ const B_foreignFail = (
 // makes the second parse report `a.a` (specs/recursive-retained-error.yaml).
 // The copy keeps the record's prototype, where its check settled `expected`
 // (base.ts `errorSite`); without it the copy reads `Expected undefined`. A record
-// owns only enumerable data, so `Object.assign` is enough, and this runs once
-// per recursive level a failure passes back through.
+// owns only enumerable data, so `Object.assign` is enough.
 //
 // What user code threw (`caller`, or anything the constructor built) is never
 // copied: it may be frozen, read its stack off itself, or own a field shadowing
@@ -489,11 +488,9 @@ const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryEr
     if (unionErrors) copy.unionErrors = unionErrors;
     return copy;
   }
-  const own: PropertyDescriptorMap = {
-    path: { value: path, enumerable: true, writable: true, configurable: true },
-    cause: { value: original, enumerable: true, writable: true, configurable: true },
-  };
-  if (unionErrors) own.unionErrors = { value: unionErrors, enumerable: true, writable: true, configurable: true };
+  const field = (value: unknown): PropertyDescriptor => ({ value, enumerable: true, writable: true, configurable: true });
+  const own: PropertyDescriptorMap = { path: field(path), cause: field(original) };
+  if (unionErrors) own.unionErrors = field(unionErrors);
   return Object.create(original, own) as SuryErrorRecord;
 };
 
@@ -1072,9 +1069,7 @@ export const B_conversion = (
     // that conversion failing, so in a union it is what hands the value to the
     // next case rather than aborting the operation (#347); a refiner's throw
     // is wrapped the same way (modifiers.ts `refine`). The foreign errors that
-    // do escape a union are a getter's, which never enter this try. A
-    // rejection left bare would carry no path for an enclosing recursive call
-    // to prepend to (specs/codec-protobuf-recursive-async.yaml).
+    // do escape a union are a getter's, which never enter this try.
     const conversionFail = B_conversionFail(input, target);
     const call = `${embeddedFn}(${inputValue})`;
     if (isAsync) B_asyncTry(output, call, B_raiser(output, conversionFail), B_pathArg(output));
@@ -1214,9 +1209,9 @@ export const rethrowWithPath = (error: unknown, path: Path): never => {
 };
 
 // Opaque embed (a recursive self-call): a compiled function that does not take
-// a path. Inlined item parsers thread the path to the fail helper instead. Sync,
-// or at the root: an async call at a path keeps its value a var (recursive.ts,
-// `B_asyncTry`).
+// a path. Inlined item parsers thread the path to the fail helper instead.
+// Wraps only the synchronous throw: an async call at a path goes through
+// `B_asyncTry` instead (recursive.ts).
 export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
   if (!parent.path.length) return B_merge(val);
   const valCode = B_merge(val);

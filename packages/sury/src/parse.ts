@@ -77,12 +77,8 @@ export const parse = (input: Val): Val => {
 
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
-    // The val is a promise, so the rest of the chain has to run inside a
-    // `.then`. The flag alone is the right guard: a second condition could only
-    // have been "and there is something to wrap", which is not knowable before
-    // parsing the remainder - so the decision lives below, where the recursive
-    // parse has already answered it, and an empty remainder refines instead of
-    // wrapping, as does one an async val takes into its own `.then` (`fu`).
+    // A promise: the rest of the chain runs inside a `.then`, unless it is
+    // empty or the val takes it into its own (`fu`).
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
@@ -158,7 +154,7 @@ export const parse = (input: Val): Val => {
 // it can drop the frames between the raise and the caller. Every other engine
 // gets the stack a throwaway `Error` was born with, which is the same trace
 // with this function and the boundary's own frames still on top - worse than
-// V8's and better than the nothing an engine without the API used to get.
+// V8's.
 // Counting those frames off would couple this to the call depth of whichever
 // boundary reaches it, so they stay.
 //
@@ -755,11 +751,10 @@ export const getOp = (
     node = node.n;
   }
 
-  // Allocated on the miss path only, where a compile dwarfs them. The argument
-  // after the `n` counted ones closes the chain (`assertResult`, flag 1024 keying
-  // it apart) without entering the key. Keyed, the sentinel would outrank every
-  // interned schema by `seq`, and every check of one would share a single memo
-  // list on it.
+  // Allocated on the miss path only, where a compile dwarfs them. The tail
+  // (`all[n]`) stays out of the key: keyed, it would outrank every interned
+  // schema by `seq`, and every check of one would share a single memo list on
+  // it.
   const all = [a0, a1!, a2!, a3!];
   return compileChain(cacheTarget, all.slice(0, n), flag, all[n]);
 };

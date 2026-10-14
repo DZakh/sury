@@ -30,9 +30,8 @@ export type Flag = number;
 // than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
 //
-// 1024 is not a return mode (`outcomeOf` never reads it): it keys a chain
-// closed by the argument after the `n` counted schemas, which parse.ts `getOp`
-// hands on as the tail without keying it.
+// 1024 the chain closes on a tail passed past the `n` counted schemas
+// (parse.ts `getOp`). Not a return mode: `outcomeOf` never reads it.
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
@@ -517,14 +516,13 @@ export type Internal = {
   // of the decision.
   fuse?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   "$ref"?: string;
-  // What a ref's definitions are called, for reading: `S.recursive` and
-  // `S.json` put theirs here. Nothing resolves a `$ref` through it - see
-  // `definition` - but its presence is what marks a root ref to the union
-  // planner (union.ts `unionRefDef`).
+  // Published for whoever reads the schema; nothing resolves a `$ref` through
+  // it (see `definition`). Its presence marks a root ref to the union planner
+  // (union.ts `unionRefDef`).
   "$defs"?: Record<string, Internal>;
-  // The definition a ref stands for, bound by whatever built the ref. A name is
-  // a label: two `S.recursive` schemas may share one, and one may sit inside
-  // the other, so every consumer resolves a ref by this and never by `$ref`.
+  // A name is a label: two `S.recursive` schemas may share one, and one may sit
+  // inside the other, so every consumer resolves a ref by this and never by
+  // `$ref`.
   //
   // A function because the ref exists before its definition does - a definer
   // receives it, and may copy it (`n.with(S.refine, ...)`) before returning, so
@@ -665,32 +663,28 @@ export type Val = {
   fv?: Val[];
   // @as("cp") - codeFromPrev
   cp: string;
-  // Set by an async val whose `cp` ends its promise with `.catch(H)` (a coder, a
-  // file read, a recursive call): given a continuation `ok` - the parse loop's,
-  // or `B_markOutput`'s for output refiners - it rewrites `cp` to call the
-  // native `then` with `ok` and H instead, one promise hop fewer, still inside
-  // the same `try`. Equivalent only because H always throws: a `.then` second
-  // argument never sees a throw from the first, and neither did the `.catch`
-  // ahead of it. The native `then`, not the answer's own: anything but a native
-  // promise fails inside the `try` as the `.catch` lookup made it, where a
-  // thenable could call H synchronously and have the `try` wrap its error a
-  // second time (codec-custom-async-sync-thenable). Returns false, and leaves
-  // `cp` alone, once `cp` has changed or been emitted. Never copied onto a val
-  // refined from this one: it rebuilds this val's `cp`, not theirs.
+  // Set by `B_asyncTry`. Given `ok`, rewrites `cp` from `call.catch(H)` to the
+  // native `then(ok, H)`, still inside the same `try`, one promise hop fewer.
+  // Equivalent only because H always throws: a `.then` second argument never
+  // sees a throw from the first, and neither did the `.catch` ahead of it. The
+  // native `then`, not the answer's own: a thenable could call H synchronously
+  // and have the `try` wrap its error a second time
+  // (codec-custom-async-sync-thenable). Returns false, leaving `cp` alone, once
+  // `cp` has changed or been emitted. Never copied onto a refined val: it
+  // rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
   fu?: (ok: Continuation, same?: boolean) => boolean;
-  // Set alongside `fu`. `fs(val, true)`, called before the val's merge, moves a
-  // collecting join's `settle` into the `then` `fu` built, and `fs(val)`
-  // answers whether it did, so the join (`B_settle`) reads the promise as one
-  // that no longer rejects. Only an `ok` that returns its own argument
-  // (`same`): another value could be a promise whose rejection the `then`
-  // adopts past the `try`. Keyed to `i` rather than to this val, so parse.ts may
-  // copy it onto the val refined from this one, unlike `fu`.
+  // Set by `B_asyncTry`. `fs(val, true)`, before the merge, moves a collecting
+  // join's `settle` into the `then` `fu` built; `fs(val)` answers whether it
+  // did, so `B_settle` adds none. Only for an `ok` returning its own argument
+  // (`same`): any other value could be a promise whose rejection the `then`
+  // adopts past the `try`. Keyed to `i`, not this val, so parse.ts may copy it
+  // onto a refined val.
   // @as("fs") - fuseSettle
   fs?: (val: Val, apply?: boolean) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
-  // that couldn't own them. Emitted after this val's checks in `merge` (the
-  // old varsAllocation slot). @as("hd") - hoistedDecls
+  // that couldn't own them. Emitted after this val's checks in `merge`.
+  // @as("hd") - hoistedDecls
   hd: string;
   // Set by `merge` once this val's code is emitted, so a later cached-bond
   // materialization re-reads inline instead of hoisting onto it (#240).
