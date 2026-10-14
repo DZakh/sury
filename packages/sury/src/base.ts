@@ -681,16 +681,13 @@ export type Val = {
   // refined from this one: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
   fu?: (ok: Continuation, same?: boolean) => boolean;
-  // Set alongside `fu`, for a collecting container's async child: once `fu` has
-  // fused an `ok` that hands back the value it was given (`same`),
-  // `fs(val, true)` moves the join's `settle` into that same `then` - a `try` in
-  // `ok` and one around H - instead of the `.then(void 0, settle)` hop
-  // `B_settle` adds. Only that `ok`: one returning another value could return a
-  // promise, and a rejection the `then` adopts would skip the `try`. `fs(val)`
-  // answers whether it has, so the join knows the promise no longer rejects.
-  // Copied onto the val the parse loop refines from this one, which names the
-  // same promise; it reads false for any val whose `i` is no longer this one's
-  // var.
+  // Set alongside `fu`. `fs(val, true)` moves a collecting join's `settle` into
+  // the `then` `fu` built, and `fs(val)` answers whether it did, so the join
+  // (`B_settle`) reads the promise as one that no longer rejects. Only an `ok`
+  // that returns its own argument (`same`): another value could be a promise
+  // whose rejection the `then` adopts past the `try`. False once `i` is no
+  // longer this var. The callers asking it to apply (`B_addObjectField`, the
+  // array and record item emits) must test what the join tests.
   // @as("fs") - fuseSettle
   fs?: (val: Val, apply?: boolean) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
