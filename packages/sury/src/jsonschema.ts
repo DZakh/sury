@@ -1050,8 +1050,9 @@ type RefContext = {
   cyc: Record<string, true>;
   defs: Record<string, Internal>;
   // Def names already taken. `JSON` is how `S.json` is recognised (the
-  // renderer's `{}`, eq.ts), so a document's own `JSON` is renamed rather than
-  // read back as `S.json`.
+  // renderer's `{}`, eq.ts), and `S.json`'s own `$defs` is folded into these,
+  // so a document's own `JSON` is renamed rather than read back as `S.json` or
+  // overwritten by it.
   names: Record<string, true>;
 };
 

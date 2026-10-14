@@ -501,7 +501,7 @@ asyncTest("Refines an async recursive ref inside the call's own then", t => {
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{try{let v0;v0=e[0](i);return v0.catch(e[1])}catch(v1){return e[2](v1)}}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(e[1])}catch(x){e[1](x)}Array.isArray(v2)||e[8](v2);let v5=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[7].call(e[3].v(v2[v3]),v4=>{e[5](v4,["Children",v3])||e[6](v4,["Children",v3]);return v4},x=>e[4](x,["Children",v3]))}catch(x){e[4](x,["Children",v3])}v5[v3]=v4}let v6=Promise.all(v5);return Promise.all([v0,v6]).then(([v0,v6])=>{return {id:v0,children:v6}})}`,
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(e[1])}catch(x){e[1](x)}Array.isArray(v2)||e[8](v2);let v5=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[7](e[3].v(v2[v3]),v4=>{e[5](v4,["Children",v3])||e[6](v4,["Children",v3]);return v4},x=>e[4](x,["Children",v3]))}catch(x){e[4](x,["Children",v3])}v5[v3]=v4}let v6=Promise.all(v5);return Promise.all([v0,v6]).then(([v0,v6])=>{return {id:v0,children:v6}})}`,
   )
 
   %raw(`{"Id":"1","Children":[{"Id":"4","Children":[]}]}`)
