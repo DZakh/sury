@@ -887,8 +887,6 @@ export const settledTag = {};
 export type Settled = { t: typeof settledTag; l: unknown[] };
 const settle = (thrown: unknown): Settled =>
   (thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled) : { t: settledTag, l: [thrown] };
-// The child's promise as the join reads it. Ask `fs` to take the settle into
-// the child's own `then` before its merge emits it, and this reads it back.
 export const B_settle = (container: Val, child: Val, guard?: boolean): string =>
   child.fs?.(child)
     ? child.i
@@ -949,7 +947,7 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   // asyncVal's inline is a Promise.all(...) expression, not a var.
   // This has to happen before val->merge, which finalizes the prev
   // chain and locks the emitted code.
-  if (val.f & 1) { // 1
+  if (val.f & 1) {
     val.v();
     // completeObjectVal's join settles a field on this same answer, read from
     // the container's scope, which a child's exit answers the same way.

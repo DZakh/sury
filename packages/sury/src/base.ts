@@ -636,8 +636,6 @@ export type Check = {
   f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
 
-// A `.then` handler as code. Given `settle`, the form that returns
-// `settle(raised)` instead of raising (`fs`).
 export type Continuation = (settle?: string) => string;
 
 export type Val = {
@@ -681,13 +679,13 @@ export type Val = {
   // refined from this one: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
   fu?: (ok: Continuation, same?: boolean) => boolean;
-  // Set alongside `fu`. `fs(val, true)` moves a collecting join's `settle` into
-  // the `then` `fu` built, and `fs(val)` answers whether it did, so the join
-  // (`B_settle`) reads the promise as one that no longer rejects. Only an `ok`
-  // that returns its own argument (`same`): another value could be a promise
-  // whose rejection the `then` adopts past the `try`. False once `i` is no
-  // longer this var. The callers asking it to apply (`B_addObjectField`, the
-  // array and record item emits) must test what the join tests.
+  // Set alongside `fu`. `fs(val, true)`, called before the val's merge, moves a
+  // collecting join's `settle` into the `then` `fu` built, and `fs(val)`
+  // answers whether it did, so the join (`B_settle`) reads the promise as one
+  // that no longer rejects. Only an `ok` that returns its own argument
+  // (`same`): another value could be a promise whose rejection the `then`
+  // adopts past the `try`. Keyed to `i` rather than to this val, so parse.ts may
+  // copy it onto the val refined from this one, unlike `fu`.
   // @as("fs") - fuseSettle
   fs?: (val: Val, apply?: boolean) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
