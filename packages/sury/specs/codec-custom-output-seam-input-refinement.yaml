@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.string.with(S.to, S.fromJSONSchemaOrThrow({ type: "object", properties: { x: { type: "string" } }, not: { required: ["y"] } }), { decodeToOutput: (v: string) => ({ x: v, y: 1 }), encodeFromOutput: (o: { x: string }) => o.x } as any)'
+  schema: 'S.string.with((S as any).$to as typeof S.to, S.fromJSONSchemaOrThrow({ type: "object", properties: { x: { type: "string" } }, not: { required: ["y"] } }), { decode: (v: string) => ({ x: v, y: 1 }), encode: (o: { x: string }) => o.x } as any)'
   input: string
   output: "{ x?: string | undefined; }"
   instantiations: 96206

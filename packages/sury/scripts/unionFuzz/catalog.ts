@@ -45,6 +45,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   $option: skip(RESCRIPT_BINDING),
   $schema: skip(RESCRIPT_BINDING),
   $setExnId: skip(RESCRIPT_BINDING),
+  $to: skip("ReScript's `~custom` seam, which fuzz:schema's seam family puts in front of every drawn schema"),
   $unit: skip(RESCRIPT_BINDING),
   Error: skip("exception class, not a schema factory"),
   any: schema((S) => S.any),

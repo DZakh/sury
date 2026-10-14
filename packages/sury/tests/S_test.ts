@@ -580,9 +580,9 @@ test("An output-seam codec rejects a target that already converts", (t) => {
   // Only the ReScript adapter can reach this seam, and only it is restricted:
   // the JS pair feeds the target's chain instead of replacing it.
   t.expect(() =>
-    (S.to as any)(S.string, target, {
-      decodeToOutput: (value: string) => value.length,
-      encodeFromOutput: (value: number) => String(value),
+    (S as any).$to(S.string, target, {
+      decode: (value: string) => value.length,
+      encode: (value: number) => String(value),
     }),
   ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
 

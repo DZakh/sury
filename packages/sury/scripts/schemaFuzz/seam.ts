@@ -1,5 +1,5 @@
-// The seam family: an output-seam coder (`decodeToOutput`/`encodeFromOutput`,
-// what ReScript's `~custom` compiles to) in front of the drawn schema.
+// The seam family: an output-seam coder (`$to`, what ReScript's `~custom`
+// compiles to) in front of the drawn schema.
 //
 // That coder hands over and takes the schema's Output (the output seam,
 // CODEC_SPEC.md "Custom conversions"), so whatever the schema converts on its
@@ -31,7 +31,7 @@ const check = (ctx: Ctx): void => {
   if (!outputs.length || (schema as { to?: unknown }).to !== undefined) return;
   const box = S.schema({ v: S.unknown });
   const seam = compile<Op>("seam", () =>
-    S.to(box, schema, { decodeToOutput: (input: { v: unknown }) => input.v, encodeFromOutput: (output: unknown) => ({ v: output }) }),
+    S.$to(box, schema, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) }),
   );
   if (!seam) return;
   const decode = compile<Op>("untouched", () => S.decodeOrThrow(seam));

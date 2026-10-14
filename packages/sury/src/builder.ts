@@ -1020,7 +1020,7 @@ export const B_outputView = (schema: Internal): Internal => {
 //  - `junction` (the JS `{decode, encode}` surface): the result claims
 //    `unknown`, so the loop owes the target a full decode. A coder returning
 //    the wrong thing is caught there.
-//  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
+//  - otherwise (`$to`, the ReScript `~custom` adapter's seam):
 //    the result claims the target itself, so the loop only runs what a typed
 //    decode would, the same deal `S.decodeOrThrow` gives a caller who declares the
 //    input's schema. The ReScript compiler has already checked the coder's

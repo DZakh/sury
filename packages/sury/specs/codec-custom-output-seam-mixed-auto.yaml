@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.to(S.schema({ name: S.string }), S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decodeToOutput: (v: { name: string }) => ({ name: v.name + "!" }), encodeFromOutput: "auto" } as any)'
+  schema: '((S as any).$to as typeof S.to)(S.schema({ name: S.string }), S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decode: (v: { name: string }) => ({ name: v.name + "!" }), encode: "auto" } as any)'
   input: "{ name: string; }"
   output: "{ name: string; }"
   instantiations: 6104

@@ -301,8 +301,15 @@ const conversionBuilder = (
   }
 };
 
-// @__NO_SIDE_EFFECTS__
-export const to = (schema: Internal, target: Internal, custom?: unknown) => {
+// `seam` is `$to`'s output seam: given, the coders hand over and take the
+// target's output, and it answers the target the link is made to. Passed in
+// rather than imported here so a bundle reaching only `to` carries none of it.
+const link = (
+  schema: Internal,
+  target: Internal,
+  custom: unknown,
+  seam?: (target: Internal, decode: unknown, encode: unknown) => Internal,
+) => {
   // A misspelled export arrives as `undefined`, which used to link to nothing
   // and hand back the source unchanged - the conversion silently absent.
   if (!target) {
@@ -310,7 +317,13 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   }
   let decode: Builder | boolean | undefined;
   let encode: Builder | boolean | undefined;
-  let outputSeam = false;
+  // `S.any` is this very `unknown` schema under a second name, and its
+  // ReScript type is `t<'any>` - a variable that unifies with whatever the
+  // coder returns, so the seam against it carries nothing to trust. Same
+  // carve-out B_conversion makes for a literal target, one level up: the
+  // untrustworthy side can be either end of the pair, and only here sees
+  // both.
+  const outputSeam = !!seam && schema !== unknown && target !== unknown;
   if (custom === "unpack" || custom === "pack") {
     decode = custom === "unpack";
     encode = custom === "pack";
@@ -319,25 +332,12 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     encode = ambiguousEncode(target, schema);
   } else if (custom) {
     const codecs = custom as Record<string, unknown>;
-    // Two spellings, one per seam, never mixed: `{decode, encode}` is the
-    // public TS surface, `{decodeToOutput, encodeFromOutput}` is what the
-    // ReScript `~custom` adapter emits and is deliberately absent from
-    // index.d.ts. The key count rejects a typo instead of reading it as a
-    // missing direction.
-    const toOutput = codecs["decodeToOutput"];
-    const fromRescript = !!toOutput;
-    const decodeSlot = fromRescript ? toOutput : codecs["decode"];
-    const encodeSlot = fromRescript ? codecs["encodeFromOutput"] : codecs["encode"];
+    const decodeSlot = codecs["decode"];
+    const encodeSlot = codecs["encode"];
+    // The key count rejects a typo instead of reading it as a missing direction.
     if (!decodeSlot || !encodeSlot || Object.keys(codecs).length !== 2) {
       return panic(`Expected {decode, encode}. Use "auto" for the built-in conversion`);
     }
-    // `S.any` is this very `unknown` schema under a second name, and its
-    // ReScript type is `t<'any>` - a variable that unifies with whatever the
-    // coder returns, so the seam against it carries nothing to trust. Same
-    // carve-out B_conversion makes for a literal target, one level up: the
-    // untrustworthy side can be either end of the pair, and only `to` sees
-    // both.
-    outputSeam = fromRescript && schema !== unknown && target !== unknown;
     decode = conversionBuilder("decode", decodeSlot, !outputSeam);
     encode = conversionBuilder("encode", encodeSlot, !outputSeam);
     // Each reading names what its direction does to its own source, so the two
@@ -390,29 +390,7 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
   if (schema === target && typeof decode !== functionTag && typeof encode !== functionTag) {
     return schema;
   }
-  // An output-seam coder claims the target as its result, so a target that
-  // still converts on its own would have that conversion skipped. The
-  // junction seam feeds the target's chain instead, so it stays legal, as do
-  // the slots that place no coder.
-  // A reading is exempt with `B_neverSlot`: neither places a coder, so neither
-  // claims the target's result - the very case a reading exists for is a target
-  // that converts on its own.
-  if (
-    outputSeam &&
-    target.to &&
-    ((typeof decode === functionTag && decode !== B_neverSlot) ||
-      (typeof encode === functionTag && encode !== B_neverSlot))
-  ) {
-    return panic(
-      `The target already converts. Chain S.to instead of passing a custom codec`,
-    );
-  }
-  // An output-seam coder hands over and takes the target's output, so the link
-  // is to what that output claims - the target's own conversions, a field's
-  // coder among them, would run again over a value already past them. Only
-  // where both directions are coders: a reading or "auto" converts the target
-  // itself, through its own chain.
-  if (outputSeam && typeof decode === functionTag && typeof encode === functionTag) target = B_outputView(target);
+  if (outputSeam) target = seam!(target, decode, encode);
   // Interned when the third argument is bounded by construction - absent, or
   // one of the two reading strings. A coder is not: `{decode, encode}` and an
   // inline function are fresh objects, so keying on them would miss every time
@@ -421,6 +399,32 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => {
     ? linkTo(schema, target, custom, decode as boolean, encode as boolean)
     : codecTo(schema, target, decode, encode);
 };
+
+// @__NO_SIDE_EFFECTS__
+export const to = (schema: Internal, target: Internal, custom?: unknown) => link(schema, target, custom);
+
+// An output-seam coder claims the target as its result, so a target that
+// still converts on its own would have that conversion skipped. The junction
+// seam of `to` feeds the target's chain instead, so it stays legal there, as do
+// the slots that place no coder. A reading is exempt with `B_neverSlot`:
+// neither places a coder, so neither claims the target's result - the very case
+// a reading exists for is a target that converts on its own.
+// Where both directions are coders, the link is to what the target's output
+// claims: the target's own conversions, a field's coder among them, would run
+// again over a value already past them. A reading or "auto" converts the target
+// itself, through its own chain.
+const seamTarget = (target: Internal, decode: unknown, encode: unknown): Internal => {
+  const decodes = typeof decode === functionTag, encodes = typeof encode === functionTag;
+  if (target.to && ((decodes && decode !== B_neverSlot) || (encodes && encode !== B_neverSlot))) {
+    return panic(`The target already converts. Chain S.to instead of passing a custom codec`);
+  }
+  return decodes && encodes ? B_outputView(target) : target;
+};
+
+// The ReScript `~custom` adapter's seam: its coders are typed against the
+// target's output, so there is no public-JS spelling of it.
+// @__NO_SIDE_EFFECTS__
+export const $to = (schema: Internal, target: Internal, codecs: unknown) => link(schema, target, codecs, seamTarget);
 
 // @__NO_SIDE_EFFECTS__
 export const refine = (

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.string.with(S.to, S.union([S.schema({ type: "a", n: S.string.with(S.to, S.int32, { decode: (x) => x.length, encode: (n) => "x".repeat(n) }) }), S.schema({ type: "b" })]), { decodeToOutput: (v: string) => ({ type: "a" as const, n: v.length }), encodeFromOutput: (o: { n: number }) => "x".repeat(o.n) } as any)'
+  schema: 'S.string.with((S as any).$to as typeof S.to, S.union([S.schema({ type: "a", n: S.string.with(S.to, S.int32, { decode: (x) => x.length, encode: (n) => "x".repeat(n) }) }), S.schema({ type: "b" })]), { decode: (v: string) => ({ type: "a" as const, n: v.length }), encode: (o: { n: number }) => "x".repeat(o.n) } as any)'
   input: string
   output: '{ type: "a"; n: number; } | { type: "b"; }'
   instantiations: 8722

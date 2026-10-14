@@ -687,14 +687,14 @@ type codecs<'from, 'to> = {
   external toCustom: (
     t<'from>,
     t<'to>,
-    {"decodeToOutput": conversion<'from, 'to>, "encodeFromOutput": conversion<'to, 'from>},
-  ) => t<'to> = "to"
+    codecs<'from, 'to>,
+  ) => t<'to> = "$to"
 )
 // Auto/Never already erase to the exact "auto"/"never" strings via @as, while
 // Sync/Async keep the default variant representation the JS side doesn't
 // understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
-// The slots are the toOutput ones: `t<'to>` exposes only the target's output
-// type, so the coder can't be typed against the target's input the way the JS
+// `$to`, not `to`: `t<'to>` exposes only the target's output type, so the
+// coder can't be typed against the target's input the way the JS
 // `{decode, encode}` surface is. Nothing is lost, because the compiler
 // already checks the coder's signature.
 %%private(
@@ -713,8 +713,8 @@ let to = (from, target, ~custom=?) =>
       from,
       target,
       {
-        "decodeToOutput": unwrapConversion(decode),
-        "encodeFromOutput": unwrapConversion(encode),
+        decode: unwrapConversion(decode),
+        encode: unwrapConversion(encode),
       },
     )
   }
