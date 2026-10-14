@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (self) => { let message = "converted"; try { S.toInputJSONSchemaOrThrow(self) } catch (e) { message = (e as Error).message } return S.schema({ message: S.literal(message), kid: S.optional(self) }) })'
+  input: unknown
+  output: unknown
+  instantiations: 7877
+# FIXME: converting the ref inside its definer crashes instead of naming the mistake
+jsonSchema:
+  input: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", const: \"Cannot read properties of undefined (reading 'type')\" }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
+  fromInputType: "{ message: \"Cannot read properties of undefined (reading 'type')\"; kid?: ... | undefined; }"
+  output: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", const: \"Cannot read properties of undefined (reading 'type')\" }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
+  fromOutputType: "{ message: \"Cannot read properties of undefined (reading 'type')\"; kid?: ... | undefined; }"
+  openapi-3.0:
+    input: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", enum: [\"Cannot read properties of undefined (reading 'type')\"] }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
+    output: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", enum: [\"Cannot read properties of undefined (reading 'type')\"] }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      root:
+        input: '{ message: "x" }'
+        error: "Failed at message: Expected \"Cannot read properties of undefined (reading 'type')\", received \"x\""
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      root:
+        input: '{ message: "x" }'
+        output: '{ message: "x" }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      root:
+        input: '{ message: "x" }'
+        output: '{ message: "x" }'
