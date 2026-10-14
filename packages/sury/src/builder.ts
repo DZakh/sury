@@ -461,6 +461,8 @@ const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryEr
   if (original === U) {
     const copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
     copy.path = path;
+    // A case's path is as absolute as the union's own, so it moves with it.
+    if (copy.unionErrors) copy.unionErrors = copy.unionErrors.map((caseError) => B_prefixPath(caseError, p));
     return copy;
   }
   return Object.create(original, {

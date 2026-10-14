@@ -27,13 +27,12 @@ operations:
           Failed at v: Expected { a: string; } | { b: number; }, received { a: 1; }
           - At v.a: Expected string, received 1
           - At v.b: Expected number, received undefined
-      # FIXME: the case lines lose the path the recursive levels above added
       case-paths-at-depth:
         input: '{ v: { a: "x" }, next: { v: { a: "y" }, next: { v: { c: 1 } } } }'
         error: |-
           Failed at next.next.v: Expected { a: string; } | { b: number; }, received { c: 1; }
-          - At v.a: Expected string, received undefined
-          - At v.b: Expected number, received undefined
+          - At next.next.v.a: Expected string, received undefined
+          - At next.next.v.b: Expected number, received undefined
   decode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
