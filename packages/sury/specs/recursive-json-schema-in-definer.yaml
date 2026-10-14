@@ -4,15 +4,14 @@ ts:
   input: unknown
   output: unknown
   instantiations: 7877
-# FIXME: converting the ref inside its definer crashes instead of naming the mistake
 jsonSchema:
-  input: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", const: \"Cannot read properties of undefined (reading 'type')\" }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
-  fromInputType: "{ message: \"Cannot read properties of undefined (reading 'type')\"; kid?: ... | undefined; }"
-  output: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", const: \"Cannot read properties of undefined (reading 'type')\" }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
-  fromOutputType: "{ message: \"Cannot read properties of undefined (reading 'type')\"; kid?: ... | undefined; }"
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", const: "Node is used before S.recursive returns its definition" }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+  fromInputType: '{ message: "Node is used before S.recursive returns its definition"; kid?: ... | undefined; }'
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", const: "Node is used before S.recursive returns its definition" }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+  fromOutputType: '{ message: "Node is used before S.recursive returns its definition"; kid?: ... | undefined; }'
   openapi-3.0:
-    input: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", enum: [\"Cannot read properties of undefined (reading 'type')\"] }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
-    output: "{ $ref: \"#/$defs/Node\", $defs: { Node: { type: \"object\", properties: { message: { type: \"string\", enum: [\"Cannot read properties of undefined (reading 'type')\"] }, kid: { $ref: \"#/$defs/Node\" } }, required: [\"message\"] } } }"
+    input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", enum: ["Node is used before S.recursive returns its definition"] }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+    output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", enum: ["Node is used before S.recursive returns its definition"] }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
@@ -24,7 +23,7 @@ operations:
     examples:
       root:
         input: '{ message: "x" }'
-        error: "Failed at message: Expected \"Cannot read properties of undefined (reading 'type')\", received \"x\""
+        error: 'Failed at message: Expected "Node is used before S.recursive returns its definition", received "x"'
   decode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:

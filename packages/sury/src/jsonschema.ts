@@ -337,8 +337,14 @@ const applyMetadataOverlay = (
 // another definition already took that key (specs/recursive-same-name.yaml).
 type Defs = [string, Internal][];
 
-const refKey = (defs: Defs, ref: Internal): string => {
-  const def = ref.definition!()!;
+const refKey = (defs: Defs, ref: Internal, path: Path): string => {
+  const def = ref.definition!();
+  if (def === U)
+    throw new SuryError({
+      code: "invalid_operation",
+      path,
+      reason: `${ref.name} is used before S.recursive returns its definition`,
+    });
   let entry = defs.find((e) => e[1] === def);
   if (entry === U) {
     const name = ref["$ref"]!.slice(8);
@@ -671,7 +677,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === unknownTag) {
     // `{}` accepts any instance, which is exactly what unknown and any admit.
   } else if (tag === refTag) {
-    jsonSchema.$ref = defsPath + refKey(defs, schema);
+    jsonSchema.$ref = defsPath + refKey(defs, schema, path);
   } else if (tag === nullTag) {
     // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
     target === openApi30 ? (jsonSchema.enum = [null]) : (jsonSchema.type = "null");
