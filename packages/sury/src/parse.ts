@@ -146,7 +146,9 @@ export const parse = (input: Val): Val => {
 // S.Error` and threw, already points at a better line than this; asking by
 // ownership rather than `"stack" in` keeps that true on SpiderMonkey, whose
 // accessor on `Error.prototype` answers for every error, and never reads (and
-// formats) a stack to decide.
+// formats) a stack to decide. A frozen one is left as it is: a user who froze
+// what they throw at the root gets it back unchanged rather than a TypeError
+// from the write.
 //
 // `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
 // it can drop the frames between the raise and the caller. Every other engine
@@ -163,7 +165,7 @@ export const parse = (input: Val): Val => {
 // Hands back what it was given, so each boundary reads as the one expression
 // it rethrows or rejects with.
 const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): SuryErrorRecord => {
-  if (thrown && thrown.s === s && !Object.hasOwn(thrown, "stack") && !constructed.has(thrown)) {
+  if (thrown && thrown.s === s && !Object.hasOwn(thrown, "stack") && !constructed.has(thrown) && Object.isExtensible(thrown)) {
     const capture = (
       Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
     ).captureStackTrace;

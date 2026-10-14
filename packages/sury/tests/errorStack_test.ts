@@ -278,6 +278,14 @@ test("an error built by hand and frozen without a stack comes out as itself at t
   expect(() => S.parseOrThrow(refined, "x")).toThrow(thrown);
 });
 
+test("a frozen failure from a Result operation thrown at the root comes out as itself", () => {
+  const thrown = Object.freeze(S.parseAsResult(S.number, "x").error!);
+  const refined = S.string.with(S.refine, () => {
+    throw thrown;
+  });
+  expect(() => S.parseOrThrow(refined, "x")).toThrow(thrown);
+});
+
 test("an error a recursive node's own refine throws is the cause at every depth", () => {
   const SuryError = S.Error as unknown as new (details: unknown) => Error;
   const thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
