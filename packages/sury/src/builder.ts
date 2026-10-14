@@ -393,6 +393,16 @@ export const B_detached = (g: BGlobal, body: () => string): string => {
 export const B_then = (param: string, body: string, ret: string): Continuation => (settle) =>
   `${param}=>{${settle ? `try{${body}}catch(x){return ${settle}(x)}` : body}return ${ret}}`;
 
+// The native `then` on the answer, never the answer's own: a thenable could
+// call H synchronously and have the `try` wrap its error a second time
+// (codec-custom-async-sync-thenable). Anything with a `.catch`, the one method
+// the unfused form ever asked for, is adopted first, so a promise from another
+// library still works (codec-custom-async-foreign-promise); a native one comes
+// back as itself, with no extra hop.
+const nativeThen = Promise.prototype.then;
+const fusedThen = (answer: Promise<unknown>, ok: unknown, no: unknown): Promise<unknown> =>
+  nativeThen.call(typeof answer?.catch === "function" ? Promise.resolve(answer) : answer, ok as never, no as never);
+
 export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
   const name = output.i;
   const rj = path ? `x=>${raise}(x${path})` : raise;
@@ -400,7 +410,7 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   const cp = (value: string) => `${decl}try{${name}=${value}}catch(x){${raise}(x${path})}`;
   let thenRef: string | undefined, fused: string | undefined, then: Continuation | undefined, settled = false;
   const native = (ok: string, no: string) =>
-    cp(`${(thenRef ??= B_embedPure(output, Promise.prototype.then))}.call(${call},${ok},${no})`);
+    cp(`${(thenRef ??= B_embedPure(output, fusedThen))}(${call},${ok},${no})`);
   const built = (output.cp = cp(`${call}.catch(${rj})`));
   output.fu = (ok, same) => {
     if (output.cp !== built || output.fz) return false;

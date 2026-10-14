@@ -667,11 +667,9 @@ export type Val = {
   // native `then(ok, H)`, still inside the same `try`, one promise hop fewer.
   // Equivalent only because H always throws: a `.then` second argument never
   // sees a throw from the first, and neither did the `.catch` ahead of it. The
-  // native `then`, not the answer's own: a thenable could call H synchronously
-  // and have the `try` wrap its error a second time
-  // (codec-custom-async-sync-thenable). Returns false, leaving `cp` alone, once
-  // `cp` has changed or been emitted. Never copied onto a refined val: it
-  // rebuilds this val's `cp`, not theirs.
+  // native `then`, not the answer's own (builder.ts `fusedThen`). Returns
+  // false, leaving `cp` alone, once `cp` has changed or been emitted. Never
+  // copied onto a refined val: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
   fu?: (ok: Continuation, same?: boolean) => boolean;
   // Set by `B_asyncTry`. `fs(val, true)`, before the merge, moves a collecting

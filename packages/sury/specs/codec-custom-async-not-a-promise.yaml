@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){if(typeof i==="string"){try{let v0;try{v0=e[3].call(e[0](i),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=await v0;break}catch(x){v1=[v1,e[4](x)]}break}throw e[5](i,v1)};return i})(i)).catch(e[6])}catch(v2){return e[7](v2)}}
+    expression: i=>{try{return Promise.resolve((async(i)=>{let v1;for(;;){if(typeof i==="string"){try{let v0;try{v0=e[3](e[0](i),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=await v0;break}catch(x){v1=[v1,e[4](x)]}break}throw e[5](i,v1)};return i})(i)).catch(e[6])}catch(v2){return e[7](v2)}}
     examples:
       promise:
         input: '"abc"'
