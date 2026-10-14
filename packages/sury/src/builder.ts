@@ -472,7 +472,8 @@ const B_foreignFail = (
 // copied: it may be frozen, read its stack off itself, or own a field shadowing
 // a read-only key on the prototype. The failure takes it as its prototype, so
 // its code, reason, class and fields read through, and owns only `path`,
-// `cause` and a union's prefixed cases. A deeper level wraps the same original again rather than nesting.
+// `cause` and a union's prefixed cases. A deeper level wraps the same original
+// again rather than nesting.
 const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
   if (!p.length) return error;
   const path = pathConcat(p, error.path);
