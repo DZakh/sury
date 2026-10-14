@@ -471,25 +471,29 @@ const B_foreignFail = (
 // What user code threw (`caller`, or anything the constructor built) is never
 // copied: it may be frozen, read its stack off itself, or own a field shadowing
 // a read-only key on the prototype. The failure takes it as its prototype, so
-// its code, reason, class and fields read through, and owns only `path` and
-// `cause`. A deeper level wraps the same original again rather than nesting.
+// its code, reason, class and fields read through, and owns only `path`,
+// `cause` and a union's prefixed cases. A deeper level wraps the same original again rather than nesting.
 const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
   if (!p.length) return error;
   const path = pathConcat(p, error.path);
   const proto = Object.getPrototypeOf(error) as SuryErrorRecord;
   const original = Object.hasOwn(error, "cause") && error.cause === proto ? proto : caller || constructed.has(error) ? error : U;
+  // A case's path is as absolute as the union's own, so it moves with it.
+  const unionErrors = (error.unionErrors as SuryErrorRecord[] | undefined)?.map((caseError) =>
+    B_prefixPath(caseError, p),
+  );
   if (original === U) {
     const copy = Object.assign(Object.create(proto), error) as SuryErrorRecord;
     copy.path = path;
-    // A case's path is as absolute as the union's own, so it moves with it.
-    const unionErrors = copy.unionErrors as SuryErrorRecord[] | undefined;
-    if (unionErrors) copy.unionErrors = unionErrors.map((caseError) => B_prefixPath(caseError, p));
+    if (unionErrors) copy.unionErrors = unionErrors;
     return copy;
   }
-  return Object.create(original, {
+  const own: PropertyDescriptorMap = {
     path: { value: path, enumerable: true, writable: true, configurable: true },
     cause: { value: original, enumerable: true, writable: true, configurable: true },
-  }) as SuryErrorRecord;
+  };
+  if (unionErrors) own.unionErrors = { value: unionErrors, enumerable: true, writable: true, configurable: true };
+  return Object.create(original, own) as SuryErrorRecord;
 };
 
 export const B_conversionFail = (

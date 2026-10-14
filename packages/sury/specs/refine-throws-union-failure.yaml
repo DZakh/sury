@@ -21,13 +21,12 @@ operations:
       valid:
         input: '{ o: { a: "x" } }'
         output: '{ o: { a: "x" } }'
-      # FIXME: the case lines lose the field the refine sits under
       case-paths-under-field:
         input: "{ o: { c: 1 } }"
         error: |-
           Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
-          - At a: Expected string, received undefined
-          - At b: Expected number, received undefined
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined
   decode:
     expression: i=>{try{let v0=i.o;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
     examples:
@@ -35,8 +34,8 @@ operations:
         input: "{ o: { c: 1 } }"
         error: |-
           Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
-          - At a: Expected string, received undefined
-          - At b: Expected number, received undefined
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined
   encode:
     expression: i=>{try{let v0=i.o;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
     examples:
@@ -44,5 +43,5 @@ operations:
         input: "{ o: { c: 1 } }"
         error: |-
           Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
-          - At a: Expected string, received undefined
-          - At b: Expected number, received undefined
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined
