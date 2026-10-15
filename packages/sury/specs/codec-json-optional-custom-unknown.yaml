@@ -17,7 +17,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}let v2;try{v2=e[1](v0)}catch(x){v3=[v3,e[2],x];break l4}v0=v2;break}catch(x){v3=[v3,e[3](x)]}}throw e[4](v0,v3)}return {f:v0}}catch(v5){e[6](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){e[1](v1,["f"])}let v2;try{v2=e[2](v0)}catch(x){v3=[v3,e[3],x];break l4}v0=v2;break}catch(x){v3=[v3,e[4](x)]}}throw e[5](v0,v3)}return {f:v0}}catch(v5){e[7](v5)}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'
@@ -29,7 +29,7 @@ operations:
         input: "{ f: undefined }"
         output: "{ f: undefined }"
   decode:
-    expression: i=>{try{let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){v1.path=["f",...v1.path];throw v1}let v2;try{v2=e[1](v0)}catch(x){v3=[v3,e[2],x];break l4}v0=v2;break}catch(x){v3=[v3,e[3](x)]}}throw e[4](v0,v3)}return {f:v0}}catch(v5){e[5](v5)}}
+    expression: i=>{try{let v0=i.f;let v3;for(;;){if(v0===void 0)break;l4:{try{try{e[0](v0);}catch(v1){e[1](v1,["f"])}let v2;try{v2=e[2](v0)}catch(x){v3=[v3,e[3],x];break l4}v0=v2;break}catch(x){v3=[v3,e[4](x)]}}throw e[5](v0,v3)}return {f:v0}}catch(v5){e[6](v5)}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'
@@ -38,7 +38,7 @@ operations:
         input: "{}"
         output: "{ f: undefined }"
   encode:
-    expression: i=>{try{let v4=i.f;let v1;for(;;){l2:{try{let v0;try{v0=e[0](i.f)}catch(x){v1=[v1,e[1],x];break l2}try{e[2](v0);}catch(v3){v3.path=["f",...v3.path];throw v3}v4=v0;break}catch(x){v1=[v1,e[3](x)]}}if(v4===void 0)break;throw e[4](v4,v1)}return {f:v4}}catch(v5){e[5](v5)}}
+    expression: i=>{try{let v4=i.f;let v1;for(;;){l2:{try{let v0;try{v0=e[0](i.f)}catch(x){v1=[v1,e[1],x];break l2}try{e[2](v0);}catch(v3){e[3](v3,["f"])}v4=v0;break}catch(x){v1=[v1,e[4](x)]}}if(v4===void 0)break;throw e[5](v4,v1)}return {f:v4}}catch(v5){e[6](v5)}}
     examples:
       present:
         input: '{ f: { tag: "x" } }'

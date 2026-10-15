@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.string.with(S.to, S.number, { decode: { async: ((value: string) => { const p = () => (value === "bad" ? Promise.reject(new Error("rejected")) : Promise.resolve(value.length)); return { then: (ok: (v: number) => unknown, no: (e: unknown) => unknown) => p().then(ok, no), catch: (no: (e: unknown) => unknown) => p().catch(no) } }) as never }, encode: (value: number) => "x".repeat(value) }) })'
+  input: "{ a: string; }"
+  output: "{ a: number; }"
+  instantiations: 5676
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.a;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3](e[0](v1),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[6])}catch(v2){return e[7](v2)}}
+    examples:
+      resolves:
+        input: '{ a: "abc" }'
+        output: "{ a: 3 }"
+      rejects:
+        input: '{ a: "bad" }'
+        error: "Failed at a: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[3](e[0](i.a),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[4])}catch(v1){return e[5](v1)}}
+    examples:
+      resolves:
+        input: '{ a: "abc" }'
+        output: "{ a: 3 }"
+      rejects:
+        input: '{ a: "bad" }'
+        error: "Failed at a: rejected"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      valid:
+        input: "{ a: 3 }"
+        output: '{ a: "xxx" }'
