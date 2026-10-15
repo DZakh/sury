@@ -1071,17 +1071,21 @@ holds the other way round: a single type converted into `S.optional(X)` never
 produces `undefined`, and a string never reads `"undefined"` as one. `S.json`,
 which holds the value, is the exception and keeps converting it as `null`.
 
-Read through `S.json`, a field with no `null` of its own takes a JSON `null` as
-missing, and an absent key reads as `undefined`, never `null`:
+Read through `S.json`, an object field takes an absent key as missing and a
+`null` as `S.parseOrThrow` does: a field leaves its key out when it is missing,
+so `null` there is a value. Array, tuple and record items have no key to leave
+out, and still read `null` as missing:
 
 ```ts
 const patch = S.schema({ name: S.optional(S.string), bio: S.optional(S.nullable(S.string)) });
 const read = S.parseOrThrow(S.json, patch);
 
 read({}); // { name: undefined, bio: undefined }
-read({ name: null }); // { name: undefined, bio: undefined }
 read({ bio: null }); // { name: undefined, bio: null }
-S.parseOrThrow(patch)({ name: null }); // throws: Failed at name: Expected string | undefined, received null
+read({ name: null }); // throws: Failed at name: Expected string | undefined, received null
+
+// To accept null as missing too:
+S.schema({ name: S.nullish(S.string).with(S.to, S.optional(S.string)) });
 ```
 
 **Union → union.** Values pass through to the member of the same type on the

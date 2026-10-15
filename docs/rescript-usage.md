@@ -2147,7 +2147,7 @@ let toJsonString = S.compileConvertOrThrow(~from=schema, ~to=S.jsonString)
 
 `~via` runs that schema's own validation, so `~via=S.json` rejects a JSON string that parses to something `S.json` doesn't accept.
 
-Converting from `S.json` or `S.jsonString` reads a JSON `null` as `None` for a field with no `null` of its own, where `S.parseOrThrow` rejects it. An absent key reads as `None`, never `Some(Null)`:
+Converting from `S.json` or `S.jsonString` reads an object field the way `S.parseOrThrow` does: an absent key is `None`, and a JSON `null` is only accepted by a field that has a `null` of its own:
 
 ```rescript
 type patch = {name: option<string>, bio: option<null<string>>}
@@ -2157,9 +2157,8 @@ let patch = S.object(s => {
 })
 
 %raw(`{}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: None}
-%raw(`{"name": null}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: None}
 %raw(`{"bio": null}`)->S.convertOrThrow(~from=S.json, ~to=patch) // {name: None, bio: Some(Null)}
-%raw(`{"name": null}`)->S.parseOrThrow(~to=patch) // throws: Failed at name: Expected string | undefined, received null
+%raw(`{"name": null}`)->S.convertOrThrow(~from=S.json, ~to=patch) // throws: Failed at name: Expected string | undefined, received null
 ```
 
 Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.

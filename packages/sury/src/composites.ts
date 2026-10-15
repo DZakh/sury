@@ -17,6 +17,7 @@ import {
   inlinedObjectKey,
   inlinedProperty,
   inlinedValueFromString,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
@@ -794,17 +795,22 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // Each branch runs the whole target, parser and `.to` included, so the
   // output is final - pointing it at the target would run them again.
   const output = B_nextVarOutput(input, v, getOutputSchema(target));
-  const body = (source: Internal, u: boolean): string => {
+  const body = (source: Internal, u: boolean, e: Internal = target): string => {
     const scope = B_scope(input);
     scope.io = false;
     scope.s = source;
-    scope.e = target;
+    scope.e = e;
     scope.u = u;
     const out = parse(scope);
     output.f |= out.f & 1;
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
-  const presentBody = body(item, !unsetIsInput);
+  // A JSON document has no `undefined`, and its `null` would otherwise be
+  // bridged to the target's undefined arm, reading a present `null` as an
+  // absent key. The absent branch below answers absence, so the present one
+  // drops the undefined arm and answers `null` exactly as `parse` does.
+  const present = item.flags & 16 ? presentTarget(target) : target;
+  const presentBody = present ? body(item, !unsetIsInput, present) : B_failInvalidInput(input, target) + ";";
   // A target that never dispatches (`s.fieldOr`) is told the value is absent
   // and answers with its default alone; a union meeting `unit` would instead
   // coerce it, so a dispatching target reads it from `unknown`.
@@ -827,6 +833,40 @@ const missingKeyEncoder: Encoder = (input, target) => {
           ? `if(${v}!==void 0){${presentBody}}`
           : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
+};
+
+// The target without its top-level `undefined` arms, failing under the
+// target's own name. A union stays one even with a single arm left: its
+// dispatch is what reads a document's string as an arm stored apart
+// (`S.jsonString`, bytes). `s.fieldOr` is its item, its default being only an
+// absent key's.
+const presentTarget = (s: Internal): Internal | undefined => {
+  const anyOf = s.anyOf;
+  if (anyOf === U || !s.has![undefinedTag]) return s;
+  let mut: Internal;
+  if (s.decoder === noopDecoder) {
+    const item = presentTarget(anyOf[0]!);
+    if (item === U) return U;
+    mut = item === anyOf[0] ? copySchema(item) : item;
+  } else {
+    const arms: Internal[] = [];
+    for (const arm of anyOf) {
+      if (arm.type === undefinedTag) continue;
+      // A member that keeps its own `undefined` (a default holds it nested)
+      // would take the `null` before a later arm; left with one arm, it is
+      // that arm, so the outer dispatch falls through it as parse does.
+      const present = presentTarget(arm);
+      if (present !== U) arms.push(present !== arm && present.anyOf?.length === 1 ? present.anyOf[0]! : present);
+    }
+    // Only absence fills it (`S.optional(S.void)`): no present value can.
+    if (!arms.length) return U;
+    mut = copySchema(s);
+    mut.anyOf = arms;
+    mut.has = {};
+    arms.forEach((arm) => setHas(mut.has!, arm));
+  }
+  mut.expression = () => inputExpression(s);
+  return mut;
 };
 
 // Whether an optional field's missing key goes through the field's own decode

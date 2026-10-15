@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0!==void 0){for(;;){if(typeof v0==="string")break;if(v0===null){v0="d";break}throw e[0](v0)}}else{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="d";break}throw e[1](v0)}}return {f:v0}}catch(v1){e[3](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0!==void 0){typeof v0==="string"||e[0](v0);}else{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="d";break}throw e[1](v0)}}return {f:v0}}catch(v1){e[3](v1)}}
     examples:
       absent:
         input: "{}"
@@ -32,10 +32,7 @@ operations:
           ajv: "input: data must have required property 'f'"
       "null":
         input: "{ f: null }"
-        output: '{ f: "d" }'
-        divergence:
-          reason: the input document is rendered from the encode side, which always writes the field
-          ajv: "input: data/f must be string"
+        error: "Failed at f: Expected string | undefined, received null"
       string:
         input: '{ f: "x" }'
         output: '{ f: "x" }'

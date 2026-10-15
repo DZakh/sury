@@ -163,6 +163,21 @@ S.parseOrThrow(S.json.with(S.to, S.optional(S.string)))(null); // undefined - JS
 S.parseOrThrow(S.env.with(S.to, S.optional(S.string)))(""); // undefined - `""` is an unset var
 ```
 
+An object field of a JSON document spells a missing value by leaving the key
+out - encoding writes it that way, and the published JSON Schema has no `null`
+for it - so under a present key `null` is a value like any other, read as
+`S.parseOrThrow` reads it. The document itself, array and tuple items and record
+values have no key to leave out, and keep reading `null` as the arm:
+
+```ts
+const read = S.parseOrThrow(S.json, S.schema({ b: S.optional(S.string) }));
+read({}); // { b: undefined }
+read({ b: null }); // throws - Failed at b: Expected string | undefined, received null
+S.parseOrThrow(S.json, S.array(S.optional(S.string)))([null]); // [undefined]
+// A field that should keep reading null as missing says so:
+S.schema({ b: S.nullish(S.string).with(S.to, S.optional(S.string)) });
+```
+
 The arm meets the link it is written after, not the head of the chain:
 
 ```ts

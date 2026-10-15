@@ -142,6 +142,13 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // which `B_narrowJsonSourcedJsonString` already routes, and standing
     // `S.json` in front of it would match every value and swallow the dispatch.
     const storedApart = (variant: Internal): Internal | undefined => variant.storedAs;
+    // A single variant (a field's present branch, its undefined arm dropped)
+    // is read through the target itself: unionFactory would collapse the
+    // stored union to the one arm, and the target's `.to` would overwrite the
+    // arm's own hop.
+    if (anyOf?.length === 1 && storedApart(anyOf[0]!) !== U) {
+      return copyVia(storedApart(anyOf[0]!)!);
+    }
     if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {

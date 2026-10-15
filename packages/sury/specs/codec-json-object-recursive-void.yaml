@@ -27,6 +27,11 @@ operations:
       absent:
         input: "{}"
         error: "Failed at a: Expected void | R[], received undefined"
+      # FIXME: known bug json-absent-recursive-undefined. A present null reaches the
+      # ref as the missing value; without S.json, parse rejects it.
+      "null":
+        input: "{ a: null }"
+        output: "{ a: undefined }"
       empty-list:
         input: "{ a: [] }"
         output: "{ a: [] }"

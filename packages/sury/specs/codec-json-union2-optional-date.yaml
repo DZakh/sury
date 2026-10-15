@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.a;if(v1!==void 0){let v3;for(;;){if(typeof v1==="string"){l4:{let v2=new Date(v1);if(!(!Number.isNaN(v2.getTime()))){v3=[v3,e[0],v1];break l4}v1=v2;break}}if(v1===null){v1=void 0;break}throw e[1](v1,v3)}}v0={a:v1};break}if(typeof v0==="string")break;throw e[2](v0)}return {value:v0}}catch(v5){e[4](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.value;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.a;if(v1!==void 0){if(typeof v1==="string"){let v2=new Date(v1);!Number.isNaN(v2.getTime())||e[0](v1);v1=v2;}else{throw e[1](v1)}}v0={a:v1};break}if(typeof v0==="string")break;throw e[2](v0)}return {value:v0}}catch(v3){e[4](v3)}}
     examples:
       object-member-with-date:
         input: '{ value: { a: "2024-01-01T00:00:00.000Z" } }'
@@ -32,9 +32,7 @@ operations:
         output: '{ value: "text" }'
       invalid-date-text:
         input: '{ value: { a: "nope" } }'
-        error: |-
-          Failed at value.a: Expected string | undefined, received "nope"
-          - At value.a: Expected Date, received "nope"
+        error: 'Failed at value.a: Expected Date, received "nope"'
       neither-member:
         input: "{ value: 5 }"
         error: "Failed at value: Expected { a: string | undefined; } | string, received 5"

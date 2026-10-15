@@ -29,6 +29,10 @@
 //                check also leaves out a field holding the schema, bare and
 //                under `S.shape`: an absent key reaches that field's parser
 //                directly instead of going through a dispatch.
+//   present null a `null` under a present key of a JSON object reads through
+//                `S.json` the way `parse` reads it, and is rejected where parse
+//                rejects it: an object field spells a missing value by leaving
+//                the key out, so `null` is only ever a value there.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
@@ -142,24 +146,59 @@ const check = (ctx: Ctx): void => {
     ["field", () => S.schema({ a: schema })],
     ["shaped field", () => S.schema({ a: S.shape(schema, (v: unknown) => ({ v })) })],
   ] as const) {
-    let parsed: unknown;
     let holder: unknown;
+    let parseHolder: Op;
     try {
       holder = build();
-      parsed = S.parseOrThrow(holder)({});
+      parseHolder = S.parseOrThrow(holder);
     } catch {
       continue;
     }
-    if (!settled(parsed)) continue;
     const read = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, holder)));
     if (!read) continue;
-    try {
-      const answer = read({});
-      if (settled(answer) && !structural(answer, parsed)) {
-        report("absent", `parse read {} as ${show(parsed)} and S.json as ${show(answer)} with the schema as a ${field}`);
+    // `null` is the JSON spelling of what it read when it encodes back to
+    // `null`: NaN, or a required `S.void`.
+    const spellsNull = (answer: unknown): boolean => {
+      try {
+        return (S.encodeOrThrow(S.json.with(S.to, holder))(answer) as { a?: unknown }).a === null;
+      } catch {
+        return false;
       }
-    } catch (error) {
-      report("absent", `parse read {} as ${show(parsed)} but S.json threw with the schema as a ${field} - ${reason(error)}`);
+    };
+    // A fresh document per read: a parse may write into the object it reads.
+    for (const [property, fresh] of [
+      ["absent", () => ({})],
+      ["present null", () => ({ a: null })],
+    ] as const) {
+      const document = fresh();
+      let parsed: unknown;
+      let parseError: unknown;
+      try {
+        parsed = parseHolder(fresh());
+      } catch (error) {
+        parseError = error;
+      }
+      if (parseError === undefined && !settled(parsed)) continue;
+      let answer: unknown;
+      try {
+        answer = read(fresh());
+      } catch (error) {
+        if (parseError === undefined) {
+          report(property, `parse read ${show(document)} as ${show(parsed)} but S.json threw with the schema as a ${field} - ${reason(error)}`);
+        }
+        continue;
+      }
+      if (!settled(answer)) continue;
+      if (parseError !== undefined) {
+        // An absent key parse rejects is the field's own requirement, which the
+        // carrier is free to meet another way; a present null is not, unless it
+        // is the field's own JSON spelling of the value read.
+        if (property === "present null" && !spellsNull(answer)) {
+          report(property, `parse rejected ${show(document)} but S.json read it as ${show(answer)} with the schema as a ${field}`);
+        }
+      } else if (!structural(answer, parsed)) {
+        report(property, `parse read ${show(document)} as ${show(parsed)} and S.json as ${show(answer)} with the schema as a ${field}`);
+      }
     }
   }
 

@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.f;if(v0!==void 0){v0 instanceof e[2]||e[3](v0);!Number.isNaN(v0.getTime())||e[1](v0);}else{v0=e[4];}return {f:v0}}catch(v1){e[6](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.f;if(v0!==void 0){typeof v0==="string"||e[1](v0);let v1=new Date(v0);!Number.isNaN(v1.getTime())||e[0](v0);v0=v1;}else{v0=e[2];}return {f:v0}}catch(v2){e[4](v2)}}
     examples:
       absent:
         input: "{}"
@@ -30,11 +30,9 @@ operations:
         divergence:
           reason: the input document is rendered from the encode side, which always writes the field
           ajv: "input: data must have required property 'f'"
-      # FIXME: s.fieldOr's parser re-reads a present value from unknown, so a
-      # Date stored as its ISO string under S.json is rejected instead of decoded.
       present:
         input: '{ f: "2020-01-01T00:00:00.000Z" }'
-        error: 'Failed at f: Expected Date | undefined, received "2020-01-01T00:00:00.000Z"'
+        output: '{ f: new Date("2020-01-01T00:00:00.000Z") }'
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v1=i.f;let v0;try{v0=v1.toISOString()}catch(_){e[0](v1)}return {f:v0}}catch(v2){e[1](v2)}}

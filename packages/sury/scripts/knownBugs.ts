@@ -93,14 +93,15 @@ export const KNOWN_BUGS: Known[] = [
     id: "json-absent-recursive-undefined",
     kind: "bug",
     summary:
-      "Read through `S.json`, an absent key fails a field whose `undefined` sits behind a recursive ref " +
-      "(`S.recursive(\"R\", (self) => S.union([S.void, S.array(self)]))`): the object branch sees no " +
-      "`undefined` member, so the key reaches the union as present.",
+      "Read through `S.json`, a field whose `undefined` sits behind a recursive ref " +
+      "(`S.recursive(\"R\", (self) => S.union([S.void, S.array(self)]))`) misreads its key: the object " +
+      "branch sees no `undefined` member, so an absent key reaches the union as present, and a present " +
+      "`null` is still read as the missing value parse rejects.",
     spec: "codec-json-object-recursive-void",
     fuzzers: ["codec"],
     matches: (f) =>
       f.fuzzer === "codec" &&
-      f.property === "absent" &&
+      (f.property === "absent" || f.property === "present null") &&
       some(f.shape, (node) => node.name === "recursive" && admitsUndefined(node.args[0]!)),
   },
   {
@@ -161,6 +162,17 @@ export const KNOWN_BUGS: Known[] = [
       f.shape.name === "jsonTo" &&
       f.property === "acceptance" &&
       some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
+  },
+  {
+    id: "json-null-spells-nan",
+    kind: "limitation",
+    summary:
+      "JSON writes NaN as `null`, so a field that can hold both NaN and `null` (`S.nullable(S.nan)`), or " +
+      "NaN where parse rejects `null`, reads a present `null` through `S.json` as NaN: the document " +
+      "cannot tell the two apart, and parse never meets that spelling.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" && f.property === "present null" && some(f.shape, (node) => node.name === "nan"),
   },
   {
     id: "union-overlapping-members",

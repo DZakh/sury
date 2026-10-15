@@ -19,19 +19,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.b;if(v0!==void 0){for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[0](v0)}}return {b:v0}}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.b;if(v0!==void 0){typeof v0==="string"||e[0](v0);}return {b:v0}}catch(v1){e[2](v1)}}
     examples:
       absent:
         input: "{}"
         output: "{ b: undefined }"
-      # FIXME: a JSON null reads as a missing value here, though encode leaves the
-      # key out and the published document has no null for the field.
       "null":
         input: "{ b: null }"
-        output: "{ b: undefined }"
-        divergence:
-          reason: an object field spells a missing value by leaving the key out, so its published document has no null
-          ajv: "input: data/b must be string"
+        error: "Failed at b: Expected string | undefined, received null"
       string:
         input: '{ b: "x" }'
         output: '{ b: "x" }'

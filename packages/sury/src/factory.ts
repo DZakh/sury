@@ -155,12 +155,6 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
     const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
-    // A JSON-sourced field reaches here only when present: objectDecoder splits
-    // off an absent key, which arrives as `unit` above.
-    if (input.s.flags & 16) {
-      output.cp = presentBody;
-      return output;
-    }
     output.cp =
       presentBody === ""
         ? `if(${v}===void 0)${v}=${defCode};`
