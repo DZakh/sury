@@ -25,54 +25,67 @@ type Op = (value: unknown) => unknown;
 const settled = (value: unknown): boolean => !(value instanceof Promise);
 
 const check = (ctx: Ctx): void => {
-  const { S, schema, outputs, isOutput, report, compile, count } = ctx;
-  // A target with a chain of its own is refused with "The target already
-  // converts": the coder would skip that chain, and no Output names its input.
-  if (!outputs.length || (schema as { to?: unknown }).to !== undefined) return;
+  const { S, schema, outputs, report, compile, count } = ctx;
+  if (!outputs.length) return;
   const box = S.schema({ v: S.unknown });
-  const seam = compile<Op>("seam", () =>
-    S.$to(box, schema, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) }),
-  );
-  if (!seam) return;
-  const decode = compile<Op>("untouched", () => S.decodeOrThrow(seam));
-  const encode = compile<Op>("handed-back", () => S.encodeOrThrow(seam));
-  const ownEncode = S.encodeOrThrow(schema) as Op;
-  const ownDecode = S.decodeOrThrow(schema) as Op;
-  const readsBack = (o: unknown): boolean => {
-    try {
-      const decoded = ownDecode(ownEncode(o));
-      return settled(decoded) && structural(decoded, o);
-    } catch {
-      return false;
+  const hold = (target: unknown, place: (o: unknown) => unknown): void => {
+    const seam = compile<Op>("seam", () =>
+      S.$to(box, target, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) }),
+    );
+    if (!seam) return;
+    const decode = compile<Op>("untouched", () => S.decodeOrThrow(seam));
+    const encode = compile<Op>("handed-back", () => S.encodeOrThrow(seam));
+    const isOutput = compile<Op>("untouched", () => S.isOutput(target));
+    const ownEncode = compile<Op>("seam", () => S.encodeOrThrow(target));
+    const ownDecode = compile<Op>("seam", () => S.decodeOrThrow(target));
+    if (!isOutput || !ownEncode || !ownDecode) return;
+    const readsBack = (o: unknown): boolean => {
+      try {
+        const decoded = ownDecode(ownEncode(o));
+        return settled(decoded) && structural(decoded, o);
+      } catch {
+        return false;
+      }
+    };
+    for (const [drawn] of outputs) {
+      const o = place(drawn);
+      if (!readsBack(o)) continue;
+      if (decode) {
+        try {
+          const decoded = decode({ v: o });
+          if (settled(decoded)) {
+            count("results");
+            if (!structural(decoded, o) || isOutput(decoded) !== true) {
+              report("untouched", `the coder returned ${show(o)} and decode answered ${show(decoded)}`);
+            }
+          }
+        } catch (error) {
+          report("untouched", `decode threw on ${show(o)}, which isOutput accepts - ${reason(error)}`);
+        }
+      }
+      if (encode) {
+        try {
+          const encoded = encode(o) as { v: unknown };
+          if (settled(encoded)) {
+            count("results");
+            if (!structural(encoded.v, o)) report("handed-back", `encode handed the coder ${show(encoded.v)} for ${show(o)}`);
+          }
+        } catch (error) {
+          report("handed-back", `encode threw on ${show(o)}, which isOutput accepts - ${reason(error)}`);
+        }
+      }
     }
   };
-  for (const [o] of outputs) {
-    if (!readsBack(o)) continue;
-    if (decode) {
-      try {
-        const decoded = decode({ v: o });
-        if (settled(decoded)) {
-          count("results");
-          if (!structural(decoded, o) || isOutput(decoded) !== true) {
-            report("untouched", `the coder returned ${show(o)} and decode answered ${show(decoded)}`);
-          }
-        }
-      } catch (error) {
-        report("untouched", `decode threw on ${show(o)}, which isOutput accepts - ${reason(error)}`);
-      }
-    }
-    if (encode) {
-      try {
-        const encoded = encode(o) as { v: unknown };
-        if (settled(encoded)) {
-          count("results");
-          if (!structural(encoded.v, o)) report("handed-back", `encode handed the coder ${show(encoded.v)} for ${show(o)}`);
-        }
-      } catch (error) {
-        report("handed-back", `encode threw on ${show(o)}, which isOutput accepts - ${reason(error)}`);
-      }
-    }
-  }
+  // A target with a chain of its own is refused with "The target already
+  // converts": the coder would skip that chain, and no Output names its input.
+  if ((schema as { to?: unknown }).to === undefined) hold(schema, (o) => o);
+  // The schema again two levels into a recursive target, where the coder's
+  // Output reaches it through a ref's definition rather than as a child, and
+  // where a chain of its own is a field's like any other.
+  hold(
+    S.recursive("Seam", (self: unknown) => S.schema({ v: schema, next: S.optional(self) })),
+    (o) => ({ v: o, next: { v: o, next: undefined } }),
+  );
 };
 
 export const seam: Family = { check };

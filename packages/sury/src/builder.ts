@@ -1044,37 +1044,62 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
+// Whether a value passing through the schema is converted anywhere in it. A
+// ref is asked through its definition, once per walk, so a cycle ends.
+const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.parser || schema.serializer) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && B_converts(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
 // What a schema's output claims, as a schema of its own: every node at the end
 // of its chain, children likewise, its refinements kept and its conversions
 // dropped. A value already converted is checked against it without converting
 // it again. The schema itself where nothing in it converts.
 export const B_outputView = (schema: Internal): Internal => {
+  if (!B_converts(schema, new Set())) return schema;
   let last = schema;
   while (last.to) last = last.to;
   const view = copySchema(last);
-  let changed = last !== schema || !!(last.parser || last.serializer);
   delete view.parser;
   delete view.serializer;
-  const viewOf = (child: Internal): Internal => {
-    const childView = B_outputView(child);
-    if (childView !== child) changed = true;
-    return childView;
-  };
   const viewDict = (dict: Record<string, Internal>): Record<string, Internal> => {
     const views: Record<string, Internal> = Object.create(null);
-    for (const key in dict) views[key] = viewOf(dict[key]!);
+    for (const key in dict) views[key] = B_outputView(dict[key]!);
     return views;
   };
   if (view.properties) view.properties = viewDict(view.properties);
-  if (view.items) view.items = view.items.map(viewOf);
-  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.items) view.items = view.items.map(B_outputView);
+  if (typeof view.additionalItems === "object") view.additionalItems = B_outputView(view.additionalItems);
   if (view.anyOf) {
-    view.anyOf = view.anyOf.map(viewOf);
+    view.anyOf = view.anyOf.map(B_outputView);
     view.has = {};
     for (const member of view.anyOf) setHas(view.has, member);
   }
-  if (view["$defs"]) view["$defs"] = viewDict(view["$defs"]);
-  return changed ? view : schema;
+  const definition = last.definition;
+  // Answered on demand: viewing the definition now would view the refs inside
+  // it, and through them the definition again.
+  if (definition) {
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      if (defView === U) outputViews.set(def, (defView = B_outputView(def)));
+      return defView;
+    };
+  }
+  return view;
 };
 
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in

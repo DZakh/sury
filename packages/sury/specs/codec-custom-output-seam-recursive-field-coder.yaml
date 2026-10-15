@@ -20,22 +20,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0;try{v0=e[0]({v:i.v})}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[4](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0;try{v0=e[0]({v:i.v})}catch(x){e[1](x)}e[2](v0);return v0}catch(v1){e[4](v1)}}
     examples:
       coder-result-is-the-output:
         input: '{ v: { name: "a!", kids: [{ name: "b!", kids: [] }] } }'
-        output: '{ name: "a!!", kids: [{ name: "b!!", kids: [] }] }'
+        output: '{ name: "a!", kids: [{ name: "b!", kids: [] }] }'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[3](v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0);return v0}catch(v1){e[3](v1)}}
     examples:
-      # FIXME: the coder hands over the Output, yet the definition's field coder runs over it again
       coder-result-is-the-output:
         input: '{ v: { name: "a!", kids: [{ name: "b!", kids: [] }] } }'
-        output: '{ name: "a!!", kids: [{ name: "b!!", kids: [] }] }'
+        output: '{ name: "a!", kids: [{ name: "b!", kids: [] }] }'
   encode:
-    expression: i=>{try{let v0;v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}return v1}catch(v2){e[3](v2)}}
+    expression: i=>{try{e[0](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}return v0}catch(v1){e[3](v1)}}
     examples:
-      # FIXME: the definition's field coder undoes itself before the coder takes the Output
       coder-takes-the-output:
         input: '{ name: "a!", kids: [{ name: "b!", kids: [] }] }'
-        output: '{ v: { name: "a", kids: [{ name: "b", kids: [] }] } }'
+        output: '{ v: { name: "a!", kids: [{ name: "b!", kids: [] }] } }'
