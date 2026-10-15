@@ -1084,6 +1084,8 @@ read({}); // { name: undefined, bio: undefined }
 read({ bio: null }); // { name: undefined, bio: null }
 read({ name: null }); // throws: Failed at name: Expected string | undefined, received null
 
+S.parseOrThrow(S.json, S.array(S.optional(S.string)))([null]); // [undefined]
+
 // To accept null as missing too:
 S.schema({ name: S.nullish(S.string).with(S.to, S.optional(S.string)) });
 ```
