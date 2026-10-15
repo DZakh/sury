@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.recursive("Node", (self) => S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kids: S.array(self) })), { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any)'
+  input: "{ v?: unknown; }"
+  output: unknown
+  instantiations: 9931
+jsonSchema:
+  input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
+  fromInputType: "{ v: JSON; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["name", "kids"] } } }'
+  fromOutputType: "{ name: string; kids: ...[]; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.v,b.v)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { v: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0;try{v0=e[0]({v:i.v})}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[4](v2)}}
+    examples:
+      coder-result-is-the-output:
+        input: '{ v: { name: "a!", kids: [{ name: "b!", kids: [] }] } }'
+        output: '{ name: "a!!", kids: [{ name: "b!!", kids: [] }] }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[3](v2)}}
+    examples:
+      # FIXME: the coder hands over the Output, yet the definition's field coder runs over it again
+      coder-result-is-the-output:
+        input: '{ v: { name: "a!", kids: [{ name: "b!", kids: [] }] } }'
+        output: '{ name: "a!!", kids: [{ name: "b!!", kids: [] }] }'
+  encode:
+    expression: i=>{try{let v0;v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}return v1}catch(v2){e[3](v2)}}
+    examples:
+      # FIXME: the definition's field coder undoes itself before the coder takes the Output
+      coder-takes-the-output:
+        input: '{ name: "a!", kids: [{ name: "b!", kids: [] }] }'
+        output: '{ v: { name: "a", kids: [{ name: "b", kids: [] }] } }'
