@@ -4,11 +4,8 @@ ts:
   input: unknown
   output: JSON
   instantiations: 8074
-# FIXME: a schema named JSON is taken for S.json by its `$ref`, so the
-# conversion to S.json is skipped and a bigint comes out as a JSON value
 jsonSchema:
-  input: "{}"
-  fromInputType: JSON
+  input: "Failed at a: Expected JSON, received bigint"
   output: "{}"
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
@@ -17,18 +14,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0;v0=e[0](i);e[1](v0);return v0}catch(v1){e[2](v1)}}
     examples:
       bigint:
         input: "{ a: 1n }"
-        output: "{ a: 1n, kid: undefined }"
+        error: "Failed at a: Expected JSON, received 1n"
       nested:
         input: "{ a: 1n, kid: { a: 2n } }"
-        output: "{ a: 1n, kid: { a: 2n, kid: undefined } }"
+        error: "Failed at a: Expected JSON, received 1n"
   decode:
-    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{e[0](i);e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       bigint:
         input: "{ a: 1n }"
-        output: "{ a: 1n }"
-  encode: eq-to-parse
+        error: "Failed at a: Expected JSON, received 1n"
+  encode:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      bigint-text:
+        input: '{ a: "1" }'
+        output: "{ a: 1n, kid: undefined }"
+      nested:
+        input: '{ a: "1", kid: { a: "2" } }'
+        output: "{ a: 1n, kid: { a: 2n, kid: undefined } }"

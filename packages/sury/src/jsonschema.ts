@@ -672,8 +672,8 @@ const internalToJSONSchemaBase = (
       jsonSchema.additionalProperties = false;
     }
     if (required.length !== 0) jsonSchema.required = required;
-  } else if (tag === refTag && schema["$ref"] === `${defsPath}${jsonName}`) {
-    // S.json → empty {}
+  } else if (tag === refTag && schema.flags & 16) {
+    // `S.json` admits every JSON value, which is what `{}` describes.
   } else if (tag === unknownTag) {
     // `{}` accepts any instance, which is exactly what unknown and any admit.
   } else if (tag === refTag) {
@@ -1049,10 +1049,8 @@ type RefContext = {
   // pays for a call per value only where recursion makes one unavoidable.
   cyc: Record<string, true>;
   defs: Record<string, Internal>;
-  // Def names already taken. `JSON` is how `S.json` is recognised (the
-  // renderer's `{}`, eq.ts), and `S.json`'s own `$defs` is folded into these,
-  // so a document's own `JSON` is renamed rather than read back as `S.json` or
-  // overwritten by it.
+  // Def names already taken. `S.json`'s own `$defs` is folded into these, so a
+  // document's own `JSON` is renamed rather than overwritten by it.
   names: Record<string, true>;
 };
 

@@ -176,7 +176,7 @@ export const isJsonable = (schema: Internal): boolean => {
   const restOk = typeof rest !== "object" || isJsonable(rest);
   return (
     (tagFlag & (2 | 4 | 8 | 32)) !== 0 ||
-    schema["$ref"] === json["$ref"] ||
+    (schema.flags & 16) !== 0 ||
     ((tagFlag & 256) !== 0 && schema.anyOf!.every(isJsonable)) ||
     ((tagFlag & 128) !== 0 && restOk && schema.items!.every(isJsonable)) ||
     ((tagFlag & 64) !== 0 && restOk && Object.values(schema.properties!).every(isJsonable))

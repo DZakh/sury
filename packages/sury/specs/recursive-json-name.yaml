@@ -4,13 +4,11 @@ ts:
   input: unknown
   output: unknown
   instantiations: 7709
-# FIXME: a schema named JSON is read as S.json by name, so it renders as `{}`
-# and isEqual compares it structurally instead of through its definition
 jsonSchema:
-  input: "{}"
-  fromInputType: JSON
-  output: "{}"
-  fromOutputType: JSON
+  input: '{ $ref: "#/$defs/JSON", $defs: { JSON: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/JSON" } }, required: ["a"] } } }'
+  fromInputType: "{ a: string; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/JSON", $defs: { JSON: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/JSON" } }, required: ["a"] } } }'
+  fromOutputType: "{ a: string; kid?: ... | undefined; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:

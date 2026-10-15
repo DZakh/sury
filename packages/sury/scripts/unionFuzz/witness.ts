@@ -13,7 +13,7 @@ type Schema = {
   items?: Schema[];
   additionalItems?: Schema | string;
   $ref?: string;
-  $defs?: Record<string, Schema>;
+  definition?: () => Schema | undefined;
 };
 
 const FORMAT_STRING: Record<string, string> = {
@@ -51,25 +51,21 @@ const instanceWitness = (ctor: unknown): unknown => {
   return NO_WITNESS;
 };
 
-// The definitions of the recursive schema being witnessed: a self-reference
-// inside one carries no `$defs` of its own.
-let defs: Record<string, Schema> = {};
 // How many refs deep the witness is: a list of itself ends in an empty list.
 let depth = 0;
 
 export const witnessOf = (schema: unknown): unknown => {
   const s = schema as Schema;
-  if (s && typeof s === "object" && s.type === "ref" && typeof s.$ref === "string") {
+  if (s && typeof s === "object" && s.type === "ref" && s.definition) {
     if (depth > 2) return NO_WITNESS;
-    const outer = defs;
-    if (s.$defs) defs = { ...defs, ...s.$defs };
-    const def = defs[s.$ref.slice(8)];
+    // By `definition`, never by `$defs` key: two refs may share a name, and a
+    // user's `S.recursive("JSON", …)` shares `S.json`'s.
+    const def = s.definition();
     depth++;
     try {
       return def === undefined ? 1 : witnessOf(def);
     } finally {
       depth--;
-      defs = outer;
     }
   }
   if (!s || typeof s !== "object") return schema;
