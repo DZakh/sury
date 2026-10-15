@@ -521,20 +521,35 @@ type JSONSchemaOutputAdditionalProperty<S, D, M extends boolean> = S extends {
       : JSONSchemaResolveOutput<A, D, M>
   : JSON;
 
-// A `default` the property's own schema rejects is an annotation the runtime
-// can't fill in with (see `withDefault` in src/jsonschema.ts), so it leaves the
-// key optional. Resolving the property is only paid for on a key that has one.
+// A `default` the property's Output rejects is an annotation the runtime can't
+// fill in with (see `withDefault` in src/jsonschema.ts), so it leaves the key
+// optional. Resolving the property is only paid for on a key that has one.
+// A property reaching a `$ref` is held to its Input instead: the ref may lead
+// back to the object being resolved, whose keys would then depend on themselves
+// (TS2615).
 type JSONSchemaOutputRequiredKeys<S, P, D, M extends boolean> = Extract<
   keyof P,
   | JSONSchemaRequiredKeys<S>
   | {
       [K in keyof P]: P[K] extends { default: infer V }
-        ? V extends JSONSchemaResolve<P[K], D, M>
+        ? V extends (
+            JSONSchemaHasRef<P[K]> extends true
+              ? JSONSchemaResolve<P[K], D, M>
+              : JSONSchemaResolveOutput<P[K], D, M>
+          )
           ? K
           : never
         : never;
     }[keyof P]
 >;
+
+type JSONSchemaHasRef<S> = S extends { $ref: unknown }
+  ? true
+  : S extends object
+    ? true extends { [K in keyof S]: JSONSchemaHasRef<S[K]> }[keyof S]
+      ? true
+      : false
+    : false;
 
 type JSONSchemaOutputNativeObject<S, P, D, M extends boolean> = Flatten<
   {

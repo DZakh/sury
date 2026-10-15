@@ -3,7 +3,7 @@ ts:
   schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { $ref: "#/$defs/C" } } }, C: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } })'
   input: "{ v?: number | undefined; child?: { back?: ... | undefined; } | undefined; }"
   output: "{ v?: number | undefined; child?: { back: ...; } | undefined; }"
-  instantiations: 4054
+  instantiations: 4031
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } } } }'
   output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } } } }'

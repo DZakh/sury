@@ -1,8 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(S.nullable(self), null) }))'
-  # FIXME: null is a value of N | null without reading N, should construct with the goldens below
-  constructionError: "[Sury] Can't set default for N | null | undefined: the default is read as N, which would need a default of its own"
   input: unknown
   output: unknown
   instantiations: 7875

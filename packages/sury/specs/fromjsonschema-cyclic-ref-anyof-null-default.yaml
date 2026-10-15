@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }], default: null } } } } })'
+  input: "{ v?: number | undefined; next?: ... | null | undefined; }"
+  output: "{ next: ... | null; v?: number | undefined; }"
+  instantiations: 4680
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { default: null, anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] } } } } }'
+  # FIXME: the defaulted output repeats the inner N | null arm, as nullish-default-nullable-inner does
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] }, { $ref: "#/$defs/N" }, { type: "null" }], default: null } }, required: ["next"] } } }'
+  openapi-3.0:
+    input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { default: null, $ref: "#/$defs/N", nullable: true } } } } }'
+    # FIXME: same repeated arm
+    output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N", nullable: true }, { $ref: "#/$defs/N" }, { enum: [null] }], default: null } }, required: ["next"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      next-missing:
+        input: "{ v: 2 }"
+        output: "{ v: 2, next: null }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      next-missing:
+        input: "{ v: 2 }"
+        error: "Failed at next: Expected N | null, received undefined"

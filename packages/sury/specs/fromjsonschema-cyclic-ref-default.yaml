@@ -4,7 +4,7 @@ ts:
   input: "{ v?: number | undefined; next?: ... | undefined; }"
   # FIXME: the type takes the default, which the runtime rightly drops ({ v: 1 } lacks next, which N's Output requires, and no finite value has it): should be { v?: number | undefined; next?: ... | undefined; }
   output: "{ next: ...; v?: number | undefined; }"
-  instantiations: 4298
+  instantiations: 4291
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'
   output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'

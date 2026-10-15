@@ -4,7 +4,7 @@ ts:
   input: "{ next?: { v?: number | undefined; w?: number | undefined; } | undefined; }"
   # FIXME: the type takes the default, which the runtime drops (it lacks w, which M's Output requires): should be { next?: { w: number; v?: number | undefined; } | undefined; }
   output: "{ next: { w: number; v?: number | undefined; }; }"
-  instantiations: 4131
+  instantiations: 4124
 jsonSchema:
   input: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { default: 5, type: "number" } }, default: { v: 1 } } } }'
   output: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { type: "number", default: 5 } }, required: ["w"], default: { v: 1 } } } }'
