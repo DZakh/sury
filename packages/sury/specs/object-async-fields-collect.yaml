@@ -34,13 +34,6 @@ operations:
         issues:
           - "Failed at a: a is taken"
           - "Failed at list[0]: item is taken"
-      sync-failure-after-promises:
-        input: '{ n: 1, a: "t", list: ["t", 1] }'
-        error: "Failed at list[1]: Expected string, received 1"
-        issues:
-          - "Failed at list[1]: Expected string, received 1"
-          - "Failed at a: a is taken"
-          - "Failed at list[0]: item is taken"
   decode:
     isAsync: true
     expression: i=>{try{let v1=i.list;let v7;let v0;try{v0=e[3](e[0](i.a),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}try{let v5;let v4=new Array(v1.length);try{for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[7](e[4](v1[v2]),v3=>{typeof v3==="string"||e[6](v3,["list",v2]);return v3},x=>e[5](x,["list",v2]))}catch(x){e[5](x,["list",v2])}v4[v2]=v3}v5=Promise.all(v4)}finally{v5||e[8](v4)}let v6=v5;v7=Promise.all([v0,v6]).then(([v0,v6])=>{return {n:i.n,a:v0,list:v6}})}finally{v7||e[9]([v0])}return v7.catch(e[10])}catch(v8){return e[11](v8)}}

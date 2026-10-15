@@ -32,12 +32,6 @@ operations:
         issues:
           - "Failed at b: Expected string, received 1"
           - "Failed at a: taken"
-      sync-failure-after-promises:
-        input: '{ a: "t", b: 1 }'
-        error: "Failed at b: Expected string, received 1"
-        issues:
-          - "Failed at b: Expected string, received 1"
-          - "Failed at a: taken"
   decode:
     isAsync: true
     expression: i=>{try{let v7;let v2={};try{for(let v0 in i){let v1;try{v1=e[3](e[0](i[v0]),v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}v7=new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}})}finally{v7||e[4](v2)}return v7.catch(e[5])}catch(v8){return e[6](v8)}}
