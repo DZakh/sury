@@ -11,6 +11,8 @@
 //               conversion a second time.
 //   handed-back encode gives the coder that Output unchanged, for the same
 //               reason in the other direction.
+//   described   the seam's Output JSON Schema publishes the target's
+//               definitions, each once and under the target's name.
 //
 // Equality is the structural walk, as in the codec family. Held only on an
 // Output the schema itself reads back from its own encode: a union whose arms
@@ -30,8 +32,8 @@ const check = (ctx: Ctx): void => {
   const box = S.schema({ v: S.unknown });
   const seamTo = (target: unknown) =>
     S.$to(box, target, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) });
-  const hold = (target: unknown, place: (o: unknown) => unknown, seamOf = () => seamTo(target)): void => {
-    const seam = compile<Op>("seam", seamOf);
+  const hold = (target: unknown, place: (o: unknown) => unknown, seamOf?: () => unknown): void => {
+    const seam = compile<Op>("seam", seamOf ?? (() => seamTo(target)));
     if (!seam) return;
     const decode = compile<Op>("untouched", () => S.decodeOrThrow(seam));
     const encode = compile<Op>("handed-back", () => S.encodeOrThrow(seam));
@@ -39,19 +41,20 @@ const check = (ctx: Ctx): void => {
     const ownEncode = compile<Op>("seam", () => S.encodeOrThrow(target));
     const ownDecode = compile<Op>("seam", () => S.decodeOrThrow(target));
     if (!isOutput || !ownEncode || !ownDecode) return;
-    // Only the names: a default the target describes is one the coder's
-    // Output never reaches.
-    const names = (of: unknown): string => {
+    // Only the names when the seam is the definition: a default the target
+    // describes is one the coder's Output never reaches.
+    const described = (of: unknown): string => {
       try {
-        return Object.keys((S.toOutputJSONSchemaOrThrow(of) as { $defs?: object }).$defs ?? {}).join();
+        const defs = (S.toOutputJSONSchemaOrThrow(of) as { $defs?: object }).$defs ?? {};
+        return seamOf ? Object.keys(defs).join() : JSON.stringify(defs);
       } catch (error) {
         return `refused - ${reason(error)}`;
       }
     };
-    const own = names(target);
-    const through = names(seam);
+    const own = described(target);
+    const through = described(seam);
     count("descriptions");
-    if (own !== through) report("named", `the seam publishes [${through}], the target [${own}]`);
+    if (own !== through) report("described", `the seam publishes ${through}, the target ${own}`);
     const readsBack = (o: unknown): boolean => {
       try {
         const decoded = ownDecode(ownEncode(o));
