@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ contact: S.union([S.schema({ email: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema({ phone: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema({})]) }).with(S.to, S.protobuf)'
+  input: "{ contact: { email: string; } | { phone: string; } | {}; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10167
+jsonSchema:
+  input: '{ type: "object", properties: { contact: { anyOf: [{ type: "object", properties: { email: { type: "string" } }, required: ["email"] }, { type: "object", properties: { phone: { type: "string" } }, required: ["phone"] }, { type: "object", properties: {} }] } }, required: ["contact"] }'
+  output: "[Sury] S.protobuf: oneof \"contact\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.contact,b.contact)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { contact: { email: string; } | { phone: string; } | {}; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"contact\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  decode: eq-to-parse
+  encode: eq-to-parse

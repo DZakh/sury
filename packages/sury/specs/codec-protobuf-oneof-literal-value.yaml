@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ kind: S.union([S.schema({ case: "nullValue", value: S.protobufField(S.schema(0), { number: 1, type: "enum" }) }), S.schema({ case: "numberValue", value: S.protobufField(S.number, { number: 2, type: "double" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
+  input: '{ kind: { case: "nullValue"; value: 0; } | { case: "numberValue"; value: number; } | { case?: undefined; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 12638
+jsonSchema:
+  input: "Failed at kind.case: Expected JSON, received undefined"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(a.kind.case==="nullValue"?b.kind.case==="nullValue":a.kind.case==="numberValue"?b.kind.case==="numberValue"&&a.kind.value===b.kind.value:b.kind.case===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { kind: { case: \"nullValue\"; value: 0; } | { case: \"numberValue\"; value: number; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.kind;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.case==="nullValue"&&v0.value===0){v0={case:v0.case,value:v0.value};break}if(v0.case==="numberValue"){let v1=v0.value;typeof v1==="number"&&v1==v1||e[0](v1);v0={case:v0.case,value:v1};break}if(v0.case===void 0){v0={case:v0.case};break}throw e[1](v0)}}else{throw e[1](v0)}let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();v=v0;switch(v&&v.case){case "nullValue":f=0;w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v.value);if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);break;case "numberValue":f=1;w.pos<w.buf.length?w.buf[w.pos++]=17:w.varint32(17);w.float64(v.value);break;};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v2}catch(v3){e[8](v3)}}
+    examples:
+      null-value:
+        input: '{ kind: { case: "nullValue", value: 0 } }'
+        output: new Uint8Array([8, 0])
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();v=i.kind;switch(v&&v.case){case "nullValue":f=0;w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v.value);if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s);break;case "numberValue":f=1;w.pos<w.buf.length?w.buf[w.pos++]=17:w.varint32(17);w.float64(v.value);break;};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}return v0}catch(v1){e[5](v1)}}
+    examples:
+      null-value:
+        input: '{ kind: { case: "nullValue", value: 0 } }'
+        output: new Uint8Array([8, 0])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return v0}catch(v1){e[3](v1)}}
+    examples:
+      null-value:
+        input: new Uint8Array([8, 0])
+        output: '{ kind: { case: "nullValue", value: 0 } }'

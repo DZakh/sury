@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }), contact: S.union([S.schema({ type: "email", email: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema({ type: "home", home: S.protobufField(S.schema({ street: S.protobufField(S.string, { number: 1, type: "string" }) }), { number: 3, type: "message" }) }), S.schema({ type: "none" })]) }).with(S.to, S.protobuf)'
+  input: '{ id: number; contact: { type: "email"; email: string; } | { type: "home"; home: { street: string; }; } | { type: "none"; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11881
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, contact: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "email" }, email: { type: "string" } }, required: ["type", "email"] }, { type: "object", properties: { type: { type: "string", const: "home" }, home: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["type", "home"] }, { type: "object", properties: { type: { type: "string", const: "none" } }, required: ["type"] }] } }, required: ["id", "contact"] }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, contact: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["type", "email"] }, { type: "object", properties: { type: { type: "string", enum: ["home"] }, home: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["type", "home"] }, { type: "object", properties: { type: { type: "string", enum: ["none"] } }, required: ["type"] }] } }, required: ["id", "contact"] }'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&(a.contact.type==="email"?b.contact.type==="email"&&a.contact.email===b.contact.email:a.contact.type==="home"?b.contact.type==="home"&&a.contact.home.street===b.contact.home.street:b.contact.type==="none")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: int32; contact: { type: \"email\"; email: string; } | { type: \"home\"; home: { street: string; }; } | { type: \"none\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.id,v1=i.contact;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);if(typeof v1==="object"&&v1&&!Array.isArray(v1)){for(;;){if(v1.type==="email"){let v2=v1.email;typeof v2==="string"||e[1](v2);v1={type:v1.type,email:v2};break}if(v1.type==="home"){let v3=v1.home;typeof v3==="object"&&v3&&!Array.isArray(v3)||e[3](v3);let v4=v3.street;typeof v4==="string"||e[2](v4);v1={type:v1.type,home:{street:v4}};break}if(v1.type==="none"){v1={type:v1.type};break}throw e[4](v1)}}else{throw e[4](v1)}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[6](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1;switch(v&&v.type){case "email":f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.email);break;case "home":f=2;w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[5](w,v.home);w.end(h);break;};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v5}catch(v6){e[12](v6)}}
+    examples:
+      email:
+        input: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+        output: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+      none:
+        input: '{ id: 0, contact: { type: "none" } }'
+        output: new Uint8Array([])
+      zero-member-is-written:
+        input: '{ id: 0, contact: { type: "email", email: "" } }'
+        output: new Uint8Array([18, 0])
+      unknown-arm:
+        input: '{ id: 1, contact: { type: "fax", fax: "1" } }'
+        error: 'Failed at contact: Expected { type: "email"; email: string; } | { type: "home"; home: { street: string; }; } | { type: "none"; }, received { type: "fax"; fax: "1"; }'
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();f=0;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i.contact;switch(v&&v.type){case "email":f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.email);break;case "home":f=2;w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[0](w,v.home);w.end(h);break;};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[2](x,e[3],f,j,a);e[5](x)}}return v0}catch(v1){e[6](v1)}}
+    examples:
+      email:
+        input: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+        output: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+      home:
+        input: '{ id: 2, contact: { type: "home", home: { street: "x" } } }'
+        output: new Uint8Array([8, 2, 26, 3, 10, 1, 120])
+      none:
+        input: '{ id: 3, contact: { type: "none" } }'
+        output: new Uint8Array([8, 3])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return v0}catch(v2){e[3](v2)}}
+    examples:
+      email:
+        input: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+        output: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+      home:
+        input: new Uint8Array([8, 2, 26, 3, 10, 1, 120])
+        output: '{ id: 2, contact: { type: "home", home: { street: "x" } } }'
+      none-set:
+        input: new Uint8Array([8, 3])
+        output: '{ id: 3, contact: { type: "none" } }'
+      last-member-wins:
+        input: new Uint8Array([18, 1, 97, 26, 3, 10, 1, 120])
+        output: '{ id: 0, contact: { type: "home", home: { street: "x" } } }'
+      same-message-member-merges:
+        input: new Uint8Array([26, 3, 10, 1, 120, 26, 0])
+        output: '{ id: 0, contact: { type: "home", home: { street: "x" } } }'
