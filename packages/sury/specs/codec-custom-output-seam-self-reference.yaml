@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("X", (self) => S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.schema({ a: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kids: S.array(self) }), { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any))'
+  input: unknown
+  output: unknown
+  instantiations: 9559
+jsonSchema:
+  input: '{ $ref: "#/$defs/X", $defs: { X: { type: "object", properties: { v: {} }, required: ["v"] } } }'
+  fromInputType: "{ v: JSON; }"
+  output: '{ $ref: "#/$defs/X", $defs: { X: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/X2" }, type: "array" } }, required: ["a", "kids"] }, X2: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/X2" }, type: "array" } }, required: ["a", "kids"] } } }'
+  fromOutputType: "{ a: string; kids: { a: string; kids: ...[]; }[]; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare X. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      nested-outputs:
+        input: '{ v: { a: "1!", kids: [{ a: "2!", kids: [] }] } }'
+        output: '{ a: "1!", kids: [{ a: "2!", kids: [] }] }'
+  decode: eq-to-parse
+  encode: eq-to-parse

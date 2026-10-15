@@ -28,10 +28,11 @@ const check = (ctx: Ctx): void => {
   const { S, schema, outputs, report, compile, count } = ctx;
   if (!outputs.length) return;
   const box = S.schema({ v: S.unknown });
-  const hold = (target: unknown, place: (o: unknown) => unknown): void => {
-    const seam = compile<Op>("seam", () =>
-      S.$to(box, target, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) }),
-    );
+  const seamTo = (target: unknown) =>
+    S.$to(box, target, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) });
+  // `target` is what the seam's Output is held against, `seamOf` the seam.
+  const hold = (target: unknown, place: (o: unknown) => unknown, seamOf = () => seamTo(target)): void => {
+    const seam = compile<Op>("seam", seamOf);
     if (!seam) return;
     const decode = compile<Op>("untouched", () => S.decodeOrThrow(seam));
     const encode = compile<Op>("handed-back", () => S.encodeOrThrow(seam));
@@ -82,10 +83,13 @@ const check = (ctx: Ctx): void => {
   // The schema again two levels into a recursive target, where the coder's
   // Output reaches it through a ref's definition rather than as a child, and
   // where a chain of its own is a field's like any other.
-  hold(
-    S.recursive("Seam", (self: unknown) => S.schema({ v: schema, next: S.optional(self) })),
-    (o) => ({ v: o, next: { v: o, next: undefined } }),
-  );
+  const node = (self: unknown) => S.schema({ v: schema, next: S.optional(self) });
+  const twice = (o: unknown) => ({ v: o, next: { v: o, next: undefined } });
+  const recursive = S.recursive("Seam", node);
+  hold(recursive, twice);
+  // And the seam as the definition itself, so its target reaches the ref
+  // before the definer has returned it.
+  hold(recursive, twice, () => S.recursive("Seam", (self: unknown) => seamTo(node(self))));
 };
 
 export const seam: Family = { check };

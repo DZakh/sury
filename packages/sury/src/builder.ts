@@ -1044,10 +1044,12 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts.
 const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
   !seen.has(schema) &&
   (seen.add(schema),
-  !!(schema.to || schema.parser || schema.serializer) ||
+  !!(schema.to || schema.parser || schema.serializer || (schema.definition && !schema.definition())) ||
     [
       schema.definition?.(),
       schema.additionalItems,
@@ -1093,7 +1095,12 @@ export const B_outputView = (schema: Internal): Internal => {
       const def = definition();
       if (def === U) return def;
       let defView = outputViews.get(def);
-      if (defView === U) outputViews.set(def, (defView = B_outputView(def)));
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = B_outputView(def)));
+      }
       return defView;
     };
   }
