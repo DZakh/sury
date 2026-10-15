@@ -417,9 +417,6 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       return panic(`Can't set default for ${inputExpression(mut)}`);
     }
     const outputItems: Internal[] = [];
-    // Leaves out an arm that is the definition being built: a default checked
-    // against it would read that definition, find the same absent field in it,
-    // and read its default, without end.
     const originalItems: Internal[] = [];
     let unbuilt: Internal | undefined;
 
@@ -432,6 +429,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
         }
+        // The definition being built is left out of the check: a default read
+        // as it would find the same absent field in it, and read its default,
+        // without end. The arms already built answer instead.
         if (outputSchema.type === refTag && !outputSchema.definition!()) {
           unbuilt = outputSchema;
         } else {
