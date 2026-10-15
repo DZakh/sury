@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { $ref: "#/$defs/C" } } }, C: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } })'
+  input: "{ v?: number | undefined; child?: { back?: ... | undefined; } | undefined; }"
+  output: "{ v?: number | undefined; child?: { back: ...; } | undefined; }"
+  instantiations: 4054
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } } } }'
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, child: { type: "object", properties: { back: { $ref: "#/$defs/N", default: { v: 1 } } } } } } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      # FIXME: the default beside the cyclic ref is dropped, should fill back with { v: 1 } (a value of N, whose child is optional)
+      back-missing:
+        input: "{ v: 2, child: {} }"
+        output: "{ v: 2, child: { back: undefined } }"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: the default beside the cyclic ref is dropped, should fill back with { v: 1 } (a value of N, whose child is optional)
+      back-missing:
+        input: "{ v: 2, child: {} }"
+        output: "{ v: 2, child: {} }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: the default beside the cyclic ref is dropped, should fill back with { v: 1 } (a value of N, whose child is optional)
+      back-missing:
+        input: "{ v: 2, child: {} }"
+        output: "{ v: 2, child: {} }"

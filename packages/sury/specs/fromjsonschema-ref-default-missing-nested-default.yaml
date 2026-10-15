@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ type: "object", properties: { next: { $ref: "#/$defs/M", default: { v: 1 } } }, $defs: { M: { type: "object", properties: { v: { type: "number" }, w: { type: "number", default: 5 } } } } })'
+  input: "{ next?: { v?: number | undefined; w?: number | undefined; } | undefined; }"
+  # FIXME: the type takes the default, which the runtime drops (it lacks w, which M's Output requires): should be { next?: { w: number; v?: number | undefined; } | undefined; }
+  output: "{ next: { w: number; v?: number | undefined; }; }"
+  instantiations: 4131
+jsonSchema:
+  input: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { default: 5, type: "number" } }, default: { v: 1 } } } }'
+  output: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { type: "number", default: 5 } }, required: ["w"], default: { v: 1 } } } }'
+  fromOutputType: "{ next?: { w: number; v?: number | undefined; } | undefined; }"
+isEqual: (a,b)=>a===b||(a.next===void 0?b.next===void 0:b.next!==void 0&&a.next.v===b.next.v&&a.next.w===b.next.w)
+compare:
+  input: "throws: [Sury] Can't compare { next: { v: number | undefined; w: number | undefined; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { next: { v: number | undefined; w: number; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.next;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.v,v2=v0.w;(typeof v1==="number"&&v1==v1||v1===void 0)||e[0](v1);for(;;){if(typeof v2==="number"&&v2==v2)break;if(v2===void 0){v2=5;break}throw e[1](v2)}v0={v:v1,w:v2};break}if(v0===void 0)break;throw e[2](v0)}return {next:v0}}catch(v3){e[4](v3)}}
+    examples:
+      next-missing:
+        input: "{}"
+        output: "{ next: undefined }"
+  decode:
+    expression: i=>{try{let v0=i.next;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.w;for(;;){if(typeof v1==="number"&&v1==v1)break;if(v1===void 0){v1=5;break}throw e[0](v1)}v0={v:v0.v,w:v1};break}if(v0===void 0)break;throw e[1](v0)}return {next:v0}}catch(v2){e[2](v2)}}
+    examples:
+      next-missing:
+        input: "{}"
+        output: "{ next: undefined }"
+  encode:
+    expression: i=>{try{let v0=i.next;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.w;typeof v1==="number"&&v1==v1||e[0](v1);break}if(v0===void 0)break;throw e[1](v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      next-missing:
+        input: "{}"
+        output: "{}"
