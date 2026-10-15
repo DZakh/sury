@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("JSON", (self) => S.schema({ a: S.bigint, kid: S.optional(self) })).with(S.to, S.json)'
+  input: unknown
+  output: JSON
+  instantiations: 8074
+# FIXME: a schema named JSON is taken for S.json by its `$ref`, so the
+# conversion to S.json is skipped and a bigint comes out as a JSON value
+jsonSchema:
+  input: "{}"
+  fromInputType: JSON
+  output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      bigint:
+        input: "{ a: 1n }"
+        output: "{ a: 1n, kid: undefined }"
+      nested:
+        input: "{ a: 1n, kid: { a: 2n } }"
+        output: "{ a: 1n, kid: { a: 2n, kid: undefined } }"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      bigint:
+        input: "{ a: 1n }"
+        output: "{ a: 1n }"
+  encode: eq-to-parse
