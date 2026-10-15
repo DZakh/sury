@@ -847,16 +847,14 @@ const presentTarget = (s: Internal): Internal | undefined => {
     const item = presentTarget(anyOf[0]!);
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
+  } else if (s.to !== U && isOptional(s.to)) {
+    // A conversion into another optional pairs the two undefined arms, so the
+    // present value keeps its own.
+    return s;
   } else {
-    const arms: Internal[] = [];
-    for (const arm of anyOf) {
-      if (arm.type === undefinedTag) continue;
-      // A member that keeps its own `undefined` (a default holds it nested)
-      // would take the `null` before a later arm; left with one arm, it is
-      // that arm, so the outer dispatch falls through it as parse does.
-      const present = presentTarget(arm);
-      if (present !== U) arms.push(present !== arm && present.anyOf?.length === 1 ? present.anyOf[0]! : present);
-    }
+    // Only the top-level arm: encode leaves the key out for it, while a
+    // member's own `undefined` is written as `null` and has to read back.
+    const arms = anyOf.filter((arm) => arm.type !== undefinedTag);
     // Only absence fills it (`S.optional(S.void)`): no present value can.
     if (!arms.length) return U;
     mut = copySchema(s);

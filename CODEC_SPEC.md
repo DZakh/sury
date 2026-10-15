@@ -167,7 +167,8 @@ An object field of a JSON document spells a missing value by leaving the key
 out - encoding writes it that way, and the published JSON Schema has no `null`
 for it - so under a present key `null` is a value like any other, read as
 `S.parseOrThrow` reads it. The document itself, array and tuple items and record
-values have no key to leave out, and keep reading `null` as the arm:
+values have no key to leave out, and keep reading `null` as the arm - and so does
+a union member's own `undefined` arm, which encoding writes as `null`:
 
 ```ts
 const read = S.parseOrThrow(S.json, S.schema({ b: S.optional(S.string) }));

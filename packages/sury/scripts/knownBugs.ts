@@ -175,6 +175,25 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "codec" && f.property === "present null" && some(f.shape, (node) => node.name === "nan"),
   },
   {
+    id: "json-null-reaches-nested-default",
+    kind: "limitation",
+    summary:
+      "A member's own `undefined` is written to JSON as `null`, unlike an object field's, which leaves its " +
+      "key out. So under `S.json` a present `null` reaches a nested member's missing value and its default " +
+      "(`S.nullable(S.optional(S.string, \"d\"))` reads it as \"d\") where parse gives it to a later `null` " +
+      "member or rejects it. The first member that accepts a value wins, the documented rule.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "present null" &&
+      some(
+        f.shape,
+        (node) =>
+          ["optional", "nullable", "nullish", "union"].includes(node.name) &&
+          node.args.some((member) => member.args.some((arg) => arg.name === "#value")),
+      ),
+  },
+  {
     id: "union-overlapping-members",
     kind: "limitation",
     summary:
