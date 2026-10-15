@@ -1975,8 +1975,6 @@ S.Error.make(
 )->S.Error.throw
 ```
 
-Thrown at the root, the error you built is the one you catch. Under a field, you catch one with the same code and reason and the path in front.
-
 ## Functions on schema
 
 ### At a glance
