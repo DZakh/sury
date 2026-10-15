@@ -49,9 +49,7 @@ const has = (value: unknown, key: unknown): boolean => isRecord(value) && String
 const at = (value: unknown, path: string[]): unknown =>
   path.reduce<unknown>((v, key) => (isRecord(v) ? v[key] : undefined), value);
 
-// The first key the document leaves out that `parse` and `S.json` answer
-// differently, walked only while all three keep one shape.
-const keptAbsent = (document: unknown, parsed: unknown, read: unknown, path: string[]): string[] | undefined => {
+const firstDivergentAbsent = (document: unknown, parsed: unknown, read: unknown, path: string[]): string[] | undefined => {
   if (!isRecord(document) || !isRecord(parsed) || !isRecord(read)) return undefined;
   // A renamed or reshaped field is not an absent one.
   if (Array.isArray(document) !== Array.isArray(parsed) || Object.keys(document).some((key) => !(key in parsed))) {
@@ -62,7 +60,7 @@ const keptAbsent = (document: unknown, parsed: unknown, read: unknown, path: str
     if (!(key in document)) {
       if (!structural(read[key], parsed[key])) return next;
     } else {
-      const found = keptAbsent(document[key], parsed[key], read[key], next);
+      const found = firstDivergentAbsent(document[key], parsed[key], read[key], next);
       if (found) return found;
     }
   }
@@ -133,7 +131,7 @@ const check = (ctx: Ctx): void => {
         continue;
       }
       if (!settled(read)) continue;
-      const path = keptAbsent(document, parsed, read, []);
+      const path = firstDivergentAbsent(document, parsed, read, []);
       if (path) {
         report("absent", `the absent ${path.join(".")} of ${show(document)} read as ${show(at(read, path))} through S.json and as ${show(at(parsed, path))} by parse`);
       }
