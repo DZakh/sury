@@ -71,7 +71,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{for(;;){if(typeof i==="boolean"){let v0;try{v0=e[0](i).catch(e[1])}catch(x){e[1](x)}i=v0;break}if(i===void 0){i=e[2]();break}throw e[3](i)}return Promise.resolve(i).catch(e[4])}catch(v1){return e[5](v1)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean"){let v0;try{v0=e[2](e[0](i),0,e[1])}catch(x){e[1](x)}i=v0;break}if(i===void 0){i=e[3]();break}throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}`,
   )
 })
 
