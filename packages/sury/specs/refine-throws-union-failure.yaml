@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ o: S.unknown.with(S.refine, (v: unknown) => { const r = S.parseAsResult(v, S.union([S.schema({ a: S.string }), S.schema({ b: S.number })])); if (!r.success) throw r.error; return true }) })"
+  input: "{ o?: unknown; }"
+  output: "{ o?: unknown; }"
+  instantiations: 9340
+jsonSchema:
+  input: '{ type: "object", properties: { o: {} }, required: ["o"] }'
+  fromInputType: "{ o: JSON; }"
+  output: '{ type: "object", properties: { o: {} }, required: ["o"] }'
+  fromOutputType: "{ o: JSON; }"
+isEqual: (a,b)=>a===b||e[0](a.o,b.o)
+compare: "throws: [Sury] Can't compare { o: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.o;e[0](v0)||e[1](v0);return {o:v0}}catch(v1){e[3](v1)}}
+    examples:
+      valid:
+        input: '{ o: { a: "x" } }'
+        output: '{ o: { a: "x" } }'
+      case-paths-under-field:
+        input: "{ o: { c: 1 } }"
+        error: |-
+          Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined
+  decode:
+    expression: i=>{try{let v0=i.o;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
+    examples:
+      case-paths-under-field:
+        input: "{ o: { c: 1 } }"
+        error: |-
+          Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined
+  encode:
+    expression: i=>{try{let v0=i.o;e[0](v0)||e[1](v0);return i}catch(v1){e[2](v1)}}
+    examples:
+      case-paths-under-field:
+        input: "{ o: { c: 1 } }"
+        error: |-
+          Failed at o: Expected { a: string; } | { b: number; }, received { c: 1; }
+          - At o.a: Expected string, received undefined
+          - At o.b: Expected number, received undefined

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("T", (t) => S.schema({ v: S.union([S.schema({ a: S.string }), S.schema({ b: S.number })]), next: S.optional(t) }))'
+  input: unknown
+  output: unknown
+  instantiations: 11412
+jsonSchema:
+  input: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { v: { anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "object", properties: { b: { type: "number" } }, required: ["b"] }] }, next: { $ref: "#/$defs/T" } }, required: ["v"] } } }'
+  fromInputType: "{ v: { a: string; } | { b: number; }; next?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { v: { anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "object", properties: { b: { type: "number" } }, required: ["b"] }] }, next: { $ref: "#/$defs/T" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: { a: string; } | { b: number; }; next?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare T. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      match-at-depth:
+        input: '{ v: { a: "x" }, next: { v: { b: 1 } } }'
+        output: '{ v: { a: "x" }, next: { v: { b: 1 }, next: undefined } }'
+      case-paths-at-root:
+        input: "{ v: { a: 1 } }"
+        error: |-
+          Failed at v: Expected { a: string; } | { b: number; }, received { a: 1; }
+          - At v.a: Expected string, received 1
+          - At v.b: Expected number, received undefined
+      case-paths-at-depth:
+        input: '{ v: { a: "x" }, next: { v: { a: "y" }, next: { v: { c: 1 } } } }'
+        error: |-
+          Failed at next.next.v: Expected { a: string; } | { b: number; }, received { c: 1; }
+          - At next.next.v.a: Expected string, received undefined
+          - At next.next.v.b: Expected number, received undefined
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ v: { a: "x" }, next: { v: { b: 1 }, next: undefined } }'
+        output: '{ v: { a: "x" }, next: { v: { b: 1 }, next: undefined } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ v: { a: "x" }, next: { v: { b: 1 }, next: undefined } }'
+        output: '{ v: { a: "x" }, next: { v: { b: 1 }, next: undefined } }'

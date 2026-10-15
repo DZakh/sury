@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.string.with(S.to, S.unknown, { decode: { async: ((value: string) => ({ then: (_ok: unknown, no: (e: Error) => unknown) => no(new Error("rejected")), catch: (no: (e: Error) => unknown) => no(new Error("rejected")) })) as never }, encode: (value: unknown) => String(value) }) })'
+  input: "{ a: string; }"
+  output: "{ a?: unknown; }"
+  instantiations: 5947
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "object", properties: { a: {} }, required: ["a"] }'
+  fromOutputType: "{ a: JSON; }"
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: (a,b)=>a===b||e[0](a.a,b.a)
+compare:
+  input: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i.a;typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[4])}catch(v2){return e[5](v2)}}
+    examples:
+      # FIXME: a promise from another library that rejects synchronously gets the path twice when nothing follows to fuse with
+      rejects-synchronously:
+        input: '{ a: "x" }'
+        error: "Failed at a.a: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[0](i.a).catch(e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[2])}catch(v1){return e[3](v1)}}
+    examples:
+      # FIXME: a promise from another library that rejects synchronously gets the path twice when nothing follows to fuse with
+      rejects-synchronously:
+        input: '{ a: "x" }'
+        error: "Failed at a.a: rejected"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      valid:
+        input: "{ a: 1 }"
+        output: '{ a: "1" }'

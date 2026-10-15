@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (node) => S.schema({ v: S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x + "!" } }, encode: (x) => x.slice(0, -1) }), kid: S.optional(node.with(S.refine, (n) => (n as { v: string }).v !== "z!")) }))'
+  input: unknown
+  output: unknown
+  instantiations: 8538
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromInputType: "{ v: string; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
+  fromOutputType: "{ v: string; kid?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{let v0;v0=e[0](i);return v0.catch(e[1])}catch(v1){return e[2](v1)}}
+    examples:
+      nested:
+        input: '{ v: "a", kid: { v: "b", kid: { v: "c" } } }'
+        output: '{ v: "a!", kid: { v: "b!", kid: { v: "c!", kid: undefined } } }'
+      refine-fails-at-kid:
+        input: '{ v: "a", kid: { v: "z" } }'
+        error: "Failed at kid: Refinement failed"
+      refine-fails-deep:
+        input: '{ v: "a", kid: { v: "b", kid: { v: "z" } } }'
+        error: "Failed at kid.kid: Refinement failed"
+      rejected-at-kid:
+        input: '{ v: "a", kid: { v: "bad" } }'
+        error: "Failed at kid.v: rejected"
+      rejected-deep:
+        input: '{ v: "a", kid: { v: "b", kid: { v: "bad" } } }'
+        error: "Failed at kid.kid.v: rejected"
+      kid-not-an-object:
+        input: '{ v: "a", kid: 1 }'
+        error: "Failed at kid: Expected Node | undefined, received 1"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      nested:
+        input: '{ v: "a!", kid: { v: "b!" } }'
+        output: '{ v: "a", kid: { v: "b", kid: undefined } }'
