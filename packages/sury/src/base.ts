@@ -714,6 +714,9 @@ export type Val = {
   // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
   // sink.
   ha?: string;
+  // @as("ac") - what each guard still open over a container's code reads its
+  // promises from, innermost first (builder.ts `B_guard`).
+  ac?: string[];
 }
 
 // Shared `undefined` for every value-position use across the implementation:

@@ -15,7 +15,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v3={};for(let v0 in i){let v2=i[v0];typeof v2==="string"||e[4](v2,[v0]);let v1;try{v1=e[3](e[0](v2),v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v3[v0]=v1}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}}).catch(e[6])}catch(v8){return e[7](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v8;let v3={};try{for(let v0 in i){let v2=i[v0];typeof v2==="string"||e[4](v2,[v0]);let v1;try{v1=e[3](e[0](v2),v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v3[v0]=v1}v8=new Promise((v4,v5)=>{let v7=Object.keys(v3).length;if(!v7){v4(v3)}for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}finally{v8||e[5](v3)}return v8.catch(e[7])}catch(v9){return e[8](v9)}}
     examples:
       valid:
         input: '{ a: "x" }'
@@ -32,9 +32,15 @@ operations:
         issues:
           - "Failed at b: Expected string, received 1"
           - "Failed at a: taken"
+      sync-failure-after-promises:
+        input: '{ a: "t", b: 1 }'
+        error: "Failed at b: Expected string, received 1"
+        issues:
+          - "Failed at b: Expected string, received 1"
+          - "Failed at a: taken"
   decode:
     isAsync: true
-    expression: i=>{try{let v2={};for(let v0 in i){let v1;try{v1=e[3](e[0](i[v0]),v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}return new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}}).catch(e[4])}catch(v7){return e[5](v7)}}
+    expression: i=>{try{let v7;let v2={};try{for(let v0 in i){let v1;try{v1=e[3](e[0](i[v0]),v1=>{typeof v1==="string"||e[2](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}v7=new Promise((v3,v4)=>{let v6=Object.keys(v2).length;if(!v6){v3(v2)}for(let v0 in v2){v2[v0].then(v5=>{v2[v0]=v5;if(v6--===1){v3(v2)}},v4)}})}finally{v7||e[4](v2)}return v7.catch(e[5])}catch(v8){return e[6](v8)}}
     examples:
       valid:
         input: '{ a: "x" }'

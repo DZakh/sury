@@ -15,7 +15,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{Array.isArray(i)||e[7](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="string"||e[6](v2,[v0]);let v1;try{v1=e[5](e[0](v2),v1=>{typeof v1==="string"||e[4](v1,[v0]);e[2](v1,[v0])||e[3](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v3[v0]=v1}return Promise.all(v3).catch(e[8])}catch(v4){return e[9](v4)}}
+    expression: i=>{try{Array.isArray(i)||e[8](i);let v4;let v3=new Array(i.length);try{for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="string"||e[6](v2,[v0]);let v1;try{v1=e[5](e[0](v2),v1=>{typeof v1==="string"||e[4](v1,[v0]);e[2](v1,[v0])||e[3](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v3[v0]=v1}v4=Promise.all(v3)}finally{v4||e[7](v3)}return v4.catch(e[9])}catch(v5){return e[10](v5)}}
     examples:
       valid:
         input: '["x", "y"]'
@@ -28,9 +28,17 @@ operations:
           - "Failed at [1]: Expected not bad"
           - "Failed at [2]: taken"
           - "Failed at [4]: Expected not bad"
+      sync-failure-after-promises:
+        input: '["bad", "t", "x", 1, "bad"]'
+        error: "Failed at [3]: Expected string, received 1"
+        issues:
+          - "Failed at [3]: Expected string, received 1"
+          - "Failed at [0]: Expected not bad"
+          - "Failed at [1]: taken"
+          - "Failed at [4]: Expected not bad"
   decode:
     isAsync: true
-    expression: i=>{try{let v2=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v1;try{v1=e[5](e[0](i[v0]),v1=>{typeof v1==="string"||e[4](v1,[v0]);e[2](v1,[v0])||e[3](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}return Promise.all(v2).catch(e[6])}catch(v3){return e[7](v3)}}
+    expression: i=>{try{let v3;let v2=new Array(i.length);try{for(let v0=0;v0<i.length;++v0){let v1;try{v1=e[5](e[0](i[v0]),v1=>{typeof v1==="string"||e[4](v1,[v0]);e[2](v1,[v0])||e[3](v1,[v0]);return v1},x=>e[1](x,[v0]))}catch(x){e[1](x,[v0])}v2[v0]=v1}v3=Promise.all(v2)}finally{v3||e[6](v2)}return v3.catch(e[7])}catch(v4){return e[8](v4)}}
     examples:
       refined-and-rejected:
         input: '["bad", "t", "x"]'

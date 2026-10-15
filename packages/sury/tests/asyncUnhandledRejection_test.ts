@@ -2,8 +2,10 @@ import { expect, test } from "vitest";
 
 import * as S from "../index.mjs";
 
-// A spec can't hold this: an unhandled rejection is a process-level event, and
-// the harness runs every example in the one process it would crash.
+// A spec can't name what leaked: an unhandled rejection is a process-level
+// event, and it crashes the harness that runs every example in one process
+// (the `sync-failure-after-promises` examples). This counts them instead,
+// across every promise-returning outcome.
 
 const item = S.string
   .with(S.to, S.string, {
@@ -33,6 +35,13 @@ const cases: [string, S.Schema<unknown, unknown>, unknown][] = [
     S.union([S.schema({ a: item, b: S.string }), S.schema({ a: S.string, b: S.number })]),
     { a: "t", b: 1 },
   ],
+  ["union of arrays", S.union([S.array(item), S.array(S.number)]), ["t", 1]],
+  [
+    "recursive",
+    S.recursive("Node", (node) => S.schema({ v: item, kids: S.array(node) })),
+    { v: "x", kids: [{ v: "t", kids: [] }, { v: "x", kids: 1 }] },
+  ],
+  ["from a JSON string", S.jsonString.with(S.to, S.schema({ a: item, b: S.string })), '{"a":"t","b":1}'],
 ];
 
 const operations = {
@@ -64,18 +73,26 @@ const unhandledDuring = async (run: () => unknown): Promise<string[]> => {
   return seen;
 };
 
-// FIXME: what leaks before the fix; an operation that collects every failure
-// reaches its join anyway, short of a union member it gives up on.
-const leaks = (opName: string, caseName: string) =>
-  !/Result|^decode/.test(opName) || caseName === "union falling back to a later member";
+const encodedItem = S.string
+  .with(S.to, S.number, {
+    decode: (value) => value.length,
+    encode: { async: (value) => (value === 0 ? Promise.reject(new Error("zero")) : Promise.resolve("x".repeat(value))) },
+  });
+const encodedEntry = S.schema({ a: encodedItem, b: S.number.with(S.refine, (value) => value > 0) });
+
+test.each([
+  ["object", encodedEntry, { a: 0, b: -1 }],
+  ["array of objects", S.array(encodedEntry), [{ a: 0, b: 1 }, { a: 1, b: -1 }]],
+  ["into a JSON string", S.jsonString.with(S.to, encodedEntry), { a: 0, b: -1 }],
+] as [string, S.Schema<unknown, unknown>, unknown][])(
+  "encodeAsPromiseOrReject: %s leaves no promise rejecting unhandled",
+  async (_, schema, value) => {
+    expect(await unhandledDuring(() => S.encodeAsPromiseOrReject(schema, value))).toEqual([]);
+  },
+);
 
 for (const [opName, operation] of Object.entries(operations)) {
-  for (const [caseName, schema, input] of cases) {
-    (leaks(opName, caseName) ? test.fails : test)(
-      `${opName}: ${caseName} leaves no promise rejecting unhandled`,
-      async () => {
-        expect(await unhandledDuring(() => operation(schema, input))).toEqual([]);
-      },
-    );
-  }
+  test.each(cases)(`${opName}: %s leaves no promise rejecting unhandled`, async (_, schema, input) => {
+    expect(await unhandledDuring(() => operation(schema, input))).toEqual([]);
+  });
 }

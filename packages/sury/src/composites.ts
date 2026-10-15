@@ -49,6 +49,8 @@ import {
   B_collects,
   B_dynamicScope,
   B_field,
+  B_closeGuards,
+  B_guard,
   B_detached,
   B_sink,
   B_fail,
@@ -257,9 +259,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
     });
 
     if (operationCode === "" && promiseAllContent === result && !collects) {
-      objectVal.i = result;
+      objectVal.i = B_closeGuards(objectVal, result);
     } else {
-      objectVal.i = `Promise.all([${
+      objectVal.i = B_closeGuards(objectVal, `Promise.all([${
         collects
           ? promised
               // A field whose sync part failed never made its promise; the
@@ -268,7 +270,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
               .map((val) => B_settle(objectVal, val, true))
               .join(",")
           : promiseAllContent
-      }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`;
+      }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`);
     }
     objectVal.f |= 1;
     objectVal.io = true;
@@ -397,6 +399,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const hasTransform = itemOutput.t!;
 
       if (hasTransform || itemCode !== "") {
+        if (itemOutput.f & 1) B_guard(output2, output2.i);
         output2.cp =
           output2.cp +
           `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
@@ -410,7 +413,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           const items = B_varWithoutAllocation(g);
           all += `.then(${items}=>{${B_join(output2, items)}return ${items}})`;
         }
-        output = B_asyncVal(output2, all);
+        output = B_asyncVal(output2, B_closeGuards(output2, all));
       } else {
         output = output2;
       }
@@ -576,6 +579,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     const hasTransform = itemOutput.t!;
 
     if (hasTransform || itemCode !== "") {
+      if (itemOutput.f & 1) B_guard(output2, output2.v());
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
     }
     if (input.g.kj !== collected) output2.k = true;
@@ -594,7 +598,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
         const entries = B_varWithoutAllocation(g);
         all += `.then(${entries}=>{${B_join(output2, `Object.values(${entries})`)}return ${entries}})`;
       }
-      output = B_asyncVal(output2, all);
+      output = B_asyncVal(output2, B_closeGuards(output2, all));
     } else {
       output = output2;
     }
