@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.object((s) => ({ f: s.fieldOr("f", S.jsonString.with(S.to, S.number), 5) })))'
+  input: JSON
+  output: "{ f: number; }"
+  instantiations: 5142
+jsonSchema:
+  input: '{ type: "object", properties: { f: { type: "number" } }, additionalProperties: false, required: ["f"] }'
+  fromInputType: "{ f: number; }"
+  output: '{ type: "object", properties: { f: { type: "number" } }, required: ["f"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0!==void 0){let v2=JSON.stringify(v0);let v1;try{v1=JSON.parse(v2)}catch(t){e[0](v2)}typeof v1==="number"&&v1==v1||e[1](v1);v0=v1;}else{v0=5;}return {f:v0}}catch(v3){e[3](v3)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: 5 }"
+      # FIXME: the document already holds JSON text, so "1" should read as 1.
+      present:
+        input: '{ f: "1" }'
+        error: 'Failed at f: Expected number, received "1"'
+      not-json-text:
+        input: '{ f: "x" }'
+        error: 'Failed at f: Expected number, received "x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.f;return {f:(Number.isFinite(v0)?""+v0:e[0](v0))}}catch(v1){e[1](v1)}}
+    examples:
+      value:
+        input: "{ f: 1 }"
+        output: '{ f: "1" }'
