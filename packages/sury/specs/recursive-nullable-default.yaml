@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(S.nullable(self), null) }))'
+  # FIXME: null is a value of N | null without reading N, should construct with the goldens below
+  constructionError: "[Sury] Can't set default for N | null | undefined: the default is read as N, which would need a default of its own"
+  input: unknown
+  output: unknown
+  instantiations: 7875
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { default: null, anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] } }, required: ["v"] } } }'
+  fromInputType: "{ v: number; kid?: ... | null | undefined; }"
+  # FIXME: the defaulted output repeats the inner N | null arm, as nullish-default-nullable-inner does
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { anyOf: [{ anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] }, { $ref: "#/$defs/N" }, { type: "null" }] } }, required: ["v", "kid"] } } }'
+  fromOutputType: "{ v: number; kid: ... | null; }"
+  openapi-3.0:
+    input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { default: null, $ref: "#/$defs/N", nullable: true } }, required: ["v"] } } }'
+    # FIXME: same repeated arm
+    output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { anyOf: [{ $ref: "#/$defs/N", nullable: true }, { $ref: "#/$defs/N" }, { enum: [null] }] } }, required: ["v", "kid"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      kid-missing:
+        input: "{ v: 1 }"
+        output: "{ v: 1, kid: null }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      kid-null:
+        input: "{ v: 1, kid: null }"
+        output: "{ v: 1, kid: null }"
+      kid-missing:
+        input: "{ v: 1 }"
+        error: "Failed at kid: Expected N | null, received undefined"
