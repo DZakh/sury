@@ -810,7 +810,11 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // absent key. The absent branch below answers absence, so the present one
   // drops the undefined arm and answers `null` exactly as `parse` does.
   const present = item.flags & 16 ? presentTarget(target) : target;
-  const presentBody = present ? body(item, !unsetIsInput, present) : B_failInvalidInput(input, target) + ";";
+  const presentBody = present
+    ? // A JSON document holds a json-format string as its text already, the
+      // narrowing `B_narrowJsonSourcedJsonString` applies to a plain field.
+      body(item.flags & 16 && present.format === "json" ? unknown : item, !unsetIsInput, present)
+    : B_failInvalidInput(input, target) + ";";
   // A target that never dispatches (`s.fieldOr`) is told the value is absent
   // and answers with its default alone; a union meeting `unit` would instead
   // coerce it, so a dispatching target reads it from `unknown`.
@@ -835,9 +839,9 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// Fails under the target's own name. A union stays one even with a single arm
-// left: its dispatch is what reads a document's string as an arm stored apart
-// (`S.jsonString`, bytes). `s.fieldOr` answers a present key with its item: its
+// A union's own dispatch fails under the field's whole type. A union stays one
+// even with a single arm left: its dispatch is what reads a document's string
+// as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr` answers a present key with its item: its
 // default is only an absent key's.
 const presentTarget = (s: Internal): Internal | undefined => {
   const anyOf = s.anyOf;
