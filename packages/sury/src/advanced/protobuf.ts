@@ -2509,7 +2509,7 @@ const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   const all = other === U ? arms : [...arms, other];
   if (all.length === 0) return U;
   let tag: string | undefined;
-  if (all.length > 1 || unset !== U) {
+  if (all.length > 1) {
     tag = Object.keys(all[0]![3].properties ?? {}).find((property) => {
       const seen = new Set(all.map((arm) => (arm[2] === U ? U : literalOf(arm[3].properties![property]))));
       return !seen.has(U) && seen.size === all.length;
