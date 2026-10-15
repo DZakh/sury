@@ -43,7 +43,8 @@ import {
 import {
  B_contentNode,
  B_isText,
- B_operationArg
+ B_operationArg,
+ B_viewSource
 } from "./builder";
 import {
   array,
@@ -338,13 +339,14 @@ const applyMetadataOverlay = (
 type Defs = [string, Internal][];
 
 const refKey = (defs: Defs, ref: Internal, path: Path): string => {
-  const def = ref.definition!();
-  if (def === U)
+  const found = ref.definition!();
+  if (found === U)
     throw new SuryError({
       code: "invalid_operation",
       path,
       reason: `${ref.name} is used before S.recursive returns its definition`,
     });
+  const def = B_viewSource(found);
   let entry = defs.find((e) => e[1] === def);
   if (entry === U) {
     const name = ref["$ref"]!.slice(8);

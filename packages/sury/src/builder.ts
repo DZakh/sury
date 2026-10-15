@@ -34,6 +34,7 @@ import {
   tagFlags,
   U,
   unknown,
+  reversedKey,
   type Val
 } from "./base";
 
@@ -1062,6 +1063,19 @@ const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
 // `definition` answers, and the view of a recursive definition holds refs back
 // to it.
 const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// The definition a view was made of, a view of a view included, or the
+// definition itself. A view claims
+// exactly its source's output, so whoever names definitions (jsonschema.ts
+// `refKey`) names both as one. Reversed too, which is how an output is
+// described, but only through a reverse already built.
+export const B_viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  let source = reversed ? def.r! : def;
+  while (viewSources.has(source)) source = viewSources.get(source)!;
+  return reversed ? source.r! : source;
+};
 
 // What a schema's output claims, as a schema of its own: every node at the end
 // of its chain, children likewise, its refinements kept and its conversions
@@ -1100,6 +1114,7 @@ export const B_outputView = (schema: Internal): Internal => {
       if (defView === U) {
         outputViews.set(def, def);
         outputViews.set(def, (defView = B_outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
       }
       return defView;
     };
