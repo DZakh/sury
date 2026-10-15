@@ -137,8 +137,18 @@ let subscriberSchema = S.schema(s => {channel: s.matches(channelSchema)})
 // [18, 1, 49]
 ```
 
-The constructor with no value is what no member set decodes to. `S.option`
-around the union decodes it to `None` instead.
+Leave the constructor with no value out and wrap the union in `S.option`
+instead:
+
+```rescript
+S.option(
+  S.union([
+    S.schema(s => Email({email: s.matches(S.string->S.protobufField(1))})),
+    S.schema(s => Sms({phone: s.matches(S.string->S.protobufField(2))})),
+  ]),
+)
+// no member set: None
+```
 
 An enum reads best as a variant whose constructors carry the numbers:
 

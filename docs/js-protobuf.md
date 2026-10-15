@@ -149,9 +149,8 @@ S.decodeOrThrow(S.protobuf, User)(new Uint8Array([8, 1]));
 // { id: 1, contact: { type: "none" } }
 ```
 
-The arm with no value is what no member set decodes to. protobuf-es and
-[generated schemas](#generating-schemas-from-proto) spell the same oneof as
-`{ case, value }`:
+protobuf-es and [generated schemas](#generating-schemas-from-proto) spell the
+same oneof as `{ case, value }`:
 
 ```ts
 S.optional(S.union([
@@ -159,6 +158,19 @@ S.optional(S.union([
   S.schema({ case: "phone", value: S.bigint.with(S.protobufField, { number: 3, type: "int64" }) }),
 ]));
 // no member set: undefined
+```
+
+It needs an arm for no member set, or `S.optional`:
+
+```ts
+const Contact = S.schema({
+  contact: S.union([
+    S.schema({ type: "email", email: S.string.with(S.protobufField, 2) }),
+    S.schema({ type: "phone", phone: S.string.with(S.protobufField, 3) }),
+  ]),
+});
+S.encodeOrThrow(Contact, S.protobuf);
+// throws: oneof "contact" has no arm for no member set
 ```
 
 A flat oneof is optional fields sharing a `oneof` name:
