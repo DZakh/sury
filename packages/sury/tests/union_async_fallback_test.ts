@@ -253,7 +253,7 @@ test("async all-reject errors remain flat and source ordered", async (t) => {
   }
 });
 
-test("an async foreign rejection escapes without trying a fallback", async (t) => {
+test("an async foreign rejection falls through to the next case", async (t) => {
   const foreignError = new RangeError("foreign async transform rejection");
   let fallbackCalls = 0;
   const schema = S.union([
@@ -266,8 +266,21 @@ test("an async foreign rejection escapes without trying a fallback", async (t) =
     }),
   ]);
 
-  await t.expect(S.parseAsPromiseOrReject(schema)("value")).rejects.toBe(foreignError);
-  t.expect(fallbackCalls).toBe(0);
+  await t.expect(S.parseAsPromiseOrReject(schema)("value")).resolves.toBe("value");
+  t.expect(fallbackCalls).toBe(1);
+});
+
+test("an async foreign rejection with no case left names the cause", async (t) => {
+  const foreignError = new RangeError("foreign async transform rejection");
+  const lone = S.union([
+    S.string.with(asyncAssert, async () => {
+      throw foreignError;
+    }),
+    S.number,
+  ]);
+  await t
+    .expect(S.parseAsPromiseOrReject(lone)("value"))
+    .rejects.toThrow("foreign async transform rejection");
 });
 
 test("an async object member can reject into a same-discriminator fallback", async (t) => {
@@ -286,7 +299,7 @@ test("an async object member can reject into a same-discriminator fallback", asy
   await t.expect(S.parseAsPromiseOrReject(schema)(input)).resolves.toEqual(input);
 });
 
-test("a nested async foreign rejection keeps identity and skips object fallback", async (t) => {
+test("a nested async foreign rejection falls through to the object fallback", async (t) => {
   const foreignError = new TypeError("nested foreign async rejection");
   let fallbackCalls = 0;
   const schema = S.union([
@@ -307,8 +320,8 @@ test("a nested async foreign rejection keeps identity and skips object fallback"
 
   await t
     .expect(S.parseAsPromiseOrReject(schema)({ kind: "nested", value: "value" }))
-    .rejects.toBe(foreignError);
-  t.expect(fallbackCalls).toBe(0);
+    .resolves.toEqual({ kind: "nested", value: "value" });
+  t.expect(fallbackCalls).toBe(1);
 });
 
 test("a nested async union falls through before its containing object resolves", async (t) => {

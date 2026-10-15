@@ -19,7 +19,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{i instanceof e[10]||e[11](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[6](v4.name).catch(x=>{e[7](x)})}catch(x){e[7](x)}let v7=v6.then(v6=>{typeof v6==="string"||e[8](v6);return v6});v2=Promise.all([v7]).then(([v7])=>{return {name:v7}}).then(x=>(x));}else{e[9](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[12])}catch(v8){return e[13](v8)}}
+    expression: i=>{try{i instanceof e[11]||e[12](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[9](e[6](v4.name),v6=>{typeof v6==="string"||e[8](v6);return v6},e[7])}catch(x){e[7](x)}v2=Promise.all([v6]).then(([v6])=>{return {name:v6}}).then(x=>(x));}else{e[10](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[13])}catch(v7){return e[14](v7)}}
     examples:
       member:
         input: new Uint8Array([10, 37, 10, 30, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 65, 85, 18, 3, 10, 1, 97])
@@ -31,7 +31,7 @@ operations:
           check: "Failed at u: Expected { name: string; }, received undefined"
   decode:
     isAsync: true
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[6](v4.name).catch(x=>{e[7](x)})}catch(x){e[7](x)}let v7=v6.then(v6=>{typeof v6==="string"||e[8](v6);return v6});v2=Promise.all([v7]).then(([v7])=>{return {name:v7}}).then(x=>(x));}else{e[9](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[10])}catch(v8){return e[11](v8)}}
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v3=v0.u;let v1=v3.typeUrl;v1=v1.slice(v1.lastIndexOf("/")+1);let v2;if(v1==="acme.v1.AU"){let v5=v3.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[9](e[6](v4.name),v6=>{typeof v6==="string"||e[8](v6);return v6},e[7])}catch(x){e[7](x)}v2=Promise.all([v6]).then(([v6])=>{return {name:v6}}).then(x=>(x));}else{e[10](v1);}return Promise.all([v2]).then(([v2])=>{return {u:v2}}).catch(e[11])}catch(v7){return e[12](v7)}}
     examples:
       member:
         input: new Uint8Array([10, 37, 10, 30, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 65, 85, 18, 3, 10, 1, 97])

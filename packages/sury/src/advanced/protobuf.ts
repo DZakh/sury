@@ -113,13 +113,8 @@ type Message = {
   unwrap?: boolean;
 };
 
-type Defs = Record<string, Internal>;
-
-// One compile of a message tree. `defs` are the definitions `S.recursive` left
-// on the refs walked so far, and `messages` the message per object, so a message
-// used twice compiles once and a cycle closes on the one it started.
+// One compile of a message tree.
 type Ctx = {
-  defs: Defs;
   // Per object, not the last name a walk passed: `toProtoOrThrow` resolves the
   // wire object in one walk and compiles it in another.
   names: Map<Internal, string | undefined>;
@@ -138,23 +133,15 @@ type Ctx = {
   any?: Internal;
 };
 
-// `defs`: the definitions the operation already holds, for a message reached
-// through a ref that carries none - the payload an Any unpacks into, say.
-const newCtx = (any?: Internal, defs?: Defs): Ctx => ({
-  defs: Object.assign(Object.create(null), defs),
+const newCtx = (any?: Internal): Ctx => ({
   names: new Map(),
   messages: new Map(),
   stack: [],
   any,
 });
 
-// A `$ref` stands for its definition. `S.recursive` puts every definition on
-// the outermost ref's `$defs`, and a nested one on its own, so a walk collects
-// them as it passes. Only the refs the user built are walked - the standins
-// `recurse` makes are handed to `parse`, never resolved again here.
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
-  if (ref["$defs"] !== U) Object.assign(ctx.defs, ref["$defs"]);
-  const def = ctx.defs[ref["$ref"]!.slice(8)];
+  const def = ref.definition!();
   if (def !== U) {
     ctx.names.set(def, ref.name);
     ctx.dec = ref.decoder;
@@ -395,7 +382,7 @@ const recurse = (message: Message, ctx: Ctx): [Internal, Internal] => {
       const standin = baseSchema(refTag, false, ctx.dec!);
       standin["$ref"] = defsPath + message.name;
       standin.name = message.name;
-      standin.definition = definition;
+      standin.definition = () => definition;
       return standin;
     };
     message.rec = [ref(message.raw), ref(message.schema)];
@@ -2287,7 +2274,7 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileMessage(objectSchemaOf(input), newCtx(protobufAny, input.g.d));
+  const message = compileMessage(objectSchemaOf(input), newCtx(protobufAny));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
@@ -2345,7 +2332,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   // those bytes, and the parse loop carries them on down its `.to`. Decoding
   // here would hand that link a decoded value where it reads bytes.
   if (target.flags & 256) return input;
-  const message = compileMessage(target, newCtx(protobufAny, input.g.d));
+  const message = compileMessage(target, newCtx(protobufAny));
   // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
@@ -2483,7 +2470,7 @@ const anyMismatch = (input: Val, target: Internal, names: string[]): ((name: str
 
 // An absent Any field arrives as the empty Any, which only a catch-all takes.
 const anyUnpack: Encoder = (input, target) => {
-  const ctx = newCtx(U, input.g.d);
+  const ctx = newCtx();
   if (typeNameOf(target, ctx) === "google.protobuf.Any") return input;
   const known = anyArms(target, ctx);
   // No message to unpack into: the Any converts as the object it is.
@@ -2512,7 +2499,7 @@ const anyUnpack: Encoder = (input, target) => {
       if (arm[2] !== U) callIn.path = pathConcat(input.path, [arm[2]]);
       const x = B_varWithoutAllocation(g);
       const call = B_next(callIn, x, arm[1], arm[1]);
-      const decode = unpackOf(arm[1], ctx.defs);
+      const decode = unpackOf(arm[1]);
       call.cp = `${x}=${B_embed(input, decode)}(${read});`;
       call.prev = U;
       return [`${B_let(g, x)}${B_mergeWithPathPrepend(call, callIn)}`, x, false];
@@ -2566,7 +2553,7 @@ const convertingUnion = (input: Val): Internal | undefined => {
 
 const anyPack: Builder = (input) => {
   const source = objectSchemaOf(input);
-  const ctx = newCtx(U, input.g.d);
+  const ctx = newCtx();
   const arm = typeNameOf(source, ctx) === "google.protobuf.Any" ? U : anyArm(source, ctx);
   if (arm === U) {
     const output = objectDecoder(input);
@@ -2636,18 +2623,13 @@ const unpacks = /* @__PURE__ */ new WeakMap<Internal, Op>();
 let anyDepth = 0;
 
 // Compiled on first use, once per message: a message holding itself through an
-// Any would otherwise compile its unpack while compiling it. The operation
-// knows only the definitions its schema carries, so they ride on it.
-const unpackOf = (schema: Internal, defs: Defs): Op => {
+// Any would otherwise compile its unpack while compiling it.
+const unpackOf = (schema: Internal): Op => {
   let unpack = unpacks.get(schema);
   if (unpack === U) {
     let op: Op | undefined;
     unpack = (value) => {
-      if (op === U) {
-        const carried = copySchema(schema);
-        carried["$defs"] = { ...schema["$defs"], ...defs };
-        op = getOp(0, 2, protobuf, carried);
-      }
+      op ??= getOp(0, 2, protobuf, schema);
       if (anyDepth >= 100) fail("Protobuf message nesting limit exceeded");
       anyDepth++;
       try {
