@@ -30,7 +30,6 @@ const check = (ctx: Ctx): void => {
   const box = S.schema({ v: S.unknown });
   const seamTo = (target: unknown) =>
     S.$to(box, target, { decode: (input: { v: unknown }) => input.v, encode: (output: unknown) => ({ v: output }) });
-  // `target` is what the seam's Output is held against, `seamOf` the seam.
   const hold = (target: unknown, place: (o: unknown) => unknown, seamOf = () => seamTo(target)): void => {
     const seam = compile<Op>("seam", seamOf);
     if (!seam) return;

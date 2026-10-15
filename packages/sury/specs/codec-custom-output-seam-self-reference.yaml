@@ -7,6 +7,7 @@ ts:
 jsonSchema:
   input: '{ $ref: "#/$defs/X", $defs: { X: { type: "object", properties: { v: {} }, required: ["v"] } } }'
   fromInputType: "{ v: JSON; }"
+  # FIXME: the view the seam links to is named a second time, as X2
   output: '{ $ref: "#/$defs/X", $defs: { X: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/X2" }, type: "array" } }, required: ["a", "kids"] }, X2: { type: "object", properties: { a: { type: "string" }, kids: { items: { $ref: "#/$defs/X2" }, type: "array" } }, required: ["a", "kids"] } } }'
   fromOutputType: "{ a: string; kids: { a: string; kids: ...[]; }[]; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
