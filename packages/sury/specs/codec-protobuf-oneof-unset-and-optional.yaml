@@ -6,7 +6,7 @@ ts:
   instantiations: 8880
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "email" }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", const: "none" }] } } }'
-  output: Expected JSON, received Uint8Array
+  output: "[Sury] S.protobuf: oneof \"c\" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm"
   openapi-3.0:
     input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", enum: ["none"] }] } } }'
 isEqual:
@@ -20,21 +20,6 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.c;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.kind==="email"){let v1=v0.email;typeof v1==="string"||e[0](v1);v0={kind:v0.kind,email:v1};break}if(typeof v0==="string"&&v0==="none")break;if(v0===void 0)break;throw e[1](v0)}let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();v=v0;switch(v&&v.kind){case "email":f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.email);break;};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[2](x,e[3],f,j,a);e[5](x)}}return v2}catch(v3){e[7](v3)}}
-    examples:
-      absent:
-        input: "{}"
-        output: new Uint8Array([])
-  decode:
-    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();v=i.c;switch(v&&v.kind){case "email":f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.email);break;};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}return v0}catch(v1){e[4](v1)}}
-    examples:
-      absent:
-        input: "{}"
-        output: new Uint8Array([])
-  encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return v0}catch(v1){e[3](v1)}}
-    examples:
-      # FIXME: an absent oneof decodes back as the arm for no member set
-      absent:
-        input: new Uint8Array([])
-        output: '{ c: "none" }'
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm"
+  decode: eq-to-parse
+  encode: eq-to-parse

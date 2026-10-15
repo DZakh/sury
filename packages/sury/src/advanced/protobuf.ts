@@ -488,8 +488,11 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   if (all.length > 1 || unset !== U) {
     tag = Object.keys(arms[0]!.member.properties!).find((property) => {
       if (!all.every((member) => member.properties![property] !== U)) return false;
+      // A bare literal for no member set is read where the tag is, so it
+      // can't equal an arm's tag either.
       const literals = all.map((member) => literalOf(member.properties![property]));
-      return new Set(literals).size === all.length && arms.every((arm) => arm.key !== property && literalOf(arm.member.properties![property]) !== U);
+      if (unset !== U && unset.type !== objectTag) literals.push(literalOf(unset));
+      return new Set(literals).size === literals.length && arms.every((arm) => arm.key !== property && literalOf(arm.member.properties![property]) !== U);
     });
     if (tag === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
     for (const arm of arms) {
@@ -655,6 +658,9 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       const group = oneofOf(key, property);
       if (group === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField, or make it a oneof: a union of objects, each holding one numbered value`);
       const { arms, unset: unsetArm, optional: groupOptional, tag } = group;
+      if (unsetArm !== U && groupOptional) {
+        return panic(`S.protobuf: oneof "${key}" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm`);
+      }
       if (unsetArm === U && !groupOptional) {
         return panic(`S.protobuf: oneof "${key}" has no arm for no member set. Add one holding only its literal, such as S.schema({ type: "none" }), or wrap the union in S.optional`);
       }
