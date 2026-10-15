@@ -1065,11 +1065,9 @@ const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
 const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
 const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
 
-// The definition a view was made of, a view of a view included, or the
-// definition itself. A view claims
-// exactly its source's output, so whoever names definitions (jsonschema.ts
-// `refKey`) names both as one. Reversed too, which is how an output is
-// described, but only through a reverse already built.
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built.
 export const B_viewSource = (def: Internal): Internal => {
   const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
   let source = reversed ? def.r! : def;

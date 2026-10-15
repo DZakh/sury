@@ -334,7 +334,8 @@ const applyMetadataOverlay = (
   if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
 }
 
-// A ref is published by the definition it carries, under its name unless
+// A ref is published by the definition it carries, a view counted as its
+// source (`B_viewSource`), under its name unless
 // another definition already took that key (specs/recursive-same-name.yaml).
 type Defs = [string, Internal][];
 

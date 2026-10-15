@@ -39,9 +39,8 @@ const check = (ctx: Ctx): void => {
     const ownEncode = compile<Op>("seam", () => S.encodeOrThrow(target));
     const ownDecode = compile<Op>("seam", () => S.decodeOrThrow(target));
     if (!isOutput || !ownEncode || !ownDecode) return;
-    // The seam's Output is the target's, so its definitions are published
-    // under the target's names, none of them twice. Only the names: a default
-    // the target describes is one the coder's Output never reaches.
+    // Only the names: a default the target describes is one the coder's
+    // Output never reaches.
     const names = (of: unknown): string => {
       try {
         return Object.keys((S.toOutputJSONSchemaOrThrow(of) as { $defs?: object }).$defs ?? {}).join();
