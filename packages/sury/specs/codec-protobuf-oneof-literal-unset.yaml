@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ channel: S.union([S.schema({ kind: "email", email: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema({ kind: "sms", phone: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema("none")]) }).with(S.to, S.protobuf)'
+  input: '{ channel: { kind: "email"; email: string; } | { kind: "sms"; phone: string; } | "none"; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9273
+jsonSchema:
+  input: '{ type: "object", properties: { channel: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "email" }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "object", properties: { kind: { type: "string", const: "sms" }, phone: { type: "string" } }, required: ["kind", "phone"] }, { type: "string", const: "none" }] } }, required: ["channel"] }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { channel: { anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "object", properties: { kind: { type: "string", enum: ["sms"] }, phone: { type: "string" } }, required: ["kind", "phone"] }, { type: "string", enum: ["none"] }] } }, required: ["channel"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.channel.kind==="email"?b.channel.kind==="email"&&a.channel.email===b.channel.email:a.channel.kind==="sms"?b.channel.kind==="sms"&&a.channel.phone===b.channel.phone:b.channel==="none")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { channel: { kind: \"email\"; email: string; } | { kind: \"sms\"; phone: string; } | \"none\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.channel;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.kind==="email"){let v1=v0.email;typeof v1==="string"||e[0](v1);v0={kind:v0.kind,email:v1};break}if(v0.kind==="sms"){let v2=v0.phone;typeof v2==="string"||e[1](v2);v0={kind:v0.kind,phone:v2};break}throw e[2](v0)}break}if(typeof v0==="string"&&v0==="none")break;throw e[2](v0)}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();v=v0;switch(v&&v.kind){case "email":f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.email);break;case "sms":f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.phone);break;};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[8](v4)}}
+    examples:
+      sms:
+        input: '{ channel: { kind: "sms", phone: "1" } }'
+        output: new Uint8Array([18, 1, 49])
+      none:
+        input: '{ channel: "none" }'
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();v=i.channel;switch(v&&v.kind){case "email":f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.email);break;case "sms":f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.phone);break;};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}return v0}catch(v1){e[4](v1)}}
+    examples:
+      sms:
+        input: '{ channel: { kind: "sms", phone: "1" } }'
+        output: new Uint8Array([18, 1, 49])
+      none:
+        input: '{ channel: "none" }'
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return v0}catch(v1){e[3](v1)}}
+    examples:
+      sms:
+        input: new Uint8Array([18, 1, 49])
+        output: '{ channel: { kind: "sms", phone: "1" } }'
+      none:
+        input: new Uint8Array([])
+        output: '{ channel: "none" }'

@@ -460,6 +460,13 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
       continue;
     }
     const properties = member.properties;
+    // A literal is the arm for no member set too: a ReScript constructor with
+    // no payload is its tag's string.
+    if (member.type !== objectTag && literalOf(member) !== U) {
+      if (unset !== U) stray = true;
+      unset = member;
+      continue;
+    }
     if (member.type !== objectTag || properties === U || typeof member.additionalItems === objectTag) {
       stray = true;
       continue;
@@ -483,9 +490,9 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   }
   if (!arms.length && !numbered) return U;
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
-  const all = unset === U ? arms.map((arm) => arm.member) : [...arms.map((arm) => arm.member), unset];
+  const all = unset === U || unset.type !== objectTag ? arms.map((arm) => arm.member) : [...arms.map((arm) => arm.member), unset];
   let tag: string | undefined;
-  if (all.length > 1) {
+  if (all.length > 1 || unset !== U) {
     // Every arm's literal under it is its own, and only the arm for no member
     // set may hold `undefined` there.
     tag = Object.keys(arms[0]!.member.properties!).find((property) => {
@@ -511,7 +518,7 @@ const literalSource = (value: unknown): string =>
 // arm for no member set. An optional property holding nothing is left out,
 // as a decode leaves out an absent field.
 const armObject = (member: Internal, valueKey: string | undefined, value: string): string =>
-  `{${Object.keys(member.properties!)
+  member.type !== objectTag ? literalSource(literalOf(member)) : `{${Object.keys(member.properties!)
     .filter((property) => property === valueKey || !(getOutputSchema(member.properties![property]!).type === anyOfTag && holdsNothing(member.properties![property]!)))
     .map((property) => `${property === "__proto__" ? '["__proto__"]' : JSON.stringify(property)}:${property === valueKey ? value : literalSource(literalOf(member.properties![property]))}`)
     .join(",")}}`;
@@ -2502,7 +2509,7 @@ const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   const all = other === U ? arms : [...arms, other];
   if (all.length === 0) return U;
   let tag: string | undefined;
-  if (all.length > 1) {
+  if (all.length > 1 || unset !== U) {
     tag = Object.keys(all[0]![3].properties ?? {}).find((property) => {
       const seen = new Set(all.map((arm) => (arm[2] === U ? U : literalOf(arm[3].properties![property]))));
       return !seen.has(U) && seen.size === all.length;

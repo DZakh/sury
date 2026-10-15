@@ -214,6 +214,35 @@ let personSchema = S.schema(s => {
   ),
 })
 
+@tag("kind")
+type channel =
+  | @as("email") EmailChannel({email: string})
+  | @as("sms") SmsChannel({phone: string})
+  | @as("none") NoChannel
+
+type subscriber = {channel: channel}
+
+let subscriberSchema = S.schema(s => {
+  channel: s.matches(
+    S.union([
+      S.schema(s => EmailChannel({email: s.matches(S.string->S.protobufField(1, ~type_=#string))})),
+      S.schema(s => SmsChannel({phone: s.matches(S.string->S.protobufField(2, ~type_=#string))})),
+      S.literal(NoChannel),
+    ]),
+  ),
+})
+
+test("a variant with a tag and payload keys of its own is a oneof", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=subscriberSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=subscriberSchema)
+  let sms = {channel: SmsChannel({phone: "1"})}
+  t->Assert.deepEqual(toBytes(sms)->bytesToArray, [18, 1, 49])
+  t->Assert.deepEqual(fromBytes(toBytes(sms)), sms)
+  let none = {channel: NoChannel}
+  t->Assert.deepEqual(toBytes(none)->bytesToArray, [])
+  t->Assert.deepEqual(fromBytes(toBytes(none)), none)
+})
+
 test("a variant enum travels as its number and a tagged variant as a oneof", t => {
   let toBytes = value => value->S.convertOrThrow(~from=personSchema, ~to=S.protobuf)
   let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=personSchema)
