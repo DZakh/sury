@@ -632,6 +632,77 @@ const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values
   return values;
 };
 
+// A oneof spelled as a union of arms, one of four ways, against the same group
+// spelled flat: the same bytes for the same member, and the arm read back.
+// Numeric tags start at 0, falsy, which a bare literal for no member set must
+// not be read as. Its own stream, as the Any family's.
+const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
+  const group = fields.find((def) => def.oneof)?.oneof;
+  if (group === undefined) return 0;
+  const r = rng(seed ^ 0x7f4a7c15);
+  const members = fields.filter((def) => def.oneof === group);
+  const rest = fields.filter((def) => def.oneof !== group);
+  const spelling = int(r, 4);
+  const arm = (def: FieldDef, idx: number, value: S.Schema<unknown, unknown>): S.Schema<unknown, unknown> =>
+    spelling === 1 ? S.schema({ type: `m${idx}`, [def.key]: value })
+    : spelling === 2 ? S.schema({ k: idx, v: value })
+    : S.schema({ case: def.key, value });
+  const unsetArm = spelling === 0 ? S.schema({ case: undefined }) : spelling === 1 ? S.schema({ type: "none" }) : spelling === 2 ? S.schema(-1) : undefined;
+  let flat: (value: unknown) => Uint8Array;
+  let encode: (value: unknown) => Uint8Array;
+  let decode: (bytes: Uint8Array) => unknown;
+  try {
+    const properties = { ...(suryMessage(rest) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties };
+    const arms = members.map((def, idx) =>
+      arm(def, idx, (suryMessage([{ ...def, oneof: undefined }]) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties[def.key]!),
+    );
+    const union = S.union(unsetArm === undefined ? arms : [...arms, unsetArm]);
+    properties[group] = unsetArm === undefined ? S.optional(union) : union;
+    const message = S.schema(properties);
+    flat = S.decodeOrThrow(suryMessage(fields), S.protobuf) as never;
+    encode = S.decodeOrThrow(message, S.protobuf) as never;
+    decode = S.decodeOrThrow(S.protobuf, message) as never;
+  } catch (e) {
+    findings.push({ kind: `oneof: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling}` });
+    return 1;
+  }
+  const flatDecode = S.decodeOrThrow(S.protobuf, suryMessage(fields)) as (bytes: Uint8Array) => Record<string, unknown>;
+  // The flat value, spelled as the union holds it.
+  const shape = (value: Record<string, unknown>): Record<string, unknown> => {
+    const shaped: Record<string, unknown> = {};
+    for (const def of rest) if (value[def.key] !== undefined) shaped[def.key] = value[def.key];
+    const idx = members.findIndex((def) => value[def.key] !== undefined);
+    const def = members[idx];
+    const held =
+      def === undefined ? (spelling === 0 ? { case: undefined } : spelling === 1 ? { type: "none" } : spelling === 2 ? -1 : undefined)
+      : spelling === 1 ? { type: `m${idx}`, [def.key]: value[def.key] }
+      : spelling === 2 ? { k: idx, v: value[def.key] }
+      : { case: def.key, value: value[def.key] };
+    if (held !== undefined) shaped[group] = held;
+    return shaped;
+  };
+  for (let i = 0; i < values; i++) {
+    const value = genValue(r, fields, 0);
+    const shaped = shape(value);
+    try {
+      const want = flat(value).slice();
+      const got = encode(shaped).slice();
+      if (bytesOf(got).join() !== bytesOf(want).join()) {
+        findings.push({ kind: "oneof: a union writes other bytes than the same oneof flat", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+        continue;
+      }
+      // Twice over, the member is seen again: last wins, a message merges.
+      const twice = new Uint8Array([...got, ...got]);
+      if (!equalValue(decode(got), shape(flatDecode(want))) || !equalValue(decode(twice), shape(flatDecode(twice)))) {
+        findings.push({ kind: "oneof: a union reads its member back as another value", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `oneof: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+    }
+  }
+  return values;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -656,6 +727,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
       continue;
     }
     checks += anyChecks(findings, seed, fields, values);
+    checks += oneofChecks(findings, seed, fields, values);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;
