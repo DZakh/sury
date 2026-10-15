@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;try{v0=e[0](i.a);}catch(v1){v1.path=["a",...v1.path];throw v1}return {a:v0}}catch(v2){e[2](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i.a);}catch(v1){e[1](v1,["a"])}return {a:v0}}catch(v2){e[3](v2)}}
     examples:
       # FIXME: known bug json-absent-recursive-undefined. The field's `undefined`
       # sits behind the ref, so the absent key reaches the union as present.
@@ -32,7 +32,7 @@ operations:
         output: "{ a: [] }"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{try{e[0](i.a);}catch(v0){v0.path=["a",...v0.path];throw v0}try{e[1](i.a);}catch(v1){v1.path=["a",...v1.path];throw v1}return {a:i.a}}catch(v2){e[2](v2)}}
+    expression: i=>{try{try{e[0](i.a);}catch(v0){e[1](v0,["a"])}try{e[2](i.a);}catch(v1){e[3](v1,["a"])}return {a:i.a}}catch(v2){e[4](v2)}}
     examples:
       # FIXME: known bug json-absent-recursive-undefined, from the encode side. The
       # field's `undefined` sits behind the ref, so it reaches S.json as a value and
