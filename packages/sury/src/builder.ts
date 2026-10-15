@@ -1044,8 +1044,6 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-// Whether a value passing through the schema is converted anywhere in it. A
-// ref is asked through its definition, once per walk, so a cycle ends.
 const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
   !seen.has(schema) &&
   (seen.add(schema),
