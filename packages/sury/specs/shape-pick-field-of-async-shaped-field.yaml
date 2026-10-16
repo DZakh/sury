@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ w: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }), b: S.string }).with(S.shape, (v) => ({ X: v.b, Y: v.a })) }).with(S.shape, (v) => ({ X: v.w.X }))'
+  input: "{ w: { a: string; b: string; }; }"
+  output: "{ X: string; }"
+  instantiations: 6619
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a", "b"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { X: { type: "string" } }, required: ["X"] }'
+isEqual:
+  input: (a,b)=>a===b||a.w.a===b.w.a&&a.w.b===b.w.b
+  output: (a,b)=>a===b||a.X===b.X
+compare:
+  input: "throws: [Sury] Can't compare { w: { a: string; b: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { X: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: picking a field out of an async field that is itself shaped fails to compile; the sync form works
+    creationError: "TypeError: Cannot read properties of undefined (reading 'v')"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Missing input for string at w.Y.a"
