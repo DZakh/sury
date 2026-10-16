@@ -495,7 +495,9 @@ const shapedParser: Builder = (input: Val) => {
   const output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return B_markOutput(output, input);
+  // The source's input checks ran with its own decode; handing `input` here
+  // would emit them a second time.
+  return B_markOutput(output, output);
 }
 
 const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {

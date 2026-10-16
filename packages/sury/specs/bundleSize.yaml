@@ -126,7 +126,7 @@ exports:
   nullable: 17840
   nullish: 17837
   number: 6542
-  object: 12551
+  object: 12552
   optional: 17823
   parseAsPromisableResult: 6333
   parseAsPromiseOrReject: 6331
@@ -137,7 +137,7 @@ exports:
   pattern: 6227
   port: 6648
   protobuf: 28169
-  protobufAny: 31366
+  protobufAny: 31367
   protobufField: 7729
   protobufTypeName: 6118
   queryString: 12764
@@ -148,7 +148,7 @@ exports:
   reverse: 6022
   schema: 10751
   schemaOf: 10758
-  shape: 11761
+  shape: 11762
   size: 7237
   strict: 6183
   string: 6318
