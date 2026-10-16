@@ -632,12 +632,11 @@ const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values
   return values;
 };
 
-// A oneof spelled as a union of arms, one of seven ways, against the same
-// group spelled flat: the same bytes for the same member, and the arm read
-// back. The bare spellings, each arm the value itself, are refused where two
-// members share a runtime type or one shares the type of the bare `""` for no
-// member set, the one refusal a spelling may meet; `""` is what a string
-// member is most often drawn as.
+// A oneof spelled as a union of arms against the same group spelled flat: the
+// same bytes for the same member, and the arm read back. The bare spellings
+// are refused where two members share a runtime type, or one shares the type
+// of the `""` for no member set (what a string member is most often drawn as);
+// that refusal is the only one a spelling may meet.
 // Numeric tags start at 0, falsy, and sit under `length`, a key a bare literal
 // for no member set answers too; neither may be read as an arm. Its own
 // stream, as the Any family's.

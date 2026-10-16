@@ -130,8 +130,8 @@ Repeated numbers are packed. Set `packed: false` to write one tag per item.
 
 ## Oneof
 
-A union of objects is a oneof. Each arm holds one numbered value, and a literal
-names the arm:
+A union is a oneof. Each arm holds one numbered value, and a literal or the
+value's type names the arm:
 
 ```ts
 const User = S.schema({
@@ -178,8 +178,21 @@ S.optional(S.union([
 // "a@b", 7 or undefined
 ```
 
-Two arms the same type need a literal beside the value: a 64-bit field held as a
-string next to a string field, or two messages, are refused.
+Arms of one type need a literal beside the value, and so does a value of the
+same type as a bare literal for no member set:
+
+```ts
+const Message = S.schema({
+  value: S.union([
+    S.string.with(S.protobufField, 2),
+    S.protobufField(S.string, { number: 3, type: "int64" }),
+    S.schema(""),
+  ]),
+});
+S.encodeOrThrow(Message, S.protobuf);
+// throws: oneof "value" can't tell its arms apart. Give each a literal, such as
+// case: "email", beside the value it holds
+```
 
 It needs an arm for no member set, or `S.optional`:
 
@@ -259,7 +272,7 @@ nanoseconds. Inside `S.array` or `S.record`, a wrapper's item doesn't need
 
 `S.protobufAny` is a `google.protobuf.Any`: a message of any type, as its type
 URL and its bytes. Name each message with `S.protobufTypeName`, and convert the
-Any to the one it holds, or to an `S.union` of them, each tagged by a literal of
+Any to the one it holds, or to an `S.union` of them, each named by a literal of
 your choosing:
 
 ```ts
@@ -287,8 +300,7 @@ S.schema({ type: "other", value: S.protobufAny });
 // { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: Uint8Array } }
 ```
 
-A member can be a tuple too, or the message itself when no other member is an
-object:
+A member can be a tuple too, and a lone member the message itself:
 
 ```ts
 S.union([S.tuple(["user", User]), S.tuple(["order", Order])]);

@@ -76,10 +76,9 @@ type Field = {
   name?: string;
   literalSource?: string;
   tag?: string;
-  // With no `tag`, what picks the arm out of the value the writer is handed,
-  // and out of what the reader built.
-  test?: string;
-  held?: string;
+  // `writeTest` is set where no `tag` tells the arms apart.
+  writeTest?: string;
+  readTest?: string;
   // Where the arm holds the value; unset where the arm is the value.
   valueKey?: string;
   member?: Internal;
@@ -109,9 +108,8 @@ type Message = {
   // The Google type it is, printed as an import rather than declared.
   wellKnown?: WellKnownType;
   typeName?: string;
-  // An Any's writer: each member's message, by name, where it sits in the
-  // member, and what picks it. The catch-all is named google.protobuf.Any and
-  // holds the Any message itself.
+  // An Any's writer. The catch-all is named google.protobuf.Any and holds the
+  // Any message itself.
   any?: { arms: [name: string, message: Message, key: string | undefined][]; told?: Told };
   // Whether a hand-written codec (`codecs`) stands in for the functions a
   // message's fields would compile to, for a value that is not the message's
@@ -429,8 +427,6 @@ const rejectEndless = (ctx: Ctx): void => {
   ctx.messages.forEach((message) => message.rec && walk(message));
 };
 
-// `key` is where the arm holds its value: a property, a tuple index, or unset
-// for an arm that is the value itself.
 type Arm = { name: string; key: string | undefined; value: Internal; member: Internal; metadata: StoredField };
 
 type Oneof = { arms: Arm[]; unset: Internal | undefined; optional: boolean; told: Told | undefined };
@@ -442,15 +438,12 @@ const holdsNothing = (schema: Internal): boolean => {
   return output.type === undefinedTag || (output.anyOf !== U && output.anyOf.every(holdsNothing));
 };
 
-// An object's properties or a tuple's items by key, else unset.
 const entriesOf = (member: Internal): Record<string, Internal> | undefined =>
   typeof member.additionalItems === objectTag ? U
   : member.type === objectTag ? member.properties
   : member.type === arrayTag && member.items !== U ? ({ ...member.items } as {})
   : U;
 
-// A bare value's runtime type as its test reads it: a `typeof`, an array, or
-// an instance's class. A ref is a message where `message` says so.
 const typeOf = (schema: Internal, message: boolean): string | undefined => {
   const output = getOutputSchema(schema);
   const type = output.type;
@@ -464,17 +457,13 @@ const typeOf = (schema: Internal, message: boolean): string | undefined => {
     : U;
 };
 
-// What tells an arm from the others once its value is in hand: a literal under
-// one key every arm holds (`tag`), which `v&&v[tag]` reads off any value, else
-// a test per arm of its runtime type, and of a literal under a key the arms of
-// that type share. The arm for no member set gets no test, and matches none.
-// A test reads the value as `\0`, which no literal holds: JSON escapes it.
+// The arm for no member set gets no test, and matches none. A test reads the
+// value as `\0`, which no literal holds: JSON escapes it.
 type Told = { tag?: string; literals: string[]; tests: string[] };
 
 const testOf = (test: string, v: string): string => test.split("\0").join(v);
 
-// `keys` are the arms', which come first in `members`; the rest are arms for
-// no member set.
+// `keys` are the arms', which come first in `members`.
 const tagAmong = (members: Internal[], keys: (string | undefined)[]): string | undefined => {
   const first = keys[0] === U ? U : entriesOf(members[0]!);
   return first && Object.keys(first).find((property) => {
@@ -510,7 +499,6 @@ const tellApart = (arms: [member: Internal, key: string | undefined, message: bo
   // A class name sorts before every lowercase type.
   const types = all.map((member, idx) => (idx < keys.length && keys[idx] === U ? typeOf(member, arms[idx]![2]) : entriesOf(member) && member.type)) as string[];
   const bare = unset !== U && entriesOf(unset) === U ? literalOf(unset) : U;
-  // An object test leaves out what another arm's test takes.
   let rest = "";
   for (const type of new Set(types)) rest += type === arrayTag ? "&&!Array.isArray(\0)" : type < "a" ? `&&!(\0 instanceof ${type})` : "";
   const tests: string[] = [];
@@ -564,7 +552,6 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
       unset = member;
       continue;
     }
-    // A numbered entry is the value even when it is a literal.
     const values = Object.keys(entries).filter((entry) => fieldMetadata(entries[entry]!) !== U || (literalOf(entries[entry]) === U && !holdsNothing(entries[entry]!)));
     if (values.length === 0) {
       if (unset !== U) stray = true;
@@ -597,8 +584,7 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
 const literalSource = (value: unknown): string =>
   value === U ? "void 0" : typeof value === "bigint" ? `${value}n` : typeof value === "number" ? (Object.is(value, -0) ? "-0" : `${value}`) : JSON.stringify(value);
 
-// The arm built around `value`, or with none the arm for no member set. An
-// optional property holding nothing is left out, as a decode leaves out an
+// An optional property holding nothing is left out, as a decode leaves out an
 // absent field.
 const armSource = (member: Internal, key: string | undefined, value?: string): string => {
   if (value !== U && key === U) return value;
@@ -667,7 +653,6 @@ const oneofRaw = (members: Internal[], conversions: Conversion[]): Internal => {
   return mut;
 };
 
-// The arm as the wire reads it: the declared one holding `value`.
 const oneofArm = (member: Internal, key: string | undefined, value: Internal): Internal => {
   if (key === U) return value;
   const entries = entriesOf(member)!;
@@ -773,8 +758,6 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       const rawMembers: Internal[] = [];
       const conversions: Conversion[] = [];
       const armFields: Field[] = [];
-      // What tells the arms apart as the reader built them: the same literal,
-      // or the runtime type of what the wire reads into.
       let rawTold: Told | undefined;
       for (let armIdx = 0; armIdx < arms.length; armIdx++) {
         const arm = arms[armIdx]!;
@@ -822,7 +805,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           name: arm.name,
           literalSource: literal,
           tag,
-          test: tag === U ? told?.tests[armIdx] : U,
+          writeTest: tag === U ? told?.tests[armIdx] : U,
           valueKey: arm.key,
           member: arm.member,
           armValue: arm.value,
@@ -838,8 +821,8 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
         if (rawTold === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart once read: two of them read into one type`);
       }
       armFields.forEach((field, armIdx) => {
-        field.held = rawTold === U ? "\0" : rawTold.tests[armIdx]!;
-        conversions[armIdx]![0] = told === U ? "\0!==void 0" : tag !== U && !groupOptional ? `${inlinedProperty("\0", tag, true)}===${field.literalSource}` : field.held;
+        field.readTest = rawTold === U ? "\0" : rawTold.tests[armIdx]!;
+        conversions[armIdx]![0] = told === U ? "\0!==void 0" : field.readTest;
       });
       if (unsetArm !== U) rawMembers.push(unsetArm);
       if (groupOptional) rawMembers.push(unit);
@@ -2032,11 +2015,10 @@ const anyFrame = (x: unknown, key: string): unknown => {
   return x;
 };
 
-// The message is left out when empty, as protobuf-es leaves it.
-// The member a type belongs to, as an error names it. A tuple's tag is an index.
 const ownerOf = (told: Told | undefined, idx: number): string =>
   told?.tag !== U ? `${/^\d+$/.test(told.tag) ? `[${told.tag}]` : told.tag}: ${told.literals[idx]}` : "another member";
 
+// The message is left out when empty, as protobuf-es leaves it.
 const anyEncodeBody = ({ arms, told }: NonNullable<Message["any"]>, fns: Map<Message, string>): string => {
   const write = ([name, message, key]: (typeof arms)[number]): string => {
     const at = valueAt("value", key);
@@ -2224,7 +2206,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
             : writeCall(member.type, value, enc, member.text ? 3 : 0)
         }`;
         arms += field.tag !== U ? `case ${member.literalSource}:${write};break;`
-          : `${arms && "else "}if(${testOf(member.test ?? "v!==void 0", "v")}){${write}}`;
+          : `${arms && "else "}if(${testOf(member.writeTest ?? "v!==void 0", "v")}){${write}}`;
       }
       body.push(`v=${src};${field.tag === U ? arms : `switch(v&&${inlinedProperty("v", field.tag, true)}){${arms}}`}`);
       continue;
@@ -2336,7 +2318,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
       const build = (value: string) => armSource(field.member!, field.valueKey, value);
       cases.push(
         field.type === "message"
-          ? `case ${tag}:p=r.sub();${local}=${build(`${fns.get(field.message!)!}(r,d+1,${testOf(field.held!, local)}?${valueAt(local, field.valueKey)}:void 0)`)};r.limit=p;continue;`
+          ? `case ${tag}:p=r.sub();${local}=${build(`${fns.get(field.message!)!}(r,d+1,${testOf(field.readTest!, local)}?${valueAt(local, field.valueKey)}:void 0)`)};r.limit=p;continue;`
           : `case ${tag}:${local}=${build(readCall(field.type))};continue;`,
       );
       continue;
@@ -2629,7 +2611,9 @@ const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   if (all.length === 0) return U;
   let told: Told | undefined;
   if (all.length > 1) {
-    told = tellApart(all.map((arm) => [arm[3], arm[2], true]), U);
+    // A message held bare is only ever the lone member: converted on its own
+    // the core union can't tell it from a tuple member, though a field can.
+    told = all.some((arm) => arm[2] === U) ? U : tellApart(all.map((arm) => [arm[3], arm[2], true]), U);
     if (told === U) {
       return panic(`S.protobufAny can't tell its members apart. Give each a literal, such as type: "user", beside the message it holds`);
     }

@@ -41,12 +41,11 @@ operations:
         input: "{ c: null }"
         output: new Uint8Array([])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.c;if(v1[0]==="a"){v1[1]=""+v1[1];}else if(v1[0]==="b"){v1[1]=""+v1[1];}return {c:v1}}catch(v2){e[3](v2)}}
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.c;if((v1&&v1[0])==="a"){v1[1]=""+v1[1];}else if((v1&&v1[0])==="b"){v1[1]=""+v1[1];}return {c:v1}}catch(v2){e[3](v2)}}
     examples:
       a:
         input: new Uint8Array([8, 12])
         output: '{ c: ["a", "12"] }'
-      # FIXME: the conversion reads the tag off null and crashes
       unset:
         input: new Uint8Array([])
-        error: "TypeError: Cannot read properties of null (reading '0')"
+        output: "{ c: null }"
