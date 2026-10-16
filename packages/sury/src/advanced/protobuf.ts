@@ -56,6 +56,7 @@ import {
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayDecoder, arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
+import { relocate, relocatedPaths } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
@@ -121,6 +122,7 @@ type Message = {
   // A message of one field whose value is the field's own: a wrapper's
   // scalar, a FieldMask's paths.
   unwrap?: boolean;
+  relocated?: Internal;
 };
 
 // One compile of a message tree.
@@ -2152,7 +2154,7 @@ const fieldLive = (field: Field, numeric: boolean): string =>
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
   : "(v=Number(v))";
 
-type Read = (key: string) => { expr: string; numeric: boolean };
+type Read = (field: Field) => { expr: string; numeric: boolean };
 
 // `f=` before a field's writes is what the message's frame (`encodeFrame`)
 // reads to name the field a failure hit.
@@ -2192,9 +2194,9 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
-    const { expr: src, numeric } = read(field.key);
+    if (field.name !== U && switched.has(field.key)) continue;
+    const { expr: src, numeric } = read(field);
     if (field.name !== U) {
-      if (switched.has(field.key)) continue;
       switched.add(field.key);
       let arms = "";
       for (let other = idx; other < msg.fields.length; other++) {
@@ -2279,7 +2281,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
     } else if (msg.any !== U) {
       src += `function ${name}(w,value){var g,q;${anyEncodeBody(msg.any, fns)}}`;
     } else {
-      const read: Read = (key) => ({ expr: msg.unwrap ? "value" : readKey("value", key), numeric: false });
+      const read: Read = (field) => ({ expr: msg.unwrap ? "value" : readKey("value", field.key), numeric: false });
       const body = encodeBody(msg, fns, read, (helper) => helper);
       src += `function ${name}(w,value){var v,j,n,s,h,a,k,g,c,o${msg.fields.length ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
     }
@@ -2477,7 +2479,9 @@ const protobufDecoder = (input: Val): Val => {
     names.set(msg, fn === U ? name : B_embedPure(input, fn));
   });
   const d = fieldValsOf(input);
-  const readRoot: Read = (key) => {
+  const paths = relocatedPaths(relocated(message));
+  const readRoot: Read = (field) => {
+    const key = paths[`${field.number}`]![0]!;
     const fv = d !== U ? d[key] : U;
     return fv !== U
       ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
@@ -2519,6 +2523,23 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
   return `try{${code}}catch(x){${release}${failure}}`;
 };
 
+// The record a message's fields are read into, keyed by field number, and
+// where the value the schema declares puts each one: the property a field is
+// numbered on, or a union oneof's, which the lowest-numbered of its members
+// stands for.
+const relocated = (message: Message): Internal => {
+  if (message.relocated === U) {
+    const properties = message.object.properties!;
+    const keyOf = new Map<Internal, string>();
+    for (const key in properties) keyOf.set(properties[key]!, key);
+    message.relocated = relocate(message.object, (leaf) => {
+      const key = keyOf.get(leaf);
+      return key === U ? U : [`${message.fields.find((field) => field.key === key)!.number}`, message.schema.properties![key]!];
+    });
+  }
+  return message.relocated!;
+};
+
 const protobufEncoder = (input: Val, target: Internal): Val => {
   // Bytes into `S.protobuf` - a union case converts into its member whole - are
   // those bytes, and the parse loop carries them on down its `.to`. Decoding
@@ -2548,9 +2569,8 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
     },
   );
   const at = B_embedPure(input, message);
-  // Typed as the wire object, which refines nothing: the object's own checks
-  // run on the value once it is assembled, below.
-  const read = B_next(input, "", message.raw, message.raw);
+  const record = relocated(message);
+  const read = B_next(input, "", record, record);
   // The fields' locals are the operation's: what the value is built from
   // after the loop.
   for (const [name, init] of inits) B_hoistDecl(input, name, init);
@@ -2563,10 +2583,10 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   )}}`;
   const fields = B_record(read, (field) => {
     for (let idx = 0; idx < message.fields.length; idx++) {
-      const key = message.fields[idx]!.key;
+      const { key, number } = message.fields[idx]!;
       if (locals[idx] === U) continue;
-      const slot = B_slot(read, locals[idx]!, message.raw.properties![key]!, message.schema.properties![key]!, [key]);
-      field(key, () => parse(slot));
+      const slot = B_slot(read, locals[idx]!, message.raw.properties![key]!, record.properties![`${number}`]!, [key]);
+      field(`${number}`, () => parse(slot));
     }
   });
   // The object's own chain from its value on, then that of each ref the walk
@@ -2579,7 +2599,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
       current = current.definition!()!;
     } else current = current.to!;
   }
-  let output = fields;
+  let output = parse(fields);
   for (const link of [message.object, ...links]) {
     const value = B_refine(output, link, U, link);
     output = parse(B_markOutput(value, value));

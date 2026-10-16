@@ -726,6 +726,68 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   return s;
 }
 
+// The schema that reads `schema`'s value off a record keyed some other way: a
+// wire format's field numbers, another spelling of each name. `locate` answers
+// for each leaf the record key it is read from and the schema it is read into;
+// the objects and tuples around the leaves, and their literals, are where the
+// value puts them. What `S.object` builds from a definer, so the record decodes
+// key by key and the value is assembled from what each key decoded to.
+export const relocate = (
+  schema: Internal,
+  locate: (leaf: Internal) => [key: string, read: Internal] | undefined,
+): Internal => {
+  const properties: Record<string, Internal> = Object.create(null);
+  const place = (node: Internal): Internal => {
+    const located = locate(node);
+    if (located !== U) {
+      const [key, read] = located;
+      if (key in properties) panic(`The field "${key}" defined twice with incompatible schemas`);
+      properties[key] = read;
+      const placed = copySchema(getOutputSchema(read));
+      placed.from = [key];
+      return placed;
+    }
+    if (isLiteral(node)) return node;
+    const shape = node.properties ?? node.items;
+    if (shape === U || typeof node.additionalItems === objectTag) {
+      return panic(`Don't know where the value is coming from: ${inputExpression(node)}`);
+    }
+    const tuple = node.items !== U;
+    const mut = baseSchema(node.type, false, tuple ? arrayDecoder : objectDecoder);
+    const placed: Record<string, Internal> = Object.create(null);
+    for (const location in shape) placed[location] = place((shape as Record<string, Internal>)[location]!);
+    if (tuple) mut.items = Object.values(placed);
+    else {
+      mut.properties = placed;
+      mut.required = Object.keys(placed);
+    }
+    mut.additionalItems = tuple ? "strict" : "strip";
+    return mut;
+  };
+  const target = place(schema);
+  target.serializer = shapedSerializer;
+  const mut = baseSchema(objectTag, false, objectDecoder);
+  mut.properties = properties;
+  mut.required = Object.keys(properties);
+  mut.additionalItems = "strip";
+  mut.parser = shapedParser;
+  mut.to = target;
+  return mut;
+};
+
+// Where in the value `relocate`'s result reads each record key from: the path
+// a codec writing the record back takes to that key's value.
+export const relocatedPaths = (relocated: Internal): Record<string, string[]> => {
+  const paths: Record<string, string[]> = Object.create(null);
+  const walk = (node: Internal, path: string[]): void => {
+    const shape = (node.properties ?? node.items) as Record<string, Internal> | undefined;
+    if (node.from !== U) paths[node.from[0]!] = path;
+    else for (const location in shape) walk(shape[location]!, [...path, location]);
+  };
+  walk(relocated.to!, []);
+  return paths;
+};
+
 const schemaCtx: SchemaCtx = {
   m: (schema) => schema,
 };
