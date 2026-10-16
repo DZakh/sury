@@ -115,9 +115,8 @@ const makeObjectCtx = (
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = getOutputSchema(schema);
-  // `noopDecoder` is how composites.ts's missing-key read tells this apart
-  // from a dispatching optional: it hands the parser `unit` for an absent key
-  // and reads a present one through the item alone.
+  // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for
+  // an absent key.
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };

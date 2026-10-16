@@ -142,18 +142,14 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // which `B_narrowJsonSourcedJsonString` already routes, and standing
     // `S.json` in front of it would match every value and swallow the dispatch.
     const storedApart = (variant: Internal): Internal | undefined => variant.storedAs;
-    // A single variant (a field's present branch, its undefined arm dropped)
-    // is read through the target itself: unionFactory would collapse the
-    // stored union to the one arm, and the target's `.to` would overwrite the
-    // arm's own hop.
-    if (anyOf?.length === 1 && storedApart(anyOf[0]!) !== U) {
-      return copyVia(storedApart(anyOf[0]!)!);
-    }
+    // unionFactory collapses a one-variant union to the arm, whose own hop the
+    // target's `.to` would then overwrite.
+    const only = anyOf?.length === 1 ? storedApart(anyOf[0]!) : U;
+    if (only !== U) return copyVia(only);
     if (anyOf !== U && anyOf.some((variant) => storedApart(variant) !== U)) {
       const stored = unionFactory(
         anyOf.map((variant) => {
-          // `null` for an undefined arm: JSON has no undefined, and objectDecoder
-          // routes an absent key to the field's absent branch before this runs.
+          // `null` for an undefined arm: JSON has no undefined.
           const from = storedApart(variant) ?? (isOptional(variant) ? nullLiteral : U);
           if (from === U) {
             return variant;
@@ -165,8 +161,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
         })
       );
       stored.flags = 64;
-      // The target's own steps after its dispatch (`S.shape`, `s.fieldOr`'s
-      // default) run on the stored union's output as they would on the target's.
+      // The target's steps after its dispatch (`S.shape`, `s.fieldOr`).
       stored.parser = target.parser;
       stored.refiner = target.refiner;
       stored.to = target.to;

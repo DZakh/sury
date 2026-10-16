@@ -22,17 +22,10 @@
 //                reached two ways, so a reverse that rebuilds rather than swaps
 //                is caught against itself.
 //   absent       a key a JSON document leaves out reads through `S.json` the
-//                way `parse` reads it - `undefined`, or the field's default -
-//                never as `null`. Only that position is compared: the
-//                carrier's other spellings (`null` for an optional field) are
-//                its own rules. Besides the drawn schema's own keys, the
-//                check also leaves out a field holding the schema, bare and
-//                under `S.shape`: an absent key reaches that field's parser
-//                directly instead of going through a dispatch.
-//   present null a `null` under a present key of a JSON object reads through
-//                `S.json` the way `parse` reads it, and is rejected where parse
-//                rejects it: an object field spells a missing value by leaving
-//                the key out, so `null` is only ever a value there.
+//                way `parse` reads it, also with the schema held as a field,
+//                bare and under `S.shape`.
+//   present null a `null` under a present key reads through `S.json` the way
+//                `parse` reads it, rejected where parse rejects it.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
@@ -156,8 +149,7 @@ const check = (ctx: Ctx): void => {
     }
     const read = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, holder)));
     if (!read) continue;
-    // `null` is the JSON spelling of what it read when it encodes back to
-    // `null`: NaN, or a required `S.void`.
+    // NaN and a required `S.void` are written as `null`.
     let writeBack: Op | undefined;
     const spellsNull = (answer: unknown): boolean => {
       try {
@@ -191,9 +183,8 @@ const check = (ctx: Ctx): void => {
       }
       if (!settled(answer)) continue;
       if (parseError !== undefined) {
-        // An absent key parse rejects is the field's own requirement, which the
-        // carrier is free to meet another way; a present null is not, unless it
-        // is the field's own JSON spelling of the value read.
+        // A carrier may meet a required key another way; a present null it may
+        // take only as the value's own JSON spelling.
         if (property === "present null" && !spellsNull(answer)) {
           report(property, `parse rejected ${show(document)} but S.json read it as ${show(answer)} with the schema as a ${field}`);
         }

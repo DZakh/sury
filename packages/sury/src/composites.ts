@@ -655,8 +655,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      // JSON has no undefined: an absent key takes the field's absent branch,
-      // and a present null is a value (CODEC_SPEC.md rule 2).
       if (isJsonParent && isOptional(schema)) {
         itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
@@ -792,8 +790,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // key's presence is not asked here, and the item keeps its own check.
   const unsetIsInput = item.format === "env";
 
-  // Each branch runs the whole target, parser and `.to` included, so the
-  // output is final - pointing it at the target would run them again.
+  // Final: each branch already runs the target's parser and `.to`.
   const output = B_nextVarOutput(input, v, getOutputSchema(target));
   const body = (source: Internal, u: boolean, e: Internal = target): string => {
     const scope = B_scope(input);
@@ -806,17 +803,13 @@ const missingKeyEncoder: Encoder = (input, target) => {
     output.f |= out.f & 1;
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
-  // A JSON document has no `undefined`, and its `null` would otherwise be
-  // bridged to the target's undefined arm, reading a present `null` as an
-  // absent key. The absent branch below answers absence, so the present one
-  // drops the undefined arm and answers `null` exactly as `parse` does.
+  // JSON's `null` would bridge to the undefined arm; absence has its own branch.
   const present = item.flags & 16 ? presentTarget(target) : target;
   const presentBody = present
     ? body(item, !unsetIsInput, present)
     : B_failInvalidInput(input, target) + ";";
-  // A target that never dispatches (`s.fieldOr`) is told the value is absent
-  // and answers with its default alone; a union meeting `unit` would instead
-  // coerce it, so a dispatching target reads it from `unknown`.
+  // `unit` tells `s.fieldOr` to answer with its default; a dispatching union
+  // would coerce it, so it reads `unknown`.
   const absentBody =
     !unsetIsInput && readsAbsent(target)
       ? body(target.decoder === noopDecoder ? unit : unknown, false)
@@ -838,9 +831,8 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// A union stays one even with a single arm left: its dispatch is what reads a
-// document's string as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr`
-// answers a present key with its item: its default is only an absent key's.
+// A union stays one with a single arm left: its dispatch reads a string stored
+// apart (`S.jsonString`, bytes).
 const presentTarget = (s: Internal): Internal | undefined => {
   const anyOf = s.anyOf;
   if (anyOf === U || !s.has![undefinedTag]) return s;
@@ -850,10 +842,9 @@ const presentTarget = (s: Internal): Internal | undefined => {
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
   } else {
-    // Only the top-level arm: encode leaves the key out for it, while a
-    // member's own `undefined` is written as `null` and has to read back.
+    // Only the top-level arm: encode writes a member's own `undefined` as `null`.
     const arms = anyOf.filter((arm) => arm.type !== undefinedTag);
-    // Only absence fills it (`S.optional(S.void)`): no present value can.
+    // `S.optional(S.void)`: only absence fills it.
     if (!arms.length) return U;
     mut = copySchema(s);
     mut.anyOf = arms;
@@ -861,8 +852,7 @@ const presentTarget = (s: Internal): Internal | undefined => {
     arms.forEach((arm) => setHas(mut.has!, arm));
     const to = s.to;
     if (to !== U && to.type === anyOfTag && (to.has![nullTag] || to.has![undefinedTag])) {
-      // The empty arm a union `.to` pairs with the dropped one is the absent
-      // key's alone, and left in place no present value would cover it.
+      // Only absence reaches the `.to` arm the dropped one pairs with.
       const toArms = to.anyOf!.filter(
         (arm) => arm.type !== undefinedTag && (arm.type !== nullTag || mut.has![nullTag]),
       );
@@ -874,7 +864,6 @@ const presentTarget = (s: Internal): Internal | undefined => {
       mut.to = toMut;
     }
   }
-  // A failure names the field's whole type, `undefined` included.
   mut.expression = () => inputExpression(s);
   return mut;
 };
