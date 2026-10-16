@@ -35,8 +35,7 @@ operations:
       number:
         input: "{ f: 1 }"
         error: "Failed at f: Expected string | undefined, received 1"
-      # FIXME: the document misses the null that encode writes for the member's
-      # missing value; reading it back as undefined keeps the round trip.
+      # FIXME: the published document rejects this null.
       "null":
         input: "{ f: null }"
         output: "{ f: undefined }"

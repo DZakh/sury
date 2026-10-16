@@ -654,9 +654,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      // An absent key of a JSON document stays absent rather than reading as
-      // `null`: as `null` it would set a `T | null | undefined` field to `null`
-      // and bypass a default.
+      // JSON has no undefined: an absent key takes the field's absent branch,
+      // and a present null is a value (CODEC_SPEC.md rule 2).
       if (isJsonParent && isOptional(schema)) {
         itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
@@ -838,10 +837,9 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// A union's own dispatch fails under the field's whole type. A union stays one
-// even with a single arm left: its dispatch is what reads a document's string
-// as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr` answers a
-// present key with its item: its default is only an absent key's.
+// A union stays one even with a single arm left: its dispatch is what reads a
+// document's string as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr`
+// answers a present key with its item: its default is only an absent key's.
 const presentTarget = (s: Internal): Internal | undefined => {
   const anyOf = s.anyOf;
   if (anyOf === U || !s.has![undefinedTag]) return s;
@@ -851,8 +849,8 @@ const presentTarget = (s: Internal): Internal | undefined => {
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
   } else if (s.to !== U && isOptional(s.to)) {
-    // A conversion into another optional pairs the two undefined arms, so the
-    // present value keeps its own.
+    // FIXME: the conversion pairs the two undefined arms itself, so a present
+    // null still reads as missing (codec-json-object-optional-to-optional).
     return s;
   } else {
     // Only the top-level arm: encode leaves the key out for it, while a
@@ -865,6 +863,7 @@ const presentTarget = (s: Internal): Internal | undefined => {
     mut.has = {};
     arms.forEach((arm) => setHas(mut.has!, arm));
   }
+  // A failure names the field's whole type, `undefined` included.
   mut.expression = () => inputExpression(s);
   return mut;
 };
