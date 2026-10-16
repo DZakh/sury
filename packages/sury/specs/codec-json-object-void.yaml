@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.schema({ kind: "k", v: S.void }))'
+  input: JSON
+  output: '{ kind: "k"; v?: void | undefined; }'
+  instantiations: 6231
+jsonSchema:
+  # FIXME: under S.json a field the decode reads as absent (a default, `void`)
+  # is still `required` here, because the input side is rendered from what
+  # encode writes - so the document turns away a key the schema lets go missing.
+  input: '{ type: "object", properties: { kind: { type: "string", const: "k" }, v: { type: "null" } }, additionalProperties: false, required: ["kind", "v"] }'
+  fromInputType: '{ kind: "k"; v: null; }'
+  output: "Failed at v: Expected JSON, received void"
+  openapi-3.0:
+    input: '{ type: "object", properties: { kind: { type: "string", enum: ["k"] }, v: { enum: [null] } }, additionalProperties: false, required: ["kind", "v"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: alwaysEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { kind: \"k\"; v: void; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.kind,v1=i.v;v0==="k"||e[0](v0);if(v1!==void 0){v1===null||e[1](v1);v1=void 0;}return {kind:v0,v:v1}}catch(v2){e[3](v2)}}
+    examples:
+      absent:
+        input: '{ kind: "k" }'
+        output: '{ kind: "k", v: undefined }'
+        divergence:
+          reason: the input document is rendered from the encode side, which always writes the field
+          ajv: "input: data must have required property 'v'"
+      "null":
+        input: '{ kind: "k", v: null }'
+        output: '{ kind: "k", v: undefined }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{return {kind:"k",v:null}}
+    examples:
+      undefined:
+        input: '{ kind: "k", v: undefined }'
+        output: '{ kind: "k", v: null }'

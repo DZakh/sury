@@ -115,6 +115,8 @@ const makeObjectCtx = (
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = getOutputSchema(schema);
+  // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for
+  // an absent key.
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
@@ -139,6 +141,11 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.parser = (input: Val) => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
+    const output = B_nextVarOutput(input, v, item, item);
+    if (input.s === unit) {
+      output.cp = `${v}=${defCode};`;
+      return output;
+    }
     const itemInput = B_scope(input);
     itemInput.io = false;
     itemInput.s = unknown;
@@ -147,7 +154,6 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
     output.cp =
       presentBody === ""

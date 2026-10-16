@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ k: "a", x: S.string.with(S.to, S.string, { decode: { async: (v) => Promise.resolve(v + "!") }, encode: (v) => v.slice(0, -1) }) }), S.schema({ k: "b", y: S.string })])'
+  input: '{ k: "a"; x: string; } | { k: "b"; y: string; }'
+  output: '{ k: "a"; x: string; } | { k: "b"; y: string; }'
+  instantiations: 8201
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { k: { type: "string", const: "a" }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", const: "b" }, y: { type: "string" } }, required: ["k", "y"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { k: { type: "string", const: "a" }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", const: "b" }, y: { type: "string" } }, required: ["k", "y"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { k: { type: "string", enum: ["a"] }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", enum: ["b"] }, y: { type: "string" } }, required: ["k", "y"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { k: { type: "string", enum: ["a"] }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", enum: ["b"] }, y: { type: "string" } }, required: ["k", "y"] }] }'
+isEqual: (a,b)=>a===b||(a.k==="a"?b.k==="a"&&a.x===b.x:b.k==="b"&&a.y===b.y)
+compare: "throws: [Sury] Can't compare { k: \"a\"; x: string; } | { k: \"b\"; y: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v1=i.x;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3](e[0](v1),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:i.k,x:v0}});break}if(i.k==="b"){let v2=i.y;typeof v2==="string"||e[5](v2);i={k:i.k,y:v2};break}throw e[6](i)}}else{throw e[6](i)}return Promise.resolve(i).catch(e[7])}catch(v3){return e[8](v3)}}
+    examples:
+      # FIXME: the async member's case assigns its promise to `i` before the
+      # `.then` that rebuilds the object reads `i.k`, so the tag comes back missing.
+      a:
+        input: '{ k: "a", x: "z" }'
+        output: '{ k: undefined, x: "z!" }'
+      b:
+        input: '{ k: "b", y: "w" }'
+        output: '{ k: "b", y: "w" }'
+  decode:
+    isAsync: true
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[3](e[0](i.x),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b")break;throw e[4](i)}}else{throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
+    examples:
+      a:
+        input: '{ k: "a", x: "z" }'
+        output: '{ k: "a", x: "z!" }'
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[0](i.x)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i={k:"a",x:v0};break}if(i.k==="b")break;throw e[3](i)}}else{throw e[3](i)}return i}catch(v1){e[4](v1)}}
+    examples:
+      a:
+        input: '{ k: "a", x: "z!" }'
+        output: '{ k: "a", x: "z" }'
