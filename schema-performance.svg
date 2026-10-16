@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="214" viewBox="0 0 720 214" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>Parse with a schema you already have: Sury 8.83 ns (113,247 ops/ms), Zod 154 ns (6,502 ops/ms), TypeBox 9.98 ns (100,165 ops/ms), Valibot 773 ns (1,294 ops/ms), ArkType 15.3 ns (65,357 ops/ms). Build the schema and parse once: Sury 18.68 µs (53.5 ops/ms), Zod 148.38 µs (6.74 ops/ms), TypeBox 382 ns (2,614 ops/ms), Valibot 5.06 µs (198 ops/ms), ArkType 103.46 µs (9.67 ops/ms)</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#0b0b0b">Parse with a schema you already have</tspan><tspan fill="#898781"> · the hot path a request pays</tspan></text>
+<text x="76.0" y="33.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 26.5h1.8a3.5 3.5 0 0 1 0 7H84z" fill="#2a78d6"/>
+<text x="95.3" y="33.5" fill="#52514e" font-size="11" font-weight="600">8.83 ns (113,247 ops/ms)</text>
+<text x="76.0" y="47.5" fill="#52514e" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 40.5h89.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="182.9" y="47.5" fill="#52514e" font-size="11" font-weight="600">154 ns (6,502 ops/ms)</text>
+<text x="76.0" y="61.5" fill="#52514e" font-size="11" text-anchor="end">TypeBox</text>
+<path d="M84 54.5h2.5a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="96.0" y="61.5" fill="#52514e" font-size="11" font-weight="600">9.98 ns (100,165 ops/ms)</text>
+<text x="76.0" y="75.5" fill="#52514e" font-size="11" text-anchor="end">Valibot</text>
+<path d="M84 68.5h463.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="556.9" y="75.5" fill="#52514e" font-size="11" font-weight="600">773 ns (1,294 ops/ms)</text>
+<text x="76.0" y="89.5" fill="#52514e" font-size="11" text-anchor="end">ArkType</text>
+<path d="M84 82.5h5.7a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="99.2" y="89.5" fill="#52514e" font-size="11" font-weight="600">15.3 ns (65,357 ops/ms)</text>
+<text x="4" y="114" font-size="12"><tspan font-weight="600" fill="#0b0b0b">Build the schema and parse once</tspan><tspan fill="#898781"> · what a short-lived script or a cold start pays</tspan></text>
+<text x="76.0" y="130.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M84 123.5h55.3a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="148.8" y="130.5" fill="#52514e" font-size="11" font-weight="600">18.68 µs (53.5 ops/ms)</text>
+<text x="76.0" y="144.5" fill="#52514e" font-size="11" text-anchor="end">Zod</text>
+<path d="M84 137.5h463.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="556.9" y="144.5" fill="#52514e" font-size="11" font-weight="600">148.38 µs (6.74 ops/ms)</text>
+<text x="76.0" y="158.5" fill="#52514e" font-size="11" text-anchor="end">TypeBox</text>
+<path d="M84 151.5h0.0a3.5 3.5 0 0 1 0 7H84z" fill="#2a78d6"/>
+<text x="93.5" y="158.5" fill="#52514e" font-size="11" font-weight="600">382 ns (2,614 ops/ms)</text>
+<text x="76.0" y="172.5" fill="#52514e" font-size="11" text-anchor="end">Valibot</text>
+<path d="M84 165.5h12.4a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="105.9" y="172.5" fill="#52514e" font-size="11" font-weight="600">5.06 µs (198 ops/ms)</text>
+<text x="76.0" y="186.5" fill="#52514e" font-size="11" text-anchor="end">ArkType</text>
+<path d="M84 179.5h322.0a3.5 3.5 0 0 1 0 7H84z" fill="#898781"/>
+<text x="415.5" y="186.5" fill="#52514e" font-size="11" font-weight="600">103.46 µs (9.67 ops/ms)</text>
+<text x="4.0" y="206" fill="#898781" font-size="10">Lower is better · Timed on node 24.16.0 · linux x64 · 2026-10-16</text>
+</svg>
