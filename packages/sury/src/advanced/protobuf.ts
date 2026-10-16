@@ -2347,7 +2347,7 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
   const value = B_slot(at, out, union, union, path);
   value.cp = B_let(g, out) + branches.join("else ") + (!branches.length ? `${rest};` : rest === "" ? "" : `else{${rest}}`);
   value.f = async;
-  return B_markOutput(value, value);
+  return B_markOutput(value);
 };
 
 const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => string): Val => {
@@ -2373,7 +2373,7 @@ const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => 
         const io = raw === held;
         if (io) slot.io = true;
         record(key, () => {
-          const out = !io ? parse(slot) : repeated || map !== U ? B_markOutput(slot, slot) : slot;
+          const out = !io ? parse(slot) : repeated || map !== U ? B_markOutput(slot) : slot;
           out.o = omit;
           return out;
         });
@@ -2383,7 +2383,7 @@ const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => 
   }
   for (const link of msg.links!) {
     const value = B_refine(output, link, U, link);
-    output = parse(B_markOutput(value, value));
+    output = parse(B_markOutput(value));
   }
   return output;
 };

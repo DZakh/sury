@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ l: S.array(S.schema({ c: S.string.with(S.protobufField, 1) }).with(S.refine, (v) => v.c !== "bad", { error: "refused" })).with(S.protobufField, 1) }).with(S.to, S.protobuf)'
+  input: "{ l: { c: string; }[]; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8117
+jsonSchema:
+  input: '{ type: "object", properties: { l: { items: { type: "object", properties: { c: { type: "string" } }, required: ["c"] }, type: "array" } }, required: ["l"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.l,b.l)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { l: { c: string; }[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.l;Array.isArray(v0)||e[4](v0);let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[3](v2,["l",v1]);let v3=v2.c;typeof v3==="string"||e[0](v3,["l",v1,"c"]);let v4={c:v3};e[1](v4,["l",v1])||e[2](v4,["l",v1]);v5[v1]=v4}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v=v5;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[5](w,v[j++]);w.end(h)}};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v6}catch(v7){e[11](v7)}}
+    examples:
+      accepted:
+        input: '{ l: [{ c: "ok" }] }'
+        output: new Uint8Array([10, 4, 10, 2, 111, 107])
+      refused:
+        input: '{ l: [{ c: "ok" }, { c: "bad" }] }'
+        error: "Failed at l[1]: refused"
+  decode:
+    expression: i=>{try{let v0=i.l;for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];e[0](v2,["l",v1])||e[1](v2,["l",v1]);}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v0;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v[j++]);w.end(h)}};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[7](v4)}}
+    examples:
+      refused:
+        input: '{ l: [{ c: "bad" }] }'
+        error: "Failed at l[0]: refused"
+  encode:
+    expression: i=>{try{let v0=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0.push(m1(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k,v0);e[6](x)}}return {l:v0}}catch(v1){e[7](v1)}}
+    examples:
+      accepted:
+        input: new Uint8Array([10, 4, 10, 2, 111, 107])
+        output: '{ l: [{ c: "ok" }] }'
+      refused:
+        input: new Uint8Array([10, 4, 10, 2, 111, 107, 10, 5, 10, 3, 98, 97, 100])
+        error: "Failed at l[1]: refused"

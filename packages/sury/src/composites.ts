@@ -1005,15 +1005,11 @@ export const valGet = (parent: Val, location: string): Val => {
   }
 }
 
-// The val a decoded value holds at `path`, among the field vals its decode
-// left. Never read off the value itself: an async one is a promise there.
+// Never read off the value itself: an async one is a promise there.
 export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d![key]!, val);
 
-// The object a codec read field by field: `fill` produces each field's val
-// (`B_slot`) in order, inside the field's own scope when the operation
-// collects.
 export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
   const record = makeObjectVal(input);
   fill((key, produce) => B_field(record, key, produce));
-  return B_markOutput(completeObjectVal(record), input);
+  return B_markOutput(completeObjectVal(record));
 };

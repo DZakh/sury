@@ -774,28 +774,30 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput - object, array, tuple, union, recursive - has to
 // call this. Not calling it silently drops the user's S.refine.
-export const B_markOutput = (val: Val, valInput: Val): Val => {
-  let outC: Check[] | undefined;
-  const ir = valInput.e.inputRefiner;
+//
+// Without `valInput` the value is its own input, as a record a codec built is:
+// its input checks read it where the output checks do, an async one once it
+// resolves, and a record not as the carrier it was read from.
+export const B_markOutput = (val: Val, valInput?: Val): Val => {
+  let outC: Check[] = [];
+  const ir = (valInput || val).e.inputRefiner;
   if (ir) {
-    const c = ir(valInput);
-    if (c.length) (valInput.vc ??= []).push(...c);
+    const c = ir(valInput || val);
+    if (!valInput) outC = c;
+    else if (c.length) (valInput.vc ??= []).push(...c);
   }
   const rf = val.e.refiner;
-  if (rf) {
-    const c = rf(val);
-    if (c.length) outC = c;
-  }
+  if (rf) outC = outC.concat(rf(val));
   // An async result is a Promise, so the output checks run where the value
   // is: inside a `.then`, the way the parse loop continues an async val.
-  if (outC && (val.f & 1)) {
+  if (outC.length && (val.f & 1)) {
     const v = val.v();
     const then = B_then(v, B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC))), v);
     if (!val.fu?.(then, true)) {
       val.i = `${v}.then(${then()})`;
       val.v = _notVar;
     }
-  } else if (outC) val = B_refine(val, U, outC);
+  } else if (outC.length) val = B_refine(val, U, outC);
   val.io = true;
   return val;
 }
