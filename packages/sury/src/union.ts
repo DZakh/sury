@@ -1315,7 +1315,6 @@ const unionEmit = (
     const async = caseOut.f & 1;
     output.f |= async;
     if (built !== U && !caseOut.t && !async) {
-      // Handed on as it is, so this is the one case that builds it.
       body += `${(built.n ||= B_varWithoutAllocation(g))}=${caseOut.i};`;
     } else if (caseOut.t) {
       output.t = true;

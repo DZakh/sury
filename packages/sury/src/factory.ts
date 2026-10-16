@@ -348,8 +348,6 @@ export const schemaObject = (
   if (flattened !== U) {
     mut.flattened = flattened;
     if (read.size) {
-      // `{ id: number; } & ({ r: number; } | { s: number; })`: the keys a
-      // union reads are its members' to describe.
       const own = baseSchema(objectTag, false, objectDecoder);
       own.properties = Object.create(null);
       for (const key in properties) if (!read.has(key)) own.properties![key] = properties[key]!;
