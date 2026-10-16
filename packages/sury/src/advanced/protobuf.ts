@@ -2339,6 +2339,14 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
       }
     }
     value = parse(value);
+    // A bare arm is its member's value, which its own read checked; an arm
+    // built around one is checked here, as the shape it was built through
+    // checks only what it holds.
+    if (field === U || locationOf(msg, field)[0] !== U) {
+      const arm = B_refine(value, U, U, member);
+      arm.path = pathConcat(at.path, path);
+      value = B_markOutput(arm);
+    }
     async |= value.f & 1;
     const body = `${B_merge(value)}${out}=${value.i}`;
     if (field === U || (rest === "" && idx === arms.length - 1 && !arms.some(([, other]) => other === U))) rest = body;
