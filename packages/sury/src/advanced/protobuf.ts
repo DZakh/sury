@@ -2593,8 +2593,9 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       // The writer checks a member's value as it writes it, so an arm hands
       // its message over as it stands: decoded here, a message would be walked
       // whole once for every level it nests at. A bare one is told from its
-      // siblings by its type alone (`tellApart`).
-      const held = field.type === "message" ? copySchema(opaque) : unchecked(getOutputSchema(field.armValue!));
+      // siblings by its type alone (`tellApart`), so one held as anything but
+      // an object, a Timestamp's Date, keeps its own.
+      const held = field.type !== "message" ? unchecked(getOutputSchema(field.armValue!)) : at === U && typeOf(arm, true) !== objectTag ? arm : copySchema(opaque);
       const mut = at === U ? held : arm;
       if (at !== U) {
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
