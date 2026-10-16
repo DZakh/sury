@@ -840,8 +840,8 @@ const missingKeyEncoder: Encoder = (input, target) => {
 
 // A union's own dispatch fails under the field's whole type. A union stays one
 // even with a single arm left: its dispatch is what reads a document's string
-// as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr` answers a present key with its item: its
-// default is only an absent key's.
+// as an arm stored apart (`S.jsonString`, bytes). `s.fieldOr` answers a
+// present key with its item: its default is only an absent key's.
 const presentTarget = (s: Internal): Internal | undefined => {
   const anyOf = s.anyOf;
   if (anyOf === U || !s.has![undefinedTag]) return s;
