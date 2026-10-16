@@ -1490,16 +1490,16 @@ const unionEmit = (
     if (failures) dispatch = B_let(input.g, failures) + dispatch;
     if (built?.n !== U) dispatch = B_let(input.g, built!.n!) + dispatch;
     if (asyncDispatch) {
-      const itemVar = input.v();
-      output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
+      const itemVar = built?.n ?? input.v();
+      output.i = built?.n !== U ? `(async()=>{${dispatch};return ${itemVar}})()` : `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
     } else {
       output.cp += dispatch;
     }
   }
-  if (built?.n !== U) {
-    output.i = built!.n!;
-    output.v = _var;
-  } else if (!asyncDispatch) output.i = input.i;
+  if (!asyncDispatch) {
+    output.i = built?.n ?? input.i;
+    if (built?.n !== U) output.v = _var;
+  }
   let out: Val;
   if (output.f & 1) {
     output.i = `Promise.resolve(${output.i})`;

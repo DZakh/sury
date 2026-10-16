@@ -312,7 +312,7 @@ export const schemaObject = (
       }
       const f = flattened || (flattened = []);
       return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
-    } else if (schema.type === anyOfTag && schema.anyOf!.every((m) => m.type === objectTag && m.properties !== U)) {
+    } else if (schema.type === anyOfTag && schema.anyOf!.every((m) => m.type === objectTag && typeof m.additionalItems !== objectTag)) {
       // The union reads and checks these keys itself, so the parent hands them
       // over as they are.
       for (const key of unionKeys(schema)) {
@@ -320,8 +320,17 @@ export const schemaObject = (
         properties[key] = unknown;
         read.add(key);
       }
+      // The object holds the parent's keys too, so which others it may hold is
+      // the parent's to say.
+      const union = copySchema(schema);
+      union.anyOf = schema.anyOf!.map((member) => {
+        if (member.additionalItems !== "strict") return member;
+        const strip = copySchema(member);
+        strip.additionalItems = "strip";
+        return strip;
+      });
       const f = flattened || (flattened = []);
-      return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
+      return proxifyShapedSchema(union, inputFrom, f.push(union) - 1);
     } else {
       return panic(`The '${inputExpression(schema)}' schema can't be flattened`);
     }
@@ -490,17 +499,21 @@ const shapedParser: Builder = (input: Val) => {
       // (issue #271).
       let flattenedVal!: Val;
       if (flattenedSchema.type === anyOfTag) {
-        // The whole object, whose fields the parent already read. Re-read
-        // rather than held in a var: only a failure or an arm that hands it
-        // on unchanged reads it whole, and the arm the union picks goes to a
-        // var of the union's own. Compiled inside the guard, so that var is
-        // declared where the parent's output reads it.
+        // The object the parent was handed, with the fields it already read.
+        // Re-read rather than held in a var, so the arm the union picks goes
+        // to a var of the union's own, and compiled inside the guard, so that
+        // var is declared where the parent's output reads it. It may hold
+        // keys neither declares, so every arm builds its own result.
         const unionInput = B_scope(input);
+        unionInput.i = (input.t ? input.prev! : input).v();
         unionInput.v = _notVar;
         unionInput.fz = true;
+        unionInput.s = copySchema(input.s);
+        unionInput.s.additionalItems = unknown;
         unionInput.e = flattenedSchema;
         unionInput.io = false;
         B_unlessCollected(input, () => B_merge((flattenedVal = parse(unionInput))));
+        if (flattenedVal.f & 1) B_invalidOperation(input, `Can't flatten ${inputExpression(flattenedSchema)}: a member is async`);
         flattenedVals.push(flattenedVal);
         continue;
       } else if (flattenedSchema.to !== U) {

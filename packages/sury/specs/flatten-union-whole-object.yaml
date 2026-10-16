@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => s.flatten(S.union([S.schema({ kind: S.schema("a"), v: S.string }), S.schema({ kind: S.schema("b"), v: S.number })])))'
+  input: "{ [x: string]: unknown; }"
+  output: '{ kind: "a"; v: string; } | { kind: "b"; v: number; }'
+  instantiations: 4595
+jsonSchema:
+  input: '{ type: "object", properties: { kind: {}, v: {} }, anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, v: { type: "string" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", const: "b" }, v: { type: "number" } }, required: ["kind", "v"] }] }'
+  fromInputType: '{ kind?: JSON | undefined; v?: JSON | undefined; } & ({ kind: "a"; v: string; } | { kind: "b"; v: number; })'
+  output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, v: { type: "string" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", const: "b" }, v: { type: "number" } }, required: ["kind", "v"] }] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { kind: {}, v: {} }, anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, v: { type: "string" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", enum: ["b"] }, v: { type: "number" } }, required: ["kind", "v"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["a"] }, v: { type: "string" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", enum: ["b"] }, v: { type: "number" } }, required: ["kind", "v"] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.kind,b.kind)&&e[0](a.v,b.v)
+  output: (a,b)=>a===b||(a.kind==="a"?b.kind==="a"&&a.v===b.v:b.kind==="b"&&a.v===b.v)
+compare:
+  input: "throws: [Sury] Can't compare {} & ({ kind: \"a\"; v: string; } | { kind: \"b\"; v: number; }). Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { kind: \"a\"; v: string; } | { kind: \"b\"; v: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.v;let v1;for(;;){if((i).kind==="a"){typeof v0==="string"||e[0](v0);v1={kind:i.kind,v:v0};break}if((i).kind==="b"){typeof v0==="number"&&v0==v0||e[1](v0);v1={kind:i.kind,v:v0};break}throw e[2]((i))}return v1}catch(v2){e[4](v2)}}
+    examples:
+      a:
+        input: '{ kind: "a", v: "x", extra: 1 }'
+        output: '{ kind: "a", v: "x" }'
+      b:
+        input: '{ kind: "b", v: 1 }'
+        output: '{ kind: "b", v: 1 }'
+      neither:
+        input: '{ kind: "c", v: 1 }'
+        error: 'Expected { kind: "a"; v: string; } | { kind: "b"; v: number; }, received { kind: "c"; v: 1; }'
+  decode:
+    expression: i=>{try{let v0=i.v;let v1;for(;;){if((i).kind==="a"){typeof v0==="string"||e[0](v0);v1={kind:i.kind,v:v0};break}if((i).kind==="b"){typeof v0==="number"&&v0==v0||e[1](v0);v1={kind:i.kind,v:v0};break}throw e[2]((i))}return v1}catch(v2){e[3](v2)}}
+    examples:
+      a:
+        input: '{ kind: "a", v: "x" }'
+        output: '{ kind: "a", v: "x" }'
+  encode:
+    expression: i=>{return {kind:i.kind,v:i.v}}
+    examples:
+      a:
+        input: '{ kind: "a", v: "x" }'
+        output: '{ kind: "a", v: "x" }'

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ id: s.field("id", S.number), shape: s.flatten(S.union([S.object((c) => ({ kind: "async" as const, v: c.field("v", S.number.with(S.to, S.number, { decode: { async: async (v) => v }, encode: (v) => v })) })), S.object((q) => ({ kind: "square" as const, side: q.field("s", S.number) }))])) }))'
+  input: "{ [x: string]: unknown; }"
+  output: '{ id: number; shape: { kind: "async"; v: number; } | { kind: "square"; side: number; }; }'
+  instantiations: 6289
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "number" }, v: {}, s: {} }, required: ["id"], anyOf: [{ type: "object", properties: { v: { type: "number" } }, required: ["v"] }, { type: "object", properties: { s: { type: "number" } }, required: ["s"] }] }'
+  fromInputType: "{ id: number; v?: JSON | undefined; s?: JSON | undefined; } & ({ v: number; } | { s: number; })"
+  output: '{ type: "object", properties: { id: { type: "number" }, shape: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "async" }, v: { type: "number" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", const: "square" }, side: { type: "number" } }, required: ["kind", "side"] }] } }, required: ["id", "shape"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { id: { type: "number" }, shape: { anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["async"] }, v: { type: "number" } }, required: ["kind", "v"] }, { type: "object", properties: { kind: { type: "string", enum: ["square"] }, side: { type: "number" } }, required: ["kind", "side"] }] } }, required: ["id", "shape"] }'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&e[0](a.v,b.v)&&e[0](a.s,b.s)
+  output: (a,b)=>a===b||a.id===b.id&&(a.shape.kind==="async"?b.shape.kind==="async"&&a.shape.v===b.shape.v:b.shape.kind==="square"&&a.shape.side===b.shape.side)
+compare:
+  input: "throws: [Sury] Can't compare { id: number; } & ({ v: number; } | { s: number; }). Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: number; shape: { kind: \"async\"; v: number; } | { kind: \"square\"; side: number; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't flatten { v: number; } | { s: number; }: a member is async"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.shape;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.kind==="async"){let v1;try{v1=e[0](v0.v)}catch(x){e[1](x)}typeof v1==="number"&&v1==v1||e[2](v1);v0={v:v1};break}if(v0.kind==="square"){v0={s:v0.side};break}throw e[3](v0)}}else{throw e[3](v0)}let v2={id:i.id};if((v0.v)!==void 0){v2.v=(v0.v)}if((v0.s)!==void 0){v2.s=(v0.s)}return v2}catch(v3){e[4](v3)}}
+    examples:
+      async:
+        input: '{ id: 1, shape: { kind: "async", v: 2 } }'
+        output: "{ id: 1, v: 2 }"
