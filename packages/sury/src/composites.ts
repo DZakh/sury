@@ -227,7 +227,7 @@ const resolveAsyncFields = (val: Val): void => {
   }
 };
 
-export const completeObjectVal = (objectVal: Val, writeAbsent?: boolean): Val => {
+export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
@@ -242,7 +242,7 @@ export const completeObjectVal = (objectVal: Val, writeAbsent?: boolean): Val =>
       promised.push(val);
       resolveAsyncFields(val);
     }
-    if (val.o && !writeAbsent) {
+    if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
       optionalSettingCode = (objectVar: string) => {
         return (
@@ -1005,12 +1005,15 @@ export const valGet = (parent: Val, location: string): Val => {
   }
 }
 
+// The val at `path` under `val`, read off it where its own field vals don't
+// hold it.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce(valGet, val);
+
 // The object a codec read field by field: `fill` produces each field's val
 // (`B_slot`) in order, inside the field's own scope when the operation
-// collects. A field marked `o` is one the value leaves out when it is absent;
-// the record itself is read whole only by a failure naming it.
+// collects.
 export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
   const record = makeObjectVal(input);
   fill((key, produce) => B_field(record, key, produce));
-  return B_markOutput(completeObjectVal(record, true), input);
+  return B_markOutput(completeObjectVal(record), input);
 };
