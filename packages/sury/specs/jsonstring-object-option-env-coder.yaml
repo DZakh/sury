@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ a: (S as any).$option(S.env.with(S.to, (S as any).$option(S.env))) as S.Schema<string | undefined, string | undefined> }).with(S.to, S.jsonString)"
+  input: "{ a?: string | undefined; }"
+  output: string
+  instantiations: 6307
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } } }'
+  # FIXME: the same crash as parse
+  output: Cannot read properties of undefined (reading 'BS_PRIVATE_NESTED_SOME_NONE')
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { a: env | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: the nested marker's parser runs on an arm that has no marker, and crashes instead of refusing
+    creationError: "TypeError: Cannot read properties of undefined (reading 'BS_PRIVATE_NESTED_SOME_NONE')"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at a: Ambiguous env | { BS_PRIVATE_NESTED_SOME_NONE: 0; } -> env. Should { BS_PRIVATE_NESTED_SOME_NONE: 0; } be decoded or ignored? Choose with S.to for { BS_PRIVATE_NESTED_SOME_NONE: 0; } -> env, or S.never -> { BS_PRIVATE_NESTED_SOME_NONE: 0; }"

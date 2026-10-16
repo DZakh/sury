@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("T", (self: any) => S.schema({ a: (S as any).$Option_getOr((S as any).$option((S as any).$option(self)), undefined) })) as unknown as S.Schema<{ a?: unknown }, { a?: unknown }>'
+  input: "{ a?: unknown; }"
+  output: "{ a?: unknown; }"
+  instantiations: 5398
+jsonSchema:
+  input: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { a: { $ref: "#/$defs/T" } } } } }'
+  fromInputType: "{ a?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { a: { $ref: "#/$defs/T" } } } } }'
+  fromOutputType: "{ a?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare T. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      missing-is-none:
+        input: "{}"
+        output: "{ a: undefined }"
+      nested:
+        input: "{ a: { a: {} } }"
+        output: "{ a: { a: { a: undefined } } }"
+      not-an-object:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected T | undefined, received 1"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      inner-none:
+        input: "{ a: { a: undefined } }"
+        output: "{ a: { a: undefined } }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      none-encodes-to-undefined:
+        input: "{ a: { a: undefined } }"
+        output: "{ a: { a: undefined } }"
