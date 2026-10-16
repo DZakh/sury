@@ -1309,3 +1309,32 @@ export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
 
 export const noopOperation = (i: unknown): unknown => i;
 (noopOperation as unknown as Record<string, unknown>)["embedded"] = immutableEmptyArray;
+
+// A value a codec read into `i` itself, one slot of a record it hands the core
+// (`B_record`). Hung off `owner` rather than chained through `prev`, so each
+// slot's merge emits only its own code; `location` is where the value lands in
+// the output, which is what a failure in it names.
+export const B_slot = (owner: Val, i: string, s: Internal, e: Internal, location: Path): Val => ({
+  b: U,
+  p: owner,
+  v: _var,
+  i,
+  s,
+  io: U,
+  e,
+  prev: U,
+  f: 0,
+  d: U,
+  fv: U,
+  cp: "",
+  fu: U,
+  fs: U,
+  hd: "",
+  fz: U,
+  vc: U,
+  u: U,
+  t: true,
+  path: pathConcat(owner.path, location),
+  g: owner.g,
+  o: U,
+});
