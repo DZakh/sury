@@ -516,14 +516,15 @@ const tellApart = (arms: [member: Internal, key: string | undefined, message: bo
   const tests: string[] = [];
   for (let idx = 0; idx < arms.length; idx++) {
     const type = types[idx];
-    if (type === U) return U;
+    // A bare arm of the literal's own type could hold that literal, which the
+    // wire would then read as no member set.
+    if (type === U || (keys[idx] === U && bare !== U && typeof bare === type)) return U;
     const same = (_: unknown, other: number) => types[other] === type;
     const peerTag = all.filter(same).length > 1 ? tagAmong(all.filter(same), keys.filter(same)) : "";
     if (peerTag === U) return U;
     tests.push(
       (type === arrayTag ? "Array.isArray(\0)" : type === objectTag ? `typeof \0==="object"&&\0${rest}` : type < "a" ? `\0 instanceof ${type}` : `typeof \0==="${type}"`) +
-        (peerTag && `&&${inlinedProperty("\0", peerTag, true)}===${literalSource(literalOf(entriesOf(arms[idx]![0])![peerTag]))}`) +
-        (bare !== U && typeof bare === type ? `&&\0!==${literalSource(bare)}` : ""),
+        (peerTag && `&&${inlinedProperty("\0", peerTag, true)}===${literalSource(literalOf(entriesOf(arms[idx]![0])![peerTag]))}`),
     );
   }
   return { literals: [], tests };
