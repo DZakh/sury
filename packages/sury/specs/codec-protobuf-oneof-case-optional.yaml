@@ -38,7 +38,7 @@ operations:
         input: '{ pick: { case: "n", value: 0 } }'
         output: new Uint8Array([16, 0])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v2=v0.pick;if((v2&&v2.case)==="id"){let v3=v2.value;v2.value={id:""+v3.id};}return {pick:v2}}catch(v4){e[3](v4)}}
+    expression: i=>{try{let v0=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0={"case":"id","value":m1(r,d+1,(v0&&v0.case)==="id"?v0.value:void 0)};r.limit=p;continue;case 16:v0={"case":"n","value":(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0};continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if((v0&&v0.case)==="id"){let v2=v0.value;v0.value={id:""+v2.id};}return {pick:v0}}catch(v3){e[7](v3)}}
     examples:
       absent:
         input: new Uint8Array([])

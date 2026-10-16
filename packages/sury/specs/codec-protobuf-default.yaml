@@ -20,7 +20,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{i instanceof e[4]||e[5](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.n,v2=v0.flag,v3=v0.addr;if(v1===void 0){v1=5;}if(v2===void 0){v2=1;}if(v3===void 0){v3=e[3];}return {n:v1,flag:v2,addr:v3}}catch(v4){e[6](v4)}}
+    expression: i=>{try{i instanceof e[8]||e[9](i);let v0=void 0,v1=void 0,v2=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 16:v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 26:p=r.sub();v2=m1(r,d+1,v2);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v0===void 0){v0=5;}if(v1===void 0){v1=1;}if(v2===void 0){v2=e[7];}return {n:v0,flag:v1,addr:v2}}catch(v3){e[10](v3)}}
     examples:
       absent:
         input: new Uint8Array([])
@@ -29,7 +29,7 @@ operations:
         input: '{ n: 5, flag: 1, addr: { street: "dflt" } }'
         error: "Expected Uint8Array, received { n: 5; flag: 1; addr: object; }"
   decode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.n,v2=v0.flag,v3=v0.addr;if(v1===void 0){v1=5;}if(v2===void 0){v2=1;}if(v3===void 0){v3=e[3];}return {n:v1,flag:v2,addr:v3}}catch(v4){e[4](v4)}}
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 16:v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 26:p=r.sub();v2=m1(r,d+1,v2);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v0===void 0){v0=5;}if(v1===void 0){v1=1;}if(v2===void 0){v2=e[7];}return {n:v0,flag:v1,addr:v2}}catch(v3){e[8](v3)}}
     examples:
       absent:
         input: new Uint8Array([])

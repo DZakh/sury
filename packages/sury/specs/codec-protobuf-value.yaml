@@ -45,44 +45,44 @@ operations:
         input: "{ data: { a: [1, (() => 1) as never] }, items: [] }"
         error: "Failed at data: Expected JSON, received Function"
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.items;return v0}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2.push(m2(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v0===void 0){g=r.limit;r.limit=r.pos;v0=m1(r,d+1);r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t,k,v2);e[7](x)}}return {data:v0,extra:v1,items:v2}}catch(v4){e[8](v4)}}
     examples:
       number:
         input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
-        output: "{ data: 1, items: [] }"
+        output: "{ data: 1, extra: undefined, items: [] }"
       kind-unset:
         input: new Uint8Array([10, 0])
-        output: "{ data: null, items: [] }"
+        output: "{ data: null, extra: undefined, items: [] }"
       struct-merges:
         input: new Uint8Array([10, 18, 42, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 18, 42, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
-        output: "{ data: { a: 1, b: 2 }, items: [] }"
+        output: "{ data: { a: 1, b: 2 }, extra: undefined, items: [] }"
       list-appends:
         input: new Uint8Array([10, 13, 50, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 13, 50, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
-        output: "{ data: [1, 2], items: [] }"
+        output: "{ data: [1, 2], extra: undefined, items: [] }"
       kind-replaced:
         input: new Uint8Array([10, 18, 42, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 9, 17, 0, 0, 0, 0, 0, 0, 8, 64])
-        output: "{ data: 3, items: [] }"
+        output: "{ data: 3, extra: undefined, items: [] }"
       proto-key:
         input: new Uint8Array([10, 26, 42, 24, 10, 22, 10, 9, 95, 95, 112, 114, 111, 116, 111, 95, 95, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
-        output: '{ data: { ["__proto__"]: 1 }, items: [] }'
+        output: '{ data: { ["__proto__"]: 1 }, extra: undefined, items: [] }'
       repeated-key:
         input: new Uint8Array([10, 28, 42, 26, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 8, 10, 1, 97, 18, 3, 26, 1, 120])
-        output: '{ data: { a: "x" }, items: [] }'
+        output: '{ data: { a: "x" }, extra: undefined, items: [] }'
       entry-without-value:
         input: new Uint8Array([10, 7, 42, 5, 10, 3, 10, 1, 97])
-        output: "{ data: { a: null }, items: [] }"
+        output: "{ data: { a: null }, extra: undefined, items: [] }"
       unknown-and-mismatched:
         input: new Uint8Array([10, 7, 56, 1, 16, 5, 26, 1, 115])
-        output: '{ data: "s", items: [] }'
+        output: '{ data: "s", extra: undefined, items: [] }'
       items:
         input: new Uint8Array([26, 3, 26, 1, 97, 26, 0])
-        output: '{ data: null, items: ["a", null] }'
+        output: '{ data: null, extra: undefined, items: ["a", null] }'
       nan:
         input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
-        output: "{ data: NaN, items: [] }"
+        output: "{ data: NaN, extra: undefined, items: [] }"
       bool-null:
         input: new Uint8Array([10, 2, 32, 1, 18, 2, 8, 0])
-        output: "{ data: true, items: [], extra: null }"
+        output: "{ data: true, extra: null, items: [] }"
       empty:
         input: new Uint8Array([])
-        output: "{ data: null, items: [] }"
+        output: "{ data: null, extra: undefined, items: [] }"

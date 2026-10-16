@@ -35,7 +35,7 @@ const decode = S.decodeOrThrow(S.protobuf, User);
 
 const bytes = encode({ id: 150, name: "Ada", tags: ["ml"] });
 // Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
-decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
+decode(bytes); // { id: 150, name: "Ada", tags: ["ml"], score: undefined }
 ```
 
 To get a single schema that parses bytes from `unknown`, use
@@ -106,7 +106,7 @@ const Counter = S.schema({
   limit: S.optional(S.int32).with(S.protobufField, 2),
 });
 
-decode(encode({ count: 0 })); // { count: 0 }
+decode(encode({ count: 0 })); // { count: 0, limit: undefined }
 decode(encode({ count: 0, limit: 0 })); // { count: 0, limit: 0 }
 ```
 

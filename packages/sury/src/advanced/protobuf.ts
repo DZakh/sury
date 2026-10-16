@@ -42,17 +42,20 @@ import {
   B_embedPure,
   B_fail,
   B_conversionFail,
+  B_hoistDecl,
   B_markAsync,
   B_markOutput,
   B_merge,
   B_mergeWithPathPrepend,
   B_pathSnap,
   B_next,
+  B_refine,
   B_scope,
+  B_slot,
   B_unsupportedDecode,
   B_varWithoutAllocation,
 } from "../builder";
-import { arrayDecoder, arrayFactory, dictFactory, objectDecoder } from "../composites";
+import { arrayDecoder, arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
@@ -1661,8 +1664,6 @@ export class Writer {
 
 const scratchWriter = /* @__PURE__ */ new Writer();
 
-const zeroField = 'fail("Invalid protobuf field number 0")';
-
 const skip = (reader: Reader, wire: number, fieldNumber: number, depth: number): void => {
   if (wire === 0) reader.varint64();
   else if (wire === 1) reader.load64();
@@ -1906,7 +1907,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
 // A number the message does not declare adds nothing: an unknown field under
 // `S.strict` and a field number of zero name the number themselves, and there
 // is no property to put in a path.
-const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): never => {
+const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): unknown => {
   const number = tag >>> 3;
   const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
   if (field !== U && isFailure(failure)) {
@@ -1927,7 +1928,7 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
     if (field.valueKey !== U) path.unshift(field.valueKey);
     if (!msg.unwrap) path.unshift(field.key);
   }
-  throw failure;
+  return failure;
 };
 
 // A number the message declares only gets here under a wire type its field
@@ -2286,18 +2287,19 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
 };
 
-// A nested field seen twice merges: the second decode starts from the
-// first's fields (`o`) instead of defaults, so scalars last-win, lists
-// append and messages merge recursively without a separate merge pass.
-const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): string => {
+// A message's read loop and the locals it reads into. `localOf` names a
+// field's local and `fn` the function that reads a message: a nested message
+// reads in a function of the `Function` below, the root in the operation,
+// where its locals are the operation's own vars.
+const readParts = (msg: Message, localOf: (idx: number) => string, fn: (msg: Message) => string) => {
   const fields = msg.fields;
-  const locals: string[] = [];
+  const locals: [name: string, init: string][] = [];
   const fromPrev: string[] = [];
   const cases: string[] = [];
   let literal = "";
-  let optional = "";
   let fill = "";
   const groups = new Map<string, string>();
+  const zero = 'fail("Invalid protobuf field number 0")';
   for (let idx = 0; idx < fields.length; idx++) {
     const field = fields[idx]!;
     const key = JSON.stringify(field.key);
@@ -2309,8 +2311,8 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
     if (field.name !== U) {
       let local = groups.get(field.key);
       if (local === U) {
-        groups.set(field.key, (local = `f${idx}`));
-        locals.push(`${local}=${field.unset}`);
+        groups.set(field.key, (local = localOf(idx)));
+        locals.push([local, field.unset!]);
         fromPrev.push(`${local}=${read}`);
         literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
       }
@@ -2318,18 +2320,18 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
       const build = (value: string) => armSource(field.member!, field.valueKey, value);
       cases.push(
         field.type === "message"
-          ? `case ${tag}:p=r.sub();${local}=${build(`${fns.get(field.message!)!}(r,d+1,${testOf(field.readTest!, local)}?${valueAt(local, field.valueKey)}:void 0)`)};r.limit=p;continue;`
+          ? `case ${tag}:p=r.sub();${local}=${build(`${fn(field.message!)}(r,d+1,${testOf(field.readTest!, local)}?${valueAt(local, field.valueKey)}:void 0)`)};r.limit=p;continue;`
           : `case ${tag}:${local}=${build(readCall(field.type))};continue;`,
       );
       continue;
     }
-    const local = `f${idx}`;
-    locals.push(`${local}=${emitDefault(field)}`);
+    const local = localOf(idx);
+    locals.push([local, emitDefault(field)]);
     fromPrev.push(`${local}=${msg.unwrap ? "o" : read}`);
     let clear = "";
     if (field.oneof !== U) {
       for (let other = 0; other < fields.length; other++) {
-        if (other !== idx && fields[other]!.oneof === field.oneof && fields[other]!.name === U) clear += `f${other}=void 0;`;
+        if (other !== idx && fields[other]!.oneof === field.oneof && fields[other]!.name === U) clear += `${localOf(other)}=void 0;`;
       }
     }
     if (field.map !== U) {
@@ -2339,7 +2341,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
       // read, which is what tells the frame whether to name the entry: the key
       // may follow the value.
       const entryLoop = (body: string) =>
-        `while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)${zeroField};${body}else skip(r,y&7,y>>>3,0)}`;
+        `while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)${zero};${body}else skip(r,y&7,y>>>3,0)}`;
       const keyDefault = `if(k===void 0)k=${scalarDefault(keyType)};`;
       const readKey = `if(y===${8 + wireType(keyType)})k=${readCall(keyType)};`;
       const store = keyType === "string"
@@ -2350,7 +2352,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         // A repeated key replaces the earlier entry whole, as C++ does, while a
         // value repeated inside one entry merges: so the value never needs the
         // key first, and the entry is read in one pass.
-        const nested = fns.get(field.message!)!;
+        const nested = fn(field.message!);
         entry = `c=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();c=${nested}(r,d+1,c);r.limit=g}`)}${keyDefault}if(c===void 0){g=r.limit;r.limit=r.pos;c=${nested}(r,d+1);r.limit=g}`;
       } else {
         entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readCall(field.type)};`)}${keyDefault}`;
@@ -2358,7 +2360,7 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
       // A map field is length-delimited whatever its value's wire type.
       cases.push(`case ${field.number * 8 + 2}:k=void 0;p=r.sub();${entry};r.limit=p;${store};continue;`);
     } else if (field.type === "message") {
-      const nested = fns.get(field.message!)!;
+      const nested = fn(field.message!);
       cases.push(
         field.repeated
           ? `case ${tag}:p=r.sub();${local}.push(${nested}(r,d+1));r.limit=p;continue;`
@@ -2379,39 +2381,51 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
     if (field.type === "message" && !field.repeated && !field.optional && field.map === U) {
       // A required message absent on the wire is its default instance, so
       // the schema's type holds; `S.optional` is how presence is asked for.
-      fill += `if(${local}===void 0){g=r.limit;r.limit=r.pos;${local}=${fns.get(field.message!)!}(r,d+1);r.limit=g}`;
+      fill += `if(${local}===void 0){g=r.limit;r.limit=r.pos;${local}=${fn(field.message!)}(r,d+1);r.limit=g}`;
     }
-    if (field.map === U && field.optional) {
-      optional += field.key === "__proto__"
-        ? `if(${local}!==void 0)o={...o,["__proto__"]:${local}};`
-        : `if(${local}!==void 0)o[${key}]=${local};`;
-    } else literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
+    literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
   }
-  const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
-  const vars = locals.length ? `${locals.join(",")},` : "";
-  const lists = fields.flatMap((field, idx) => (field.repeated ? [`,f${idx}`] : [])).join("");
+  const lists = fields.flatMap((field, idx) => (field.repeated ? [`,${localOf(idx)}`] : [])).join("");
   const frame = lists || fields.some((field) => field.map !== U) ? `,k${lists}` : "";
-  const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
   // `t=-1` before a tag of several bytes is read: one that fails part way is
   // no field's, and must not frame the error with the tag before it.
-  const result = msg.unwrap ? "return f0" : `o={${literal.slice(0, -1)}};${optional}return o`;
-  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars}t=-1,p,k,c,g,q,y;${merge}try{while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zeroField};${miss}}}catch(x){at(x,M[${slot}],t${frame})}${fill}${result}}`;
+  const loop = (miss: string) =>
+    `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}`;
+  return { locals, fromPrev, literal, fill, frame, loop };
 };
 
-const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
+// A nested field seen twice merges: the second decode starts from the
+// first's fields (`o`) instead of defaults, so scalars last-win, lists
+// append and messages merge recursively without a separate merge pass.
+const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): string => {
+  const { locals, fromPrev, literal, fill, frame, loop } = readParts(msg, (idx) => `f${idx}`, (m) => fns.get(m)!);
+  const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
+  const vars = locals.map(([name, init]) => `${name}=${init},`).join("");
+  const merge = fromPrev.length ? `if(o!==void 0){${fromPrev.join(";")}}` : "";
+  const result = msg.unwrap ? "return f0" : `return {${literal.slice(0, -1)}}`;
+  return `function ${fns.get(msg)!}(r,d,o){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars}t=-1,p,k,c,g,q,y;${merge}try{${loop(miss)}}catch(x){throw at(x,M[${slot}],t${frame})}${fill}${result}}`;
+};
+
+// Every message's reader but the root's, which reads in the operation, unless
+// a field under it refers back to it.
+const compileDecoder = (root: Message, fns: Map<Message, string>): Record<string, Function> => {
   let src = "";
   // `M` is read only on a failure, so the field lookup a frame needs stays
   // out of the generated code and off the decode path.
   const messages: Message[] = [];
   const params = ["skip", "at", "unknown", "fail", "M"];
   const args: unknown[] = [skip, wireFrame, unknownField, fail, messages];
+  const names: string[] = [];
   fns.forEach((name, msg) => {
+    if (msg === root && root.rec === U) return;
     if (msg.codec !== U) {
       params.push(name);
       args.push(codecs[msg.wellKnown!]![0]);
     } else if (msg.any === U) src += decodeFnSource(msg, fns, messages.push(msg) - 1);
+    else return;
+    names.push(name);
   });
-  return new Function(...params, `${src}return ${fns.get(root)!}`)(...args);
+  return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
 };
 
 // The declared object, with the field metadata on its properties. A parsed
@@ -2515,47 +2529,62 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
-  const decoder = B_embed(input, compileDecoder(message, fns));
-  const outVar = B_varWithoutAllocation(input.g);
-  // A recursive root enters the operation as its own standins, which compile to
-  // the one memoized call every reference under it shares; its definitions
-  // would inline the root a second time. A refinement on the schema handed in
-  // sits on the ref, so it rides on a copy of the value standin rather than on
-  // `rec`, where every reference under the root would run it.
-  const [wire, value] = message.rec || [message.raw, message.schema];
-  const top = refinedAs(target, value);
-  const output = B_next(input, outVar, wire, top);
-  output.v = _var;
-  // Braced, for the reader, as the writer above.
-  output.cp = `${B_let(input.g, outVar)}{let r;${guarded(input, output, target, `r=${B_embedPure(input, scratchReader)}.acquire(${input.v()});${outVar}=${decoder}(r,0);r.busy=false`, "r&&(r.busy=false);")}}`;
-  // Whatever runs after the wire object: a `.to` on the target - which is where
-  // a ref carries it, the definition it names having none - or one on the
-  // object the walk ended at.
-  if (getOutputSchema(target) === target && message.object.to === U) return output;
-  // A chain past the object runs on the decoded value once it is in the
-  // object's shape (the wire's coercions applied), parsed whole as the
-  // chain's input. Not field-wise from the normalized schema: the union
-  // compiler refuses `T` into the input's `T | undefined` for an optional
-  // field, so a chained root pays a second check, and a literal enum is
-  // closed there.
-  const normIn = B_scope(output);
-  normIn.io = false;
-  normIn.s = wire;
-  normIn.e = top;
-  normIn.u = true;
-  const normOut = parse(normIn);
-  const chainIn = B_scope(normOut);
-  chainIn.io = false;
-  chainIn.s = unknown;
-  chainIn.e = target;
-  chainIn.u = true;
-  // The normalized parse's field vals would be read as the input's.
-  chainIn.d = U;
-  const chainOut = parse(chainIn);
-  const chained = B_next(output, chainOut.i, getOutputSchema(target), getOutputSchema(target));
-  chained.cp = B_merge(normOut) + B_merge(chainOut);
-  chained.io = true;
-  return chained;
+  const readers = compileDecoder(message, fns);
+  const locals: string[] = [];
+  // The helpers by the names the nested readers call them, so the root's loop
+  // is spelled as theirs is.
+  let names = `,d=0,fail=${B_embedPure(input, fail)},skip=${B_embedPure(input, skip)}`;
+  const used = new Set<Message>();
+  const { locals: inits, fill, frame, loop } = readParts(
+    message,
+    (idx) => (locals[idx] ??= B_varWithoutAllocation(input.g)),
+    (msg) => {
+      const name = fns.get(msg)!;
+      if (!used.has(msg)) {
+        used.add(msg);
+        names += `,${name}=${B_embedPure(input, readers[name])}`;
+      }
+      return name;
+    },
+  );
+  const at = B_embedPure(input, message);
+  // Typed as the wire object, which refines nothing: the object's own checks
+  // run on the value once it is assembled, below.
+  const read = B_next(input, "", message.raw, message.raw);
+  // The fields' locals are the operation's: what the value is built from
+  // after the loop.
+  for (const [name, init] of inits) B_hoistDecl(input, name, init);
+  read.cp = `{let r,t=-1,p,k,c,g,q,y${names};${guarded(
+    input,
+    read,
+    target,
+    `r=${B_embed(input, scratchReader)}.acquire(${input.v()});${loop(message.object.additionalItems === "strict" ? `${B_embedPure(input, unknownField)}(${at},t)` : "skip(r,t&7,t>>>3,0)")}${fill}r.busy=false`,
+    `r&&(r.busy=false);x=${B_embedPure(input, wireFrame)}(x,${at},t${frame});`,
+  )}}`;
+  const fields = B_record(read, (field) => {
+    for (let idx = 0; idx < message.fields.length; idx++) {
+      const key = message.fields[idx]!.key;
+      if (locals[idx] === U) continue;
+      const slot = B_slot(read, locals[idx]!, message.raw.properties![key]!, message.schema.properties![key]!, [key]);
+      field(key, () => parse(slot));
+    }
+  });
+  // The object's own chain from its value on, then that of each ref the walk
+  // down to it passed, innermost first: a ref's `.to` and refinements run on
+  // the definition's value.
+  const links: Internal[] = [];
+  for (let current: Internal = target; current !== message.object; ) {
+    if (current.type === refTag) {
+      links.unshift(current);
+      current = current.definition!()!;
+    } else current = current.to!;
+  }
+  let output = fields;
+  for (const link of [message.object, ...links]) {
+    const value = B_refine(output, link, U, link);
+    output = parse(B_markOutput(value, value));
+  }
+  return output;
 };
 
 // Walks the whole chain: reversed, the message is its last link. Bounded as
