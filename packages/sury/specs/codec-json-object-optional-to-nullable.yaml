@@ -21,8 +21,22 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    # FIXME: S.parseOrThrow builds this schema; through S.json it should too.
-    creationError: "SuryError: Failed at a: Ambiguous string | undefined -> string | null. Should null be decoded or ignored? Choose with S.to for string -> null, or S.never -> null"
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.a;if(v0!==void 0){for(;;){if(typeof v0==="string")break;if(v0===null){v0=null;break}throw e[0](v0)}}else{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}throw e[1](v0)}}return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ a: null }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      # FIXME: known bug json-null-through-union-to. A present null reads as
+      # missing; S.parseOrThrow rejects it.
+      "null":
+        input: "{ a: null }"
+        output: "{ a: null }"
+        divergence:
+          reason: the document is right to reject the null S.json still takes as missing
+          ajv: "input: data/a must be string"
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[0](v0)}let v1={};if(v0!==void 0){v1.a=v0}return v1}catch(v2){e[1](v2)}}

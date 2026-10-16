@@ -105,6 +105,17 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "recursive" && admitsUndefined(node.args[0]!)),
   },
   {
+    id: "json-null-through-union-to",
+    kind: "bug",
+    summary:
+      "Under `S.json` a present `null` in a field whose `.to` is a union reads as missing: " +
+      "`S.optional(S.string).with(S.to, S.nullable(S.string))` reads `{a: null}` as `{a: null}`, " +
+      "where parse rejects it.",
+    spec: "codec-json-object-optional-to-nullable",
+    fuzzers: ["codec"],
+    matches: (f) => f.fuzzer === "codec" && f.property === "present null" && some(f.shape, (n) => n.name === "optTo"),
+  },
+  {
     id: "missing-key-env-member-default",
     kind: "bug",
     summary:

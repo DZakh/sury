@@ -848,9 +848,10 @@ const presentTarget = (s: Internal): Internal | undefined => {
     const item = presentTarget(anyOf[0]!);
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
-  } else if (s.to !== U && isOptional(s.to)) {
-    // FIXME: the conversion pairs the two undefined arms itself, so a present
-    // null still reads as missing (codec-json-object-optional-to-optional).
+  } else if (s.to !== U && s.to.type === anyOfTag) {
+    // FIXME: a conversion into a union pairs the arms itself, and without the
+    // undefined arm it turns ambiguous, so a present null still reads as missing
+    // (codec-json-object-optional-to-optional, codec-json-object-optional-to-nullable).
     return s;
   } else {
     // Only the top-level arm: encode leaves the key out for it, while a

@@ -199,6 +199,7 @@ const emptyTaker = (S: Sury, rng: Rng): MemberSpec => {
     ],
     ['env->optional(string,"dev")', () => S.env.with(S.to, S.optional(S.string, "dev")), "envTo"],
     ["env->port", () => S.env.with(S.to, S.port), "envTo"],
+    ["optional(string)->nullable(string)", () => S.optional(S.string).with(S.to, S.nullable(S.string)), "optTo"],
     ["null->0", () => S.schema(null).with(S.to, S.number, { decode: () => 0, encode: () => null }), "fromEmpty"],
     [
       "unknown->string",
