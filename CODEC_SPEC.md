@@ -163,6 +163,16 @@ S.parseOrThrow(S.json.with(S.to, S.optional(S.string)))(null); // undefined - JS
 S.parseOrThrow(S.env.with(S.to, S.optional(S.string)))(""); // undefined - `""` is an unset var
 ```
 
+An object field spells a missing value by leaving the key out, so a present
+`null` there is read as `S.parseOrThrow` reads it:
+
+```ts
+const read = S.parseOrThrow(S.json, S.schema({ b: S.optional(S.string) }));
+read({}); // { b: undefined }
+read({ b: null }); // throws - Failed at b: Expected string | undefined, received null
+S.parseOrThrow(S.json, S.array(S.optional(S.string)))([null]); // [undefined]
+```
+
 The arm meets the link it is written after, not the head of the chain:
 
 ```ts

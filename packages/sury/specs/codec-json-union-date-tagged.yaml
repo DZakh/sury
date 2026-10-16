@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.union([S.date, S.schema({ kind: "k", v: S.string })]))'
+  input: JSON
+  output: 'Date | { kind: "k"; v: string; }'
+  instantiations: 6908
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "object", properties: { kind: { type: "string", const: "k" }, v: { type: "string" } }, additionalProperties: false, required: ["kind", "v"] }] }'
+  fromInputType: 'string | { kind: "k"; v: string; }'
+  output: values is not iterable
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "object", properties: { kind: { type: "string", enum: ["k"] }, v: { type: "string" } }, additionalProperties: false, required: ["kind", "v"] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||!!(a instanceof e[0]?b instanceof e[0]&&+a===+b:typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&a.v===b.v)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Date | { kind: \"k\"; v: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: known bug json-union-instance-tagged-crash. Reading JSON into a union
+    # of a string-stored instance and a tagged object crashes the compiler.
+    creationError: "TypeError: values is not iterable"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){l2:{let v0;try{v0=i.toISOString()}catch(_){v1=[v1,e[0],i];break l2}i=v0;break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k"){l4:{let v3=i.v;if(!(typeof v3==="string")){v1=[v1,e[2],v3];break l4}i={kind:i.kind,v:v3};break}}throw e[3](i,v1)}return i}catch(v5){e[4](v5)}}
+    examples:
+      tagged:
+        input: '{ kind: "k", v: "x" }'
+        output: '{ kind: "k", v: "x" }'

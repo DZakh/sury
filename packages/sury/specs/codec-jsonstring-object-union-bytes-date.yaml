@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.jsonString.with(S.to, S.schema({ f: S.union([S.optional(S.uint8Array, new Uint8Array([3])), S.optional(S.date)]) }))"
+  input: string
+  output: "{ f?: Uint8Array<ArrayBufferLike> | Date | undefined; }"
+  instantiations: 7439
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: "Failed at f: Expected JSON, received Uint8Array"
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||e[0](a.f,b.f)
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { f: Uint8Array | Date | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[15](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[14](v0);let v1=v0.f;if(v1!==void 0){let v2;for(;;){l3:{try{for(;;){if(typeof v1==="string"){if(!(e[2](v1))){v2=[v2,e[3],v1];break l3}v1=e[1](v1);break}if(v1===null){v1=e[4];break}v2=[v2,e[5](v1)];break l3}break}catch(x){v2=[v2,e[7](x)]}}if(typeof v1==="string"){l5:{let v4=new Date(v1);if(!(!Number.isNaN(v4.getTime()))){v2=[v2,e[6],v1];break l5}v1=v4;break}}throw e[8](v1,v2)}}else{let v6;for(;;){l7:{for(;;){if(v1 instanceof e[9])break;if(v1===void 0){v1=e[10];break}v6=[v6,e[11](v1)];break l7}break}if(v1 instanceof e[12])break;if(v1===void 0)break;throw e[13](v1,v6)}}return {f:v1}}catch(v8){e[16](v8)}}
+    examples:
+      absent:
+        input: '"{}"'
+        output: "{ f: new Uint8Array([3]) }"
+      bytes:
+        input: '"{\"f\":\"AQ==\"}"'
+        output: "{ f: new Uint8Array([1]) }"
+      date:
+        input: '"{\"f\":\"1970-01-01T00:00:00.000Z\"}"'
+        output: '{ f: new Date("1970-01-01T00:00:00.000Z") }'
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[14](v0);let v1=v0.f;if(v1!==void 0){let v2;for(;;){l3:{try{for(;;){if(typeof v1==="string"){if(!(e[2](v1))){v2=[v2,e[3],v1];break l3}v1=e[1](v1);break}if(v1===null){v1=e[4];break}v2=[v2,e[5](v1)];break l3}break}catch(x){v2=[v2,e[7](x)]}}if(typeof v1==="string"){l5:{let v4=new Date(v1);if(!(!Number.isNaN(v4.getTime()))){v2=[v2,e[6],v1];break l5}v1=v4;break}}throw e[8](v1,v2)}}else{let v6;for(;;){l7:{for(;;){if(v1 instanceof e[9])break;if(v1===void 0){v1=e[10];break}v6=[v6,e[11](v1)];break l7}break}if(v1 instanceof e[12])break;if(v1===void 0)break;throw e[13](v1,v6)}}return {f:v1}}catch(v8){e[15](v8)}}
+    examples:
+      date:
+        input: '"{\"f\":\"1970-01-01T00:00:00.000Z\"}"'
+        output: '{ f: new Date("1970-01-01T00:00:00.000Z") }'
+  encode:
+    expression: i=>{try{let v0=i.f;(v0 instanceof e[0]||v0 instanceof e[1]||v0===void 0)||e[2](v0);let v3;for(;;){if(v0 instanceof e[4]){try{let v1=e[3](v0);v0="\""+v1+"\"";break}catch(x){v3=[v3,e[7](x)]}}if(v0 instanceof e[6]){l4:{let v2;try{v2=v0.toISOString()}catch(_){v3=[v3,e[5],v0];break l4}v0="\""+v2+"\"";break}}if(v0===void 0)break;throw e[8](v0,v3)}let v5="";if(v0!==void 0){v5+="\"f\":"+v0}return "{"+v5+"}"}catch(v6){e[9](v6)}}
+    examples:
+      bytes:
+        input: "{ f: new Uint8Array([1]) }"
+        output: '"{\"f\":\"AQ==\"}"'
