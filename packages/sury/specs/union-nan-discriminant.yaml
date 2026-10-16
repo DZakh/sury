@@ -32,7 +32,7 @@ operations:
         input: '{ t: "c" }'
         error: 'Expected { t: NaN; a: string; } | { t: "b"; b: number; }, received { t: "c"; }'
   decode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(Number.isNaN(i.t)){i="{\"t\":null,\"a\":"+e[0](i.a)+"}";break}if(i.t==="b"){let v0=i.b;i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(Number.isNaN(i.t)){i="{\"t\":null,\"a\":"+e[0](i.a)+"}";break}if(i.t==="b"){let v0=i.b;i="{\"t\":\"b\",\"b\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}throw e[2](i)}return i}catch(v1){e[3](v1)}}
     examples:
       nan-variant:
         input: '{ t: NaN, a: "x" }'

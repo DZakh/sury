@@ -32,7 +32,7 @@ operations:
         input: '{ type: "user.removed", id: 42n }'
         error: 'Expected { type: "user.created"; id: bigint; } | { type: "user.renamed"; id: bigint; name: string; }, received { type: "user.removed"; id: 42n; }'
   decode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.type==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i.id+"\"}";break}if(i.type==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i.id+"\",\"name\":"+e[0](i.name)+"}";break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    expression: i=>{try{for(;;){if(i.type==="user.created"){i="{\"type\":\"user.created\",\"id\":\""+i.id+"\"}";break}if(i.type==="user.renamed"){i="{\"type\":\"user.renamed\",\"id\":\""+i.id+"\",\"name\":"+e[0](i.name)+"}";break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       created:
         input: '{ type: "user.created", id: 42n }'

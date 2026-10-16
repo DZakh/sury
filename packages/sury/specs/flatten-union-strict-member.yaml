@@ -36,7 +36,7 @@ operations:
         input: "{ id: 1, r: 1 }"
         output: '{ id: 1, shape: { kind: "circle", radius: 1 } }'
   encode:
-    expression: i=>{try{let v0=i.shape;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.kind==="circle"){v0={r:v0.radius};break}if(v0.kind==="square"){v0={s:v0.side};break}throw e[0](v0)}}else{throw e[0](v0)}let v1={id:i.id};if((v0.r)!==void 0){v1.r=(v0.r)}if((v0.s)!==void 0){v1.s=(v0.s)}return v1}catch(v2){e[1](v2)}}
+    expression: i=>{try{let v0=i.shape;let v2;let v1;for(;;){if(v0.kind==="circle"){v1=v0.radius;break}if(v0.kind==="square"){v2=v0.side;break}throw e[0](v0)}let v3={id:i.id};if(v1!==void 0){v3.r=v1}if(v2!==void 0){v3.s=v2}return v3}catch(v4){e[1](v4)}}
     examples:
       circle:
         input: '{ id: 1, shape: { kind: "circle", radius: 1 } }'

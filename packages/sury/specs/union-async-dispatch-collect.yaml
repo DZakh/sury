@@ -28,13 +28,13 @@ operations:
         error: "Failed at f.x: Expected string, received 1"
   decode:
     isAsync: true
-    expression: i=>{try{let v0=i.f;let v8=Promise.resolve((async(v0)=>{let v3;for(;;){l7:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l4:{try{let v2=v0.v;if(!(typeof v2==="string")){v3=[v3,e[6],v2];break l4}let v1;try{v1=e[5](e[2](v2),v1=>{typeof v1==="string"||e[4](v1);return v1},e[3])}catch(x){e[3](x)}v0=await Promise.all([v1]).then(([v1])=>{return {t:v0.t,v:v1}});break}catch(x){v3=[v3,e[8](x)]}}l6:{let v5=v0.n;if(!(typeof v5==="number"&&v5==v5)){v3=[v3,e[7],v5];break l6}v0={t:v0.t,n:v5};break}}break l7}break}}throw e[9](v0,v3)};return v0})(v0));return Promise.all([v8]).then(([v8])=>{return {f:v8}}).catch(e[10])}catch(v9){return e[11](v9)}}
+    expression: i=>{try{let v0=i.f;let v8=Promise.resolve((async(v0)=>{let v3;for(;;){l7:{for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l4:{try{let v2=v0.v;if(!(typeof v2==="string")){v3=[v3,e[6],v2];break l4}let v1;try{v1=e[5](e[2](v2),v1=>{typeof v1==="string"||e[4](v1);return v1},e[3])}catch(x){e[3](x)}v0=await Promise.all([v1]).then(([v1])=>{return {t:v0.t,v:v1}});break}catch(x){v3=[v3,e[8](x)]}}l6:{let v5=v0.n;if(!(typeof v5==="number"&&v5==v5)){v3=[v3,e[7],v5];break l6}v0={t:v0.t,n:v5};break}}break l7}break}throw e[9](v0,v3)};return v0})(v0));return Promise.all([v8]).then(([v8])=>{return {f:v8}}).catch(e[10])}catch(v9){return e[11](v9)}}
     examples:
       valid:
         input: '{ f: { t: "b", x: "y" } }'
         output: '{ f: { t: "b", x: "y" } }'
   encode:
-    expression: i=>{try{let v0=i.f;let v3;for(;;){l7:{if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l4:{let v2=v0.v;if(!(typeof v2==="string")){v3=[v3,e[5],v2];break l4}let v1;try{v1=e[2](v2)}catch(x){v3=[v3,e[3],x];break l4}if(!(typeof v1==="string")){v3=[v3,e[4],v1];break l4}v0={t:v0.t,v:v1};break}l6:{let v5=v0.n;if(!(typeof v5==="number"&&v5==v5)){v3=[v3,e[6],v5];break l6}v0={t:v0.t,n:v5};break}}break l7}break}}throw e[7](v0,v3)}return {f:v0}}catch(v8){e[8](v8)}}
+    expression: i=>{try{let v0=i.f;let v3;for(;;){l7:{for(;;){if(v0.t==="b"){e[0](v0)||e[1](v0);break}if(v0.t==="a"){l4:{let v2=v0.v;if(!(typeof v2==="string")){v3=[v3,e[5],v2];break l4}let v1;try{v1=e[2](v2)}catch(x){v3=[v3,e[3],x];break l4}if(!(typeof v1==="string")){v3=[v3,e[4],v1];break l4}v0={t:v0.t,v:v1};break}l6:{let v5=v0.n;if(!(typeof v5==="number"&&v5==v5)){v3=[v3,e[6],v5];break l6}v0={t:v0.t,n:v5};break}}break l7}break}throw e[7](v0,v3)}return {f:v0}}catch(v8){e[8](v8)}}
     examples:
       valid:
         input: '{ f: { t: "b", x: "y" } }'

@@ -508,8 +508,14 @@ const shapedParser: Builder = (input: Val) => {
         unionInput.i = (input.t ? input.prev! : input).v();
         unionInput.v = _notVar;
         unionInput.fz = true;
-        unionInput.s = copySchema(input.s);
-        unionInput.s.additionalItems = unknown;
+        // Decoding the parent's own Input, the keys hold one of the union's,
+        // so a member that reshapes from a literal of its own is picked by it.
+        if (input.s === input.e && flattenedSchema.anyOf!.every((member) => member.to !== U && Object.values(member.properties!).some(isLiteral))) {
+          unionInput.s = flattenedSchema;
+        } else {
+          unionInput.s = copySchema(input.s);
+          unionInput.s.additionalItems = unknown;
+        }
         unionInput.e = flattenedSchema;
         unionInput.io = false;
         B_unlessCollected(input, () => B_merge((flattenedVal = parse(unionInput))));
@@ -663,12 +669,7 @@ const getShapedSerializerOutput = (
           const flattenedSchemas = flattened;
           const flattenedAcc = acc.flattened;
           flattenedAcc.forEach((acc, idx) => {
-            const flattenedOutput = getShapedSerializerOutput(
-              input,
-              acc,
-              reverse(flattenedSchemas[idx]!),
-              path
-            );
+            const flattenedOutput = getShapedSerializerOutput(input, acc, reverse(flattenedSchemas[idx]!), path);
             // Only the member's fields are placed here, so take its code once
             // and read each field back out of it. `valGet` scopes a field the
             // member already emitted - a whole-object placement hands back the
@@ -677,18 +678,22 @@ const getShapedSerializerOutput = (
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
             v.cp = v.cp + B_merge(flattenedOutput);
-            if (flattenedSchemas[idx]!.anyOf !== U) {
+            const union = flattenedSchemas[idx]!.anyOf;
+            if (union !== U && flattenedOutput.d === U) {
+              // Members with nothing to convert: the value is the picked one.
               const at = flattenedOutput.v();
-              const arms = flattenedOutput.s.anyOf ?? [flattenedOutput.s];
               for (const key of unionKeys(flattenedSchemas[idx]!)) {
                 const field = B_next(flattenedOutput, inlinedProperty(at, key), unknown);
                 field.prev = U;
-                field.o = arms.some((arm) => arm.properties?.[key] === U || isOptional(arm.properties[key]!));
+                field.o = union.some((member) => member.properties![key] === U || isOptional(member.properties![key]!));
                 B_addObjectField(v, key, field);
               }
             } else {
               for (const key of Object.keys(flattenedOutput.d!)) {
-                B_addObjectField(v, key, valGet(flattenedOutput, key));
+                const field = valGet(flattenedOutput, key);
+                // A key only some of a union's members hold.
+                if (union !== U) field.o = flattenedOutput.d![key]!.o;
+                B_addObjectField(v, key, field);
               }
             }
           });

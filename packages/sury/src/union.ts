@@ -25,6 +25,7 @@ import {
   getOrRethrow,
   immutableEmptyArray,
   immutableEmptyObject,
+  inlinedObjectKey,
   inlinedProperty,
   inputExpression,
   type Internal,
@@ -64,6 +65,7 @@ import {
   B_markOutput,
   B_collects,
   B_merge,
+  B_next,
   settledTag,
   B_pathArg,
   B_pathSnap,
@@ -976,6 +978,13 @@ const unionEmit = (
   // assigns its own result to a var of the union's, so the object is built
   // only by a case that hands it on unchanged.
   const built: { n?: string } | undefined = input.v === _notVar && input.d !== U && !input.cp ? {} : U;
+  // A union `s.flatten` spreads into its parent on encode: the parent reads
+  // its result key by key, so each case puts its fields in a var per key
+  // instead of building an object.
+  const joins: Record<string, string> | undefined = self.fromFlattened !== U ? Object.create(null) : U;
+  // Set by every case: a key some case leaves out reads as optional.
+  const always: Record<string, number> = Object.create(null);
+  let joined = 0;
   let output = B_refine(input);
   // An async case only has to be awaited so that its rejection can be caught and
   // the value handed to a later group - which is exactly where a group is marked
@@ -1288,7 +1297,21 @@ const unionEmit = (
       unionDTrusted(member)
         ? member.d
         : U;
-    if (trustedD !== U) caseInput.s = member.s;
+    if (trustedD !== U) {
+      caseInput.s = member.s;
+      // The fields the source already read hold this member's, as trusted as
+      // the source is.
+      const read = source.d;
+      if (read !== U && member.s.properties !== U) {
+        caseInput.d = Object.create(null);
+        for (const key in member.s.properties) {
+          if (read[key] === U) continue;
+          const field = B_scope(read[key]!);
+          field.s = member.s.properties[key]!;
+          caseInput.d![key] = field;
+        }
+      }
+    }
     let caseOut: Val;
     const options = input.g.o;
     input.g.o |= 4;
@@ -1314,7 +1337,18 @@ const unionEmit = (
     const label = leave();
     const async = caseOut.f & 1;
     output.f |= async;
-    if (built !== U && !caseOut.t && !async) {
+    if (joins !== U) {
+      if (async) B_invalidOperation(input, `Can't flatten ${inputExpression(self)}: a member is async`);
+      joined++;
+      output.t = true;
+      const fields = caseOut.d;
+      const whole = fields === U ? caseOut.v() : "";
+      for (const key in fields ?? caseOut.s.properties) {
+        const field = fields?.[key];
+        if (field !== U && !field.o) always[key] = (always[key] || 0) + 1;
+        body += `${(joins[key] ||= B_varWithoutAllocation(g))}=${field !== U ? field.i : inlinedProperty(whole, key)};`;
+      }
+    } else if (built !== U && !caseOut.t && !async) {
       body += `${(built.n ||= B_varWithoutAllocation(g))}=${caseOut.i};`;
     } else if (caseOut.t) {
       output.t = true;
@@ -1334,7 +1368,10 @@ const unionEmit = (
       // `===` can't match a NaN discriminant (`x===NaN` is always false), which
       // made the member unreachable and rejected a value it declares. The
       // hoisted-check path this replaces used the same NaN-aware form.
-      const dRead = inlinedProperty(source.v(), trustedD[0]);
+      // A field the source already read is read again from where it was put,
+      // which for a codec's record is the only place it is.
+      const read = source.d?.[trustedD[0]];
+      const dRead = read !== U ? read.v() : inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag
           ? `Number.isNaN(${dRead})`
@@ -1383,7 +1420,13 @@ const unionEmit = (
     const narrowInput = B_scope(input);
     narrowInput.io = false;
     narrowInput.e = groupNarrow;
+    // A trusted value of a union whose members are all objects is one, unless
+    // a dropped nullish arm is what it holds.
+    if (trustedSelf && expectedSchema === self && plan.length === 1 && groupNarrow.type === objectTag) narrowInput.s = groupNarrow;
     const narrow = parse(narrowInput);
+    // A narrow that only checked the type leaves the value as it was, so the
+    // fields already read off it still are its fields.
+    if (narrow.d === U && narrow.i === input.i) narrow.d = input.d;
     // The narrow proves the group's runtime tag, but its minimal schema
     // forgets what the source guarantees about that tag's CONTENT - a `S.json`
     // source's object is a dict of json whose fields still need converting (a
@@ -1489,6 +1532,7 @@ const unionEmit = (
     let dispatch = emitChain(cases, true);
     if (failures) dispatch = B_let(input.g, failures) + dispatch;
     if (built?.n !== U) dispatch = B_let(input.g, built!.n!) + dispatch;
+    for (const key in joins) dispatch = B_let(input.g, joins[key]!) + dispatch;
     if (asyncDispatch) {
       const itemVar = built?.n ?? input.v();
       output.i = built?.n !== U ? `(async()=>{${dispatch};return ${itemVar}})()` : `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
@@ -1499,6 +1543,20 @@ const unionEmit = (
   if (!asyncDispatch) {
     output.i = built?.n ?? input.i;
     if (built?.n !== U) output.v = _var;
+  }
+  if (joins !== U) {
+    output.d = Object.create(null);
+    let whole = "";
+    for (const key in joins) {
+      const field = B_next(output, joins[key]!, unknown);
+      field.prev = U;
+      field.v = _var;
+      field.o = always[key] !== joined;
+      output.d![key] = field;
+      whole += `${inlinedObjectKey(key)}:${field.i},`;
+    }
+    output.i = `{${whole.slice(0, -1)}}`;
+    output.v = _notVar;
   }
   let out: Val;
   if (output.f & 1) {

@@ -41,7 +41,7 @@ operations:
         input: '"{\"t\":\"b\"}"'
         output: '{ t: "b" }'
   encode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.inner,v1=i.note;let v2="{\"t\":\"a\",\"inner\":{\"id\":\""+v0.id+"\"}";if(v1!==void 0){v2+=",\"note\":"+e[0](v1)}i=v2+"}";break}if(i.t==="b"){i="{\"t\":\"b\"}";break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v3){e[2](v3)}}
+    expression: i=>{try{for(;;){if(i.t==="a"){let v0=i.inner,v1=i.note;let v2="{\"t\":\"a\",\"inner\":{\"id\":\""+v0.id+"\"}";if(v1!==void 0){v2+=",\"note\":"+e[0](v1)}i=v2+"}";break}if(i.t==="b"){i="{\"t\":\"b\"}";break}throw e[1](i)}return i}catch(v3){e[2](v3)}}
     examples:
       with-note:
         input: '{ t: "a", inner: { id: 7n }, note: "hi" }'
