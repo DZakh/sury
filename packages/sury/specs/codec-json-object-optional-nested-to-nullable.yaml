@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ a: S.optional(S.optional(S.string).with(S.to, S.nullable(S.string))) }))"
+  input: JSON
+  output: "{ a?: string | null | undefined; }"
+  instantiations: 6850
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false }'
+  fromInputType: "{ a?: string | undefined; }"
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "null" }] } } }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { a: { type: "string", nullable: true } } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.a;if(v0!==void 0){let v1;for(;;){l2:{for(;;){if(typeof v0==="string")break;if(v0===null){v0=null;break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}}return {a:v0}}catch(v3){e[3](v3)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ a: undefined }"
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      # FIXME: known bug json-null-member-conversion. S.parseOrThrow rejects a
+      # present null, and encode never writes one here.
+      "null":
+        input: "{ a: null }"
+        output: "{ a: null }"
+        divergence:
+          reason: the document is right to reject the null S.json takes
+          ajv: "input: data/a must be string"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.a;let v1;for(;;){if(v0===void 0)break;l2:{for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}let v3={};if(v0!==void 0){v3.a=v0}return v3}catch(v4){e[2](v4)}}
+    examples:
+      "null":
+        input: "{ a: null }"
+        output: "{}"

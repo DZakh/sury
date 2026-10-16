@@ -849,12 +849,6 @@ const presentTarget = (s: Internal): Internal | undefined => {
     const item = presentTarget(anyOf[0]!);
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
-  } else if (s.to !== U && s.to.type === anyOfTag && (s.to.has![nullTag] || s.to.has![undefinedTag])) {
-    // FIXME: a conversion into a union with an empty arm pairs it with the
-    // undefined one, and without that the conversion turns ambiguous, so a
-    // present null still reads as missing (codec-json-object-optional-to-optional,
-    // codec-json-object-optional-to-nullable).
-    return s;
   } else {
     // Only the top-level arm: encode leaves the key out for it, while a
     // member's own `undefined` is written as `null` and has to read back.
@@ -865,6 +859,20 @@ const presentTarget = (s: Internal): Internal | undefined => {
     mut.anyOf = arms;
     mut.has = {};
     arms.forEach((arm) => setHas(mut.has!, arm));
+    const to = s.to;
+    if (to !== U && to.type === anyOfTag && (to.has![nullTag] || to.has![undefinedTag])) {
+      // The empty arm a union `.to` pairs with the dropped one is the absent
+      // key's alone, and left in place no present value would cover it.
+      const toArms = to.anyOf!.filter(
+        (arm) => arm.type !== undefinedTag && (arm.type !== nullTag || mut.has![nullTag]),
+      );
+      if (!toArms.length) return s;
+      const toMut = copySchema(to);
+      toMut.anyOf = toArms;
+      toMut.has = {};
+      toArms.forEach((arm) => setHas(toMut.has!, arm));
+      mut.to = toMut;
+    }
   }
   // A failure names the field's whole type, `undefined` included.
   mut.expression = () => inputExpression(s);
