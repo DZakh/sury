@@ -93,6 +93,18 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
+const renest = (schema: Internal, nestedSchema: Internal, depth: number): Internal =>
+  updateOutput<Internal>(schema, (mut) => {
+    // copySchema, not a spread: a spread keeps the original's seq,
+    // and two schemas sharing a seq can collide in the seq-keyed
+    // operation caches.
+    const bumped = copySchema(nestedSchema);
+    bumped.const = depth;
+    const properties: Record<string, Internal> = {};
+    properties[nestedLoc] = bumped;
+    mut.properties = properties;
+  });
+
 // The schema read one option level deeper: an undefined it outputs is Some(None)
 // and a Some(None) marker counts one more Some. Recurses into output unions,
 // since a coder's input never reaches its output.
@@ -102,16 +114,7 @@ export const someOf = (schema: Internal): Internal => {
   if (out.type === undefinedTag) {
     return nestedOption(schema);
   } else if (nestedSchema !== U) {
-    return updateOutput<Internal>(schema, (mut) => {
-      // copySchema, not a spread: a spread keeps the original's seq,
-      // and two schemas sharing a seq can collide in the seq-keyed
-      // operation caches.
-      const bumped = copySchema(nestedSchema);
-      bumped.const = (nestedSchema.const as number) + 1;
-      const properties: Record<string, Internal> = {};
-      properties[nestedLoc] = bumped;
-      mut.properties = properties;
-    });
+    return renest(schema, nestedSchema, (nestedSchema.const as number) + 1);
   } else if (out.anyOf !== U) {
     return updateOutput<Internal>(schema, (mut) => {
       mut.anyOf = out.anyOf!.map(someOf);
@@ -119,6 +122,31 @@ export const someOf = (schema: Internal): Internal => {
   } else {
     return schema;
   }
+}
+
+// `someOf` taken back, for a default that peels one option off: the outer
+// Some(None) marker is the inner option's None again.
+const noneOf = (schema: Internal): Internal => {
+  const out = getOutputSchema(schema);
+  const nestedSchema = out.properties?.[nestedLoc];
+  if (nestedSchema === U) {
+    return out.anyOf === U
+      ? schema
+      : updateOutput<Internal>(schema, (mut) => {
+          mut.anyOf = out.anyOf!.map(noneOf);
+        });
+  }
+  const depth = nestedSchema.const as number;
+  if (depth) return renest(schema, nestedSchema, depth - 1);
+  // A bare marker is an arm of an earlier default's output union.
+  if (schema.to === U) return unit;
+  const root = copySchema(schema);
+  let mut = root;
+  while (mut.to!.to) mut = mut.to = copySchema(mut.to!);
+  // `delete`, not `= U`: unionIsTransparent counts a schema's keys.
+  delete mut.to;
+  delete mut.parser;
+  return root;
 }
 
 // @__NO_SIDE_EFFECTS__
@@ -504,6 +532,11 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
+const readsNone = (output: Internal): boolean =>
+  output.type === undefinedTag ||
+  output.properties?.[nestedLoc] !== U ||
+  !!output.anyOf?.some(readsNone);
+
 // Every undefined-producing variant converts to the item union, supplying the
 // default on decode and taking the never slot on encode so it yields to its
 // siblings there. Spelling the default as ordinary union arms is what lets the
@@ -517,17 +550,36 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
+    const none = default_.type === "value" && default_.value === U;
+    let reached = false;
+    let building: Internal | undefined;
+    const items = anyOf.map((variant) => {
+      const output = getOutputSchema(variant);
+      if (output.type === undefinedTag) {
+        reached = true;
+        return variant;
+      }
+      // An earlier default, which never encodes, ahead of every `undefined` arm
+      // always wins. A None or a Some(None) it can still give would change
+      // under this default's peel, and the arm can't take that back. Only a
+      // ReScript chain of `getOr`s builds one: a wrapper puts its own empty
+      // arm first.
+      if (!reached && output.serializer === B_neverSlot && readsNone(output)) {
+        panic(
+          `Can't set default for ${inputExpression(mut)}: an earlier default already takes undefined. Set one default`
+        );
+      }
+      return noneOf(variant);
+    });
     for (let idx = 0; idx < anyOf.length; idx++) {
-      const variant = anyOf[idx]!;
-      const outputSchema = getOutputSchema(variant);
-      if (outputSchema.type !== undefinedTag) {
+      if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
+        const variant = items[idx]!;
+        const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
         if (outputSchema.type === refTag && !outputSchema.definition!()) {
-          panic(
-            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
-          );
+          building = outputSchema;
         }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
@@ -536,6 +588,19 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         }
         originalItems.push(variant);
       }
+    }
+
+    // `None` over a nested option: the peeled arms already read the absent
+    // value as `None`, so there is nothing to replace, and a later default
+    // still sees a plain `undefined` arm to take.
+    if (none && outputItems.some((output) => output.type === undefinedTag)) {
+      mut.anyOf = items;
+      return;
+    }
+    if (building !== U) {
+      panic(
+        `Can't set default for ${inputExpression(mut)}: the default is read as ${building.name}, which would need a default of its own`
+      );
     }
 
     const item: Internal =
@@ -581,10 +646,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       result.io = true;
       return result;
     };
-    mut.anyOf = anyOf.map((variant) =>
+    mut.anyOf = anyOf.map((variant, idx) =>
       getOutputSchema(variant).type === undefinedTag
         ? codecTo(variant, item, decodeB, B_neverSlot)
-        : variant
+        : items[idx]!
     );
   });
 };

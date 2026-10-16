@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: (S as any).$Option_getOr((S as any).$option((S as any).$option(S.string)), "x") as S.Schema<string | undefined>
+  input: string | undefined
+  output: string | undefined
+  instantiations: 276
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i="x";break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      undefined-becomes-the-default:
+        input: undefined
+        output: '"x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      none-encodes-to-undefined:
+        input: undefined
+        output: undefined
