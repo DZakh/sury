@@ -115,6 +115,9 @@ const makeObjectCtx = (
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = getOutputSchema(schema);
+  // `noopDecoder` is how composites.ts's missing-key read tells this apart
+  // from a dispatching optional: it hands the parser `unit` for an absent key
+  // and reads a present one through the item alone.
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
@@ -139,9 +142,8 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.parser = (input: Val) => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
-    // missingKeyEncoder passes `unit` for an absent key: the default alone.
+    const output = B_nextVarOutput(input, v, item, item);
     if (input.s === unit) {
-      const output = B_nextVarOutput(input, v, item, item);
       output.cp = `${v}=${defCode};`;
       return output;
     }
@@ -153,7 +155,6 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const output = B_nextVarOutput(input, v, item, item);
     const presentBody = itemCode + assign;
     output.cp =
       presentBody === ""

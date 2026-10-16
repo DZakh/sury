@@ -87,7 +87,10 @@ export const KNOWN_BUGS: Known[] = [
     spec: "codec-json-union-date-tagged",
     fuzzers: ["codec"],
     matches: (f) =>
-      f.fuzzer === "codec" && f.property === "absent" && f.detail.includes("values is not iterable"),
+      f.fuzzer === "codec" &&
+      f.property === "absent" &&
+      f.detail.includes("values is not iterable") &&
+      some(f.shape, (node) => node.name === "union" && node.args.some((member) => member.name === "tagged")),
   },
   {
     id: "json-absent-recursive-undefined",

@@ -48,7 +48,7 @@ const settled = (value: unknown): boolean => !(value instanceof Promise);
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
-const has = (value: unknown, key: unknown): boolean => isRecord(value) && String(key) in value;
+const has = (value: unknown, key: string): boolean => isRecord(value) && key in value;
 
 const at = (value: unknown, path: string[]): unknown =>
   path.reduce<unknown>((v, key) => (isRecord(v) ? v[key] : undefined), value);
@@ -158,9 +158,10 @@ const check = (ctx: Ctx): void => {
     if (!read) continue;
     // `null` is the JSON spelling of what it read when it encodes back to
     // `null`: NaN, or a required `S.void`.
+    let writeBack: Op | undefined;
     const spellsNull = (answer: unknown): boolean => {
       try {
-        return (S.encodeOrThrow(S.json.with(S.to, holder))(answer) as { a?: unknown }).a === null;
+        return ((writeBack ??= S.encodeOrThrow(S.json.with(S.to, holder)))(answer) as { a?: unknown }).a === null;
       } catch {
         return false;
       }

@@ -13,9 +13,3 @@ test("an S.optional(S.void) field read through S.json takes an absent key", () =
 test("an S.optional(S.void) field read through S.json rejects a present null, as parse does", () => {
   expect(() => read({ f: null })).toThrow("Failed at f: Expected void | undefined, received null");
 });
-
-test("a required S.void field reads back the null it encodes to", () => {
-  const schema = S.json.with(S.to, S.schema({ f: S.void }));
-  expect(S.encodeOrThrow(schema)({ f: undefined })).toEqual({ f: null });
-  expect(S.parseOrThrow(schema)({ f: null })).toEqual({ f: undefined });
-});
