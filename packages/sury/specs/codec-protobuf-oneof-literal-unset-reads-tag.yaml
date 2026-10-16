@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.union([S.schema({ type: "email", x: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema({ type: "sms", y: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema("email")]) }).with(S.to, S.protobuf)'
+  input: '{ c: "email" | { type: "email"; x: string; } | { type: "sms"; y: string; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9237
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "email" }, x: { type: "string" } }, required: ["type", "x"] }, { type: "object", properties: { type: { type: "string", const: "sms" }, y: { type: "string" } }, required: ["type", "y"] }, { type: "string", const: "email" }] } }, required: ["c"] }'
+  output: "[Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["email"] }, x: { type: "string" } }, required: ["type", "x"] }, { type: "object", properties: { type: { type: "string", enum: ["sms"] }, y: { type: "string" } }, required: ["type", "y"] }, { type: "string", enum: ["email"] }] } }, required: ["c"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.c.type==="email"?b.c.type==="email"&&a.c.x===b.c.x:a.c.type==="sms"?b.c.type==="sms"&&a.c.y===b.c.y:b.c==="email")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { type: \"email\"; x: string; } | { type: \"sms\"; y: string; } | \"email\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: "email" is read where the tag is as "email"["type"], undefined, so the arms can be told apart
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  decode: eq-to-parse
+  encode: eq-to-parse
