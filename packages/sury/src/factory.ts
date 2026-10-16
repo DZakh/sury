@@ -558,6 +558,9 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
+// Returns an unparsed head with no chain of its own, like getShapedParserOutput:
+// shapedSerializer links `input` as its `prev`, and a chain parsed here would
+// be cut off there - at the root the compile pipeline advances it (#471).
 const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
@@ -565,19 +568,18 @@ const getShapedSerializerOutput = (
   path: Path
 ): Val => {
   if (acc !== U && acc.val !== U) {
-    // Placement of an already-decoded val - don't overwrite its schema (#284);
-    // parse only re-advances `e` and emits nothing for an output val
+    // Placement of an already-decoded val - don't overwrite its schema (#284)
     const v = B_scope(acc.val);
     v.t = true;
     v.e = targetSchema;
-    return parse(v);
+    return v;
   } else if (isLiteral(targetSchema)) {
     const v = B_nextConst(input, targetSchema, targetSchema);
     v.prev = U;
     v.p = input;
     v.v = _notVarAtParent;
     v.io = true;
-    return parse(v);
+    return v;
   } else {
     // When acc is undefined (discriminant field with no input), follow the to chain
     // to get the actual output schema properties (e.g., for reversed transformed objects)
@@ -602,11 +604,13 @@ const getShapedSerializerOutput = (
       input,
       resolvedTargetSchema,
       (location, childSchema) =>
-        getShapedSerializerOutput(
-          input,
-          acc !== U && acc.properties !== U ? acc.properties[location] : U,
-          childSchema,
-          pathConcat(path, [location])
+        parse(
+          getShapedSerializerOutput(
+            input,
+            acc !== U && acc.properties !== U ? acc.properties[location] : U,
+            childSchema,
+            pathConcat(path, [location])
+          )
         ),
       (v) => {
         v.e = resolvedTargetSchema;
@@ -618,11 +622,8 @@ const getShapedSerializerOutput = (
           const flattenedSchemas = flattened;
           const flattenedAcc = acc.flattened;
           flattenedAcc.forEach((acc, idx) => {
-            const flattenedOutput = getShapedSerializerOutput(
-              input,
-              acc,
-              reverse(flattenedSchemas[idx]!),
-              path
+            const flattenedOutput = parse(
+              getShapedSerializerOutput(input, acc, reverse(flattenedSchemas[idx]!), path)
             );
             // Only the member's fields are placed here, so take its code once
             // and read each field back out of it. `valGet` scopes a field the
@@ -640,11 +641,7 @@ const getShapedSerializerOutput = (
       },
       missingInput
     );
-    // The walk built the head of `targetSchema`'s chain. If the schema also
-    // carries a transform of its own, run it here: the assembled head is its
-    // input, and nobody else will apply it (a pending operation-level `to`
-    // with no parser is the compile pipeline's job, not ours).
-    return targetSchema.parser === U ? assembled : parse(assembled);
+    return assembled;
   }
 }
 
