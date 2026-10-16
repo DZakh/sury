@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.union([S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.User"), S.tuple(["order", S.schema({ total: S.bigint.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.Order")])]))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '{ id: number; } | ["order", { total: bigint; }]'
+  instantiations: 11037
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "Failed at [1].total: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.id===b.id:Array.isArray(b)&&a[1].total===b[1].total)
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: int32; } | [\"order\", { total: bigint; }]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.User"){let v5=v1;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}v3=v4;}else if(v2==="acme.v1.Order"){let v7=v1;let v6;{let r;try{r=e[7].acquire(v7);v6=e[6](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[8](x)}}v3=["order",v6];}else{e[9](v2);}return v3}catch(v8){e[11](v8)}}
+    examples:
+      user:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: "{ id: 1 }"
+  decode:
+    expression: i=>{try{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;if(v0==="acme.v1.User"){let v3=i.value;let v2;{let r;try{r=e[1].acquire(v3);v2=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}v1=v2;}else if(v0==="acme.v1.Order"){let v5=i.value;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}v1=["order",v4];}else{e[6](v0);}return v1}catch(v6){e[7](v6)}}
+    examples:
+      user:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: "{ id: 1 }"
+  encode:
+    # FIXME: the bare message beside a tuple member is refused only on the way back, by the core union
+    creationError: 'SuryError: Ambiguous { id: int32; } | ["order", { total: bigint; }] -> Any. Should ["order", { total: bigint; }] be decoded or ignored? Choose with S.to for ["order", { total: bigint; }] -> Any, or S.never -> ["order", { total: bigint; }]'
