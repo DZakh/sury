@@ -34,7 +34,7 @@ operations:
         input: "{}"
         output: new Uint8Array([])
   encode:
-    expression: i=>{try{let v0=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v0!==void 0){let v10=v0.xs,v12=v0.next;if(v12!==void 0){let v17=v12.next;if(v17!==void 0){try{e[21](v17);}catch(v18){e[22](v18,["inner","next","next"])}}}}return {inner:v0}}catch(v19){e[23](v19)}}
+    expression: i=>{try{let v0=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v0!==void 0){let v10=v0.xs,v12=v0.next;if(v12!==void 0){let v17=v12.next;if(v17!==void 0){try{e[21](v17);}catch(v18){e[22](v18,["inner","next","next"])}}}}let v19={};if(v0!==void 0){v19.inner=v0}return v19}catch(v20){e[23](v20)}}
     examples:
       nan-from-the-wire:
         input: new Uint8Array([10, 18, 10, 16, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])

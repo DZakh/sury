@@ -196,7 +196,8 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
-export const completeObjectVal = (objectVal: Val): Val => {
+// `spelled`: every field is written, an absent one as `undefined`.
+export const completeObjectVal = (objectVal: Val, spelled?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
@@ -210,7 +211,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     if ((val.f & 1)) {
       promised.push(val);
     }
-    if (val.o) {
+    if (val.o && !spelled) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
       optionalSettingCode = (objectVar: string) => {
         return (
@@ -944,9 +945,10 @@ export const valGet = (parent: Val, location: string): Val => {
 
 // The object a codec read field by field: `fill` produces each field's val
 // (`B_slot`) in order, inside the field's own scope when the operation
-// collects.
+// collects. A field marked `o` is one the value leaves out when it is absent;
+// the record itself is read whole only by a failure naming it.
 export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
   const record = makeObjectVal(input);
   fill((key, produce) => B_field(record, key, produce));
-  return B_markOutput(completeObjectVal(record), input);
+  return B_markOutput(completeObjectVal(record, true), input);
 };

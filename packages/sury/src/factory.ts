@@ -432,7 +432,8 @@ const assembleShapedObject = (
   schema: Internal,
   field: (location: string, childSchema: Internal) => Val,
   init?: (output: Val) => void,
-  onMissing?: () => void
+  onMissing?: () => void,
+  open?: boolean
 ): Val => {
   const output = schema.type === arrayTag ? makeArrayVal(input) : makeObjectVal(input);
   output.io = true;
@@ -463,25 +464,38 @@ const assembleShapedObject = (
         (input.path.length ? ` at ${pathToText(compilePath(input.path))}` : "")
     );
   }
-  return completeObjectVal(output);
+  return open ? output : completeObjectVal(output);
 }
 
-const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
+// `prev` is what the value's code follows: the parent's own decode at the top,
+// nothing for a part of it.
+const getShapedParserOutput = (input: Val, targetSchema: Internal, prev?: Val): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
     v = B_scope(
       getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
     );
   } else if (targetSchema.from !== U) {
-    v = B_scope(getValByFrom(input, targetSchema.from, 0));
+    const field = getValByFrom(input, targetSchema.from, 0);
+    v = B_scope(field);
+    v.o = field.o;
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
-    v = assembleShapedObject(input, targetSchema, (_location, childSchema) =>
-      getShapedParserOutput(input, childSchema)
+    // Linked where the object starts, so a field left out when absent is
+    // still set on the object it declared.
+    v = assembleShapedObject(
+      input,
+      targetSchema,
+      (_location, childSchema) => getShapedParserOutput(input, childSchema),
+      (output) => {
+        output.prev = prev;
+      }
     );
+    v.e = targetSchema;
+    return v;
   }
-  v.prev = U;
+  v.prev = prev;
   v.e = targetSchema;
   return v;
 }
@@ -505,14 +519,16 @@ const shapedParser: Builder = (input: Val) => {
         // var is declared where the parent's output reads it. It may hold
         // keys neither declares, so every arm builds its own result.
         const unionInput = B_scope(input);
-        unionInput.i = (input.t ? input.prev! : input).v();
         unionInput.v = _notVar;
         unionInput.fz = true;
         // Decoding the parent's own Input, the keys hold one of the union's,
         // so a member that reshapes from a literal of its own is picked by it.
+        // Each reads its fields where the parent read them, so the object is
+        // read only for a failure that names it.
         if (input.s === input.e && flattenedSchema.anyOf!.every((member) => member.to !== U && Object.values(member.properties!).some(isLiteral))) {
           unionInput.s = flattenedSchema;
         } else {
+          unionInput.i = (input.t ? input.prev! : input).v();
           unionInput.s = copySchema(input.s);
           unionInput.s.additionalItems = unknown;
         }
@@ -554,9 +570,8 @@ const shapedParser: Builder = (input: Val) => {
   }
 
   const targetSchema = input.e.to!;
-  const output = getShapedParserOutput(input, targetSchema);
+  const output = getShapedParserOutput(input, targetSchema, input);
   output.t = true;
-  output.prev = input;
   return B_markOutput(output, input);
 }
 
@@ -613,7 +628,8 @@ const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
   targetSchema: Internal,
-  path: Path
+  path: Path,
+  open?: boolean
 ): Val => {
   if (acc !== U && acc.val !== U) {
     // Placement of an already-decoded val - don't overwrite its schema (#284);
@@ -699,7 +715,8 @@ const getShapedSerializerOutput = (
           });
         }
       },
-      missingInput
+      missingInput,
+      open
     );
     // The walk built the head of `targetSchema`'s chain. If the schema also
     // carries a transform of its own, run it here: the assembled head is its
@@ -731,66 +748,39 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   return s;
 }
 
-// The schema that reads `schema`'s value off a record keyed some other way: a
-// wire format's field numbers, another spelling of each name. `locate` answers
-// for each leaf the record key it is read from and the schema it is read into;
-// the objects and tuples around the leaves, and their literals, are where the
-// value puts them. What `S.object` builds from a definer, so the record decodes
-// key by key and the value is assembled from what each key decoded to.
-export const relocate = (
-  schema: Internal,
-  locate: (leaf: Internal) => [key: string, read: Internal] | undefined,
-): Internal => {
-  const properties: Record<string, Internal> = Object.create(null);
-  const place = (node: Internal): Internal => {
-    const located = locate(node);
-    if (located !== U) {
-      const [key, read] = located;
-      if (key in properties) panic(`The field "${key}" defined twice with incompatible schemas`);
-      properties[key] = read;
-      const placed = copySchema(getOutputSchema(read));
-      placed.from = [key];
-      return placed;
-    }
-    if (isLiteral(node)) return node;
-    const shape = node.properties ?? node.items;
-    if (shape === U || typeof node.additionalItems === objectTag) {
-      return panic(`Don't know where the value is coming from: ${inputExpression(node)}`);
-    }
-    const tuple = node.items !== U;
-    const mut = baseSchema(node.type, false, tuple ? arrayDecoder : objectDecoder);
-    const placed: Record<string, Internal> = Object.create(null);
-    for (const location in shape) placed[location] = place((shape as Record<string, Internal>)[location]!);
-    if (tuple) mut.items = Object.values(placed);
+// The record `relocated` reads `value` from, for a codec that writes it field
+// by field: the val's code places each field as an encode does and its `d`
+// holds them by record key, but the record itself is never assembled. `value`
+// is the relocation's Output as it stands, its field vals the ones already
+// read off it.
+export const B_unrecord = (value: Val, relocated: Internal): Val => {
+  const reversed = reverse(relocated);
+  const at = B_scope(value);
+  at.s = at.e = reversed;
+  at.d = U;
+  const read = B_refine(at);
+  read.io = true;
+  read.d = Object.create(null);
+  for (const key in reversed.properties) {
+    const property = reversed.properties[key]!;
+    const known = value.d?.[key];
+    let field = known !== U ? B_scope(known) : valGet(at, key);
+    field.s = field.e = property;
+    // A leaf goes to its key as it stands; a flattened union puts its
+    // members' fields in vars of its own.
+    if (property.fromFlattened === U) field.io = true;
     else {
-      mut.properties = placed;
-      mut.required = Object.keys(placed);
+      field.io = false;
+      field = parse(field);
+      read.cp += B_merge(field);
     }
-    mut.additionalItems = tuple ? "strict" : "strip";
-    return mut;
-  };
-  const target = place(schema);
-  target.serializer = shapedSerializer;
-  const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.properties = properties;
-  mut.required = Object.keys(properties);
-  mut.additionalItems = "strip";
-  mut.parser = shapedParser;
-  mut.to = target;
-  return mut;
-};
-
-// Where in the value `relocate`'s result reads each record key from: the path
-// a codec writing the record back takes to that key's value.
-export const relocatedPaths = (relocated: Internal): Record<string, string[]> => {
-  const paths: Record<string, string[]> = Object.create(null);
-  const walk = (node: Internal, path: string[]): void => {
-    const shape = (node.properties ?? node.items) as Record<string, Internal> | undefined;
-    if (node.from !== U) paths[node.from[0]!] = path;
-    else for (const location in shape) walk(shape[location]!, [...path, location]);
-  };
-  walk(relocated.to!, []);
-  return paths;
+    read.d![key] = field;
+  }
+  const acc: ShapedSerializerAcc = {};
+  prepareShapedSerializerAcc(acc, read);
+  const record = getShapedSerializerOutput(read, acc, reversed.to!, pathEmpty, true);
+  record.prev = read;
+  return record;
 };
 
 const schemaCtx: SchemaCtx = {

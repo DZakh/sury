@@ -1247,6 +1247,9 @@ const unionEmit = (
     }
     return true;
   };
+  let tagged = 0;
+  let members = 0;
+  for (const group of plan) members += group.a.length;
   const compile = (
     member: UnionMember,
     source: Val,
@@ -1307,7 +1310,9 @@ const unionEmit = (
         for (const key in member.s.properties) {
           if (read[key] === U) continue;
           const field = B_scope(read[key]!);
-          field.s = member.s.properties[key]!;
+          // One the source knew nothing of is the member's own; one it read
+          // as something else still converts.
+          if (field.s === unknown) field.s = member.s.properties[key]!;
           caseInput.d![key] = field;
         }
       }
@@ -1371,12 +1376,16 @@ const unionEmit = (
       // A field the source already read is read again from where it was put,
       // which for a codec's record is the only place it is.
       const read = source.d?.[trustedD[0]];
-      const dRead = read !== U ? read.v() : inlinedProperty(source.v(), trustedD[0]);
-      const dCond =
-        dSchema.type === nanTag
-          ? `Number.isNaN(${dRead})`
-          : `${dRead}===${B_inlineConst(caseInput, dSchema)}`;
-      cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
+      // Each member's tag read where the source read it: the value holds one
+      // of them, so the last member is what is left once the others are not.
+      if (read === U || ++tagged !== members || cond.c !== "") {
+        const dRead = read !== U ? read.v() : inlinedProperty(source.v(), trustedD[0]);
+        const dCond =
+          dSchema.type === nanTag
+            ? `Number.isNaN(${dRead})`
+            : `${dRead}===${B_inlineConst(caseInput, dSchema)}`;
+        cond.c = cond.c ? `${dCond}&&${cond.c}` : dCond;
+      }
     }
     return {
       c: cond.c,

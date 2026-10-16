@@ -18,7 +18,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{i instanceof e[15]||e[16](i);let v0=0,v1=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();v1=m0(r,d+1,v1);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v1!==void 0){try{e[9](v1);}catch(v3){e[10](v3,["next"])}}let v4;try{v4=e[11]({v:v0,next:v1})}catch(x){e[12](x)}typeof v4==="object"&&v4&&!Array.isArray(v4)||e[14](v4);let v5=v4.depth;typeof v5==="number"&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||e[13](v5);return {depth:v5}}catch(v6){e[17](v6)}}
+    expression: i=>{try{i instanceof e[15]||e[16](i);let v0=0,v1=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();v1=m0(r,d+1,v1);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v1!==void 0){try{e[9](v1);}catch(v3){e[10](v3,["next"])}}let v4={v:v0};if(v1!==void 0){v4.next=v1}let v5;try{v5=e[11](v4)}catch(x){e[12](x)}typeof v5==="object"&&v5&&!Array.isArray(v5)||e[14](v5);let v6=v5.depth;typeof v6==="number"&&v6<=2147483647&&v6>=-2147483648&&v6%1==0||e[13](v6);return {depth:v6}}catch(v7){e[17](v7)}}
     examples:
       flat:
         input: new Uint8Array([8, 7])
@@ -27,13 +27,13 @@ operations:
         input: new Uint8Array([8, 7, 18, 2, 8, 8])
         output: "{ depth: 2 }"
   decode:
-    expression: i=>{try{let v0=0,v1=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();v1=m0(r,d+1,v1);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v1!==void 0){try{e[9](v1);}catch(v3){e[10](v3,["next"])}}let v4;try{v4=e[11]({v:v0,next:v1})}catch(x){e[12](x)}typeof v4==="object"&&v4&&!Array.isArray(v4)||e[14](v4);let v5=v4.depth;typeof v5==="number"&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||e[13](v5);return {depth:v5}}catch(v6){e[15](v6)}}
+    expression: i=>{try{let v0=0,v1=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();v1=m0(r,d+1,v1);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v1!==void 0){try{e[9](v1);}catch(v3){e[10](v3,["next"])}}let v4={v:v0};if(v1!==void 0){v4.next=v1}let v5;try{v5=e[11](v4)}catch(x){e[12](x)}typeof v5==="object"&&v5&&!Array.isArray(v5)||e[14](v5);let v6=v5.depth;typeof v6==="number"&&v6<=2147483647&&v6>=-2147483648&&v6%1==0||e[13](v6);return {depth:v6}}catch(v7){e[15](v7)}}
     examples:
       nested:
         input: new Uint8Array([8, 7, 18, 2, 8, 8])
         output: "{ depth: 2 }"
   encode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v1["v"];if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v1["next"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v2}catch(v3){e[9](v3)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v1.v;if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v1.next;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[3](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v2}catch(v3){e[9](v3)}}
     examples:
       one:
         input: "{ depth: 1 }"

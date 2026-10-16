@@ -42,26 +42,26 @@ operations:
         input: '{ meta: {}, tags: [], mask: [], masks: [["a"], ["b", 1]] }'
         error: "Failed at masks[1][1]: Expected string, received 1"
   encode:
-    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0,v3=[],v4=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3],m3=e[4],m4=e[5],m5=e[6];try{r=e[8].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2=m3(r,d+1,v2);r.limit=p;continue;case 34:p=r.sub();v3.push(m4(r,d+1));r.limit=p;continue;case 42:p=r.sub();v4=m5(r,d+1,v4);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v0===void 0){g=r.limit;r.limit=r.pos;v0=m1(r,d+1);r.limit=g}if(v1===void 0){g=r.limit;r.limit=r.pos;v1=m2(r,d+1);r.limit=g}if(v2===void 0){g=r.limit;r.limit=r.pos;v2=m3(r,d+1);r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[9](x,e[7],t,k,v3);e[10](x)}}return {meta:v0,tags:v1,mask:v2,masks:v3,none:v4}}catch(v11){e[11](v11)}}
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0,v3=[],v4=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3],m3=e[4],m4=e[5],m5=e[6];try{r=e[8].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2=m3(r,d+1,v2);r.limit=p;continue;case 34:p=r.sub();v3.push(m4(r,d+1));r.limit=p;continue;case 42:p=r.sub();v4=m5(r,d+1,v4);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v0===void 0){g=r.limit;r.limit=r.pos;v0=m1(r,d+1);r.limit=g}if(v1===void 0){g=r.limit;r.limit=r.pos;v1=m2(r,d+1);r.limit=g}if(v2===void 0){g=r.limit;r.limit=r.pos;v2=m3(r,d+1);r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[9](x,e[7],t,k,v3);e[10](x)}}let v11={meta:v0,tags:v1,mask:v2,masks:v3};if((v4)!==void 0){v11.none=(v4)}return v11}catch(v12){e[11](v12)}}
     examples:
       empty:
         input: new Uint8Array([])
-        output: "{ meta: {}, tags: [], mask: [], masks: [], none: undefined }"
+        output: "{ meta: {}, tags: [], mask: [], masks: [] }"
       values:
         input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 9, 10, 3, 26, 1, 120, 10, 2, 32, 1, 26, 8, 10, 3, 97, 46, 98, 10, 1, 99, 34, 3, 10, 1, 120, 34, 0, 42, 0])
         output: '{ meta: { a: 1 }, tags: ["x", true], mask: ["a.b", "c"], masks: [["x"], []], none: {} }'
       struct-seen-twice-merges:
         input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 10, 16, 10, 14, 10, 1, 98, 18, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
-        output: "{ meta: { a: 1, b: 2 }, tags: [], mask: [], masks: [], none: undefined }"
+        output: "{ meta: { a: 1, b: 2 }, tags: [], mask: [], masks: [] }"
       list-seen-twice-appends:
         input: new Uint8Array([18, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 0, 64])
-        output: "{ meta: {}, tags: [1, 2], mask: [], masks: [], none: undefined }"
+        output: "{ meta: {}, tags: [1, 2], mask: [], masks: [] }"
       mask-seen-twice-appends:
         input: new Uint8Array([26, 3, 10, 1, 97, 26, 3, 10, 1, 98])
-        output: '{ meta: {}, tags: [], mask: ["a", "b"], masks: [], none: undefined }'
+        output: '{ meta: {}, tags: [], mask: ["a", "b"], masks: [] }'
       entry-without-value-is-null:
         input: new Uint8Array([10, 5, 10, 3, 10, 1, 97])
-        output: "{ meta: { a: null }, tags: [], mask: [], masks: [], none: undefined }"
+        output: "{ meta: { a: null }, tags: [], mask: [], masks: [] }"
       mask-path-invalid-utf8:
         input: new Uint8Array([26, 6, 10, 1, 97, 10, 1, 255])
         error: "Failed at mask[1]: Protobuf string is not valid UTF-8"

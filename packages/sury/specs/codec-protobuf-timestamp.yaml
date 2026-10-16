@@ -45,32 +45,32 @@ operations:
         input: "{ at: new Date(NaN), log: [] }"
         error: "Failed at at: Expected Date, received invalid Date"
   encode:
-    expression: i=>{try{let v0=void 0,v1=void 0,v2=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2.push(m2(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v0===void 0){g=r.limit;r.limit=r.pos;v0=m1(r,d+1);r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t,k,v2);e[7](x)}}return {at:v0,seen:v1,log:v2}}catch(v4){e[8](v4)}}
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2.push(m2(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v0===void 0){g=r.limit;r.limit=r.pos;v0=m1(r,d+1);r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t,k,v2);e[7](x)}}let v4={at:v0,log:v2};if((v1)!==void 0){v4.seen=(v1)}return v4}catch(v5){e[8](v5)}}
     examples:
       empty:
         input: new Uint8Array([])
-        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [] }'
       seconds-and-nanos:
         input: new Uint8Array([10, 6, 8, 1, 16, 128, 137, 122])
-        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), log: [] }'
       nanos-below-a-millisecond:
         input: new Uint8Array([10, 6, 8, 1, 16, 255, 136, 122])
-        output: '{ at: new Date("1970-01-01T00:00:01.001Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1970-01-01T00:00:01.001Z"), log: [] }'
       negative:
         input: new Uint8Array([10, 17, 8, 255, 255, 255, 255, 255, 255, 255, 255, 255, 1, 16, 192, 140, 174, 220, 3])
-        output: '{ at: new Date("1969-12-31T23:59:59.998Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1969-12-31T23:59:59.998Z"), log: [] }'
       seen-twice-merges:
         input: new Uint8Array([10, 2, 8, 1, 10, 4, 16, 128, 137, 122])
-        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1970-01-01T00:00:01.002Z"), log: [] }'
       unknown-field-skipped:
         input: new Uint8Array([10, 4, 24, 5, 8, 1])
-        output: '{ at: new Date("1970-01-01T00:00:01.000Z"), seen: undefined, log: [] }'
+        output: '{ at: new Date("1970-01-01T00:00:01.000Z"), log: [] }'
       beyond-a-date:
         input: new Uint8Array([10, 9, 8, 128, 128, 128, 128, 128, 128, 128, 1])
         error: "Failed at at: Protobuf Timestamp is outside the range of a Date"
       repeated:
         input: new Uint8Array([26, 2, 8, 1, 26, 0])
-        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), seen: undefined, log: [new Date("1970-01-01T00:00:01.000Z"), new Date("1970-01-01T00:00:00.000Z")] }'
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), log: [new Date("1970-01-01T00:00:01.000Z"), new Date("1970-01-01T00:00:00.000Z")] }'
       field-number-zero:
         input: new Uint8Array([10, 2, 0, 1])
         error: "Failed at at: Invalid protobuf field number 0"

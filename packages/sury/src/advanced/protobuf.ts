@@ -18,6 +18,7 @@ import {
   inlinedProperty,
   instanceTag,
   type Internal,
+  isLiteral,
   noopDecoder,
   numberTag,
   objectTag,
@@ -56,7 +57,7 @@ import {
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayDecoder, arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
-import { relocate, relocatedPaths } from "../factory";
+import { B_unrecord, schemaObject } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
@@ -93,7 +94,18 @@ type Field = {
   // A typed Any, written by the codec's own message writers: the value reaches
   // the write as it stands, as every nested message's does.
   anyWriter?: Message;
+  // What the reader produces, and what the record holds it as.
+  raw: Internal;
+  read: Internal;
+  // Where the value holds it.
+  path: string[];
+  // Left out of the value when the wire leaves it out.
+  omit?: boolean;
 };
+
+// A union oneof's members in the order the union lists them, each with the
+// field it holds, none for the member that stands for no field set.
+type Members = { union: Internal; members: [member: Internal, field: Field | undefined][] };
 
 type Message = {
   fields: Field[];
@@ -122,6 +134,7 @@ type Message = {
   // A message of one field whose value is the field's own: a wrapper's
   // scalar, a FieldMask's paths.
   unwrap?: boolean;
+  oneofs?: Record<string, Members>;
   relocated?: Internal;
 };
 
@@ -434,7 +447,7 @@ const rejectEndless = (ctx: Ctx): void => {
 
 type Arm = { name: string; key: string | undefined; value: Internal; member: Internal; metadata: StoredField };
 
-type Oneof = { arms: Arm[]; unset: Internal | undefined; optional: boolean; told: Told | undefined };
+type Oneof = { arms: Arm[]; unset: Internal | undefined; optional: boolean; told: Told | undefined; all: Internal[] };
 
 // `undefined` and nothing else: the `value?: undefined` of protobuf-es's arm for
 // no member set.
@@ -535,9 +548,11 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   let optional = false;
   let stray = false;
   let numbered = false;
+  const all: Internal[] = [];
   for (let idx = 0; idx < output.anyOf.length; idx++) {
     const declared = output.anyOf[idx]!;
     const member = getOutputSchema(declared);
+    all.push(member);
     if (member.type === undefinedTag) {
       optional = true;
       continue;
@@ -583,7 +598,7 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
     const literal = told?.tag === U ? U : literalOf(entriesOf(arm.member)![told.tag]);
     if (typeof literal === "string") arm.name = literal;
   }
-  return { arms, unset, optional, told };
+  return { arms, unset, optional, told, all };
 };
 
 const literalSource = (value: unknown): string =>
@@ -752,7 +767,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     if (metadata === U) {
       const group = oneofOf(key, property);
       if (group === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value`);
-      const { arms, unset: unsetArm, optional: groupOptional, told } = group;
+      const { arms, unset: unsetArm, optional: groupOptional, told, all } = group;
       const tag = told?.tag;
       if (unsetArm !== U && groupOptional) {
         return panic(`S.protobuf: oneof "${key}" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm`);
@@ -817,10 +832,14 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           unset: unsetArm === U ? "void 0" : armSource(unsetArm, U),
           text: armShape.type === stringTag && type.includes("64"),
           anyWriter,
+          raw: rawValue,
+          read: declaredValue,
+          path: arm.key === U ? [key] : [key, arm.key],
         };
         fields.push(field);
         armFields.push(field);
       }
+      (msg.oneofs ??= {})[key] = { union: getOutputSchema(property), members: all.map((member) => [member, armFields[arms.findIndex((arm) => arm.member === member)]]) };
       if (told !== U) {
         rawTold = tag !== U ? told : tellApart(arms.map((arm, armIdx) => [rawMembers[armIdx]!, arm.key, armFields[armIdx]!.message !== U]), unsetArm);
         if (rawTold === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart once read: two of them read into one type`);
@@ -926,6 +945,10 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       wire: wireType(type),
       text: shape.type === stringTag && type.includes("64"),
       anyWriter,
+      raw,
+      read: normalizedProperty,
+      path: [key],
+      omit: optional && absent === U,
     };
     fields.push(field);
   }
@@ -1874,6 +1897,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
   if (msg !== U) return msg;
   const scalar = wrappers[type];
   if (scalar !== U || type === "google.protobuf.FieldMask") {
+    const raw = scalar !== U ? scalarSchema(scalar) : arrayFactory(string);
     const field: Field = {
       number: 1,
       type: scalar ?? "string",
@@ -1882,8 +1906,10 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
       repeated: scalar === U,
       optional: false,
       wire: wireType(scalar ?? "string"),
+      raw,
+      read: raw,
+      path: [],
     };
-    const raw = scalar !== U ? scalarSchema(scalar) : arrayFactory(string);
     msg = { fields: [field], object: shape, raw, schema: raw, wellKnown: type, unwrap: true };
   } else {
     const raw = copySchema(shape);
@@ -1927,8 +1953,7 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
       if (key === U) path.length = 0;
       else path.unshift("" + key);
     }
-    if (field.valueKey !== U) path.unshift(field.valueKey);
-    if (!msg.unwrap) path.unshift(field.key);
+    path.unshift(...field.path);
   }
   return failure;
 };
@@ -2001,8 +2026,7 @@ const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[
     }
     const path = (x as Failure).path as (string | number)[];
     if (item !== U) path.unshift(item);
-    if (field.valueKey !== U) path.unshift(field.valueKey);
-    if (!msg.unwrap) path.unshift(field.key);
+    path.unshift(...field.path);
   }
   return x;
 };
@@ -2158,7 +2182,7 @@ type Read = (field: Field) => { expr: string; numeric: boolean };
 
 // `f=` before a field's writes is what the message's frame (`encodeFrame`)
 // reads to name the field a failure hit.
-const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
+const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding, core?: boolean): string => {
   const body: string[] = [];
   const writer = (field: Field): string => fns.get(field.anyWriter ?? field.message!)!;
   // proto3 lets at most one member of a oneof be set, and decode enforces it
@@ -2194,9 +2218,9 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
-    if (field.name !== U && switched.has(field.key)) continue;
+    if (field.name !== U && !core && switched.has(field.key)) continue;
     const { expr: src, numeric } = read(field);
-    if (field.name !== U) {
+    if (field.name !== U && !core) {
       switched.add(field.key);
       let arms = "";
       for (let other = idx; other < msg.fields.length; other++) {
@@ -2293,7 +2317,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>): Record<strin
 // field's local and `fn` the function that reads a message: a nested message
 // reads in a function of the `Function` below, the root in the operation,
 // where its locals are the operation's own vars.
-const readParts = (msg: Message, localOf: (idx: number) => string, fn: (msg: Message) => string) => {
+const readParts = (msg: Message, localOf: (idx: number | string) => string, fn: (msg: Message) => string, core?: boolean) => {
   const fields = msg.fields;
   const locals: [name: string, init: string][] = [];
   const fromPrev: string[] = [];
@@ -2310,6 +2334,23 @@ const readParts = (msg: Message, localOf: (idx: number) => string, fn: (msg: Mes
     // wire type its field does not take matches no case and is skipped, as an
     // unknown field is.
     const tag = field.number * 8 + field.wire;
+    if (field.name !== U && core) {
+      // Each member in a local of its own beside the number of the one set,
+      // which a message member seen again merges into only while it still is.
+      let set = groups.get(field.key);
+      if (set === U) {
+        groups.set(field.key, (set = localOf(`c${field.key}`)));
+        locals.push([set, "0"]);
+      }
+      const local = localOf(idx);
+      locals.push([local, "void 0"]);
+      cases.push(
+        field.type === "message"
+          ? `case ${tag}:p=r.sub();${local}=${fn(field.message!)}(r,d+1,${set}===${field.number}?${local}:void 0);${set}=${field.number};r.limit=p;continue;`
+          : `case ${tag}:${set}=${field.number};${local}=${readCall(field.type)};continue;`,
+      );
+      continue;
+    }
     if (field.name !== U) {
       let local = groups.get(field.key);
       if (local === U) {
@@ -2478,17 +2519,17 @@ const protobufDecoder = (input: Val): Val => {
     const fn = encoders[name];
     names.set(msg, fn === U ? name : B_embedPure(input, fn));
   });
-  const d = fieldValsOf(input);
-  const paths = relocatedPaths(relocated(message));
+  const validated = fieldValsOf(input);
+  // The record the relocation reads the value from, field by field: a oneof's
+  // members are each a field of it, only the one set holding a value.
+  const placed = B_unrecord(input, relocated(message, true));
+  const head = B_merge(placed);
   const readRoot: Read = (field) => {
-    const key = paths[`${field.number}`]![0]!;
-    const fv = d !== U ? d[key] : U;
-    return fv !== U
-      ? { expr: fv.i, numeric: fv.s.type === numberTag && fv.s.format !== U }
-      : { expr: readKey(input.v(), key), numeric: false };
+    const fv = validated?.[field.path[0]!];
+    return { expr: placed.d![`${field.number}`]!.i, numeric: field.path.length === 1 && fv !== U && fv.s.type === numberTag && fv.s.format !== U };
   };
   const embeds: Partial<Record<Helper, string>> = {};
-  const body = encodeBody(message, names, readRoot, (helper) => (embeds[helper] ??= B_embed(input, encodeHelpers[helper])));
+  const body = encodeBody(message, names, readRoot, (helper) => (embeds[helper] ??= B_embed(input, encodeHelpers[helper])), true);
   const fails = message.fields.length > 0;
   const outVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outVar, input.e, input.e);
@@ -2499,7 +2540,7 @@ const protobufDecoder = (input: Val): Val => {
   // The root's frame is the operation's catch: its locals are declared outside
   // the `try` for it to read.
   const frame = fails ? `x=${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
-  output.cp = `${B_let(input.g, outVar)}{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
+  output.cp = `${head}${B_let(input.g, outVar)}{let w,v,j,n,s,h,a,k,g,c,o${fails ? ",f" : ""};${guarded(input, output, input.e, `w=${B_embedPure(input, scratchWriter)}.acquire();${body};${outVar}=w.finish()`, `w&&(w.busy=false);${frame}`)}}`;
   output.io = true;
   return output;
 };
@@ -2523,22 +2564,68 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
   return `try{${code}}catch(x){${release}${failure}}`;
 };
 
-// The record a message's fields are read into, keyed by field number, and
-// where the value the schema declares puts each one: the property a field is
-// numbered on, or a union oneof's, which the lowest-numbered of its members
-// stands for.
-const relocated = (message: Message): Internal => {
-  if (message.relocated === U) {
-    const properties = message.object.properties!;
-    const keyOf = new Map<Internal, string>();
-    for (const key in properties) keyOf.set(properties[key]!, key);
-    message.relocated = relocate(message.object, (leaf) => {
-      const key = keyOf.get(leaf);
-      return key === U ? U : [`${message.fields.find((field) => field.key === key)!.number}`, message.schema.properties![key]!];
-    });
+// What a union oneof's member holds once read: its literals around the one
+// value the field read, or that value bare. The member for no field set holds
+// only literals, or is `undefined`.
+const armDefinition = (member: Internal, key: string | undefined, leaf: unknown): unknown => {
+  const entries = entriesOf(member);
+  if (leaf !== U && key === U) return leaf;
+  if (entries === U) return literalOf(member);
+  const tuple = member.type === arrayTag;
+  const definition: Record<string, unknown> = tuple ? ([] as never) : Object.create(null);
+  for (const entry of Object.keys(entries)) {
+    if (entry === key) definition[entry] = leaf;
+    // An optional property holding nothing is left out, as a decode leaves out
+    // an absent field.
+    else if (tuple || !(getOutputSchema(entries[entry]!).type === anyOfTag && holdsNothing(entries[entry]!))) definition[entry] = literalOf(entries[entry]);
   }
-  return message.relocated!;
+  return definition;
 };
+
+// The record a message's fields are read into, keyed by field number, and
+// where the value the schema declares puts each one. A union oneof's members
+// are told apart by the number of the field that was set, which the record
+// holds under the oneof's own key (0 for none).
+// What a writer's record holds: the value as it stands, which the message's
+// own writer takes from there, typed only as far as telling a oneof's members
+// apart takes.
+const asWritten = (field: Field): Internal => {
+  if (field.name === U) return unknown;
+  const shape = getOutputSchema(field.read);
+  if (isLiteral(shape) || shape.type === anyOfTag) return shape;
+  if (shape.type === objectTag || shape.type === refTag) return dictFactory(unknown);
+  if (shape.type === arrayTag) return arrayFactory(unknown);
+  const mut = copySchema(shape);
+  delete mut.refiner;
+  delete mut.inputRefiner;
+  return mut;
+};
+
+// A reader's record converts from what the wire read; a writer's holds the
+// value as it stands.
+const relocated = (message: Message, writes?: boolean): Internal =>
+  (message.relocated ??= schemaObject((s) => {
+    const leaf = (field: Field): Internal => (writes ? asWritten(field) : field.read);
+    const value: Record<string, unknown> = Object.create(null);
+    for (const key in message.object.properties) {
+      const oneof = message.oneofs?.[key];
+      if (oneof === U) {
+        const field = message.fields.find((field) => field.key === key)!;
+        value[key] = s.field(`${field.number}`, leaf(field));
+        continue;
+      }
+      const union = copySchema(oneof.union);
+      union.anyOf = oneof.members.map(([member, field]) =>
+        schemaObject((c) => {
+          c.tag(key, field === U ? 0 : field.number);
+          return armDefinition(member, field?.path[1], field && c.field(`${field.number}`, leaf(field)));
+        }),
+      );
+      union.has = { [objectTag]: true };
+      value[key] = s.flatten(union);
+    }
+    return value;
+  }));
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
   // Bytes into `S.protobuf` - a union case converts into its member whole - are
@@ -2551,14 +2638,14 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const readers = compileDecoder(message, fns);
-  const locals: string[] = [];
+  const locals: Record<string | number, string> = Object.create(null);
   // The helpers by the names the nested readers call them, so the root's loop
   // is spelled as theirs is.
   let names = `,d=0,fail=${B_embedPure(input, fail)},skip=${B_embedPure(input, skip)}`;
   const used = new Set<Message>();
   const { locals: inits, fill, frame, loop } = readParts(
     message,
-    (idx) => (locals[idx] ??= B_varWithoutAllocation(input.g)),
+    (id) => (locals[id] ??= B_varWithoutAllocation(input.g)),
     (msg) => {
       const name = fns.get(msg)!;
       if (!used.has(msg)) {
@@ -2567,6 +2654,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
       }
       return name;
     },
+    true,
   );
   const at = B_embedPure(input, message);
   const record = relocated(message);
@@ -2583,12 +2671,21 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   )}}`;
   const fields = B_record(read, (field) => {
     for (let idx = 0; idx < message.fields.length; idx++) {
-      const { key, number } = message.fields[idx]!;
-      if (locals[idx] === U) continue;
-      const slot = B_slot(read, locals[idx]!, message.raw.properties![key]!, record.properties![`${number}`]!, [key]);
-      field(`${number}`, () => parse(slot));
+      const { number, raw, read: as, path, omit, name } = message.fields[idx]!;
+      // A member converts in the member that holds it, once it is the one set.
+      const slot = B_slot(read, locals[idx]!, raw, name !== U ? raw : as, path);
+      if (name !== U) slot.io = true;
+      field(`${number}`, () => {
+        const out = parse(slot);
+        out.o = omit;
+        return out;
+      });
     }
+    for (const key in message.oneofs) field(key, () => B_slot(read, locals[`c${key}`]!, unknown, unknown, [key]));
   });
+  // The record is the relocation's own Input: what each member reads is that
+  // member's.
+  fields.s = record;
   // The object's own chain from its value on, then that of each ref the walk
   // down to it passed, innermost first: a ref's `.to` and refinements run on
   // the definition's value.

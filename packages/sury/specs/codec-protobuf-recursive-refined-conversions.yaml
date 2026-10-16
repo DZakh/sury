@@ -19,24 +19,24 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{let v0;v0=e[0](i);e[1](v0)||e[8](v0);let v1;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v0["v"];if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};f=1;v=v0["e"];if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=2;v=v0["s"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);w.string(v)};f=3;v=v0["kid"];if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[2](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v1}catch(v2){e[9](v2)}}
+    expression: i=>{try{let v0;v0=e[0](i);e[1](v0)||e[8](v0);let v1;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v0.v;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};f=1;v=v0.e;if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=2;v=v0.s;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);w.string(v)};f=3;v=v0.kid;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[2](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v1}catch(v2){e[9](v2)}}
     examples:
       round:
         input: '{ v: "ok!", e: 1, s: "x", kid: undefined }'
         output: new Uint8Array([10, 4, 111, 107, 33, 33, 16, 1, 26, 1, 120])
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v0="",v1=0,v2=void 0,v3=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:v0=r.string();continue;case 16:v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 26:v2=r.string();continue;case 34:p=r.sub();v3=m0(r,d+1,v3);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v4;try{v4=e[7](v0)}catch(x){e[8](x)}typeof v4==="string"||e[9](v4);if(v3!==void 0){let v7;try{v7=e[12](v3);}catch(v8){e[13](v8,["kid"])}v3=v7;}let v9={v:v4,e:v1,s:v2,kid:v3};e[14](v9)||e[15](v9);return v9}catch(v10){e[16](v10)}}
+    expression: i=>{try{let v0="",v1=0,v2=void 0,v3=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:v0=r.string();continue;case 16:v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 26:v2=r.string();continue;case 34:p=r.sub();v3=m0(r,d+1,v3);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v4;try{v4=e[7](v0)}catch(x){e[8](x)}typeof v4==="string"||e[9](v4);if(v3!==void 0){let v7;try{v7=e[12](v3);}catch(v8){e[13](v8,["kid"])}v3=v7;}let v9={v:v4,e:v1};if(v2!==void 0){v9.s=v2}if(v3!==void 0){v9.kid=v3}e[14](v9)||e[15](v9);return v9}catch(v10){e[16](v10)}}
     examples:
       converted-once:
         input: new Uint8Array([10, 2, 111, 107])
-        output: '{ v: "o", e: 0, s: undefined, kid: undefined }'
+        output: '{ v: "o", e: 0 }'
       enum-stays-open:
         input: new Uint8Array([16, 7])
-        output: '{ v: "", e: 7, s: undefined, kid: undefined }'
+        output: '{ v: "", e: 7 }'
       default-supplied:
         input: new Uint8Array([])
-        output: '{ v: "", e: 0, s: undefined, kid: undefined }'
+        output: '{ v: "", e: 0 }'
       nested:
         input: new Uint8Array([10, 1, 97, 34, 3, 10, 1, 98])
-        output: '{ v: "", e: 0, s: undefined, kid: { v: "", e: 0, s: undefined, kid: undefined } }'
+        output: '{ v: "", e: 0, kid: { v: "", e: 0, s: undefined, kid: undefined } }'

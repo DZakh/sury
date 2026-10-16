@@ -45,26 +45,26 @@ operations:
         input: "{ counts: [1, 1099511627776] }"
         error: "Failed at counts[1]: Expected int32, received 1099511627776"
   encode:
-    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0,v3=void 0,v4=void 0,v5=void 0,v6=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3],m3=e[4],m4=e[5],m5=e[6],m6=e[7];try{r=e[9].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2=m3(r,d+1,v2);r.limit=p;continue;case 34:p=r.sub();v3=m4(r,d+1,v3);r.limit=p;continue;case 42:p=r.sub();v4=m5(r,d+1,v4);r.limit=p;continue;case 50:p=r.sub();v5=m6(r,d+1,v5);r.limit=p;continue;case 58:p=r.sub();v6.push(m1(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[10](x,e[8],t,k,v6);e[11](x)}}return {count:v0,total:v1,label:v2,flag:v3,ratio:v4,blob:v5,counts:v6}}catch(v8){e[12](v8)}}
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0,v3=void 0,v4=void 0,v5=void 0,v6=[];{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3],m3=e[4],m4=e[5],m5=e[6],m6=e[7];try{r=e[9].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();v0=m1(r,d+1,v0);r.limit=p;continue;case 18:p=r.sub();v1=m2(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2=m3(r,d+1,v2);r.limit=p;continue;case 34:p=r.sub();v3=m4(r,d+1,v3);r.limit=p;continue;case 42:p=r.sub();v4=m5(r,d+1,v4);r.limit=p;continue;case 50:p=r.sub();v5=m6(r,d+1,v5);r.limit=p;continue;case 58:p=r.sub();v6.push(m1(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[10](x,e[8],t,k,v6);e[11](x)}}let v8={counts:v6};if((v0)!==void 0){v8.count=(v0)}if((v1)!==void 0){v8.total=(v1)}if((v2)!==void 0){v8.label=(v2)}if((v3)!==void 0){v8.flag=(v3)}if((v4)!==void 0){v8.ratio=(v4)}if((v5)!==void 0){v8.blob=(v5)}return v8}catch(v9){e[12](v9)}}
     examples:
       all-absent:
         input: new Uint8Array([])
-        output: "{ count: undefined, total: undefined, label: undefined, flag: undefined, ratio: undefined, blob: undefined, counts: [] }"
+        output: "{ counts: [] }"
       zero-values-present:
         input: new Uint8Array([10, 0, 26, 0, 34, 0])
-        output: '{ count: 0, total: undefined, label: "", flag: false, ratio: undefined, blob: undefined, counts: [] }'
+        output: '{ counts: [], count: 0, label: "", flag: false }'
       values:
         input: new Uint8Array([10, 2, 8, 5, 18, 11, 8, 128, 128, 128, 128, 128, 128, 128, 128, 128, 1, 26, 3, 10, 1, 120, 34, 2, 8, 1, 42, 5, 13, 0, 0, 0, 63, 50, 4, 10, 2, 1, 2])
-        output: '{ count: 5, total: 9223372036854775808n, label: "x", flag: true, ratio: 0.5, blob: new Uint8Array([1, 2]), counts: [] }'
+        output: '{ counts: [], count: 5, total: 9223372036854775808n, label: "x", flag: true, ratio: 0.5, blob: new Uint8Array([1, 2]) }'
       seen-twice-last-wins:
         input: new Uint8Array([10, 2, 8, 1, 10, 2, 8, 2])
-        output: "{ count: 2, total: undefined, label: undefined, flag: undefined, ratio: undefined, blob: undefined, counts: [] }"
+        output: "{ counts: [], count: 2 }"
       repeated:
         input: new Uint8Array([58, 2, 8, 3, 58, 0])
-        output: "{ count: undefined, total: undefined, label: undefined, flag: undefined, ratio: undefined, blob: undefined, counts: [3, 0] }"
+        output: "{ counts: [3, 0] }"
       wrong-wire-type-skipped:
         input: new Uint8Array([10, 2, 10, 0])
-        output: "{ count: 0, total: undefined, label: undefined, flag: undefined, ratio: undefined, blob: undefined, counts: [] }"
+        output: "{ counts: [], count: 0 }"
       bad-value-fails-at-the-field:
         input: new Uint8Array([26, 3, 10, 1, 255])
         error: "Failed at label: Protobuf string is not valid UTF-8"
