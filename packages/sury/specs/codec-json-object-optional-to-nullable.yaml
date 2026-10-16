@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ a: S.optional(S.string).with(S.to, S.nullable(S.string)) }))"
+  input: JSON
+  output: "{ a: string | null; }"
+  instantiations: 6220
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, additionalProperties: false }'
+  fromInputType: "{ a?: string | undefined; }"
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "null" }] } }, required: ["a"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { a: { type: "string", nullable: true } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: S.parseOrThrow builds this schema; through S.json it should too.
+    creationError: "SuryError: Failed at a: Ambiguous string | undefined -> string | null. Should null be decoded or ignored? Choose with S.to for string -> null, or S.never -> null"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}throw e[0](v0)}let v1={};if(v0!==void 0){v1.a=v0}return v1}catch(v2){e[1](v2)}}
+    examples:
+      "null":
+        input: "{ a: null }"
+        output: "{}"
