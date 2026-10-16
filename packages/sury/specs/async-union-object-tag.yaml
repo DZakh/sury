@@ -30,13 +30,13 @@ operations:
         output: '{ k: "b", y: "w" }'
   decode:
     isAsync: true
-    expression: i=>{try{for(;;){if(i.k==="a"){let v0;try{v0=e[3](e[0](i.x),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b")break;throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[3](e[0](i.x),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b")break;throw e[4](i)}}else{throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
     examples:
       a:
         input: '{ k: "a", x: "z" }'
         output: '{ k: "a", x: "z!" }'
   encode:
-    expression: i=>{try{for(;;){if(i.k==="a"){let v0;try{v0=e[0](i.x)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i={k:"a",x:v0};break}if(i.k==="b")break;throw e[3](i)}return i}catch(v1){e[4](v1)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[0](i.x)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i={k:"a",x:v0};break}if(i.k==="b")break;throw e[3](i)}}else{throw e[3](i)}return i}catch(v1){e[4](v1)}}
     examples:
       a:
         input: '{ k: "a", x: "z!" }'

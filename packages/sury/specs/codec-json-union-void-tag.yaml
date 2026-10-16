@@ -42,7 +42,7 @@ operations:
           - "Failed at x: Expected string, received undefined"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{for(;;){if(i.t===void 0){i={t:null,x:i.x};break}if(i.t==="b")break;throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t===void 0){i={t:null,x:i.x};break}if(i.t==="b")break;throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       # FIXME: the `t: S.void` member claims every value of `t` it can bridge from
       # JSON null, so the tagged member after it is never tried.

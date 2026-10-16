@@ -2554,7 +2554,8 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
   let code = "";
   const dispatch = (from: Val, union: Internal, arms: (Field | undefined)[]): void => {
     if (union.type !== anyOfTag) {
-      const read = B_scope(valAt(from, locationOf(msg, arms[0]!)));
+      const at = locationOf(msg, arms[0]!)[0];
+      const read = at === U ? B_scope(from) : valGet(from, at);
       code += B_merge(read);
       reads.set(arms[0]!, read.i);
       return;

@@ -658,13 +658,9 @@ const internalToJSONSchemaBase = (
     const additionalItems = schema.additionalItems!;
     const required: string[] = [];
     const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
-    // A flattened union's keys stay in `properties`, as `{}`, so
-    // `additionalProperties: false` still admits them; which are required is
-    // its members' to say.
-    const unions = schema.flattened?.filter((flattened) => flattened.anyOf !== U) ?? [];
     for (const key of Object.keys(properties)) {
       const itemSchema = properties[key]!;
-      if (!isOptional(itemSchema) && !unions.some((union) => union.anyOf!.some((member) => key in member.properties!))) required.push(key);
+      if (!isOptional(itemSchema)) required.push(key);
       jsonProperties[key] = js(itemSchema, pathConcat(path, [key]));
     }
 
@@ -679,9 +675,6 @@ const internalToJSONSchemaBase = (
       jsonSchema.additionalProperties = false;
     }
     if (required.length !== 0) jsonSchema.required = required;
-    const alternatives = unions.map((union) => union.anyOf!.map((member) => js(member, path)));
-    if (alternatives.length === 1) jsonSchema.anyOf = alternatives[0];
-    else if (alternatives.length) jsonSchema.allOf = alternatives.map((anyOf) => ({ anyOf }));
   } else if (tag === refTag && schema["$ref"] === `${defsPath}${jsonName}`) {
     // S.json → empty {}
   } else if (tag === unknownTag) {

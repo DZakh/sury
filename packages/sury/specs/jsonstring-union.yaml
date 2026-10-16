@@ -35,7 +35,7 @@ operations:
         input: '{ t: "c", v: 1 }'
         error: 'Expected { t: "a"; v: string; } | { t: "b"; v: number; }, received { t: "c"; v: 1; }'
   decode:
-    expression: i=>{try{for(;;){if(i.t==="a"){i="{\"t\":\"a\",\"v\":"+e[0](i.v)+"}";break}if(i.t==="b"){let v0=i.v;i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i="{\"t\":\"a\",\"v\":"+e[0](i.v)+"}";break}if(i.t==="b"){let v0=i.v;i="{\"t\":\"b\",\"v\":"+(Number.isFinite(v0)?v0:e[1](v0))+"}";break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v1){e[3](v1)}}
     examples:
       first-variant:
         input: '{ t: "a", v: "hi" }'

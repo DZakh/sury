@@ -42,7 +42,7 @@ operations:
         input: "{ x: { b: 2 } }"
         output: '{ x: { TAG: "B", _0: 2 } }'
   encode:
-    expression: i=>{try{let v0=i.x;for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}throw e[0](v0)}return {x:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=i.x;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.TAG==="A"){v0={a:v0._0};break}if(v0.TAG==="B"){v0={b:v0._0};break}throw e[0](v0)}}else{throw e[0](v0)}return {x:v0}}catch(v1){e[1](v1)}}
     examples:
       member-a-encodes:
         input: '{ x: { TAG: "A", _0: "v" } }'

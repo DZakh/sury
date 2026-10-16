@@ -34,7 +34,7 @@ operations:
         input: '{ TAG: "N", _0: 1 }'
         output: "1"
   decode:
-    expression: i=>{try{for(;;){if(i.TAG==="Wrap"){let v0=i._0;let v1={a:v0.a};if(v0.b!==void 0){v1.b=v0.b}i=v1;break}if(i.TAG==="N"){i=i._0;break}throw e[0](i)}return i}catch(v2){e[1](v2)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Wrap"){let v0=i._0;let v1={a:v0.a};if(v0.b!==void 0){v1.b=v0.b}i=v1;break}if(i.TAG==="N"){i=i._0;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
     examples:
       none:
         input: '{ TAG: "Wrap", _0: { a: "x", b: undefined } }'

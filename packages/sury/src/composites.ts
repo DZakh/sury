@@ -1005,9 +1005,9 @@ export const valGet = (parent: Val, location: string): Val => {
   }
 }
 
-// The val at `path` under `val`, read off it where its own field vals don't
-// hold it.
-export const valAt = (val: Val, path: readonly string[]): Val => path.reduce(valGet, val);
+// The val a decoded value holds at `path`, among the field vals its decode
+// left. Never read off the value itself: an async one is a promise there.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d![key]!, val);
 
 // The object a codec read field by field: `fill` produces each field's val
 // (`B_slot`) in order, inside the field's own scope when the operation

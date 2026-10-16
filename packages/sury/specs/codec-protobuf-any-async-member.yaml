@@ -23,7 +23,7 @@ operations:
     creationError: "SuryError: S.protobuf: an Any holds a message that converts asynchronously, which a member of several can't"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v0=i.u;for(;;){if(v0.type==="au"){let v1=v0.value;let v2;try{v2=e[0](v1.name)}catch(x){e[1](x)}typeof v2==="string"||e[2](v2);v0={type:"au",value:{name:v2}};break}if(v0.type==="b"){let v3=v0.value;break}throw e[3](v0)}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v4}catch(v5){e[11](v5)}}
+    expression: i=>{try{let v0=i.u;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="au"){let v1=v0.value;let v2;try{v2=e[0](v1.name)}catch(x){e[1](x)}typeof v2==="string"||e[2](v2);v0={type:"au",value:{name:v2}};break}if(v0.type==="b"){let v3=v0.value;break}throw e[3](v0)}}else{throw e[3](v0)}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v4}catch(v5){e[11](v5)}}
     examples:
       member:
         input: '{ u: { type: "b", value: { n: 1 } } }'

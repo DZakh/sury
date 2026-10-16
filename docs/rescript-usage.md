@@ -713,25 +713,6 @@ let entitySchema = S.object(s => {
 })
 ```
 
-A union of object schemas reads whichever arm the object holds:
-
-```rescript
-type shape = Circle({radius: float}) | Square({side: float})
-
-let schema = S.object(s => {
-  "id": s.field("id", S.float),
-  "shape": s.flatten(
-    S.union([
-      S.object(s => Circle({radius: s.field("r", S.float)})),
-      S.object(s => Square({side: s.field("s", S.float)})),
-    ]),
-  ),
-})
-
-%raw(`{id: 1, s: 2}`)->S.parseOrThrow(~to=schema)
-// {"id": 1., "shape": Square({side: 2.})}
-```
-
 #### `s.nested`
 
 A nice way to parse nested fields:

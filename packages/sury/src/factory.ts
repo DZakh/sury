@@ -12,12 +12,10 @@ import {
   copySchema,
   globalConfig,
   immutableEmptyArray,
-  inlinedProperty,
   inlinedValueFromString,
   inputExpression,
   type Internal,
   isLiteral,
-  isOptional,
   itemSymbol,
   noopDecoder,
   objectTag,
@@ -35,7 +33,6 @@ import {
   type Val,
 } from "./base";
 import {
-  _notVar,
   _notVarAtParent,
   _var,
   B_addObjectField,
@@ -59,6 +56,7 @@ import {
   makeObjectVal,
   objectDecoder,
   traverseDefinition,
+  valAt,
   valGet,
 } from "./composites";
 import { getOutputSchema, parse, reverse, setDefault } from "./parse";
@@ -171,9 +169,6 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
   (fieldName: string, schema: Internal, or: unknown): unknown => {
     return field(fieldName, fieldOrSchema(schema, or));
   };
-
-const unionKeys = (union: Internal): Set<string> =>
-  new Set(union.anyOf!.flatMap((member) => Object.keys(member.properties!)));
 
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
@@ -289,16 +284,15 @@ const schemaNested = function (this: AdvancedObjectCtx & Record<string, unknown>
   }
 };
 
-type ObjectField = (fieldName: string, schema: Internal) => unknown;
-
-// The object a definer builds, handed the ctx `ctxOf` makes: a consumer's
-// (`schemaObject`), or the one a codec relocates its record with
-// (`schemaRelocation`), which has no use for the rest and so leaves it out of
-// the codec's bundle.
-const definedObject = <Ctx>(definer: (ctx: Ctx) => unknown, ctxOf: (field: ObjectField, flatten: (schema: Internal) => unknown) => Ctx): Internal => {
+// @__NO_SIDE_EFFECTS__
+export const schemaObject = (
+  definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
+): Internal => {
+  if (typeof definer !== "function") {
+    return definitionToSchema(definer);
+  }
   let flattened: Internal[] | undefined = U;
   const properties = Object.create(null) as Record<string, Internal>;
-  const read = new Set<string>();
 
   const flatten = (schema: Internal): unknown => {
     if (schema.type === objectTag) {
@@ -318,25 +312,6 @@ const definedObject = <Ctx>(definer: (ctx: Ctx) => unknown, ctxOf: (field: Objec
       }
       const f = flattened || (flattened = []);
       return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
-    } else if (schema.type === anyOfTag && schema.anyOf!.every((m) => m.type === objectTag && typeof m.additionalItems !== objectTag)) {
-      // The union reads and checks these keys itself, so the parent hands them
-      // over as they are.
-      for (const key of unionKeys(schema)) {
-        if (key in properties) panic(`The field "${key}" defined twice with incompatible schemas`);
-        properties[key] = unknown;
-        read.add(key);
-      }
-      // The object holds the parent's keys too, so which others it may hold is
-      // the parent's to say.
-      const union = copySchema(schema);
-      union.anyOf = schema.anyOf!.map((member) => {
-        if (member.additionalItems !== "strict") return member;
-        const strip = copySchema(member);
-        strip.additionalItems = "strip";
-        return strip;
-      });
-      const f = flattened || (flattened = []);
-      return proxifyShapedSchema(union, inputFrom, f.push(union) - 1);
     } else {
       return panic(`The '${inputExpression(schema)}' schema can't be flattened`);
     }
@@ -350,7 +325,9 @@ const definedObject = <Ctx>(definer: (ctx: Ctx) => unknown, ctxOf: (field: Objec
     return proxifyShapedSchema(schema, [fieldName]);
   };
 
-  const definition = definer(ctxOf(field, flatten));
+  const ctx = makeObjectCtx(field, flatten);
+
+  const definition = definer(ctx);
 
   const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
@@ -360,27 +337,9 @@ const definedObject = <Ctx>(definer: (ctx: Ctx) => unknown, ctxOf: (field: Objec
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
     mut.flattened = flattened;
-    if (read.size) {
-      const own = baseSchema(objectTag, false, objectDecoder);
-      own.properties = Object.create(null);
-      for (const key in properties) if (!read.has(key)) own.properties![key] = properties[key]!;
-      mut.expression = () =>
-        inputExpression(own) + flattened!.map((schema) => (schema.anyOf ? ` & (${inputExpression(schema)})` : "")).join("");
-    }
   }
   return mut;
 }
-
-// @__NO_SIDE_EFFECTS__
-export const schemaObject = (
-  definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
-): Internal => (typeof definer !== "function" ? definitionToSchema(definer) : definedObject(definer, makeObjectCtx));
-
-type RelocationCtx = { field: ObjectField; tag: (tag: string, asValue: unknown) => void; flatten: (schema: Internal) => unknown };
-
-// @__NO_SIDE_EFFECTS__
-export const schemaRelocation = (definer: (ctx: RelocationCtx) => unknown): Internal =>
-  definedObject(definer, (field, flatten) => ({ field, tag: makeTag(field), flatten }));
 
 // @__NO_SIDE_EFFECTS__
 export const schemaTuple = (
@@ -426,18 +385,6 @@ export const schemaTuple = (
   return mut;
 }
 
-const getValByFrom = (input: Val, from: string[], idx: number): Val => {
-  // Flattened schemas are resolved by the caller (getShapedParserOutput picks
-  // the right `input.fv[fromFlattened]` before calling this) - this walk only
-  // needs to handle a plain nested `from` path.
-  const key = from[idx];
-  if (key !== U) {
-    return getValByFrom(input.d![key]!, from, idx + 1);
-  } else {
-    return input;
-  }
-}
-
 // Owns the shaped structure walk: assembles an object/tuple val from a
 // per-location field producer. `init` wires the fresh objectVal before the
 // walk and may pre-populate `d` (flattened merge) - pre-populated locations
@@ -447,8 +394,7 @@ const assembleShapedObject = (
   schema: Internal,
   field: (location: string, childSchema: Internal) => Val,
   init?: (output: Val) => void,
-  onMissing?: () => void,
-  open?: boolean
+  onMissing?: () => void
 ): Val => {
   const output = schema.type === arrayTag ? makeArrayVal(input) : makeObjectVal(input);
   output.io = true;
@@ -479,36 +425,25 @@ const assembleShapedObject = (
         (input.path.length ? ` at ${pathToText(compilePath(input.path))}` : "")
     );
   }
-  return open ? output : completeObjectVal(output);
+  return completeObjectVal(output);
 }
 
-const getShapedParserOutput = (input: Val, targetSchema: Internal, prev?: Val): Val => {
+const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
     v = B_scope(
-      getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
+      valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!)
     );
   } else if (targetSchema.from !== U) {
-    const field = getValByFrom(input, targetSchema.from, 0);
-    v = B_scope(field);
-    v.o = field.o;
+    v = B_scope(valAt(input, targetSchema.from));
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
-    // Linked where the object starts, so a field left out when absent is
-    // still set on the object it declared.
-    v = assembleShapedObject(
-      input,
-      targetSchema,
-      (_location, childSchema) => getShapedParserOutput(input, childSchema),
-      (output) => {
-        output.prev = prev;
-      }
+    v = assembleShapedObject(input, targetSchema, (_location, childSchema) =>
+      getShapedParserOutput(input, childSchema)
     );
-    v.e = targetSchema;
-    return v;
   }
-  v.prev = prev;
+  v.prev = U;
   v.e = targetSchema;
   return v;
 }
@@ -524,44 +459,8 @@ const shapedParser: Builder = (input: Val) => {
       // decoded vals. Reuse them here instead of decoding again - re-decoding
       // would re-apply field-level transforms on the already-transformed value
       // (issue #271).
-      let flattenedVal!: Val;
-      if (flattenedSchema.type === anyOfTag) {
-        // The object the parent was handed, with the fields it already read.
-        // Re-read rather than held in a var, so the arm the union picks goes
-        // to a var of the union's own, and compiled inside the guard, so that
-        // var is declared where the parent's output reads it. It may hold
-        // keys neither declares, so every arm builds its own result.
-        const unionInput = B_scope(input);
-        unionInput.v = _notVar;
-        unionInput.fz = true;
-        // A codec's record, decoded as the parent's own Input with every key
-        // the union's members read already read and typed, holds one of them,
-        // so a member that reshapes from a literal of its own is picked by it.
-        // Each reads its fields where the parent read them, so the record is
-        // read only for a failure that names it. A key the Input declares
-        // `unknown` is the member's to check.
-        if (
-          input.s === input.e &&
-          flattenedSchema.anyOf!.every(
-            (member) =>
-              member.to !== U &&
-              Object.values(member.properties!).some(isLiteral) &&
-              Object.keys(member.properties!).every((key) => input.d?.[key] !== U && input.d![key]!.s !== unknown)
-          )
-        ) {
-          unionInput.s = flattenedSchema;
-        } else {
-          unionInput.i = (input.t ? input.prev! : input).v();
-          unionInput.s = copySchema(input.s);
-          unionInput.s.additionalItems = unknown;
-        }
-        unionInput.e = flattenedSchema;
-        unionInput.io = false;
-        B_unlessCollected(input, () => B_merge((flattenedVal = parse(unionInput))));
-        if (flattenedVal.f & 1) B_invalidOperation(input, `Can't flatten ${inputExpression(flattenedSchema)}: a member is async`);
-        flattenedVals.push(flattenedVal);
-        continue;
-      } else if (flattenedSchema.to !== U) {
+      let flattenedVal: Val;
+      if (flattenedSchema.to !== U) {
         // The flattened schema has its own reshape/transform. Mark the input as
         // output so the parse loop skips the decoder and runs only that `.to`,
         // reading the decoded fields back through the shared `vals`.
@@ -593,8 +492,9 @@ const shapedParser: Builder = (input: Val) => {
   }
 
   const targetSchema = input.e.to!;
-  const output = getShapedParserOutput(input, targetSchema, input);
+  const output = getShapedParserOutput(input, targetSchema);
   output.t = true;
+  output.prev = input;
   return B_markOutput(output, input);
 }
 
@@ -654,8 +554,7 @@ const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
   targetSchema: Internal,
-  path: Path,
-  open?: boolean
+  path: Path
 ): Val => {
   if (acc !== U && acc.val !== U) {
     // Placement of an already-decoded val - don't overwrite its schema (#284)
@@ -723,28 +622,13 @@ const getShapedSerializerOutput = (
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
             v.cp = v.cp + B_merge(flattenedOutput);
-            const union = flattenedSchemas[idx]!.anyOf;
-            if (union !== U && flattenedOutput.d === U) {
-              // Members with nothing to convert: the value is the picked one.
-              const at = flattenedOutput.v();
-              for (const key of unionKeys(flattenedSchemas[idx]!)) {
-                const field = B_next(flattenedOutput, inlinedProperty(at, key), unknown);
-                field.prev = U;
-                field.o = union.some((member) => member.properties![key] === U || isOptional(member.properties![key]!));
-                B_addObjectField(v, key, field);
-              }
-            } else {
-              for (const key of Object.keys(flattenedOutput.d!)) {
-                const field = valGet(flattenedOutput, key);
-                if (union !== U) field.o = flattenedOutput.d![key]!.o;
-                B_addObjectField(v, key, field);
-              }
+            for (const key of Object.keys(flattenedOutput.d!)) {
+              B_addObjectField(v, key, valGet(flattenedOutput, key));
             }
           });
         }
       },
-      missingInput,
-      open
+      missingInput
     );
     return assembled;
   }
@@ -771,44 +655,6 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   s.serializer = shapedSerializer;
   return s;
 }
-
-// The record `relocated` reads `value` from, for a codec that writes it field
-// by field: the val's code places each field as an encode does and its `d`
-// holds them by record key, but the record itself is never assembled. `value`
-// is the relocation's Output as it stands, its field vals the ones already
-// read off it.
-export const B_unrecord = (value: Val, relocated: Internal): Val => {
-  const reversed = reverse(relocated);
-  const at = B_scope(value);
-  at.s = at.e = reversed;
-  at.d = U;
-  // A value that is a flattened union whole puts its members' fields in vars
-  // of its own.
-  at.io = reversed.properties === U ? false : U;
-  const read = at.io === false ? reversed.decoder(at) : B_refine(at);
-  if (at.io !== false) {
-    read.io = true;
-    read.d = Object.create(null);
-  }
-  for (const key in reversed.properties) {
-    const property = reversed.properties[key]!;
-    const known = value.d?.[key];
-    let field = known !== U ? B_scope(known) : valGet(at, key);
-    field.s = field.e = property;
-    if (property.fromFlattened === U) field.io = true;
-    else {
-      field.io = false;
-      field = parse(field);
-      read.cp += B_merge(field);
-    }
-    read.d![key] = field;
-  }
-  const acc: ShapedSerializerAcc = at.io === false ? { flattened: [{ val: read }] } : {};
-  if (at.io !== false) prepareShapedSerializerAcc(acc, read);
-  const record = getShapedSerializerOutput(read, acc, reversed.to!, pathEmpty, true);
-  record.prev = read;
-  return record;
-};
 
 const schemaCtx: SchemaCtx = {
   m: (schema) => schema,

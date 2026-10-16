@@ -807,25 +807,6 @@ S.encodeOrThrow(userSchema)({
 // => returns { USER_ID: 1, USER_NAME: "John" }
 ```
 
-`s.flatten` reads another schema's fields from the same object. A union of object schemas reads whichever arm the object holds:
-
-```ts
-const shapeSchema = S.object((s) => ({
-  id: s.field("id", S.number),
-  shape: s.flatten(
-    S.union([
-      S.object((c) => ({ kind: "circle" as const, radius: c.field("r", S.number) })),
-      S.object((c) => ({ kind: "square" as const, side: c.field("s", S.number) })),
-    ])
-  ),
-}));
-
-S.parseOrThrow(shapeSchema)({ id: 1, s: 2 });
-// => returns { id: 1, shape: { kind: "square", side: 2 } }
-S.encodeOrThrow(shapeSchema)({ id: 1, shape: { kind: "circle", radius: 3 } });
-// => returns { id: 1, r: 3 }
-```
-
 ### `strict`
 
 By default **Sury** object schema strip out unrecognized keys during parsing. You can disallow unknown keys with `S.strict` function. If there are any unknown keys in the input, **Sury** will fail with an error.

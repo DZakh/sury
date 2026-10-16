@@ -47,4 +47,9 @@ operations:
       null-takes-the-default:
         input: "null"
         output: "{ a: false }"
-  encode: identity
+  encode:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      object:
+        input: "{ a: true }"
+        output: "{ a: true }"

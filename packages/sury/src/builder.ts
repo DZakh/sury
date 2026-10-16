@@ -979,7 +979,7 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 // sink, since the `if` is a block.
 export const B_unlessCollected = (container: Val, emit: () => string): void => {
   const g = container.g, k = g.k;
-  if (!k || !B_collects(g) || !container.k) {
+  if (!k || !B_collects(g)) {
     container.cp += emit();
     return;
   }
