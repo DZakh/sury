@@ -476,8 +476,6 @@ const assembleShapedObject = (
   return open ? output : completeObjectVal(output);
 }
 
-// `prev` is what the value's code follows: the parent's own decode at the top,
-// nothing for a part of it.
 const getShapedParserOutput = (input: Val, targetSchema: Internal, prev?: Val): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
@@ -726,7 +724,6 @@ const getShapedSerializerOutput = (
             } else {
               for (const key of Object.keys(flattenedOutput.d!)) {
                 const field = valGet(flattenedOutput, key);
-                // A key only some of a union's members hold.
                 if (union !== U) field.o = flattenedOutput.d![key]!.o;
                 B_addObjectField(v, key, field);
               }
@@ -790,8 +787,6 @@ export const B_unrecord = (value: Val, relocated: Internal): Val => {
     const known = value.d?.[key];
     let field = known !== U ? B_scope(known) : valGet(at, key);
     field.s = field.e = property;
-    // A leaf goes to its key as it stands; a flattened union puts its
-    // members' fields in vars of its own.
     if (property.fromFlattened === U) field.io = true;
     else {
       field.io = false;

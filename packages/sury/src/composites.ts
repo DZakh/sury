@@ -196,8 +196,7 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
-// `spelled`: every field is written, an absent one as `undefined`.
-export const completeObjectVal = (objectVal: Val, spelled?: boolean): Val => {
+export const completeObjectVal = (objectVal: Val, writeAbsent?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
@@ -211,7 +210,7 @@ export const completeObjectVal = (objectVal: Val, spelled?: boolean): Val => {
     if ((val.f & 1)) {
       promised.push(val);
     }
-    if (val.o && !spelled) {
+    if (val.o && !writeAbsent) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
       optionalSettingCode = (objectVar: string) => {
         return (

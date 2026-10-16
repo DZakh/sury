@@ -80,22 +80,17 @@ type Field = {
   // Key type of a map field; unset for anything else.
   map?: ProtobufType;
   oneof?: string;
-  // A member of a union oneof, sharing the property `key` with the others:
-  // the name it prints as, and the value it declares.
+  // A member of a union oneof or of a typed Any, sharing the property `key`
+  // with the others: the name it prints as, and the value it declares.
   name?: string;
   armValue?: Internal;
   // A 64-bit field held as its decimal string, whose zero is "0".
   text?: boolean;
-  // What the reader produces, and what the record holds it as.
-  raw: Internal;
-  read: Internal;
-  // Where the value holds it.
+  fromWire: Internal;
+  held: Internal;
   path: string[];
-  // Left out of the value when the wire leaves it out.
   omit?: boolean;
-  // A message whose reader hands back the value the field holds, which
-  // nothing converts again.
-  done?: boolean;
+  fromWireIsHeld?: boolean;
 };
 
 // A union oneof's members in the order the union lists them, each with the
@@ -119,7 +114,7 @@ type Message = {
   // and what an error about it names.
   name?: string;
   // Set once a field under it refers back to it.
-  rec?: true;
+  recursive?: true;
   // The Google type it is, printed as an import rather than declared.
   wellKnown?: WellKnownType;
   typeName?: string;
@@ -137,8 +132,8 @@ type Message = {
   // scalar, a FieldMask's paths.
   unwrap?: boolean;
   oneofs?: Record<string, Members>;
-  relocated?: Internal;
-  // A reader whose value converts asynchronously, and so hands back a promise.
+  // The reader's relocation, then the writer's.
+  relocated?: Internal[];
   async?: boolean;
 };
 
@@ -338,7 +333,7 @@ const optionalMessage = (raw: Internal): Internal => {
 // `S.optional(T, default)`: the raw side is `T | undefined` whose encoder
 // parses a present value into `present` and an absent one through the
 // union's default arm, so the decoded value is never re-validated and an
-// enum stays open. No `present`: a present value is already the field's.
+// enum stays open.
 const defaultedOptional = (raw: Internal, present: Internal | undefined, absent: Internal): Internal => {
   const mut = optionalMessage(raw);
   mut.encoder = (input, target) => {
@@ -411,7 +406,7 @@ const rejectEndless = (ctx: Ctx): void => {
   // From every message a cycle closed on, the root or not: the first message of
   // a cycle the build entered is still building when the cycle comes back to it,
   // so every cycle has one, and one under an optional field is reached too.
-  ctx.messages.forEach((message) => message.rec && walk(message));
+  ctx.messages.forEach((message) => message.recursive && walk(message));
 };
 
 type Arm = { name: string; key: string | undefined; value: Internal; member: Internal; metadata: StoredField };
@@ -431,8 +426,6 @@ const entriesOf = (member: Internal): Record<string, Internal> | undefined =>
   : member.type === arrayTag && member.items !== U ? ({ ...member.items } as {})
   : U;
 
-// The literal telling members apart, which a member holding a string prints
-// as and a failure names it by.
 type Told = { tag?: string; literals: string[] };
 
 // `keys` are the arms', which come first in `members`.
@@ -553,8 +546,6 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   if ((arms.length > 1 || unset !== U) && tellApart(members, arms.map((arm) => arm.key), arms.map((arm) => arm.metadata.type === "message")) === U) {
     return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
   }
-  // An arm prints as the literal telling it apart from the others, where one
-  // is a string.
   const tag = tagAmong(members, arms.map((arm) => arm.key));
   for (const arm of arms) {
     const literal = tag === U ? U : literalOf(entriesOf(arm.member)![tag]);
@@ -588,8 +579,6 @@ const keepsShape = (type: ProtobufType, shape: Internal): boolean =>
   (type === "enum" && (shape.type === anyOfTag || shape.const !== U)) ||
   ((type === "double" || type === "float") && !!shape.anyOf?.some((member) => member.const !== member.const));
 
-// A typed Any, read and written as a oneof of its members by its type URL
-// (`Message.any`).
 const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
   const memo = "any" + shape.seq;
   let msg = ctx.messages.get(memo);
@@ -601,14 +590,14 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
     return panic(`S.protobuf: ${where} is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals`);
   }
   const [arms, other, told] = known;
-  const own = (number: number, key: string, type: ProtobufType): Field => ({ number, type, packed: true, key, repeated: false, optional: false, wire: wireType(type), raw: unknown, read: unknown, path: [key] });
+  const own = (number: number, key: string, type: ProtobufType): Field => ({ number, type, packed: true, key, repeated: false, optional: false, wire: wireType(type), fromWire: unknown, held: unknown, path: [key] });
   msg = { fields: [own(1, "typeUrl", "string"), own(2, "value", "bytes")], object: shape, raw: shape, links: [], typeName: "google.protobuf.Any", any: { members: [], told } };
   ctx.messages.set(memo, msg);
   for (const [name, payload, key, member] of other === U ? arms : [...arms, other]) {
     const message = compileMessage(payload, ctx);
     if (message === U) return panic(`S.protobuf: ${where} holds ${name}, whose schema is not an object`);
     msg.any!.members.push(member);
-    msg.fields.push({ number: msg.fields.length + 1, type: "message", packed: true, key: "c", repeated: false, optional: true, wire: 2, name, message, raw: payload, read: payload, path: key === U ? [] : [key], done: true });
+    msg.fields.push({ number: msg.fields.length + 1, type: "message", packed: true, key: "c", repeated: false, optional: true, wire: 2, name, message, fromWire: payload, held: payload, path: key === U ? [] : [key], fromWireIsHeld: true });
   }
   return msg;
 };
@@ -636,7 +625,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   if (built !== U) {
     // A recursive message reached first through a ref the user didn't name.
     built.typeName ??= typeName;
-    if (ctx.stack.includes(built)) built.rec = true;
+    if (ctx.stack.includes(built)) built.recursive = true;
     return built;
   }
   const msg: Message = {
@@ -652,10 +641,9 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   ctx.stack.push(msg);
   const fields: Field[] = [];
   const numbers = new Set<number>();
-  // What a field numbered by `m` holds of `at`, whose output is `shape`: the
-  // message it is, what its reader reads, what the record holds and an Any's
-  // writer. A message's own reader hands back the value `at` declares; a
-  // wrapper's scalar and a codec's value still convert.
+  // A compiled message's reader hands back the value `at` declares, which
+  // nothing converts again; a scalar, a wrapper's scalar and a codec's value
+  // convert from what the wire read.
   // `whole` is what an Any holds, absent included.
   const holding = (m: StoredField, at: Internal, shape: Internal, where: string, whole = shape): [Message | undefined, Internal, Internal] => {
     const known = m.type.startsWith("google.") ? (m.type as WellKnownType) : U;
@@ -715,10 +703,10 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           name: arm.name,
           armValue: arm.value,
           text: armShape.type === stringTag && type.includes("64"),
-          raw,
-          read,
+          fromWire: raw,
+          held: read,
           path: arm.key === U ? [key] : [key, arm.key],
-          done: raw === read,
+          fromWireIsHeld: raw === read,
         };
         fields.push(field);
         armFields.push(field);
@@ -746,7 +734,6 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
-    // What the item holds, past optional, repeated and map.
     const item = repeated || map !== U ? (container.additionalItems as Internal) : U;
     let [message, raw, read] = holding(metadata, item ?? propertyValue, shape, `field "${key}"`, getOutputSchema(item ?? property));
     const done = raw === read;
@@ -782,11 +769,11 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       oneof: metadata.oneof,
       wire: wireType(type),
       text: shape.type === stringTag && type.includes("64"),
-      raw,
-      read,
+      fromWire: raw,
+      held: read,
       path: [key],
       omit: optional && absent === U,
-      done,
+      fromWireIsHeld: done,
     };
     fields.push(field);
   }
@@ -1171,9 +1158,6 @@ export class Reader {
     if (tag < 8) fail("Invalid protobuf field number 0");
     skip(this, tag & 7, tag >>> 3, 0);
   }
-  // Enters a length-delimited field: narrows `limit` to it and returns the
-  // outer limit for the caller to restore. Bounds checks against `limit`
-  // are what stop a nested read escaping its field.
   // The payloads a field seen again was given past its first, kept for the
   // read after the loop: each as its range and the next one's index, the
   // first also holding the last's. Reused from one decode to the next, so a
@@ -1193,6 +1177,9 @@ export class Reader {
     x[first + 3] = at;
     return first;
   }
+  // Enters a length-delimited field: narrows `limit` to it and returns the
+  // outer limit for the caller to restore. Bounds checks against `limit`
+  // are what stop a nested read escaping its field.
   sub(): number {
     const len = this.len();
     const end = this.pos + len;
@@ -1770,8 +1757,8 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
       repeated: scalar === U,
       optional: false,
       wire: wireType(scalar ?? "string"),
-      raw,
-      read: raw,
+      fromWire: raw,
+      held: raw,
       path: [],
     };
     msg = { fields: [field], object: shape, raw, wellKnown: type, unwrap: true };
@@ -2115,7 +2102,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
   // body is inlined there rather than called; it needs a function of its own
   // only where a field under it refers back to it.
   fns.forEach((name, msg) => {
-    if (msg === root && root.rec === U) return;
+    if (msg === root && root.recursive === U) return;
     names.push(name);
     if (msg.codec !== U) {
       params.push(name);
@@ -2281,8 +2268,9 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
   };
 };
 
-// The opaque value a oneof member's reader hands back: the record holds it
-// as it stands, so the member it lands in converts nothing.
+// What a record holds a message as when it holds the value as it stands: a
+// member's reader hands back the value, and a writer's record holds the one it
+// was given, so the member it lands in converts nothing.
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
 // A message whose value converts asynchronously hands back a promise, whose
@@ -2315,15 +2303,12 @@ const caseOf = (union: Internal, numbers: number[]): Internal => {
   return tag;
 };
 
-// The value of a message the reader read into `local`s, built by the core: each
-// field converts from what the wire read into what the record holds, the
-// relocation places it, then the object's chain runs and each link's.
 const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => string): Val => {
   const record = relocated(msg);
   const at = B_next(base, "", record, record);
   const sets: Record<string, number> = Object.create(null);
   const fields = B_record(at, (field) => {
-    msg.fields.forEach(({ number, raw, read: as, path, omit, name, done, repeated, map, key, message }, idx) => {
+    msg.fields.forEach(({ number, fromWire: raw, held: as, path, omit, name, fromWireIsHeld: done, repeated, map, key, message }, idx) => {
       // An Any's own fields are read by its reader alone.
       if (msg.any !== U && idx < 2) return;
       // A member converts in the member that holds it, once it is the one set.
@@ -2383,7 +2368,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
   for (let changed = true; changed; ) {
     changed = false;
     fns.forEach((name, msg) => {
-      if ((msg === root && root.rec === U) || msg.codec !== U || msg.unwrap) return;
+      if ((msg === root && root.recursive === U) || msg.codec !== U || msg.unwrap) return;
       const base = B_operationArg(unknown, unknown, flag);
       base.g = g;
       const value = valueOf(base, msg, local);
@@ -2392,7 +2377,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
     });
   }
   fns.forEach((name, msg) => {
-    if (msg === root && root.rec === U) return;
+    if (msg === root && root.recursive === U) return;
     if (msg.codec !== U) {
       params.push(name);
       args.push(ranged(codecs[msg.wellKnown!]![0]));
@@ -2457,8 +2442,6 @@ const protobufDecoder = (input: Val): Val => {
     names.set(msg, fn === U ? name : B_embedPure(input, fn));
   });
   const validated = fieldValsOf(input);
-  // The record the relocation reads the value from, field by field: a oneof's
-  // members are each a field of it, only the one set holding a value.
   const placed = B_unrecord(input, relocated(message, true));
   const head = B_merge(placed);
   const readRoot: Read = (field) => {
@@ -2501,9 +2484,6 @@ const guarded = (input: Val, output: Val, target: Internal, code: string, releas
   return `try{${code}}catch(x){${release}${failure}}`;
 };
 
-// What a union oneof's member holds once read: its literals around the one
-// value the field read, or that value bare. The member for no field set holds
-// only literals, or is `undefined`.
 const armDefinition = (member: Internal, key: string | undefined, leaf: unknown): unknown => {
   const entries = entriesOf(member);
   if (leaf !== U && key === U) return leaf;
@@ -2524,7 +2504,7 @@ const armDefinition = (member: Internal, key: string | undefined, leaf: unknown)
 // apart takes.
 const asWritten = (field: Field): Internal => {
   if (field.name === U) return unknown;
-  const shape = getOutputSchema(field.read);
+  const shape = getOutputSchema(field.held);
   if (isLiteral(shape) || shape.type === anyOfTag) return shape;
   if (shape.type === objectTag || shape.type === refTag) return opaque;
   if (shape.type === arrayTag) return arrayFactory(unknown);
@@ -2540,11 +2520,10 @@ const asWritten = (field: Field): Internal => {
 // holds under the oneof's own key (0 for none). A reader's record converts
 // from what the wire read; a writer's holds the value as it stands.
 const relocated = (message: Message, writes?: boolean): Internal =>
-  (message.relocated ??= schemaRelocation((s) => {
-    const leaf = (field: Field): Internal => (writes ? asWritten(field) : field.name !== U && field.done ? opaque : field.read);
+  ((message.relocated ??= [])[writes ? 1 : 0] ??= schemaRelocation((s) => {
+    const leaf = (field: Field): Internal => (writes ? asWritten(field) : field.name !== U && field.fromWireIsHeld ? opaque : field.held);
     const any = message.any;
     if (any !== U) {
-      // An Any's value is its member, picked by the number of the field for it.
       const members = message.fields.slice(2);
       const arm = (c: typeof s, idx: number): unknown => armDefinition(any.members[idx]!, members[idx]!.path[0], c.field(`${members[idx]!.number}`, opaque));
       const whole = message.object;
@@ -2590,8 +2569,6 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
   nameMessages(message, fns);
   const readers = compileDecoder(message, fns, input.g.o);
   const locals: Record<string, string> = Object.create(null);
-  // The fields' locals are the operation's: what the value is built from
-  // after the loop.
   const local = (kind: string, idx: number): string => (locals[kind + idx] ??= B_varWithoutAllocation(input.g));
   // The helpers by the names the nested readers call them, so the root's loop
   // is spelled as theirs is.

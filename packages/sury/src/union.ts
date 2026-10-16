@@ -982,7 +982,6 @@ const unionEmit = (
   // its result key by key, so each case puts its fields in a var per key
   // instead of building an object.
   const joins: Record<string, string> | undefined = self.fromFlattened !== U ? Object.create(null) : U;
-  // Set by every case: a key some case leaves out reads as optional.
   const always: Record<string, number> = Object.create(null);
   let joined = 0;
   let output = B_refine(input);
