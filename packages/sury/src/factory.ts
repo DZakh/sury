@@ -767,9 +767,14 @@ export const B_unrecord = (value: Val, relocated: Internal): Val => {
   const at = B_scope(value);
   at.s = at.e = reversed;
   at.d = U;
-  const read = B_refine(at);
-  read.io = true;
-  read.d = Object.create(null);
+  // A value that is a flattened union whole puts its members' fields in vars
+  // of its own.
+  at.io = reversed.properties === U ? false : U;
+  const read = at.io === false ? reversed.decoder(at) : B_refine(at);
+  if (at.io !== false) {
+    read.io = true;
+    read.d = Object.create(null);
+  }
   for (const key in reversed.properties) {
     const property = reversed.properties[key]!;
     const known = value.d?.[key];
@@ -785,8 +790,8 @@ export const B_unrecord = (value: Val, relocated: Internal): Val => {
     }
     read.d![key] = field;
   }
-  const acc: ShapedSerializerAcc = {};
-  prepareShapedSerializerAcc(acc, read);
+  const acc: ShapedSerializerAcc = at.io === false ? { flattened: [{ val: read }] } : {};
+  if (at.io !== false) prepareShapedSerializerAcc(acc, read);
   const record = getShapedSerializerOutput(read, acc, reversed.to!, pathEmpty, true);
   record.prev = read;
   return record;
