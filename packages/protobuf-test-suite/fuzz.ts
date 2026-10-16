@@ -633,11 +633,10 @@ const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values
 };
 
 // A oneof spelled as a union of arms against the same group spelled flat: the
-// same bytes for the same member, and the arm read back. A union writes the
-// first member a value matches, so the bare spellings are left out where two
-// members share a runtime type, or one shares the type of the `""` for no
-// member set (what a string member is most often drawn as): the flat value
-// names a member the union's can't.
+// same bytes for the same member, and the arm read back. The bare spellings
+// are refused where two members share a runtime type, or one shares the type
+// of the `""` for no member set (what a string member is most often drawn as);
+// that refusal is the only one a spelling may meet.
 // Numeric tags start at 0, falsy, and sit under `length`, a key a bare literal
 // for no member set answers too; neither may be read as an arm. Its own
 // stream, as the Any family's.
@@ -661,10 +660,6 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     : spelling === 4 ? S.tuple(["none"])
     : spelling === 6 ? S.schema("")
     : undefined;
-  const runtime = (def: FieldDef): string =>
-    def.type === "message" || def.type === "string" || def.type === "bytes" || def.type === "bool" ? def.type : /64/.test(def.type) ? "bigint" : "number";
-  const types = members.map(runtime);
-  if (spelling >= 5 && (new Set(types).size < types.length || (spelling === 6 && types.includes("string")))) return 0;
   let flat: (value: unknown) => Uint8Array;
   let encode: (value: unknown) => Uint8Array;
   let decode: (bytes: Uint8Array) => unknown;
@@ -680,6 +675,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     encode = S.decodeOrThrow(message, S.protobuf) as never;
     decode = S.decodeOrThrow(S.protobuf, message) as never;
   } catch (e) {
+    if (spelling >= 5 && (e as Error).message.includes("can't tell its arms apart")) return 0;
     findings.push({ kind: `oneof: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling}` });
     return 1;
   }

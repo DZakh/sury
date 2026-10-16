@@ -2,6 +2,8 @@ import {
   anyOfTag,
   arrayTag,
   baseSchema,
+  bigintTag,
+  booleanTag,
   type Builder,
   type Check,
   compilePath,
@@ -457,15 +459,38 @@ const tagAmong = (members: Internal[], keys: (string | undefined)[]): string | u
   });
 };
 
-// What an encode tells Any members apart by: a literal every member holds a
-// different one of, else among the members of each runtime type one telling
-// those apart.
-const tellApart = (members: Internal[], keys: (string | undefined)[]): Told | undefined => {
+
+// The runtime type a bare arm's value has.
+const typeOf = (schema: Internal, message: boolean): string | undefined => {
+  const output = getOutputSchema(schema);
+  const type = output.type;
+  if (type === anyOfTag) {
+    const types = new Set(output.anyOf!.filter((member) => member.type !== undefinedTag).map((member) => typeOf(member, message)));
+    return types.size === 1 ? [...types][0] : U;
+  }
+  return type === stringTag || type === numberTag || type === bigintTag || type === booleanTag || type === arrayTag || type === objectTag ? type
+    : type === refTag ? (message ? objectTag : U)
+    : type === instanceTag && (output.class === Uint8Array || output.class === Date) ? (output.class as Function).name
+    : U;
+};
+
+// An encode writes the member a value is, so one it can't tell from another
+// would come back from the wire as that other: members are told apart by a
+// literal each holds a different one of, else by runtime type and, among the
+// members of one type, a literal. `keys` are the arms', which come first in
+// `members`; a bare literal after them, for no member set, can't be of a bare
+// arm's type. `messages` says which bare arm holds a message.
+const tellApart = (members: Internal[], keys: (string | undefined)[], messages?: boolean[]): Told | undefined => {
   const tag = tagAmong(members, keys);
-  if (tag !== U) return { tag, literals: members.map((member) => literalSource(literalOf(entriesOf(member)![tag]))) };
-  for (const type of [objectTag, arrayTag]) {
-    const same = members.flatMap((member, idx) => (member.type === type ? [idx] : []));
-    if (same.length > 1 && tagAmong(same.map((idx) => members[idx]!), same.map((idx) => keys[idx])) === U) return U;
+  if (tag !== U) return { tag, literals: keys.map((_, idx) => literalSource(literalOf(entriesOf(members[idx]!)![tag]))) };
+  const types = members.map((member, idx) => (idx < keys.length && keys[idx] === U ? typeOf(member, !!messages?.[idx]) : entriesOf(member) && member.type));
+  const last = members[keys.length];
+  const bare = last !== U && entriesOf(last) === U ? literalOf(last) : U;
+  for (let idx = 0; idx < keys.length; idx++) {
+    const type = types[idx];
+    const same = (_: unknown, other: number) => types[other] === type;
+    if (type === U || (keys[idx] === U && bare !== U && typeof bare === type)) return U;
+    if (members.filter(same).length > 1 && tagAmong(members.filter(same), keys.filter(same)) === U) return U;
   }
   return { literals: [] };
 };
@@ -523,10 +548,14 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   }
   if (!arms.length && !numbered) return U;
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
+  const members = arms.map((arm) => arm.member);
+  if (unset !== U) members.push(unset);
+  if ((arms.length > 1 || unset !== U) && tellApart(members, arms.map((arm) => arm.key), arms.map((arm) => arm.metadata.type === "message")) === U) {
+    return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
+  }
   // An arm prints as the literal telling it apart from the others, where one
   // is a string.
-  const members = arms.map((arm) => arm.member);
-  const tag = tagAmong(unset === U ? members : [...members, unset], arms.map((arm) => arm.key));
+  const tag = tagAmong(members, arms.map((arm) => arm.key));
   for (const arm of arms) {
     const literal = tag === U ? U : literalOf(entriesOf(arm.member)![tag]);
     if (typeof literal === "string") arm.name = literal;
