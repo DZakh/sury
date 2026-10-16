@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ b: S.optional(S.string) }))"
+  input: JSON
+  output: "{ b?: string | undefined; }"
+  instantiations: 6222
+jsonSchema:
+  input: '{ type: "object", properties: { b: { type: "string" } }, additionalProperties: false }'
+  fromInputType: "{ b?: string | undefined; }"
+  output: '{ type: "object", properties: { b: { type: "string" } } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.b===b.b
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { b: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.b;if(v0!==void 0){typeof v0==="string"||e[0](v0);}return {b:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ b: undefined }"
+      "null":
+        input: "{ b: null }"
+        error: "Failed at b: Expected string | undefined, received null"
+      string:
+        input: '{ b: "x" }'
+        output: '{ b: "x" }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{let v1=i.b;let v0={};if(v1!==void 0){v0.b=v1}return v0}
+    examples:
+      absent:
+        input: "{}"
+        output: "{}"
+      string:
+        input: '{ b: "x" }'
+        output: '{ b: "x" }'

@@ -682,3 +682,24 @@ test("a collecting outcome waits for an async child started before a sync failur
     process.off("unhandledRejection", onUnhandled);
   }
 });
+
+test("FIXME: a collecting outcome leaves an untagged union arm's started async child unhandled", async () => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const taken = S.string.with(S.to, S.string, {
+      decode: { async: (v: string) => (v === "t" ? Promise.reject(new Error("taken")) : Promise.resolve(v)) },
+      encode: (v: string) => v,
+    });
+    const union = S.union([
+      S.schema({ w: S.schema({ a: taken, b: S.number }) }),
+      S.schema({ w: S.schema({ a: taken, b: S.string }) }),
+    ]);
+    expect((await S.parseAsResultPromise(union, { w: { a: "t", b: "2" } })).success).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(unhandled.map((reason) => (reason as Error).message)).toEqual(["Failed at w.a: taken"]);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
+});

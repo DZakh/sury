@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.record(S.string).with(S.to, S.schema({ a: S.union([S.env.with(S.to, S.optional(S.string, "dev")), S.optional(S.env)]) }))'
+  input: "{ [x: string]: string; }"
+  output: "{ a?: string | undefined; }"
+  instantiations: 7245
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { a: { type: "string" } } }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | env | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){for(;;){if(!v2){v2="dev";}break}}return {a:v2}}catch(v3){e[2](v3)}}
+    examples:
+      # FIXME: known bug missing-key-env-member-default. The env member's default
+      # is never read for a missing key. Without the record, parse reads `{}` as
+      # `{ a: "dev" }`.
+      absent:
+        input: "{}"
+        output: "{ a: undefined }"
+      set:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+  decode:
+    expression: i=>{let v1=i.a;if(v1!==void 0){for(;;){if(!v1){v1="dev";}break}}return {a:v1}}
+    examples:
+      # FIXME: known bug missing-key-env-member-default. The env member's default
+      # is never read for a missing key. Without the record, parse reads `{}` as
+      # `{ a: "dev" }`.
+      absent:
+        input: "{}"
+        output: "{ a: undefined }"
+  encode:
+    creationError: 'SuryError: Failed at a: Ambiguous "" for string. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
