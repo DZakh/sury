@@ -35,6 +35,7 @@ import {
   type Val,
 } from "../base";
 import {
+  _notVar,
   _notVarBeforeValidation,
   B_let,
   _var,
@@ -43,6 +44,7 @@ import {
   B_fail,
   B_conversionFail,
   B_hoistDecl,
+  B_invalidOperation,
   B_markAsync,
   B_markOutput,
   B_merge,
@@ -56,6 +58,7 @@ import {
   B_slot,
   B_unsupportedDecode,
   B_varWithoutAllocation,
+  rethrowWithPath,
 } from "../builder";
 import { arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
 import { B_unrecord, schemaRelocation } from "../factory";
@@ -135,6 +138,8 @@ type Message = {
   unwrap?: boolean;
   oneofs?: Record<string, Members>;
   relocated?: Internal;
+  // A reader whose value converts asynchronously, and so hands back a promise.
+  async?: boolean;
 };
 
 // One compile of a message tree.
@@ -2255,6 +2260,23 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
 // as it stands, so the member it lands in converts nothing.
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
+// A message whose value converts asynchronously hands back a promise, whose
+// failure is framed by the field holding it as a sync one is by the reader's
+// frame. A list or a map of them is the promise of all of them.
+const awaited = (value: unknown, path: Path): unknown =>
+  value instanceof Promise ? value.catch((x) => rethrowWithPath(x, path)) : value;
+
+const awaitedList = (list: unknown[], path: Path): Promise<unknown[]> =>
+  Promise.all(list.map((item, idx) => awaited(item, [...path, idx])));
+
+const awaitedMap = (map: Record<string, unknown>, path: Path): Promise<Record<string, unknown>> => {
+  const keys = Object.keys(map);
+  return Promise.all(keys.map((key) => awaited(map[key], [...path, key]))).then((values) => {
+    keys.forEach((key, idx) => (map[key] = values[idx]));
+    return map;
+  });
+};
+
 // The value of a message the reader read into `local`s, built by the core: each
 // field converts from what the wire read into what the record holds, the
 // relocation places it, then the object's chain runs and each link's.
@@ -2263,11 +2285,17 @@ const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => 
   const at = B_next(base, "", record, record);
   const sets: Record<string, number> = Object.create(null);
   const fields = B_record(at, (field) => {
-    msg.fields.forEach(({ number, raw, read: as, path, omit, name, done, repeated, map, key }, idx) => {
+    msg.fields.forEach(({ number, raw, read: as, path, omit, name, done, repeated, map, key, message }, idx) => {
       // A member converts in the member that holds it, once it is the one set.
       const held = done ? opaque : raw;
       const slot = name !== U ? B_slot(at, local("f", idx), held, held, path) : B_slot(at, local("f", idx), raw, as, path);
       if (name !== U) sets[key] ??= idx;
+      if (done && message?.async) {
+        if (name !== U) B_invalidOperation(at, `S.protobuf: oneof "${key}" holds a message that converts asynchronously, which a oneof member can't`);
+        slot.i = `${B_embed(at, repeated ? awaitedList : map !== U ? awaitedMap : awaited)}(${slot.i},${JSON.stringify(path)})`;
+        slot.v = _notVar;
+        slot.f = 1;
+      }
       const io = name !== U || raw === as;
       if (io) slot.io = true;
       field(`${number}`, () => {
@@ -2300,6 +2328,22 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
   const params = ["skip", "at", "unknown", "fail", "M", "e"];
   const args: unknown[] = [skip, wireFrame, unknownField, fail, messages, g.e];
   const names: string[] = [];
+  const readers = new Map<Message, string>();
+  const local = (kind: string, idx: number) => kind + idx;
+  // A message holding one whose value converts asynchronously hands back a
+  // promise too, which it learns only once that one is compiled: compiled
+  // again until no message's answer changes.
+  for (let changed = true; changed; ) {
+    changed = false;
+    fns.forEach((name, msg) => {
+      if ((msg === root && root.rec === U) || msg.codec !== U || msg.any !== U || msg.unwrap) return;
+      const base = B_operationArg(unknown, unknown, flag);
+      base.g = g;
+      const value = valueOf(base, msg, local);
+      readers.set(msg, `${B_merge(value)}return ${value.i}`);
+      if (value.f & 1 && !msg.async) changed = msg.async = true;
+    });
+  }
   fns.forEach((name, msg) => {
     if (msg === root && root.rec === U) return;
     if (msg.codec !== U) {
@@ -2307,18 +2351,10 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
       args.push(ranged(codecs[msg.wellKnown!]![0]));
     } else if (msg.any === U) {
       const slot = messages.push(msg) - 1;
-      const local = (kind: string, idx: number) => kind + idx;
       const { locals, temps, frame, loop } = readParts(msg, local, (m) => fns.get(m)!);
-      let tail = "return f0";
-      if (!msg.unwrap) {
-        const base = B_operationArg(unknown, unknown, flag);
-        base.g = g;
-        const value = valueOf(base, msg, local);
-        tail = `${B_merge(value)}return ${value.i}`;
-      }
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
-      src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars},j=0;try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${tail}}`;
+      src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars},j=0;try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
     } else return;
     names.push(name);
   });

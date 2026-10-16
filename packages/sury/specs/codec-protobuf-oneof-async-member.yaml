@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ pick: S.optional(S.union([S.schema({ case: "m", value: S.protobufField(S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1) }), { number: 1, type: "message" }) }), S.schema({ case: "n", value: S.int32.with(S.protobufField, 2) })])) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: '{ pick?: { case: "m"; value: { a: string; }; } | { case: "n"; value: number; } | undefined; }'
+  instantiations: 12475
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "m" }, value: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "n" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["m"] }, value: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", enum: ["n"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(a.pick?.case==="m"?b.pick?.case==="m"&&a.pick.value.a===b.pick.value.a:a.pick?.case==="n"?b.pick?.case==="n"&&a.pick.value===b.pick.value:b.pick===void 0)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { pick: { case: \"m\"; value: { a: string; }; } | { case: \"n\"; value: int32; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: S.protobuf: oneof \"pick\" holds a message that converts asynchronously, which a oneof member can't"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.case==="m"){let v1=v0.value;let v2;try{v2=e[0](v1.a)}catch(x){e[1](x)}typeof v2==="string"||e[2](v2);v0={case:"m",value:{a:v2}};break}if(v0.case==="n")break;throw e[3](v0)}break}if(v0===void 0)break;throw e[3](v0)}let v4;let v5;let v3;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.case==="m"){v3=v0.value;v4=1;break}if(v0.case==="n"){v5=v0.value;v4=2;break}throw e[5](v0)}break}if(v0===void 0){v4=0;break}throw e[5](v0)}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};f=1;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[6](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v6}catch(v7){e[11](v7)}}
+    examples:
+      member:
+        input: '{ pick: { case: "m", value: { a: "x!" } } }'
+        output: new Uint8Array([10, 3, 10, 1, 120])
