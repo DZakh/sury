@@ -9,7 +9,6 @@ import {
   compilePath,
   conversionSite,
   copySchema,
-  copyTo,
   type Encoder,
   type ErrorDetails,
   type SuryErrorRecord,
@@ -34,7 +33,6 @@ import {
   undefinedTag,
   unknown,
   unknownTag,
-  updateOutput,
   type Val,
 } from "../base";
 import {
@@ -2553,6 +2551,14 @@ const sinkOf = (location: string[], local: string): Internal =>
     return out;
   });
 
+// A copy of a decoded value's schema that checks nothing of its own.
+const unchecked = (schema: Internal): Internal => {
+  const mut = copySchema(schema);
+  delete mut.refiner;
+  delete mut.inputRefiner;
+  return mut;
+};
+
 // A message's value as a writer is handed it.
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
@@ -2572,28 +2578,30 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       reads.set(arms[0]!, read.i);
       return;
     }
+    // The value was decoded already: each arm is what it holds as output, so
+    // the union tells it by its literals and converts and checks nothing again.
     const target = copySchema(union);
     target.anyOf = union.anyOf!.map((variant, idx) => {
+      const arm = unchecked(getOutputSchema(variant));
       const field = arms[idx];
-      if (field === U) return variant;
+      if (field === U) return arm;
       const local = B_varWithoutAllocation(g);
       code += B_let(g, local);
       reads.set(field, local);
       const location = locationOf(msg, field);
-      const sink = sinkOf(location, local);
       const at = location[0];
       // The writer checks a member's value as it writes it, so an arm hands
       // its message over as it stands: decoded here, a message would be walked
       // whole once for every level it nests at. A bare one is told from its
       // siblings by its type alone (`tellApart`).
-      if (field.type === "message" && at === U) return copyTo(opaque, sink);
-      return updateOutput<Internal>(variant, (mut) => {
-        if (field.type === "message") {
-          if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? opaque : item));
-          else mut.properties = Object.assign(Object.create(null), mut.properties, { [at!]: opaque });
-        }
-        mut.to = sink;
-      });
+      const held = field.type === "message" ? copySchema(opaque) : unchecked(getOutputSchema(field.armValue!));
+      const mut = at === U ? held : arm;
+      if (at !== U) {
+        if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
+        else mut.properties = Object.assign(Object.create(null), mut.properties, { [at]: held });
+      }
+      mut.to = sinkOf(location, local);
+      return mut;
     });
     // One target per arm, which the union's encoder pairs with its own arms.
     target.flags |= 64;
