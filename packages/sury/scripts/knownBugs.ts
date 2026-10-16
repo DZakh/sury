@@ -79,6 +79,71 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
+    id: "json-union-instance-tagged-crash",
+    kind: "bug",
+    summary:
+      "`S.json.with(S.to, S.union([S.date, S.schema({ kind: \"k\", v: S.string })]))` crashes the compiler " +
+      "with `values is not iterable`: a union holding a string-stored instance and a tagged object.",
+    spec: "codec-json-union-date-tagged",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "absent" &&
+      f.detail.includes("values is not iterable") &&
+      some(f.shape, (node) => node.name === "union" && node.args.some((member) => member.name === "tagged")),
+  },
+  {
+    id: "json-absent-recursive-undefined",
+    kind: "bug",
+    summary:
+      "Read through `S.json`, a field whose `undefined` sits behind a recursive ref " +
+      "(`S.recursive(\"R\", (self) => S.union([S.void, S.array(self)]))`) misreads its key: the object " +
+      "branch sees no `undefined` member, so an absent key reaches the union as present, and a present " +
+      "`null` is still read as the missing value parse rejects.",
+    spec: "codec-json-object-recursive-void",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      (f.property === "absent" || f.property === "present null") &&
+      some(f.shape, (node) => node.name === "recursive" && admitsUndefined(node.args[0]!)),
+  },
+  {
+    id: "json-null-member-conversion",
+    kind: "bug",
+    summary:
+      "Under `S.json` a present `null` reaches the `undefined` arm of a member converted out of an optional: " +
+      "`S.optional(S.optional(S.string).with(S.to, S.nullable(S.string)))` reads `{a: null}` as `{a: null}`, " +
+      "where parse rejects it and encode never writes it.",
+    spec: "codec-json-object-optional-nested-to-nullable",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "present null" &&
+      some(
+        f.shape,
+        (node) =>
+          ["optional", "nullable", "nullish", "union"].includes(node.name) &&
+          node.args.some((member) => member.name === "optTo"),
+      ),
+  },
+  {
+    id: "missing-key-env-member-default",
+    kind: "bug",
+    summary:
+      "A missing key never reaches the default of an `S.env` member in its field's union: " +
+      "`S.union([S.env.with(S.to, S.optional(S.string, \"dev\")), S.optional(S.env)])` reads it as " +
+      "`undefined` through `S.json` or a record, where parse reads `\"dev\"`.",
+    spec: "codec-record-object-union-env-default",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "absent" &&
+      some(
+        f.shape,
+        (node) => node.name === "union" && node.args.some((member) => some(member, (n) => n.name === "envTo")),
+      ),
+  },
+  {
     id: "union-never-member",
     kind: "bug",
     summary:
@@ -119,6 +184,38 @@ export const KNOWN_BUGS: Known[] = [
       f.shape.name === "jsonTo" &&
       f.property === "acceptance" &&
       some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
+  },
+  {
+    id: "json-null-spells-nan",
+    kind: "limitation",
+    summary:
+      "JSON writes NaN as `null`, so a field that can hold both NaN and `null` (`S.nullable(S.nan)`), or " +
+      "NaN where parse rejects `null`, reads a present `null` through `S.json` as NaN: the document " +
+      "cannot tell the two apart, and parse never meets that spelling.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" && f.property === "present null" && some(f.shape, (node) => node.name === "nan"),
+  },
+  {
+    id: "json-null-reaches-nested-default",
+    kind: "limitation",
+    summary:
+      "A member's own `undefined` is written to JSON as `null`, unlike an object field's, which leaves its " +
+      "key out. So under `S.json` a present `null` reaches a nested member's missing value and its default " +
+      "(`S.nullable(S.optional(S.string, \"d\"))` reads it as \"d\") where parse gives it to a later `null` " +
+      "member or rejects it. The first member that accepts a value wins, the documented rule.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "present null" &&
+      some(
+        f.shape,
+        (node) =>
+          ["optional", "nullable", "nullish", "union"].includes(node.name) &&
+          node.args.some(
+            (member) => member.name === "optDefaultTo" || member.args.some((arg) => arg.name === "#value"),
+          ),
+      ),
   },
   {
     id: "union-overlapping-members",

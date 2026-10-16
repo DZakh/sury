@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.schema({ f: S.union([S.refine(S.optional(S.string), (v) => v !== "bad"), S.number]) }))'
+  input: JSON
+  output: "{ f?: string | number | undefined; }"
+  instantiations: 7103
+jsonSchema:
+  input: '{ type: "object", properties: { f: { anyOf: [{ type: "string" }, { type: "number" }] } }, additionalProperties: false }'
+  fromInputType: "{ f?: string | number | undefined; }"
+  output: '{ type: "object", properties: { f: { anyOf: [{ type: "string" }, { type: "number" }] } } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: string | number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.f;if(v0!==void 0){let v1;for(;;){if(typeof v0==="number"&&v0==v0)break;l2:{try{for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}v1=[v1,e[0](v0)];break l2}if(!(e[1](v0))){v1=[v1,e[2],v0];break l2}break}catch(x){v1=[v1,e[3](x)]}}throw e[4](v0,v1)}}else{let v3;for(;;){if(typeof v0==="number"&&v0==v0)break;if((typeof v0==="string"||v0===void 0)){l4:{try{if(!(e[5](v0))){v3=[v3,e[6],v0];break l4}break}catch(x){v3=[v3,e[7](x)]}}}throw e[8](v0,v3)}}return {f:v0}}catch(v5){e[10](v5)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+      refined-out:
+        input: '{ f: "bad" }'
+        error: |-
+          Failed at f: Expected string | number | undefined, received "bad"
+          - At f: Refinement failed
+      string:
+        input: '{ f: "x" }'
+        output: '{ f: "x" }'
+      number:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
+      # FIXME: the published document rejects this null.
+      "null":
+        input: "{ f: null }"
+        output: "{ f: undefined }"
+        divergence:
+          reason: the member's own undefined is written as null (see encode.absent), but the published document has no null for it
+          ajv: "input: data/f must be string, data/f must be number, data/f must match a schema in anyOf"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.f;let v1;for(;;){if(typeof v0==="number"&&v0==v0)break;l2:{try{for(;;){if(typeof v0==="string"){if(!(e[0](v0))){v1=[v1,e[1],v0];break l2}break}if(v0===void 0){if(!(e[0](v0))){v1=[v1,e[2],v0];break l2}v0=null;break}v1=[v1,e[3](v0)];break l2}break}catch(x){v1=[v1,e[4](x)]}}throw e[5](v0,v1)}let v3={};if(v0!==void 0){v3.f=v0}return v3}catch(v4){e[6](v4)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: null }"
+      string:
+        input: '{ f: "x" }'
+        output: '{ f: "x" }'

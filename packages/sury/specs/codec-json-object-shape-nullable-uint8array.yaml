@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.json.with(S.to, S.schema({ a: S.shape(S.nullable(S.uint8Array), (v) => ({ v })) }))"
+  input: JSON
+  output: "{ a: { v: Uint8Array<ArrayBufferLike> | null; }; }"
+  instantiations: 5890
+jsonSchema:
+  input: "{}"
+  output: "Failed at a.v: Expected JSON, received Uint8Array | null"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||(a.a.v===null?b.a.v===null:b.a.v!==null&&e[1](a.a.v,b.a.v))
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: { v: Uint8Array | null; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.a;for(;;){if(typeof v0==="string"){e[1](v0)||e[2](v0);v0=e[0](v0);break}if(v0===null)break;throw e[3](v0)}return {a:{v:v0}}}catch(v1){e[5](v1)}}
+    examples:
+      "null":
+        input: "{ a: null }"
+        output: "{ a: { v: null } }"
+      bytes:
+        input: '{ a: "AQI=" }'
+        output: "{ a: { v: new Uint8Array([1, 2]) } }"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at a.v: Can't decode Uint8Array -> JSON. Define custom codec with S.to"

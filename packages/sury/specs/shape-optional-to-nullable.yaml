@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ a: S.shape(S.optional(S.string).with(S.to, S.nullable(S.string)), (v) => ({ v })) })"
+  input: "{ a?: string | undefined; }"
+  output: "{ a: { v: string | null; }; }"
+  instantiations: 6541
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } } }'
+  output: '{ type: "object", properties: { a: { type: "object", properties: { v: { anyOf: [{ type: "string" }, { type: "null" }] } }, required: ["v"] } }, required: ["a"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { a: { type: "object", properties: { v: { type: "string", nullable: true } }, required: ["v"] } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: (a,b)=>a===b||a.a.v===b.a.v
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: { v: string | null; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){for(;;){v0="undefined";break}v0={v:v0};break}throw e[0](v0)}return {a:v0}}catch(v1){e[2](v1)}}
+    examples:
+      # FIXME: a missing value reaches the shape as the string "undefined"
+      # instead of null.
+      absent:
+        input: "{}"
+        output: '{ a: { v: "undefined" } }'
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: { v: "x" } }'
+  decode:
+    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){for(;;){v0="undefined";break}v0={v:v0};break}throw e[0](v0)}return {a:v0}}catch(v1){e[1](v1)}}
+    examples:
+      string:
+        input: '{ a: "x" }'
+        output: '{ a: { v: "x" } }'
+  encode:
+    expression: i=>{try{let v0=i.a;let v1=v0.v;for(;;){if(typeof v1==="string")break;if(v1===null){v1=void 0;break}throw e[0](v1)}return {a:v1}}catch(v2){e[1](v2)}}
+    examples:
+      "null":
+        input: "{ a: { v: null } }"
+        output: "{ a: undefined }"

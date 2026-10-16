@@ -43,7 +43,7 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
       _0: m
     }))
   ]);
-  U.assertCompiledCode(t, schema$2, "Encode", `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;i=v0;break}if(i.TAG==="B"){let v2=i._0;let v3=v2.payload;i=v2;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v4){e[1](v4)}}`, undefined);
+  U.assertCompiledCode(t, schema$2, "Encode", `i=>{try{for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;i=v0;break}if(i.TAG==="B"){let v2=i._0;let v3=v2.payload;i=v2;break}throw e[0](i)}return i}catch(v4){e[1](v4)}}`, undefined);
   Vitest.Assert.deepEqual(t, S.convertOrThrow({
     TAG: "B",
     _0: {

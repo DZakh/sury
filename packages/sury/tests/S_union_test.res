@@ -327,7 +327,7 @@ module Advanced = {
       ~schema=shapeSchema,
       ~op=#Encode,
       // TODO: Can be optimized
-      `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Circle"){i={kind:"circle",radius:i.radius};break}if(i.TAG==="Square"){i={kind:"square",x:i.x};break}if(i.TAG==="Triangle"){i={kind:"triangle",x:i.x,y:i.y};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(i.TAG==="Circle"){i={kind:"circle",radius:i.radius};break}if(i.TAG==="Square"){i={kind:"square",x:i.x};break}if(i.TAG==="Triangle"){i={kind:"triangle",x:i.x,y:i.y};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
   })
 }
@@ -599,7 +599,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.foo===0){i=i.foo;break}if(i.bar===1){i=1;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(i.foo===0){i=i.foo;break}if(i.bar===1){i=1;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -776,7 +776,7 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Encode,
-    `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="Ok"){let v0=i._0;i={result:v0};break}if(i.TAG==="Error"){let v2=i._0;for(;;){if(typeof v2==="string"&&v2==="LogsNotFound"){v2={message:"NotFound"};break}if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.NAME==="InvalidData"){v2={message:"Invalid",data:v2.VAL};break}throw e[0](v2)}i={error:v2};break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v3){e[2](v3)}}`,
+    `i=>{try{for(;;){if(i.TAG==="Ok"){let v0=i._0;i={result:v0};break}if(i.TAG==="Error"){let v2=i._0;for(;;){if(typeof v2==="string"&&v2==="LogsNotFound"){v2={message:"NotFound"};break}if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.NAME==="InvalidData"){v2={message:"Invalid",data:v2.VAL};break}throw e[0](v2)}i={error:v2};break}throw e[1](i)}return i}catch(v3){e[2](v3)}}`,
   )
 
   // A value of the right outer type but a bogus inner variant is rejected now
@@ -816,7 +816,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.NAME==="request"){let v0=i.VAL;break}if(i.NAME==="response"){let v1=i.VAL;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}`,
+    `i=>{try{for(;;){if(i.NAME==="request"){let v0=i.VAL;break}if(i.NAME==="response"){let v1=i.VAL;break}throw e[0](i)}return i}catch(v2){e[1](v2)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -939,7 +939,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;i=v0;break}if(i.TAG==="B"){let v2=i._0;let v3=v2.payload;i=v2;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v4){e[1](v4)}}`,
+      `i=>{try{for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;i=v0;break}if(i.TAG==="B"){let v2=i._0;let v3=v2.payload;i=v2;break}throw e[0](i)}return i}catch(v4){e[1](v4)}}`,
     )
 
     let x = {

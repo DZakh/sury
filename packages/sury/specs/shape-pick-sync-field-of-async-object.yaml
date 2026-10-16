@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ w: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }), x: S.string }) }).with(S.shape, (v) => ({ p: v.w.x }))'
+  input: "{ w: { a: string; x: string; }; }"
+  output: "{ p: string; }"
+  instantiations: 6559
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { a: { type: "string" }, x: { type: "string" } }, required: ["a", "x"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { p: { type: "string" } }, required: ["p"] }'
+isEqual:
+  input: (a,b)=>a===b||a.w.a===b.w.a&&a.w.x===b.w.x
+  output: (a,b)=>a===b||a.p===b.p
+compare:
+  input: "throws: [Sury] Can't compare { w: { a: string; x: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { p: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.a,v3=v0.x;typeof v2==="string"||e[4](v2);let v1;try{v1=e[3](e[0](v2),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}typeof v3==="string"||e[5](v3);let v4=Promise.all([v1]).then(([v1])=>{return {a:v1,x:v3}});return Promise.all([v4]).then(([v4])=>{return {p:v4.x}}).catch(e[8])}catch(v5){return e[9](v5)}}
+    examples:
+      picked:
+        input: '{ w: { a: "a", x: "x" } }'
+        output: '{ p: "x" }'
+      async-field-invalid:
+        input: '{ w: { a: 1, x: "x" } }'
+        error: "Failed at w.a: Expected string, received 1"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;let v1;try{v1=e[3](e[0](v0.a),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}let v2=Promise.all([v1]).then(([v1])=>{return {a:v1,x:v0.x}});return Promise.all([v2]).then(([v2])=>{return {p:v2.x}}).catch(e[4])}catch(v3){return e[5](v3)}}
+    examples:
+      picked:
+        input: '{ w: { a: "a", x: "x" } }'
+        output: '{ p: "x" }'
+  encode:
+    creationError: "SuryError: Missing input for string at w.a"
