@@ -2217,7 +2217,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   // no field's, and must not frame the error with the tag before it.
   const loop = (miss: string, ranges?: boolean) => {
     const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}`;
-    return `${ranges ? `for(;;){${body}if(!(x>=0))break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}${after}`;
+    return `${ranges ? `for(;;){${body}if(x===void 0||x<0)break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}${after}`;
   };
   return { locals, temps, frame, loop };
 };
@@ -2247,7 +2247,7 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
     loop: (miss, ranges) => {
       const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases}}if(t<8)fail("Invalid protobuf field number 0");${miss}}`;
       // The type URL read, a failure picking the member is no field's.
-      return `${ranges ? `for(;;){${body}if(!(x>=0))break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`;
+      return `${ranges ? `for(;;){${body}if(x===void 0||x<0)break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`;
     },
   };
 };
