@@ -801,6 +801,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
     scope.s = source;
     scope.e = e;
     scope.u = u;
+    B_narrowJsonSourcedJsonString(scope);
     const out = parse(scope);
     output.f |= out.f & 1;
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
@@ -811,9 +812,7 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // drops the undefined arm and answers `null` exactly as `parse` does.
   const present = item.flags & 16 ? presentTarget(target) : target;
   const presentBody = present
-    ? // A JSON document holds a json-format string as its text already, the
-      // narrowing `B_narrowJsonSourcedJsonString` applies to a plain field.
-      body(item.flags & 16 && present.format === "json" ? unknown : item, !unsetIsInput, present)
+    ? body(item, !unsetIsInput, present)
     : B_failInvalidInput(input, target) + ";";
   // A target that never dispatches (`s.fieldOr`) is told the value is absent
   // and answers with its default alone; a union meeting `unit` would instead
