@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ w: S.schema({ x: S.schema({ a: S.string, b: S.string }), c: S.string }).with(S.to, S.schema({ x: S.schema({ a: S.string, b: S.string }), c: S.string }), { decode: { async: async (v) => ({ x: { a: v.c, b: v.x.a }, c: v.x.b }) }, encode: (v) => v }) }).with(S.shape, (v) => ({ A: v.w.x.a }))"
+  input: "{ w: { x: { a: string; b: string; }; c: string; }; }"
+  output: "{ A: string; }"
+  instantiations: 9014
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { x: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a", "b"] }, c: { type: "string" } }, required: ["x", "c"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { A: { type: "string" } }, required: ["A"] }'
+isEqual:
+  input: (a,b)=>a===b||a.w.x.a===b.w.x.a&&a.w.x.b===b.w.x.b&&a.w.c===b.w.c
+  output: (a,b)=>a===b||a.A===b.A
+compare:
+  input: "throws: [Sury] Can't compare { w: { x: { a: string; b: string; }; c: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { A: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: picking a field out of an async field with a custom codec fails to compile
+    creationError: "TypeError: Cannot read properties of undefined (reading 'x')"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Missing input for string at w.x.b"

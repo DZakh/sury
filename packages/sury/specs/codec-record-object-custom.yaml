@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.record(S.string).with(S.to, S.schema({ a: S.string.with(S.to, S.string, { decode: (v) => v + "!", encode: (v) => v.slice(0, -1) }) }))'
+  input: "{ [x: string]: string; }"
+  output: "{ a: string; }"
+  instantiations: 5904
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;if(v2!==void 0){let v3;try{v3=e[1](v2)}catch(x){e[2](x)}typeof v3==="string"||e[3](v3);v2=v3;}else{e[4](v2)}return {a:v2}}catch(v4){e[6](v4)}}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+      absent:
+        input: "{}"
+        error: "Failed at a: Expected string, received undefined"
+  decode:
+    expression: i=>{try{let v1=i.a;if(v1!==void 0){let v2;try{v2=e[0](v1)}catch(x){e[1](x)}typeof v2==="string"||e[2](v2);v1=v2;}else{e[3](v1)}return {a:v1}}catch(v3){e[4](v3)}}
+    examples:
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      value:
+        input: '{ a: "x!" }'
+        output: '{ a: "x" }'

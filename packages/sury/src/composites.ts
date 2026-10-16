@@ -17,12 +17,14 @@ import {
   inlinedObjectKey,
   inlinedProperty,
   inlinedValueFromString,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
   isOptional,
   isSchemaObject,
   noopDecoder,
+  nullTag,
   objectTag,
   pathConcat,
   pathEmpty,
@@ -198,6 +200,35 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
+// The join rebinds an async field's var to what its promise resolved to, so
+// every field under it is read off that value: a var from before the join may
+// still be a promise, and a field an earlier join rebound names that join's var.
+const resolveAsyncFields = (val: Val): void => {
+  const fields = val.d;
+  for (const k in fields) {
+    const field = fields[k]!;
+    const resolved: Val = {
+      ...field,
+      b: U,
+      v: _var,
+      i: val.i + inlinedProperty("", k, val.s.type === arrayTag),
+      prev: U,
+      f: 0,
+      d: field.d && Object.assign(Object.create(null), field.d),
+      cp: "",
+      fu: U,
+      fs: U,
+      hd: "",
+      vc: U,
+      k: U,
+      hn: U,
+      ha: U,
+    };
+    resolveAsyncFields(resolved);
+    fields[k] = resolved;
+  }
+};
+
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
@@ -211,6 +242,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val);
+      resolveAsyncFields(val);
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -647,23 +679,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // A JSON-sourced object (`additionalItems` is json, set by jsonEncoderFn)
-    // coalesces its field reads with `??null`, because:
-    //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
-    //     `v===null`, JSON having no undefined,
-    //   - but `i[key]` for a missing key returns undefined, so the rewritten
-    //     arm would reject `{}` for `{foo: option<...>}`.
-    // FIXME: a shared JSON option representation would remove the sniff - an arm
-    // that accepts both spellings of empty, so nothing has to patch the read.
-    // Two things stand in the way:
-    //   - adding an `undefined` arm beside the `null` one makes ENCODE
-    //     ambiguous, since both produce the same output and only `null` is
-    //     writable to a document - which is why this rewrites rather than adds;
-    //   - loosening the arm's own narrow to `== null` instead means widening
-    //     what `typeCheckCond` emits for a tag, and a union group's shared
-    //     narrow stands in for its members' checks (see the cross-module
-    //     contract on `typeCheckCond`), so a case would start accepting more
-    //     than its acceptance mask claims.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
@@ -674,8 +689,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
-        itemInput.i = `(${itemInput.i}??null)`;
+      if (isJsonParent && isOptional(schema)) {
+        itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
       if (fused !== U && !(isUnion && isLiteral(schema))) {
         B_addObjectField(objectVal, key, itemInput);
@@ -809,19 +824,30 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // key's presence is not asked here, and the item keeps its own check.
   const unsetIsInput = item.format === "env";
 
-  const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
-  const body = (source: Internal, u: boolean): string => {
+  // Final: each branch already runs the target's parser and `.to`.
+  const output = B_nextVarOutput(input, v, getOutputSchema(target));
+  const body = (source: Internal, u: boolean, e: Internal = target): string => {
     const scope = B_scope(input);
     scope.io = false;
     scope.s = source;
-    scope.e = target;
+    scope.e = e;
     scope.u = u;
+    B_narrowJsonSourcedJsonString(scope);
     const out = parse(scope);
     output.f |= out.f & 1;
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
-  const presentBody = body(item, !unsetIsInput);
-  const absentBody = !unsetIsInput && readsAbsent(target) ? body(unknown, false) : "";
+  // JSON's `null` would bridge to the undefined arm; absence has its own branch.
+  const present = item.flags & 16 ? presentTarget(target) : target;
+  const presentBody = present
+    ? body(item, !unsetIsInput, present)
+    : B_failInvalidInput(input, target) + ";";
+  // `unit` tells `s.fieldOr` to answer with its default; a dispatching union
+  // would coerce it, so it reads `unknown`.
+  const absentBody =
+    !unsetIsInput && readsAbsent(target)
+      ? body(target.decoder === noopDecoder ? unit : unknown, false)
+      : "";
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   output.cp = absentBody
     ? presentBody === ""
@@ -837,6 +863,43 @@ const missingKeyEncoder: Encoder = (input, target) => {
           ? `if(${v}!==void 0){${presentBody}}`
           : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
+};
+
+// A union stays one with a single arm left: its dispatch reads a string stored
+// apart (`S.jsonString`, bytes).
+const presentTarget = (s: Internal): Internal | undefined => {
+  const anyOf = s.anyOf;
+  if (anyOf === U || !s.has![undefinedTag]) return s;
+  let mut: Internal;
+  if (s.decoder === noopDecoder) {
+    const item = presentTarget(anyOf[0]!);
+    if (item === U) return U;
+    mut = item === anyOf[0] ? copySchema(item) : item;
+  } else {
+    // Only the top-level arm: encode writes a member's own `undefined` as `null`.
+    const arms = anyOf.filter((arm) => arm.type !== undefinedTag);
+    // `S.optional(S.void)`: only absence fills it.
+    if (!arms.length) return U;
+    mut = copySchema(s);
+    mut.anyOf = arms;
+    mut.has = {};
+    arms.forEach((arm) => setHas(mut.has!, arm));
+    const to = s.to;
+    if (to !== U && to.type === anyOfTag && (to.has![nullTag] || to.has![undefinedTag])) {
+      // Only absence reaches the `.to` arm the dropped one pairs with.
+      const toArms = to.anyOf!.filter(
+        (arm) => arm.type !== undefinedTag && (arm.type !== nullTag || mut.has![nullTag]),
+      );
+      if (!toArms.length) return s;
+      const toMut = copySchema(to);
+      toMut.anyOf = toArms;
+      toMut.has = {};
+      toArms.forEach((arm) => setHas(toMut.has!, arm));
+      mut.to = toMut;
+    }
+  }
+  mut.expression = () => inputExpression(s);
+  return mut;
 };
 
 // Whether an optional field's missing key goes through the field's own decode
