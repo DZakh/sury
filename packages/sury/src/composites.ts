@@ -198,6 +198,35 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
+// The join rebinds an async field's var to what its promise resolved to, so
+// every field under it is read off that value: a var from before the join may
+// still be a promise, and a field an earlier join rebound names that join's var.
+const resolveAsyncFields = (val: Val): void => {
+  const fields = val.d;
+  for (const k in fields) {
+    const field = fields[k]!;
+    const resolved: Val = {
+      ...field,
+      b: U,
+      v: _var,
+      i: val.i + inlinedProperty("", k, val.s.type === arrayTag),
+      prev: U,
+      f: 0,
+      d: field.d && Object.assign(Object.create(null), field.d),
+      cp: "",
+      fu: U,
+      fs: U,
+      hd: "",
+      vc: U,
+      k: U,
+      hn: U,
+      ha: U,
+    };
+    resolveAsyncFields(resolved);
+    fields[k] = resolved;
+  }
+};
+
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
@@ -211,6 +240,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val);
+      resolveAsyncFields(val);
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
