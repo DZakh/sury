@@ -6,7 +6,7 @@ ts:
   instantiations: 9190
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { k: { type: "number", const: 0 }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "number", const: 1 }, y: { type: "string" } }, required: ["k", "y"] }, { type: "number", const: 0 }] } }, required: ["c"] }'
-  output: "[Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  output: Expected JSON, received Uint8Array
   openapi-3.0:
     input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { k: { type: "number", enum: [0] }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "number", enum: [1] }, y: { type: "string" } }, required: ["k", "y"] }, { type: "number", enum: [0] }] } }, required: ["c"] }'
 isEqual:
@@ -20,6 +20,38 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "Error: [Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
-  decode: eq-to-parse
-  encode: eq-to-parse
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.c;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.k===0){let v1=v0.x;typeof v1==="string"||e[0](v1);v0={k:v0.k,x:v1};break}if(v0.k===1){let v2=v0.y;typeof v2==="string"||e[1](v2);v0={k:v0.k,y:v2};break}throw e[2](v0)}break}if(typeof v0==="number"&&v0==v0&&v0===0)break;throw e[2](v0)}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();v=v0;if(typeof v==="object"&&v&&v.k===0){f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.x)}else if(typeof v==="object"&&v&&v.k===1){f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.y)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[8](v4)}}
+    examples:
+      unset:
+        input: "{ c: 0 }"
+        output: new Uint8Array([])
+      first:
+        input: '{ c: { k: 0, x: "a" } }'
+        output: new Uint8Array([10, 1, 97])
+      second:
+        input: '{ c: { k: 1, y: "b" } }'
+        output: new Uint8Array([18, 1, 98])
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[2].acquire();v=i.c;if(typeof v==="object"&&v&&v.k===0){f=0;w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v.x)}else if(typeof v==="object"&&v&&v.k===1){f=1;w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v.y)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[0](x,e[1],f,j,a);e[3](x)}}return v0}catch(v1){e[4](v1)}}
+    examples:
+      unset:
+        input: "{ c: 0 }"
+        output: new Uint8Array([])
+      first:
+        input: '{ c: { k: 0, x: "a" } }'
+        output: new Uint8Array([10, 1, 97])
+      second:
+        input: '{ c: { k: 1, y: "b" } }'
+        output: new Uint8Array([18, 1, 98])
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}return v0}catch(v1){e[3](v1)}}
+    examples:
+      unset:
+        input: new Uint8Array([])
+        output: "{ c: 0 }"
+      first:
+        input: new Uint8Array([10, 1, 97])
+        output: '{ c: { k: 0, x: "a" } }'
+      second:
+        input: new Uint8Array([18, 1, 98])
+        output: '{ c: { k: 1, y: "b" } }'

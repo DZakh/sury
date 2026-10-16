@@ -632,8 +632,10 @@ const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values
   return values;
 };
 
-// A oneof spelled as a union of arms, one of four ways, against the same group
-// spelled flat: the same bytes for the same member, and the arm read back.
+// A oneof spelled as a union of arms, one of six ways, against the same group
+// spelled flat: the same bytes for the same member, and the arm read back. The
+// bare spelling, each arm the value itself, is refused where two members share
+// a runtime type, which is the one refusal a spelling may meet.
 // Numeric tags start at 0, falsy, and sit under `length`, a key a bare literal
 // for no member set answers too; neither may be read as an arm. Its own
 // stream, as the Any family's.
@@ -643,12 +645,19 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   const r = rng(seed ^ 0x7f4a7c15);
   const members = fields.filter((def) => def.oneof === group);
   const rest = fields.filter((def) => def.oneof !== group);
-  const spelling = int(r, 4);
+  const spelling = int(r, 6);
   const arm = (def: FieldDef, idx: number, value: S.Schema<unknown, unknown>): S.Schema<unknown, unknown> =>
     spelling === 1 ? S.schema({ type: `m${idx}`, [def.key]: value })
     : spelling === 2 ? S.schema({ length: idx, v: value })
+    : spelling === 4 ? S.tuple([`m${idx}`, value])
+    : spelling === 5 ? value
     : S.schema({ case: def.key, value });
-  const unsetArm = spelling === 0 ? S.schema({ case: undefined }) : spelling === 1 ? S.schema({ type: "none" }) : spelling === 2 ? S.schema(-1) : undefined;
+  const unsetArm =
+    spelling === 0 ? S.schema({ case: undefined })
+    : spelling === 1 ? S.schema({ type: "none" })
+    : spelling === 2 ? S.schema(-1)
+    : spelling === 4 ? S.tuple(["none"])
+    : undefined;
   let flat: (value: unknown) => Uint8Array;
   let encode: (value: unknown) => Uint8Array;
   let decode: (bytes: Uint8Array) => unknown;
@@ -664,6 +673,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     encode = S.decodeOrThrow(message, S.protobuf) as never;
     decode = S.decodeOrThrow(S.protobuf, message) as never;
   } catch (e) {
+    if (spelling === 5 && (e as Error).message.includes("can't tell its arms apart")) return 0;
     findings.push({ kind: `oneof: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling}` });
     return 1;
   }
@@ -675,9 +685,11 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     const idx = members.findIndex((def) => value[def.key] !== undefined);
     const def = members[idx];
     const held =
-      def === undefined ? (spelling === 0 ? { case: undefined } : spelling === 1 ? { type: "none" } : spelling === 2 ? -1 : undefined)
+      def === undefined ? (spelling === 0 ? { case: undefined } : spelling === 1 ? { type: "none" } : spelling === 2 ? -1 : spelling === 4 ? ["none"] : undefined)
       : spelling === 1 ? { type: `m${idx}`, [def.key]: value[def.key] }
       : spelling === 2 ? { length: idx, v: value[def.key] }
+      : spelling === 4 ? [`m${idx}`, value[def.key]]
+      : spelling === 5 ? value[def.key]
       : { case: def.key, value: value[def.key] };
     if (held !== undefined) shaped[group] = held;
     return shaped;

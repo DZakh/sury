@@ -607,8 +607,8 @@ export const protobuf: Schema<Uint8Array, Uint8Array>;
 /**
  * A `google.protobuf.Any`: a message of any type, as its type URL and its bytes.
  * Convert it with `S.to` to a message `S.protobufTypeName` names, or to an
- * `S.union` of them, each one such message or an object holding one beside
- * literals:
+ * `S.union` of them, each one such message or an object or tuple holding one
+ * beside literals:
  *
  * ```ts
  * const Event = S.protobufAny.with(S.to, S.union([

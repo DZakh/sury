@@ -2,6 +2,8 @@ import {
   anyOfTag,
   arrayTag,
   baseSchema,
+  bigintTag,
+  booleanTag,
   type Builder,
   type Check,
   compilePath,
@@ -40,7 +42,6 @@ import {
   B_embedPure,
   B_fail,
   B_conversionFail,
-  B_inlineConst,
   B_markAsync,
   B_markOutput,
   B_merge,
@@ -51,7 +52,7 @@ import {
   B_unsupportedDecode,
   B_varWithoutAllocation,
 } from "../builder";
-import { arrayFactory, dictFactory, objectDecoder } from "../composites";
+import { arrayDecoder, arrayFactory, dictFactory, objectDecoder } from "../composites";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
@@ -75,6 +76,11 @@ type Field = {
   name?: string;
   literalSource?: string;
   tag?: string;
+  // With no `tag`, what picks the arm out of the value the writer is handed,
+  // and out of what the reader built.
+  test?: string;
+  held?: string;
+  // Where the arm holds the value; unset where the arm is the value.
   valueKey?: string;
   member?: Internal;
   armValue?: Internal;
@@ -104,9 +110,9 @@ type Message = {
   wellKnown?: WellKnownType;
   typeName?: string;
   // An Any's writer: each member's message, by name, where it sits in the
-  // member, and the literal that picks it. The catch-all is named
-  // google.protobuf.Any and holds the Any message itself.
-  any?: { arms: [name: string, message: Message, key: string | undefined, literal: string | undefined][]; tag?: string };
+  // member, and what picks it. The catch-all is named google.protobuf.Any and
+  // holds the Any message itself.
+  any?: { arms: [name: string, message: Message, key: string | undefined][]; told?: Told };
   // Whether a hand-written codec (`codecs`) stands in for the functions a
   // message's fields would compile to, for a value that is not the message's
   // shape: a `Date` for a Timestamp, JSON for a Value, Struct or ListValue.
@@ -423,9 +429,11 @@ const rejectEndless = (ctx: Ctx): void => {
   ctx.messages.forEach((message) => message.rec && walk(message));
 };
 
-type Arm = { name: string; literal: unknown; key: string; value: Internal; member: Internal; metadata: StoredField };
+// `key` is where the arm holds its value: a property, a tuple index, or unset
+// for an arm that is the value itself.
+type Arm = { name: string; key: string | undefined; value: Internal; member: Internal; metadata: StoredField };
 
-type Oneof = { arms: Arm[]; unset: Internal | undefined; optional: boolean; tag: string | undefined };
+type Oneof = { arms: Arm[]; unset: Internal | undefined; optional: boolean; told: Told | undefined };
 
 // `undefined` and nothing else: the `value?: undefined` of protobuf-es's arm for
 // no member set.
@@ -434,10 +442,97 @@ const holdsNothing = (schema: Internal): boolean => {
   return output.type === undefinedTag || (output.anyOf !== U && output.anyOf.every(holdsNothing));
 };
 
-// A oneof is a union of objects, each holding one numbered value beside
-// literals; one literal, under the same key in every arm, names the arm
-// (protobuf-es's `{ case, value }` is one). The arm for no member set holds
-// only literals, or is `undefined`.
+// An object's properties or a tuple's items by key, else unset.
+const entriesOf = (member: Internal): Record<string, Internal> | undefined =>
+  typeof member.additionalItems === objectTag ? U
+  : member.type === objectTag ? member.properties
+  : member.type === arrayTag && member.items !== U ? ({ ...member.items } as {})
+  : U;
+
+// A bare value's runtime type as its test reads it: a `typeof`, an array, or
+// an instance's class. A ref is a message where `message` says so.
+const typeOf = (schema: Internal, message: boolean): string | undefined => {
+  const output = getOutputSchema(schema);
+  const type = output.type;
+  if (type === anyOfTag) {
+    const types = new Set(output.anyOf!.filter((member) => member.type !== undefinedTag).map((member) => typeOf(member, message)));
+    return types.size === 1 ? [...types][0] : U;
+  }
+  return type === stringTag || type === numberTag || type === bigintTag || type === booleanTag || type === arrayTag || type === objectTag ? type
+    : type === refTag ? (message ? objectTag : U)
+    : type === instanceTag && (output.class === Uint8Array || output.class === Date) ? (output.class as Function).name
+    : U;
+};
+
+// What tells an arm from the others once its value is in hand: a literal under
+// one key every arm holds (`tag`), which `v&&v[tag]` reads off any value, else
+// a test per arm of its runtime type, and of a literal under a key the arms of
+// that type share. The arm for no member set gets no test, and matches none.
+// A test reads the value as `\0`, which no literal holds: JSON escapes it.
+type Told = { tag?: string; literals: string[]; tests: string[] };
+
+const testOf = (test: string, v: string): string => test.split("\0").join(v);
+
+// `keys` are the arms', which come first in `members`; the rest are arms for
+// no member set.
+const tagAmong = (members: Internal[], keys: (string | undefined)[]): string | undefined => {
+  const first = keys[0] === U ? U : entriesOf(members[0]!);
+  return first && Object.keys(first).find((property) => {
+    const literals: unknown[] = [];
+    for (let idx = 0; idx < members.length; idx++) {
+      const arm = idx < keys.length;
+      const entries = arm && keys[idx] === U ? U : entriesOf(members[idx]!);
+      if (entries === U) {
+        if (arm) return false;
+        // A bare literal for no member set meets `v&&v[tag]` too, so what that
+        // reads off it can't equal an arm's literal either.
+        const bare = literalOf(members[idx]) as Record<string, unknown> | undefined;
+        literals.push(bare && bare[property]);
+        continue;
+      }
+      const literal = property === keys[idx] ? U : literalOf(entries[property]);
+      if (entries[property] === U || (arm && literal === U)) return false;
+      literals.push(literal);
+    }
+    return new Set(literals).size === literals.length;
+  });
+};
+
+const tellApart = (arms: [member: Internal, key: string | undefined, message: boolean][], unset: Internal | undefined): Told | undefined => {
+  const keys = arms.map((arm) => arm[1]);
+  const all = arms.map((arm) => arm[0]);
+  if (unset !== U) all.push(unset);
+  const tag = tagAmong(all, keys);
+  if (tag !== U) {
+    const literals = arms.map((arm) => literalSource(literalOf(entriesOf(arm[0])![tag])));
+    return { tag, literals, tests: literals.map((literal) => `(\0&&${inlinedProperty("\0", tag, true)})===${literal}`) };
+  }
+  // A class name sorts before every lowercase type.
+  const types = all.map((member, idx) => (idx < keys.length && keys[idx] === U ? typeOf(member, arms[idx]![2]) : entriesOf(member) && member.type)) as string[];
+  const bare = unset !== U && entriesOf(unset) === U ? literalOf(unset) : U;
+  // An object test leaves out what another arm's test takes.
+  let rest = "";
+  for (const type of new Set(types)) rest += type === arrayTag ? "&&!Array.isArray(\0)" : type < "a" ? `&&!(\0 instanceof ${type})` : "";
+  const tests: string[] = [];
+  for (let idx = 0; idx < arms.length; idx++) {
+    const type = types[idx];
+    if (type === U) return U;
+    const same = (_: unknown, other: number) => types[other] === type;
+    const peerTag = all.filter(same).length > 1 ? tagAmong(all.filter(same), keys.filter(same)) : "";
+    if (peerTag === U) return U;
+    tests.push(
+      (type === arrayTag ? "Array.isArray(\0)" : type === objectTag ? `typeof \0==="object"&&\0${rest}` : type < "a" ? `\0 instanceof ${type}` : `typeof \0==="${type}"`) +
+        (peerTag && `&&${inlinedProperty("\0", peerTag, true)}===${literalSource(literalOf(entriesOf(arms[idx]![0])![peerTag]))}`) +
+        (bare !== U && typeof bare === type ? `&&\0!==${literalSource(bare)}` : ""),
+    );
+  }
+  return { literals: [], tests };
+};
+
+// A oneof is a union of arms, each holding one numbered value: an object or a
+// tuple holding it beside literals, or the value itself (protobuf-es's
+// `{ case, value }` is an object). The arm for no member set holds only
+// literals, is a bare literal, or is `undefined`.
 const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   const output = getOutputSchema(property);
   if (output.type !== anyOfTag || output.anyOf === U) return U;
@@ -447,82 +542,82 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   let stray = false;
   let numbered = false;
   for (let idx = 0; idx < output.anyOf.length; idx++) {
-    const member = getOutputSchema(output.anyOf[idx]!);
+    const declared = output.anyOf[idx]!;
+    const member = getOutputSchema(declared);
     if (member.type === undefinedTag) {
       optional = true;
       continue;
     }
-    const properties = member.properties;
-    // A literal is the arm for no member set too: a ReScript constructor with
-    // no payload is its tag's string.
-    if (member.type !== objectTag && literalOf(member) !== U) {
-      if (unset !== U) stray = true;
+    // A numbered member is the value itself, even a literal: a one-value enum
+    // (`google.protobuf.NullValue`).
+    const own = fieldMetadata(declared);
+    if (own !== U) {
+      arms.push({ name: `${key}_${own.number}`, key: U, value: declared, member, metadata: own });
+      continue;
+    }
+    const entries = entriesOf(member);
+    if (entries === U) {
+      // A literal is the arm for no member set too: a ReScript constructor with
+      // no payload is its tag's string.
+      if (literalOf(member) === U || unset !== U) stray = true;
       unset = member;
       continue;
     }
-    if (member.type !== objectTag || properties === U || typeof member.additionalItems === objectTag) {
-      stray = true;
-      continue;
-    }
-    // A numbered property is the value even when it is a literal: a
-    // one-value enum (`google.protobuf.NullValue`).
-    const values = Object.keys(properties).filter((property) => fieldMetadata(properties[property]!) !== U || (literalOf(properties[property]) === U && !holdsNothing(properties[property]!)));
+    // A numbered entry is the value even when it is a literal.
+    const values = Object.keys(entries).filter((entry) => fieldMetadata(entries[entry]!) !== U || (literalOf(entries[entry]) === U && !holdsNothing(entries[entry]!)));
     if (values.length === 0) {
       if (unset !== U) stray = true;
       unset = member;
       continue;
     }
-    const metadata = values.length === 1 ? fieldMetadata(properties[values[0]!]!) : U;
+    const metadata = values.length === 1 ? fieldMetadata(entries[values[0]!]!) : U;
     if (metadata === U) {
       // Still a oneof, one arm of which holds a numbered value beside another.
-      if (values.some((property) => fieldMetadata(properties[property]!) !== U)) numbered = true;
+      if (values.some((entry) => fieldMetadata(entries[entry]!) !== U)) numbered = true;
       stray = true;
       continue;
     }
-    arms.push({ name: values[0]!, literal: U, key: values[0]!, value: properties[values[0]!]!, member, metadata });
+    arms.push({ name: member.type === arrayTag ? `${key}_${metadata.number}` : values[0]!, key: values[0]!, value: entries[values[0]!]!, member, metadata });
   }
   if (!arms.length && !numbered) return U;
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
-  const all = unset === U || unset.type !== objectTag ? arms.map((arm) => arm.member) : [...arms.map((arm) => arm.member), unset];
-  let tag: string | undefined;
-  if (all.length > 1 || unset !== U) {
-    tag = Object.keys(arms[0]!.member.properties!).find((property) => {
-      if (!all.every((member) => member.properties![property] !== U)) return false;
-      // A bare literal for no member set meets the arms' `v&&v[tag]` too, so
-      // what that reads off it can't equal an arm's tag either.
-      const literals = all.map((member) => literalOf(member.properties![property]));
-      if (unset !== U && unset.type !== objectTag) {
-        const bare = literalOf(unset) as Record<string, unknown> | undefined;
-        literals.push(bare && bare[property]);
-      }
-      return new Set(literals).size === literals.length && arms.every((arm) => arm.key !== property && literalOf(arm.member.properties![property]) !== U);
-    });
-    if (tag === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
-    for (const arm of arms) {
-      arm.literal = literalOf(arm.member.properties![tag]);
-      if (typeof arm.literal === "string") arm.name = arm.literal;
-    }
+  let told: Told | undefined;
+  if (arms.length > 1 || unset !== U) {
+    told = tellApart(arms.map((arm) => [arm.member, arm.key, arm.metadata.type === "message"]), unset);
+    if (told === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
   }
-  return { arms, unset, optional, tag };
+  for (const arm of arms) {
+    const literal = told?.tag === U ? U : literalOf(entriesOf(arm.member)![told.tag]);
+    if (typeof literal === "string") arm.name = literal;
+  }
+  return { arms, unset, optional, told };
 };
 
 const literalSource = (value: unknown): string =>
   value === U ? "void 0" : typeof value === "bigint" ? `${value}n` : typeof value === "number" ? (Object.is(value, -0) ? "-0" : `${value}`) : JSON.stringify(value);
 
-// An optional property holding nothing is left out, as a decode leaves out an
+// The arm built around `value`, or with none the arm for no member set. An
+// optional property holding nothing is left out, as a decode leaves out an
 // absent field.
-const armObject = (member: Internal, valueKey: string | undefined, value: string): string =>
-  member.type !== objectTag ? literalSource(literalOf(member)) : `{${Object.keys(member.properties!)
-    .filter((property) => property === valueKey || !(getOutputSchema(member.properties![property]!).type === anyOfTag && holdsNothing(member.properties![property]!)))
-    .map((property) => `${property === "__proto__" ? '["__proto__"]' : JSON.stringify(property)}:${property === valueKey ? value : literalSource(literalOf(member.properties![property]))}`)
-    .join(",")}}`;
+const armSource = (member: Internal, key: string | undefined, value?: string): string => {
+  if (value !== U && key === U) return value;
+  const entries = entriesOf(member);
+  return entries === U ? literalSource(literalOf(member))
+    : member.type === arrayTag ? `[${Object.keys(entries).map((entry) => (entry === key ? value : literalSource(literalOf(entries[entry]))))}]`
+    : `{${Object.keys(entries)
+      .filter((entry) => entry === key || !(getOutputSchema(entries[entry]!).type === anyOfTag && holdsNothing(entries[entry]!)))
+      .map((entry) => `${entry === "__proto__" ? '["__proto__"]' : JSON.stringify(entry)}:${entry === key ? value : literalSource(literalOf(entries[entry]))}`)
+      .join(",")}}`;
+};
+
+const valueAt = (holder: string, key: string | undefined): string => (key === U ? holder : inlinedProperty(holder, key, true));
 
 // Parses the `value` of the arm `holder` is known to hold, read in place. The
 // code, or "" when all it did was read the value into a var of its own - which
 // an object parse does before looking at any field - so a nested message with
 // nothing to convert costs nothing.
-const armParse = (input: Val, holder: string, key: string, raw: Internal, declared: Internal): string => {
-  const read = inlinedProperty(holder, key);
+const armParse = (input: Val, holder: string, key: string | undefined, raw: Internal, declared: Internal): string => {
+  const read = valueAt(holder, key);
   const valueIn = B_scope(input);
   valueIn.i = read;
   valueIn.v = _notVarBeforeValidation;
@@ -537,13 +632,13 @@ const armParse = (input: Val, holder: string, key: string, raw: Internal, declar
   return code === "" || code === alias || code === "let " + alias ? "" : code + (valueOut.i === read ? "" : `${read}=${valueOut.i};`);
 };
 
-type Conversion = [literalSource: string, key: string, raw: Internal, declared: Internal];
+type Conversion = [test: string, key: string | undefined, raw: Internal, declared: Internal];
 
 // Converts a decoded arm into the declared one, and only where an arm has
 // anything to convert - a nested message's defaults, a field read as a string -
 // so a oneof of plain values decodes straight into its final shape. The
-// decoder built the object, so the value is replaced in place.
-const oneofRaw = (members: Internal[], conversions: Conversion[], optional: boolean, tag: string | undefined): Internal => {
+// decoder built the arm, so the value is replaced in place.
+const oneofRaw = (members: Internal[], conversions: Conversion[]): Internal => {
   const mut = anyOf(members);
   mut.encoder = (input, target) => {
     let work = false;
@@ -558,11 +653,9 @@ const oneofRaw = (members: Internal[], conversions: Conversion[], optional: bool
     }
     const v = input.v();
     let body = "";
-    for (const [literal, key, raw, declared] of conversions) {
+    for (const [test, key, raw, declared] of conversions) {
       const arm = armParse(input, v, key, raw, declared);
-      if (arm === "") continue;
-      const read = tag === U ? v : inlinedProperty(v, tag);
-      body += `${body ? "else " : ""}if(${tag === U ? `${v}!==void 0` : `${optional ? `(${v}&&${read})` : read}===${literal}`}){${arm}}`;
+      if (arm !== "") body += `${body ? "else " : ""}if(${testOf(test, v)}){${arm}}`;
     }
     const output = B_next(input, v, getOutputSchema(target), target);
     output.v = _var;
@@ -573,13 +666,22 @@ const oneofRaw = (members: Internal[], conversions: Conversion[], optional: bool
   return mut;
 };
 
-const oneofArm = (member: Internal, key: string, value: Internal): Internal => {
-  const mut = baseSchema(objectTag, false, objectDecoder);
+// The arm as the wire reads it: the declared one holding `value`.
+const oneofArm = (member: Internal, key: string | undefined, value: Internal): Internal => {
+  if (key === U) return value;
+  const entries = entriesOf(member)!;
+  const tuple = member.type === arrayTag;
+  const mut = baseSchema(member.type, false, tuple ? arrayDecoder : objectDecoder);
   const properties: Record<string, Internal> = Object.create(null);
-  for (const property of Object.keys(member.properties!)) properties[property] = property === key ? value : member.properties![property]!;
-  mut.properties = properties;
-  mut.required = Object.keys(properties);
-  mut.additionalItems = "strip";
+  for (const entry of Object.keys(entries)) properties[entry] = entry === key ? value : entries[entry]!;
+  if (tuple) {
+    mut.items = Object.values(properties);
+    mut.additionalItems = "strict";
+  } else {
+    mut.properties = properties;
+    mut.required = Object.keys(properties);
+    mut.additionalItems = "strip";
+  }
   return mut;
 };
 
@@ -598,19 +700,18 @@ const anyWire = (shape: Internal, ctx: Ctx, where: string): [Message, Internal, 
   // where `S.protobufAny.with(S.to, ...)` alone converts it as an object.
   const known = anyArms(shape, ctx);
   if (known === U) {
-    return panic(`S.protobuf: ${where} is an Any, which takes a message S.protobufTypeName names, or an object holding one beside literals`);
+    return panic(`S.protobuf: ${where} is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals`);
   }
   if (ctx.any === U) return [{ fields: [], object: shape, raw: shape, schema: shape, typeName: "google.protobuf.Any" }, shape, U];
   const message = compileMessage(ctx.any, ctx)!;
-  const [arms, other, tag] = known;
-  const writer: Message = { fields: [], object: shape, raw: shape, schema: shape, any: { arms: [], tag } };
-  for (const [name, payload, key, member] of other === U ? arms : [...arms, other]) {
-    const literal = tag === U ? U : JSON.stringify(literalOf(member.properties![tag]));
+  const [arms, other, told] = known;
+  const writer: Message = { fields: [], object: shape, raw: shape, schema: shape, any: { arms: [], told } };
+  for (const [name, payload, key] of other === U ? arms : [...arms, other]) {
     const armMessage = name === "google.protobuf.Any" ? message : compileMessage(payload, ctx);
     if (armMessage === U) return panic(`S.protobuf: ${where} holds ${name}, whose schema is not an object`);
     // A message an Any holds again is recursive, as one a field holds again is.
     if (ctx.stack.includes(armMessage)) recurse(armMessage, ctx);
-    writer.any!.arms.push([name, armMessage, key, literal]);
+    writer.any!.arms.push([name, armMessage, key]);
   }
   return [message, ctx.any, writer];
 };
@@ -659,8 +760,9 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const metadata = fieldMetadata(property) ?? (wellKnown !== U ? secondsNanos[key] : U);
     if (metadata === U) {
       const group = oneofOf(key, property);
-      if (group === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField, or make it a oneof: a union of objects, each holding one numbered value`);
-      const { arms, unset: unsetArm, optional: groupOptional, tag } = group;
+      if (group === U) return panic(`S.protobuf: field "${key}" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value`);
+      const { arms, unset: unsetArm, optional: groupOptional, told } = group;
+      const tag = told?.tag;
       if (unsetArm !== U && groupOptional) {
         return panic(`S.protobuf: oneof "${key}" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm`);
       }
@@ -669,6 +771,10 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       }
       const rawMembers: Internal[] = [];
       const conversions: Conversion[] = [];
+      const armFields: Field[] = [];
+      // What tells the arms apart as the reader built them: the same literal,
+      // or the runtime type of what the wire reads into.
+      let rawTold: Told | undefined;
       for (let armIdx = 0; armIdx < arms.length; armIdx++) {
         const arm = arms[armIdx]!;
         const m = arm.metadata;
@@ -697,11 +803,11 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           rawValue = raw;
           if (!message.unwrap) declaredValue = refinedAs(arm.value, value);
         } else rawValue = keepsShape(m.type as ProtobufType, armShape) ? armShape : scalarSchema(m.type as ProtobufType);
-        const literal = literalSource(arm.literal);
+        const literal = tag === U ? U : told!.literals[armIdx];
         rawMembers.push(oneofArm(arm.member, arm.key, rawValue));
-        conversions.push([literal, arm.key, rawValue, declaredValue]);
+        conversions.push(["", arm.key, rawValue, declaredValue]);
         const type = message !== U ? "message" : (m.type as ProtobufType);
-        fields.push({
+        const field: Field = {
           number: m.number,
           type,
           packed: m.packed,
@@ -715,18 +821,29 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           name: arm.name,
           literalSource: literal,
           tag,
+          test: tag === U ? told?.tests[armIdx] : U,
           valueKey: arm.key,
           member: arm.member,
           armValue: arm.value,
-          unset: unsetArm === U ? "void 0" : armObject(unsetArm, U, ""),
+          unset: unsetArm === U ? "void 0" : armSource(unsetArm, U),
           text: armShape.type === stringTag && type.includes("64"),
           anyWriter,
-        });
+        };
+        fields.push(field);
+        armFields.push(field);
       }
+      if (told !== U) {
+        rawTold = tag !== U ? told : tellApart(arms.map((arm, armIdx) => [rawMembers[armIdx]!, arm.key, armFields[armIdx]!.message !== U]), unsetArm);
+        if (rawTold === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart once read: two of them read into one type`);
+      }
+      armFields.forEach((field, armIdx) => {
+        field.held = rawTold === U ? "\0" : rawTold.tests[armIdx]!;
+        conversions[armIdx]![0] = told === U ? "\0!==void 0" : tag !== U && !groupOptional ? `${inlinedProperty("\0", tag, true)}===${field.literalSource}` : field.held;
+      });
       if (unsetArm !== U) rawMembers.push(unsetArm);
       if (groupOptional) rawMembers.push(unit);
       else rawRequired.push(key);
-      rawProperties[key] = oneofRaw(rawMembers, conversions, groupOptional, tag);
+      rawProperties[key] = oneofRaw(rawMembers, conversions);
       normalizedProperties[key] = property;
       continue;
     }
@@ -1823,7 +1940,7 @@ const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, .
       if (key === U) path.length = 0;
       else path.unshift("" + key);
     }
-    if (field.name !== U) path.unshift(field.valueKey!);
+    if (field.valueKey !== U) path.unshift(field.valueKey);
     if (!msg.unwrap) path.unshift(field.key);
   }
   throw failure;
@@ -1897,7 +2014,7 @@ const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[
     }
     const path = (x as Failure).path as (string | number)[];
     if (item !== U) path.unshift(item);
-    if (field.name !== U) path.unshift(field.valueKey!);
+    if (field.valueKey !== U) path.unshift(field.valueKey);
     if (!msg.unwrap) path.unshift(field.key);
   }
   return x;
@@ -1915,14 +2032,18 @@ const anyFrame = (x: unknown, key: string): unknown => {
 };
 
 // The message is left out when empty, as protobuf-es leaves it.
-const anyEncodeBody = ({ arms, tag }: NonNullable<Message["any"]>, fns: Map<Message, string>): string => {
+// The member a type belongs to, as an error names it. A tuple's tag is an index.
+const ownerOf = (told: Told | undefined, idx: number): string =>
+  told?.tag !== U ? `${/^\d+$/.test(told.tag) ? `[${told.tag}]` : told.tag}: ${told.literals[idx]}` : "another member";
+
+const anyEncodeBody = ({ arms, told }: NonNullable<Message["any"]>, fns: Map<Message, string>): string => {
   const write = ([name, message, key]: (typeof arms)[number]): string => {
-    const at = key === U ? "value" : inlinedProperty("value", key);
+    const at = valueAt("value", key);
     // A type another member names belongs to that member: decoded, it would
     // come back as that one.
     const listed = arms
       .filter((other) => other[0] !== name && other[0] !== "google.protobuf.Any")
-      .map((other) => `case ${JSON.stringify(other[0])}:fail(${JSON.stringify(`Protobuf Any holds ${other[0]}, which ${tag}: ${other[3]} is for`)});`)
+      .map((other) => `case ${JSON.stringify(other[0])}:fail(${JSON.stringify(`Protobuf Any holds ${other[0]}, which ${ownerOf(told, arms.indexOf(other))} is for`)});`)
       .join("");
     const code =
       name === "google.protobuf.Any"
@@ -1930,8 +2051,10 @@ const anyEncodeBody = ({ arms, tag }: NonNullable<Message["any"]>, fns: Map<Mess
         : `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${name}`)});q=w.pos;${writeTag(18)};g=w.begin();${fns.get(message)!}(w,${at});w.end(g);if(w.pos===q+2)w.pos=q`;
     return key === U ? code : `try{${code}}catch(x){throw pre(x,${JSON.stringify(key)})}`;
   };
-  if (tag === U) return write(arms[0]!);
-  return `switch(${inlinedProperty("value", tag)}){${arms.map((arm) => `case ${arm[3]}:${write(arm)};break;`).join("")}}`;
+  if (told === U) return write(arms[0]!);
+  return told.tag !== U
+    ? `switch(${inlinedProperty("value", told.tag, true)}){${arms.map((arm, idx) => `case ${told.literals[idx]}:${write(arm)};break;`).join("")}}`
+    : arms.map((arm, idx) => `${idx ? "else " : ""}if(${testOf(told.tests[idx]!, "value")}){${write(arm)}}`).join("");
 };
 
 const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict };
@@ -2093,15 +2216,16 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       for (let other = idx; other < msg.fields.length; other++) {
         const member = msg.fields[other]!;
         if (member.key !== field.key) continue;
-        const value = inlinedProperty("v", member.valueKey!);
+        const value = valueAt("v", member.valueKey);
         const write = `f=${other};${writeTag(member.number * 8 + member.wire)};${
           member.type === "message"
             ? `h=w.begin();${writer(member)}(w,${value});w.end(h)`
             : writeCall(member.type, value, enc, member.text ? 3 : 0)
         }`;
-        arms += field.tag === U ? `if(v!==void 0){${write}}` : `case ${member.literalSource}:${write};break;`;
+        arms += field.tag !== U ? `case ${member.literalSource}:${write};break;`
+          : `${arms && "else "}if(${testOf(member.test ?? "v!==void 0", "v")}){${write}}`;
       }
-      body.push(`v=${src};${field.tag === U ? arms : `switch(v&&${inlinedProperty("v", field.tag)}){${arms}}`}`);
+      body.push(`v=${src};${field.tag === U ? arms : `switch(v&&${inlinedProperty("v", field.tag, true)}){${arms}}`}`);
       continue;
     }
     const oneof = guard(field);
@@ -2208,11 +2332,10 @@ const decodeFnSource = (msg: Message, fns: Map<Message, string>, slot: number): 
         literal += `${field.key === "__proto__" ? '["__proto__"]' : key}:${local},`;
       }
       // A message member seen again merges into the one already read.
-      const held = field.tag === U ? local : `(${local}&&${inlinedProperty(local, field.tag)})===${field.literalSource}`;
-      const build = (value: string) => armObject(field.member!, field.valueKey, value);
+      const build = (value: string) => armSource(field.member!, field.valueKey, value);
       cases.push(
         field.type === "message"
-          ? `case ${tag}:p=r.sub();${local}=${build(`${fns.get(field.message!)!}(r,d+1,${held}?${inlinedProperty(local, field.valueKey!)}:void 0)`)};r.limit=p;continue;`
+          ? `case ${tag}:p=r.sub();${local}=${build(`${fns.get(field.message!)!}(r,d+1,${testOf(field.held!, local)}?${valueAt(local, field.valueKey)}:void 0)`)};r.limit=p;continue;`
           : `case ${tag}:${local}=${build(readCall(field.type))};continue;`,
       );
       continue;
@@ -2317,15 +2440,15 @@ const compileDecoder = (root: Message, fns: Map<Message, string>): Function => {
 const isMessageShape = (schema: Internal | undefined): schema is Internal =>
   schema !== U && (schema.type === refTag || (schema.type === objectTag && schema.properties !== U));
 
-const objectSchemaOf = (input: Val): Internal => {
+const objectSchemaOf = (input: Val, shape: (schema: Internal | undefined) => boolean = isMessageShape): Internal => {
   let current: Val | undefined = input.prev;
   while (current !== U) {
-    if (isMessageShape(current.e)) return current.e;
+    if (shape(current.e)) return current.e;
     current = current.prev;
   }
   current = input;
   while (current !== U) {
-    if (isMessageShape(current.s)) return current.s;
+    if (shape(current.s)) return current.s;
     current = current.prev;
   }
   return input.s;
@@ -2465,10 +2588,11 @@ const chainName = (schema: Internal, ctx: Ctx): string | undefined => {
 type AnyArm = [name: string, payload: Internal, key: string | undefined, member: Internal];
 
 const anyArm = (member: Internal, ctx: Ctx): AnyArm | undefined => {
-  const name = typeNameOf(member, ctx);
+  // A tuple member's `.to` is where a union converts it, not its own type.
+  const name = member.type === arrayTag ? U : typeNameOf(member, ctx);
   if (name !== U) return [name, member, U, member];
-  const properties = member.properties;
-  if (member.type !== objectTag || properties === U || typeof member.additionalItems === objectTag) return U;
+  const properties = entriesOf(member);
+  if (properties === U) return U;
   const values = Object.keys(properties).filter((property) => getOutputSchema(properties[property]!).const === U);
   const key = values.find((property) => chainName(properties[property]!, ctx) !== U);
   if (key === U) return U;
@@ -2483,7 +2607,7 @@ const literalOf = (schema: Internal | undefined): unknown =>
 // holds no message. Refused where a value couldn't come back as the member it
 // left: two members holding one message, or several with no literal telling
 // them apart, which is all an encode has to go by.
-type AnyArms = [arms: AnyArm[], other: AnyArm | undefined, tag: string | undefined];
+type AnyArms = [arms: AnyArm[], other: AnyArm | undefined, told: Told | undefined];
 
 const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   const arms: AnyArm[] = [];
@@ -2502,17 +2626,14 @@ const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   }
   const all = other === U ? arms : [...arms, other];
   if (all.length === 0) return U;
-  let tag: string | undefined;
+  let told: Told | undefined;
   if (all.length > 1) {
-    tag = Object.keys(all[0]![3].properties ?? {}).find((property) => {
-      const seen = new Set(all.map((arm) => (arm[2] === U ? U : literalOf(arm[3].properties![property]))));
-      return !seen.has(U) && seen.size === all.length;
-    });
-    if (tag === U) {
+    told = tellApart(all.map((arm) => [arm[3], arm[2], true]), U);
+    if (told === U) {
       return panic(`S.protobufAny can't tell its members apart. Give each a literal, such as type: "user", beside the message it holds`);
     }
   }
-  return [arms, other, tag];
+  return [arms, other, told];
 };
 
 const anyListed = (input: Val, owners: Map<string, string>): ((name: string, path?: Path) => ErrorDetails) => {
@@ -2555,14 +2676,6 @@ const anyUnpack: Encoder = (input, target) => {
   const field = (key: string): string => fields?.[key]?.i ?? inlinedProperty(input.v(), key);
   const name = B_varWithoutAllocation(g);
   const out = B_varWithoutAllocation(g);
-  const build = ([, , key, member]: AnyArm, value: string): string => {
-    if (key === U) return value;
-    let fields = "";
-    for (const property of Object.keys(member.properties!)) {
-      fields += `${JSON.stringify(property)}:${property === key ? value : B_inlineConst(input, getOutputSchema(member.properties![property]!))},`;
-    }
-    return `{${fields.slice(0, -1)}}`;
-  };
   let code = `${B_let(g, name, field("typeUrl"))}${name}=${name}.slice(${name}.lastIndexOf("/")+1);${B_let(g, out)}`;
   // Each arm as its code and the value it lands, a promise where it is async.
   const convert = (arm: AnyArm, read: string, source: Internal): [code: string, value: string, async: boolean] => {
@@ -2593,7 +2706,7 @@ const anyUnpack: Encoder = (input, target) => {
   const async = converted.some((arm) => arm[2]) || !!rest?.[2];
   const land = (arm: AnyArm, [code, value, isAsync]: [string, string, boolean]): string =>
     `${code}${out}=${
-      isAsync ? `${value}.then(x=>(${build(arm, "x")}))` : async ? `Promise.resolve(${build(arm, value)})` : build(arm, value)
+      isAsync ? `${value}.then(x=>(${armSource(arm[3], arm[2], "x")}))` : async ? `Promise.resolve(${armSource(arm[3], arm[2], value)})` : armSource(arm[3], arm[2], value)
     };`;
   arms.forEach((arm, idx) => {
     code += `${idx ? "else " : ""}if(${name}===${JSON.stringify(arm[0])}){${land(arm, converted[idx]!)}}`;
@@ -2624,9 +2737,11 @@ const convertingUnion = (input: Val): Internal | undefined => {
 };
 
 const anyPack: Builder = (input) => {
-  const source = objectSchemaOf(input);
+  // A tuple member is found as the object one is: the expected side first,
+  // since what a conversion inside it rebuilt has lost the type names.
+  const source = input.s.type === arrayTag ? objectSchemaOf(input, (schema) => schema?.type === arrayTag && schema.items !== U) : objectSchemaOf(input);
   const ctx = newCtx();
-  const arm = typeNameOf(source, ctx) === "google.protobuf.Any" ? U : anyArm(source, ctx);
+  const arm = source.type !== arrayTag && typeNameOf(source, ctx) === "google.protobuf.Any" ? U : anyArm(source, ctx);
   if (arm === U) {
     const output = objectDecoder(input);
     // `objectDecoder` rebuilds the schema from the fields it parsed, without the
@@ -2642,7 +2757,7 @@ const anyPack: Builder = (input) => {
   const read = key === U ? input : fieldValsOf(input)?.[key];
   const valueIn = B_scope(read ?? input);
   if (read === U) {
-    valueIn.i = inlinedProperty(input.v(), key!);
+    valueIn.i = inlinedProperty(input.v(), key!, true);
     valueIn.v = _notVarBeforeValidation;
     // The member's field vals would be read as the payload's.
     valueIn.d = U;
@@ -2664,8 +2779,7 @@ const anyPack: Builder = (input) => {
   const known = union === U ? U : anyArms(union, ctx);
   if (known !== U && name === "google.protobuf.Any" && known[0].length) {
     const held = B_varWithoutAllocation(input.g);
-    const tag = known[2]!;
-    const owners = new Map(known[0].map((arm) => [arm[0], `${tag}: ${JSON.stringify(literalOf(arm[3].properties![tag]))}`]));
+    const owners = new Map(known[0].map((arm, idx) => [arm[0], ownerOf(known[2], idx)]));
     output.cp +=
       `${B_let(input.g, held, `${valueIn.i}.typeUrl`)}${held}=${held}.slice(${held}.lastIndexOf("/")+1);` +
       B_fail(valueIn, anyListed(valueIn, owners), held, `!(${known[0].map((arm) => `${held}===${JSON.stringify(arm[0])}`).join("||")})`);

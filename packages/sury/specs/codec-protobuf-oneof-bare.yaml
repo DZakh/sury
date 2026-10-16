@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.int32.with(S.protobufField, 1), value: S.union([S.int32.with(S.protobufField, 2), S.protobufField(S.string, { number: 3, type: "int64" }), S.protobufField(S.schema({ street: S.string.with(S.protobufField, 1) }), { number: 4, type: "message" }), S.schema("none")]) }).with(S.to, S.protobuf)'
+  input: "{ id: number; value: string | number | { street: string; }; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9204
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, value: { anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string" }, { type: "object", properties: { street: { type: "string" } }, required: ["street"] }, { type: "string", const: "none" }] } }, required: ["id", "value"] }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, value: { anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string" }, { type: "object", properties: { street: { type: "string" } }, required: ["street"] }, { type: "string", enum: ["none"] }] } }, required: ["id", "value"] }'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&!!(typeof a.value==="number"&&a.value==a.value?typeof b.value==="number"&&b.value==b.value&&a.value===b.value:typeof a.value==="string"?typeof b.value==="string"&&a.value===b.value:typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)&&a.value.street===b.value.street:b.value==="none")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: int32; value: int32 | string | { street: string; } | \"none\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.id,v1=i.value;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);for(;;){if(typeof v1==="number"&&v1==v1&&v1<=2147483647&&v1>=-2147483648&&v1%1==0)break;if(typeof v1==="string")break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)){let v2=v1.street;typeof v2==="string"||e[1](v2);v1={street:v2};break}throw e[2](v1)}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=v1;if(typeof v==="number"){f=1;w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=Number(v);if(s<-2147483648||s>2147483647)e[4](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)}else if(typeof v==="string"&&v!=="none"){f=2;w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);w.varint64(e[5](v,-9223372036854775808n,9223372036854775807n))}else if(typeof v==="object"&&v){f=3;w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v3}catch(v4){e[11](v4)}}
+    examples:
+      int32:
+        input: "{ id: 1, value: 5 }"
+        output: new Uint8Array([8, 1, 16, 5])
+      int64-string:
+        input: '{ id: 1, value: "12" }'
+        output: new Uint8Array([8, 1, 24, 12])
+      message:
+        input: '{ id: 1, value: { street: "x" } }'
+        output: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+      none:
+        input: '{ id: 0, value: "none" }'
+        output: new Uint8Array([])
+      int64-not-digits:
+        input: '{ id: 1, value: "x" }'
+        error: 'Failed at value: Expected int64, received "x"'
+      wrong-type:
+        input: "{ id: 1, value: true }"
+        error: 'Failed at value: Expected int32 | string | { street: string; } | "none", received true'
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v=i.value;if(typeof v==="number"){f=1;w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=Number(v);if(s<-2147483648||s>2147483647)e[1](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)}else if(typeof v==="string"&&v!=="none"){f=2;w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);w.varint64(e[2](v,-9223372036854775808n,9223372036854775807n))}else if(typeof v==="object"&&v){f=3;w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[0](w,v);w.end(h)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v0}catch(v1){e[7](v1)}}
+    examples:
+      int32:
+        input: "{ id: 1, value: 5 }"
+        output: new Uint8Array([8, 1, 16, 5])
+      zero-member-is-written:
+        input: "{ id: 1, value: 0 }"
+        output: new Uint8Array([8, 1, 16, 0])
+      int64-string:
+        input: '{ id: 1, value: "12" }'
+        output: new Uint8Array([8, 1, 24, 12])
+      message:
+        input: '{ id: 1, value: { street: "x" } }'
+        output: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+      none:
+        input: '{ id: 0, value: "none" }'
+        output: new Uint8Array([])
+      int64-not-digits:
+        input: '{ id: 1, value: "x" }'
+        error: 'Failed at value: Expected int64, received "x"'
+  encode:
+    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.value;if(typeof v1==="bigint"){v1=""+v1;}return {id:v0.id,value:v1}}catch(v3){e[3](v3)}}
+    examples:
+      int32:
+        input: new Uint8Array([8, 1, 16, 5])
+        output: "{ id: 1, value: 5 }"
+      int64-string:
+        input: new Uint8Array([8, 1, 24, 12])
+        output: '{ id: 1, value: "12" }'
+      message:
+        input: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+        output: '{ id: 1, value: { street: "x" } }'
+      none-set:
+        input: new Uint8Array([8, 1])
+        output: '{ id: 1, value: "none" }'
+      last-member-wins:
+        input: new Uint8Array([16, 5, 24, 12])
+        output: '{ id: 0, value: "12" }'
+      same-message-member-merges:
+        input: new Uint8Array([34, 3, 10, 1, 120, 34, 0])
+        output: '{ id: 0, value: { street: "x" } }'

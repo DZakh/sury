@@ -190,7 +190,7 @@ const isAnyValue = (shape: Internal): boolean =>
   shape.type === anyOfTag
     ? shape.anyOf!.every((member) => {
         const output = getOutputSchema(member);
-        return output.type === undefinedTag || (isMessageShape(output) && !isContainer(output));
+        return output.type === undefinedTag || (output.type === arrayTag && output.items !== U) || (isMessageShape(output) && !isContainer(output));
       })
     : isMessageShape(shape) && !isContainer(shape);
 

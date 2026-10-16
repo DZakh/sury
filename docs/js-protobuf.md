@@ -160,6 +160,27 @@ S.optional(S.union([
 // no member set: undefined
 ```
 
+An arm can also be a tuple, or the numbered value itself when no two arms share a
+runtime type:
+
+```ts
+S.union([
+  S.tuple(["email", S.string.with(S.protobufField, 2)]),
+  S.tuple(["phone", S.string.with(S.protobufField, 3)]),
+  S.tuple(["none"]),
+]);
+// ["email", "a@b"]
+
+S.optional(S.union([
+  S.string.with(S.protobufField, 2),
+  S.int32.with(S.protobufField, 3),
+]));
+// "a@b", 7 or undefined
+```
+
+Two arms the same type need a literal beside the value: a 64-bit field held as a
+string next to a string field, or two messages, are refused.
+
 It needs an arm for no member set, or `S.optional`:
 
 ```ts
@@ -264,6 +285,14 @@ the list of types you accept. To keep the rest, add a member holding
 ```ts
 S.schema({ type: "other", value: S.protobufAny });
 // { type: "other", value: { typeUrl: "type.googleapis.com/acme.v1.Refund", value: Uint8Array } }
+```
+
+A member can be a tuple too, or the message itself when no other member is an
+object:
+
+```ts
+S.union([S.tuple(["user", User]), S.tuple(["order", Order])]);
+// ["order", { total: 5n }]
 ```
 
 It works anywhere an Any arrives as `{ typeUrl, value }`: a gRPC error detail,

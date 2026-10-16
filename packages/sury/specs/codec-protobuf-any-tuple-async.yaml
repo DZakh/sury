@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.union([S.tuple(["au", S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU")]), S.tuple(["other", S.protobufAny])]))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '["au", { name: string; }] | ["other", { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }]'
+  instantiations: 10222
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "Failed at [1].value: Expected JSON, received Uint8Array"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare [\"au\", { name: string; }] | [\"other\", Any]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v7={typeUrl:v0,value:v1};let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.AU"){let v5=v1;let v4;{let r;try{r=e[4].acquire(v5);v4=e[3](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[5](x)}}let v6;try{v6=e[9](e[6](v4.name),v6=>{typeof v6==="string"||e[8](v6);return v6},e[7])}catch(x){e[7](x)}v3=Promise.all([v6]).then(([v6])=>{return {name:v6}}).then(x=>(["au",x]));}else{let v8=v7;v3=Promise.resolve(["other",v8]);}return v3.catch(e[11])}catch(v9){return e[12](v9)}}
+    examples:
+      member:
+        input: '{ typeUrl: "x/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'
+        output: '["au", { name: "a!" }]'
+      other:
+        input: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }'
+        output: '["other", { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }]'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;if(v0==="acme.v1.AU"){let v3=i.value;let v2;{let r;try{r=e[1].acquire(v3);v2=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v4;try{v4=e[6](e[3](v2.name),v4=>{typeof v4==="string"||e[5](v4);return v4},e[4])}catch(x){e[4](x)}v1=Promise.all([v4]).then(([v4])=>{return {name:v4}}).then(x=>(["au",x]));}else{let v5=i;v1=Promise.resolve(["other",v5]);}return v1.catch(e[7])}catch(v6){return e[8](v6)}}
+    examples:
+      member:
+        input: '{ typeUrl: "x/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'
+        output: '["au", { name: "a!" }]'
+      other:
+        input: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }'
+        output: '["other", { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }]'
+  encode:
+    expression: i=>{try{if(Array.isArray(i)){for(;;){if(i["0"]==="au"){let v0=i[1];let v1;try{v1=e[0](v0.name)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v1;if(v){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}i={typeUrl:"type.googleapis.com/acme.v1.AU",value:v2};break}if(i["0"]==="other"){let v3=i[1];let v4=v3.typeUrl;v4=v4.slice(v4.lastIndexOf("/")+1);!(v4==="acme.v1.AU")||e[7](v4);i=v3;break}throw e[8](i)}}else{throw e[8](i)}return i}catch(v5){e[9](v5)}}
+    examples:
+      member:
+        input: '["au", { name: "a!" }]'
+        output: '{ typeUrl: "type.googleapis.com/acme.v1.AU", value: new Uint8Array([10, 1, 97]) }'
+      other:
+        input: '["other", { typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }]'
+        output: '{ typeUrl: "x/acme.v1.Refund", value: new Uint8Array([]) }'
+      other-holding-a-listed-type:
+        input: '["other", { typeUrl: "x/acme.v1.AU", value: new Uint8Array([]) }]'
+        error: 'Failed at [1]: Protobuf Any holds acme.v1.AU, which [0]: "au" is for'
