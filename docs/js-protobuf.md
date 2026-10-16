@@ -160,8 +160,7 @@ S.optional(S.union([
 // no member set: undefined
 ```
 
-An arm can also be a tuple, or the numbered value itself when no two arms share a
-runtime type:
+An arm can also be a tuple, or the numbered value itself:
 
 ```ts
 S.union([
@@ -178,8 +177,9 @@ S.optional(S.union([
 // "a@b", 7 or undefined
 ```
 
-Arms of one type need a literal beside the value, and so does a value of the
-same type as a bare literal for no member set:
+The field number on the wire picks the arm a decode reads. An encode writes the
+first arm the value matches, so give arms of one type a literal beside the
+value to reach the later ones:
 
 ```ts
 const Message = S.schema({
@@ -189,9 +189,11 @@ const Message = S.schema({
     S.schema(""),
   ]),
 });
-S.encodeOrThrow(Message, S.protobuf);
-// throws: oneof "value" can't tell its arms apart. Give each a literal, such as
-// case: "email", beside the value it holds
+const encode = S.encodeOrThrow(Message, S.protobuf);
+encode({ value: "12" }); // Uint8Array [18, 2, 49, 50]: field 2
+encode({ value: "" }); // Uint8Array [18, 0]: field 2 too
+S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([24, 12])); // { value: "12" }
+S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([])); // { value: "" }
 ```
 
 It needs an arm for no member set, or `S.optional`:

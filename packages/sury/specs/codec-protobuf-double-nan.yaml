@@ -36,7 +36,7 @@ operations:
         input: '{ d: 0, f: [], o: { case: "n", value: NaN } }'
         output: new Uint8Array([25, 0, 0, 0, 0, 0, 0, 248, 127])
   encode:
-    expression: i=>{try{let v0=0,v1=[],v2=0,v3=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1];try{r=e[3].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 9:v0=r.f64();continue;case 18:p=r.sub();r.fixeds(v1,1);r.limit=p;continue;case 21:v1.push(r.f32());continue;case 25:v2=3;v3=r.f64();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[4](x,e[2],t,k,v1);e[5](x)}}let v5;for(;;){if(v2===3){v5={case:"n",value:v3};break}v5={case:void 0};break}return {d:v0,f:v1,o:v5}}catch(v6){e[6](v6)}}
+    expression: i=>{try{let v0=0,v1=[],v3=0,v2=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1];try{r=e[3].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 9:v0=r.f64();continue;case 18:p=r.sub();r.fixeds(v1,1);r.limit=p;continue;case 21:v1.push(r.f32());continue;case 25:v3=3;v2=r.f64();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[4](x,e[2],t,k,v1);e[5](x)}}let v4;for(;;){if(v3===3){v4={case:"n",value:v2};break}v4={case:void 0};break}return {d:v0,f:v1,o:v4}}catch(v5){e[6](v5)}}
     examples:
       nan:
         input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127, 25, 0, 0, 0, 0, 0, 0, 248, 127])

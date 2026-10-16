@@ -55,14 +55,14 @@ operations:
         input: "{ v: 1, left: { v: 2, left: { v: 4, left: undefined, right: undefined }, right: undefined }, right: { v: 3, left: undefined, right: { v: 5, left: undefined, right: undefined } } }"
         output: new Uint8Array([8, 1, 18, 6, 8, 2, 18, 2, 8, 4, 26, 6, 8, 3, 26, 2, 8, 5])
   encode:
-    expression: i=>{try{let v0=0,v1=void 0,v2=void 0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();v1=m0(r,d+1,v1);r.limit=p;continue;case 26:p=r.sub();v2=m0(r,d+1,v2);r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}if(v1!==void 0){try{e[9](v1);}catch(v4){e[10](v4,["left"])}}if(v2!==void 0){try{e[13](v2);}catch(v6){e[14](v6,["right"])}}let v7={v:v0};if(v1!==void 0){v7.left=v1}if(v2!==void 0){v7.right=v2}return v7}catch(v8){e[15](v8)}}
+    expression: i=>{try{let v0=0,v1=void 0,v2=void 0;{let r,a1=-1,b1=0,u1,a2=-1,b2=0,u2,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m0=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:p=r.sub();if(a1<0){a1=r.pos;b1=r.limit}else u1=r.join(a1,b1,u1);r.pos=r.limit;r.limit=p;continue;case 26:p=r.sub();if(a2<0){a2=r.pos;b2=r.limit}else u2=r.join(a2,b2,u2);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a1>=0){t=18;v1=u1===void 0?r.span(m0,d+1,a1,b1):r.again(m0,d+1,u1)}if(a2>=0){t=26;v2=u2===void 0?r.span(m0,d+1,a2,b2):r.again(m0,d+1,u2)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v3={v:v0};if(v1!==void 0){v3.left=v1}if(v2!==void 0){v3.right=v2}return v3}catch(v4){e[7](v4)}}
     examples:
       leaf:
         input: new Uint8Array([8, 1])
         output: "{ v: 1 }"
       both-branches:
         input: new Uint8Array([8, 1, 18, 2, 8, 2, 26, 2, 8, 3])
-        output: "{ v: 1, left: { v: 2, left: undefined, right: undefined }, right: { v: 3, left: undefined, right: undefined } }"
+        output: "{ v: 1, left: { v: 2 }, right: { v: 3 } }"
       deep-on-both:
         input: new Uint8Array([8, 1, 18, 6, 8, 2, 18, 2, 8, 4, 26, 6, 8, 3, 26, 2, 8, 5])
-        output: "{ v: 1, left: { v: 2, left: { v: 4, left: undefined, right: undefined }, right: undefined }, right: { v: 3, left: undefined, right: { v: 5, left: undefined, right: undefined } } }"
+        output: "{ v: 1, left: { v: 2, left: { v: 4 } }, right: { v: 3, right: { v: 5 } } }"
