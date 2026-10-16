@@ -111,7 +111,7 @@ export const KNOWN_BUGS: Known[] = [
     id: "json-null-through-union-to",
     kind: "bug",
     summary:
-      "Under `S.json` a present `null` in a field whose `.to` is a union reads as missing: " +
+      "Under `S.json` a present `null` in a field whose `.to` is a union with a `null` or `undefined` arm reads as missing: " +
       "`S.optional(S.string).with(S.to, S.nullable(S.string))` reads `{a: null}` as `{a: null}`, " +
       "where parse rejects it.",
     spec: "codec-json-object-optional-to-nullable",
@@ -204,7 +204,9 @@ export const KNOWN_BUGS: Known[] = [
         f.shape,
         (node) =>
           ["optional", "nullable", "nullish", "union"].includes(node.name) &&
-          node.args.some((member) => member.args.some((arg) => arg.name === "#value")),
+          node.args.some(
+            (member) => member.name === "optDefaultTo" || member.args.some((arg) => arg.name === "#value"),
+          ),
       ),
   },
   {

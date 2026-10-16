@@ -24,6 +24,7 @@ import {
   isOptional,
   isSchemaObject,
   noopDecoder,
+  nullTag,
   objectTag,
   pathConcat,
   pathEmpty,
@@ -848,10 +849,11 @@ const presentTarget = (s: Internal): Internal | undefined => {
     const item = presentTarget(anyOf[0]!);
     if (item === U) return U;
     mut = item === anyOf[0] ? copySchema(item) : item;
-  } else if (s.to !== U && s.to.type === anyOfTag) {
-    // FIXME: a conversion into a union pairs the arms itself, and without the
-    // undefined arm it turns ambiguous, so a present null still reads as missing
-    // (codec-json-object-optional-to-optional, codec-json-object-optional-to-nullable).
+  } else if (s.to !== U && s.to.type === anyOfTag && (s.to.has![nullTag] || s.to.has![undefinedTag])) {
+    // FIXME: a conversion into a union with an empty arm pairs it with the
+    // undefined one, and without that the conversion turns ambiguous, so a
+    // present null still reads as missing (codec-json-object-optional-to-optional,
+    // codec-json-object-optional-to-nullable).
     return s;
   } else {
     // Only the top-level arm: encode leaves the key out for it, while a

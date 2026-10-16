@@ -28,12 +28,13 @@ export const some = (shape: Shape, test: (node: Shape) => boolean): boolean => {
 
 // ---- predicates the known-bug registry is written in ----------------------
 
-// `env` reads an unset variable, and `optTo` converts one, so their input
-// admits `undefined` too.
+// `env` reads an unset variable, and `optTo` / `optDefaultTo` convert one, so
+// their input admits `undefined` too.
 export const admitsUndefined = (node: Shape): boolean =>
   node.name === "optional" ||
   node.name === "env" ||
   node.name === "optTo" ||
+  node.name === "optDefaultTo" ||
   node.name === "nullish" ||
   node.name === "undefined" ||
   node.name === "void" ||

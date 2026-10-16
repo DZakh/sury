@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.a;if(v0!==void 0){for(;;){if(typeof v0==="number"&&v0==v0&&(v0===1||v0===2))break;if(v0===null){(1===1||1===2)||e[0](1);v0=1;break}throw e[1](v0)}}else{for(;;){if(typeof v0==="number"&&v0==v0&&(v0===1||v0===2))break;if(v0===void 0){(1===1||1===2)||e[2](1);v0=1;break}throw e[3](v0)}}return {a:v0}}catch(v1){e[5](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.a;if(v0!==void 0){typeof v0==="number"&&v0==v0&&(v0===1||v0===2)||e[0](v0);}else{for(;;){if(typeof v0==="number"&&v0==v0&&(v0===1||v0===2))break;if(v0===void 0){(1===1||1===2)||e[1](1);v0=1;break}throw e[2](v0)}}return {a:v0}}catch(v1){e[4](v1)}}
     examples:
       absent:
         input: "{}"
@@ -33,13 +33,9 @@ operations:
       two:
         input: "{ a: 2 }"
         output: "{ a: 2 }"
-      # FIXME: S.parseOrThrow rejects a present null.
       "null":
         input: "{ a: null }"
-        output: "{ a: 1 }"
-        divergence:
-          reason: the document is right to reject the null S.json takes as missing
-          ajv: "input: data/a must be equal to one of the allowed values"
+        error: "Failed at a: Expected number | undefined, received null"
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v0=i.a;typeof v0==="number"&&v0==v0&&(v0===1||v0===2)||e[0](v0);return i}catch(v1){e[1](v1)}}
