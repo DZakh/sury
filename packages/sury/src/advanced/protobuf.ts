@@ -9,8 +9,6 @@ import {
   compilePath,
   conversionSite,
   copySchema,
-  copyTo,
-  defsPath,
   type Encoder,
   type ErrorDetails,
   type SuryErrorRecord,
@@ -59,9 +57,9 @@ import {
   B_unsupportedDecode,
   B_varWithoutAllocation,
 } from "../builder";
-import { arrayDecoder, arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
-import { B_unrecord, schemaObject } from "../factory";
-import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse, reverse } from "../parse";
+import { arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
+import { B_unrecord, schemaRelocation } from "../factory";
+import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
 import { fieldMetadata, protobufField, wellKnownTakes, wrappers } from "./protobufField";
@@ -658,11 +656,27 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   ctx.stack.push(msg);
   const fields: Field[] = [];
   const numbers = new Set<number>();
-  // What a field holding `message` reads into and holds, as `at` declares it:
-  // the value the message's own reader hands back, a wrapper's scalar or a
-  // codec's value to convert.
-  const messageValue = (message: Message, at: Internal): [raw: Internal, read: Internal] =>
-    message.unwrap ? [message.raw, at] : message.codec ? [message.raw, refinedAs(at, message.raw)] : [at, at];
+  // What a field numbered by `m` holds of `at`, whose output is `shape`: the
+  // message it is, what its reader reads, what the record holds and an Any's
+  // writer. A message's own reader hands back the value `at` declares; a
+  // wrapper's scalar and a codec's value still convert.
+  const holding = (m: StoredField, at: Internal, shape: Internal, where: string): [Message | undefined, Internal, Internal, Message?] => {
+    const known = m.type.startsWith("google.") ? (m.type as WellKnownType) : U;
+    if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) {
+      const [message, raw, writer] = anyWire(shape, ctx, where);
+      return [message, raw, at, writer];
+    }
+    if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape) ? shape : scalarSchema(m.type as ProtobufType), at];
+    const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage(at, ctx);
+    if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
+    // A nested value converts field by field, output to output, so a chain
+    // past the object has nothing to run it: only the root's does.
+    if (getOutputSchema(message.object) !== message.object) {
+      return panic(`S.protobuf: ${where} is a message that converts further with S.to, which a nested field can't`);
+    }
+    const raw = message.unwrap || message.codec ? message.raw : at;
+    return [message, raw, message.codec ? refinedAs(at, raw) : at];
+  };
   const keys = Object.keys(output.properties);
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
@@ -691,20 +705,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
         if (armOptional || (isContainer(armShape) && !(known !== U && wellKnownTakes(known, armShape)))) {
           return panic(`S.protobuf: ${where} must hold one value, not an optional, a list or a map`);
         }
-        let message: Message | undefined;
-        let raw: Internal;
-        let read = arm.value;
-        let anyWriter: Message | undefined;
-        if (known === "google.protobuf.Any" && typeNameOf(armShape, ctx) !== known) {
-          [message, raw, anyWriter] = anyWire(armShape, ctx, where);
-        } else if (m.type === "message" || known !== U) {
-          message = known !== U ? wellKnownMessage(known, armShape, ctx, where) : compileMessage(armValue, ctx);
-          if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
-          if (getOutputSchema(message.object) !== message.object) {
-            return panic(`S.protobuf: ${where} is a message that converts further with S.to, which a nested field can't`);
-          }
-          [raw, read] = messageValue(message, arm.value);
-        } else raw = keepsShape(m.type as ProtobufType, armShape) ? armShape : scalarSchema(m.type as ProtobufType);
+        const [message, raw, read, anyWriter] = holding(m, arm.value, armShape, where);
         const type = message !== U ? "message" : (m.type as ProtobufType);
         const field: Field = {
           number: m.number,
@@ -752,26 +753,8 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       map = metadata.key;
       shape = getOutputSchema(shape.additionalItems as Internal);
     }
-    const at = repeated || map !== U ? (container.additionalItems as Internal) : propertyValue;
-    let message: Message | undefined;
-    let raw: Internal;
     // What the item holds, past optional, repeated and map.
-    let read = at;
-    let anyWriter: Message | undefined;
-    if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) {
-      [message, raw, anyWriter] = anyWire(shape, ctx, `field "${key}"`);
-    } else if (metadata.type === "message" || known !== U) {
-      message = known !== U ? wellKnownMessage(known, shape, ctx, `field "${key}"`) : compileMessage(at, ctx);
-      if (message === U) return panic(`S.protobuf: field "${key}" is a message but its schema is not an object`);
-      // A nested value converts field by field, output to output, so a chain
-      // past the object has nothing to run it: only the root's does.
-      if (getOutputSchema(message.object) !== message.object) {
-        return panic(`S.protobuf: field "${key}" is a message that converts further with S.to, which a nested field can't`);
-      }
-      [raw, read] = messageValue(message, at);
-    } else {
-      raw = keepsShape(metadata.type as ProtobufType, shape) ? shape : scalarSchema(metadata.type as ProtobufType);
-    }
+    let [message, raw, read, anyWriter] = holding(metadata, repeated || map !== U ? (container.additionalItems as Internal) : propertyValue, shape, `field "${key}"`);
     const done = raw === read;
     // A repeated or map field reads into the user's container, its length
     // checks included.
@@ -1246,38 +1229,6 @@ export class Reader {
     if (end > this.limit) truncated();
     const value = this.buf.slice(this.pos, end);
     this.pos = end;
-    return value;
-  }
-  // The payloads of a message field seen again, back to back: `prev` is the
-  // bytes joined so far, or unset while they are still the one payload
-  // [start, end) of this buffer, and the payload in [pos, limit) follows.
-  join(start: number, end: number, prev: Uint8Array | undefined): Uint8Array {
-    const buf = this.buf;
-    let pos = this.pos;
-    const head = prev === U ? end - start : prev.length;
-    const joined = new Uint8Array(head + this.limit - pos);
-    if (prev === U) for (let i = 0; i < head; i++) joined[i] = buf[start + i]!;
-    else joined.set(prev);
-    for (let i = head; i < joined.length; i++) joined[i] = buf[pos++]!;
-    return joined;
-  }
-  // Reads [start, end) of this buffer, or `bytes`, with `fn`, then stands
-  // where the read enclosing it ends.
-  span(fn: (r: Reader, d: number) => unknown, d: number, start: number, end: number): unknown {
-    const outer = this.limit;
-    this.pos = start;
-    this.limit = end;
-    const value = fn(this, d);
-    this.pos = this.limit = outer;
-    return value;
-  }
-  again(fn: (r: Reader, d: number) => unknown, d: number, bytes: Uint8Array): unknown {
-    const buf = this.buf;
-    const end = this.limit;
-    this.buf = bytes;
-    const value = this.span(fn, d, 0, bytes.length);
-    this.buf = buf;
-    this.pos = this.limit = end;
     return value;
   }
 }
@@ -1767,6 +1718,19 @@ const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?:
 };
 
 
+// A codec's reader over every payload a field was given, as a compiled
+// message's reads them (`readParts`): each continues from what the one before
+// read.
+const ranged = (read: (r: Reader, d: number, prev?: unknown) => unknown) => (r: Reader, d: number, x?: number[]): unknown => {
+  let value = read(r, d);
+  for (let j = 0; x !== U && j < x.length; ) {
+    r.pos = x[j++]!;
+    r.limit = x[j++]!;
+    value = read(r, d, value);
+  }
+  return value;
+};
+
 const secondsNanos: Record<string, StoredField> = {
   seconds: { number: 1, type: "int64", packed: true, key: "string", numberedAs: bigint },
   nanos: { number: 2, type: "int32", packed: true, key: "string", numberedAs: int },
@@ -2017,14 +1981,6 @@ const readCall = (type: ProtobufType): string => {
   return "r.bytes()";
 };
 
-// A field named after an Object.prototype member (`constructor`,
-// `toString`, `__proto__`) reads an inherited value when absent; an own-key
-// read keeps it absent.
-const readKey = (obj: string, key: string): string => {
-  const k = JSON.stringify(key);
-  return key in Object.prototype ? `(Object.hasOwn(${obj},${k})?${obj}[${k}]:void 0)` : `${obj}[${k}]`;
-};
-
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
   : type === "bytes" ? "new Uint8Array"
@@ -2188,9 +2144,10 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
 // function that reads a message.
 //
 // A message field seen again is the parse of every payload it was given, back
-// to back, which is what merging it is: each payload is noted as it comes
-// (`a`, `b`, and `u` once a second one joined the bytes), and the field is read
-// once after the loop, inside the `try` with `t` set so its failure is framed.
+// to back, which is what merging it is: each payload is noted as it comes, the
+// first as `a` and `b`, the rest as ranges in `x`, and the message is read once
+// after the loop, its reader continuing from one range into the next. A
+// message's own reader takes such ranges as `x`.
 const readParts = (msg: Message, local: (kind: string, idx: number) => string, fn: (msg: Message) => string) => {
   const fields = msg.fields;
   const locals: [name: string, init: string][] = [];
@@ -2199,11 +2156,13 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   const sets = new Map<string, string>();
   let after = "";
   const zero = 'fail("Invalid protobuf field number 0")';
-  const note = (a: string, b: string, u: string): string => `if(${a}<0){${a}=r.pos;${b}=r.limit}else ${u}=r.join(${a},${b},${u});r.pos=r.limit;`;
-  const noted = (a: string, b: string, u: string, message: Message): string => `${u}===void 0?r.span(${fn(message)},d+1,${a},${b}):r.again(${fn(message)},d+1,${u})`;
+  const note = (a: string, b: string, x: string): string => `if(${a}<0){${a}=r.pos;${b}=r.limit}else ${x}===void 0?${x}=[r.pos,r.limit]:${x}.push(r.pos,r.limit);r.pos=r.limit;`;
+  // An absent message reads the empty range where the loop ended: its default.
+  const read = (a: string, b: string, x: string, value: string, message: Message): string =>
+    `g=r.limit;${a}<0?r.pos=g:(r.pos=${a},r.limit=${b});${value}=${fn(message)}(r,d+1,${x});r.pos=r.limit=g`;
   const range = (idx: number): [string, string, string] => {
-    temps.push(`a${idx}=-1`, `b${idx}=0`, `u${idx}`);
-    return [`a${idx}`, `b${idx}`, `u${idx}`];
+    temps.push(`a${idx}=-1`, `b${idx}=0`, `x${idx}`);
+    return [`a${idx}`, `b${idx}`, `x${idx}`];
   };
   for (let idx = 0; idx < fields.length; idx++) {
     const field = fields[idx]!;
@@ -2220,10 +2179,10 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       }
       locals.push([value, "void 0"]);
       if (field.type === "message") {
-        const [a, b, u] = range(idx);
+        const [a, b, x] = range(idx);
         // A member seen again merges only while it still is the one set.
-        cases.push(`case ${tag}:p=r.sub();if(${set}!==${field.number}){${set}=${field.number};${a}=-1;${u}=void 0}${note(a, b, u)}r.limit=p;continue;`);
-        after += `if(${set}===${field.number}){t=${tag};${value}=${noted(a, b, u, field.message!)}}`;
+        cases.push(`case ${tag}:p=r.sub();if(${set}!==${field.number}){${set}=${field.number};${a}=-1;${x}=void 0}${note(a, b, x)}r.limit=p;continue;`);
+        after += `if(${set}===${field.number}){t=${tag};${read(a, b, x, value, field.message!)}}`;
       } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readCall(field.type)};continue;`);
       continue;
     }
@@ -2233,7 +2192,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       for (let other = 0; other < fields.length; other++) {
         const member = fields[other]!;
         if (other === idx || member.oneof !== field.oneof) continue;
-        clear += `${local("f", other)}=void 0;${member.type === "message" ? `a${other}=-1;u${other}=void 0;` : ""}`;
+        clear += member.type === "message" ? `a${other}=-1;x${other}=void 0;` : `${local("f", other)}=void 0;`;
       }
     }
     if (field.map !== U) {
@@ -2253,8 +2212,8 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       if (field.type === "message") {
         // A repeated key replaces the earlier entry whole, as C++ does, while a
         // value repeated inside one entry merges.
-        if (!temps.includes("ma")) temps.push("ma", "mb", "mu");
-        entry = `ma=-1;mu=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();${note("ma", "mb", "mu")}r.limit=g}`)}${keyDefault}c=ma<0?r.span(${fn(field.message!)},d+1,r.pos,r.pos):${noted("ma", "mb", "mu", field.message!)}`;
+        if (!temps.includes("ma")) temps.push("ma", "mb", "mx");
+        entry = `ma=-1;mx=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();${note("ma", "mb", "mx")}r.limit=g}`)}${keyDefault}${read("ma", "mb", "mx", "c", field.message!)}`;
       } else {
         entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readCall(field.type)};`)}${keyDefault}`;
       }
@@ -2263,13 +2222,11 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
     } else if (field.type === "message" && field.repeated) {
       cases.push(`case ${tag}:p=r.sub();${value}.push(${fn(field.message!)}(r,d+1));r.limit=p;continue;`);
     } else if (field.type === "message") {
-      const [a, b, u] = range(idx);
-      cases.push(`case ${tag}:${clear}p=r.sub();${note(a, b, u)}r.limit=p;continue;`);
+      const [a, b, x] = range(idx);
+      cases.push(`case ${tag}:${clear}p=r.sub();${note(a, b, x)}r.limit=p;continue;`);
       // A required message absent on the wire is its default instance, so
       // the schema's type holds; `S.optional` is how presence is asked for.
-      after += field.optional
-        ? `if(${a}>=0){t=${tag};${value}=${noted(a, b, u, field.message!)}}`
-        : `t=${tag};${value}=${a}<0?r.span(${fn(field.message!)},d+1,r.pos,r.pos):${noted(a, b, u, field.message!)};`;
+      after += field.optional ? `if(${a}>=0){t=${tag};${read(a, b, x, value, field.message!)}}` : `t=${tag};${read(a, b, x, value, field.message!)};`;
     } else if (field.repeated && packable[field.type]) {
       const kind = varintKind(field.type);
       const fixed = fixedKind(field.type);
@@ -2287,8 +2244,10 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   const frame = lists || fields.some((field) => field.map !== U) ? `,k${lists}` : "";
   // `t=-1` before a tag of several bytes is read: one that fails part way is
   // no field's, and must not frame the error with the tag before it.
-  const loop = (miss: string) =>
-    `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}${after}`;
+  const loop = (miss: string, ranges?: boolean) => {
+    const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}`;
+    return `${ranges ? `for(;;){${body}if(x===void 0||j===x.length)break;r.pos=x[j++];r.limit=x[j++]}` : body}${after}`;
+  };
   return { locals, temps, frame, loop };
 };
 
@@ -2345,7 +2304,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
     if (msg === root && root.rec === U) return;
     if (msg.codec !== U) {
       params.push(name);
-      args.push(codecs[msg.wellKnown!]![0]);
+      args.push(ranged(codecs[msg.wellKnown!]![0]));
     } else if (msg.any === U) {
       const slot = messages.push(msg) - 1;
       const local = (kind: string, idx: number) => kind + idx;
@@ -2359,7 +2318,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
       }
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
-      src += `function ${name}(r,d){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars};try{${loop(miss)}}catch(x){throw at(x,M[${slot}],t${frame})}${tail}}`;
+      src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars},j=0;try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${tail}}`;
     } else return;
     names.push(name);
   });
@@ -2498,7 +2457,7 @@ const asWritten = (field: Field): Internal => {
 // holds under the oneof's own key (0 for none). A reader's record converts
 // from what the wire read; a writer's holds the value as it stands.
 const relocated = (message: Message, writes?: boolean): Internal =>
-  (message.relocated ??= schemaObject((s) => {
+  (message.relocated ??= schemaRelocation((s) => {
     const leaf = (field: Field): Internal => (writes ? asWritten(field) : field.name !== U && field.done ? opaque : field.read);
     const value: Record<string, unknown> = Object.create(null);
     for (const key in message.object.properties) {
@@ -2510,7 +2469,7 @@ const relocated = (message: Message, writes?: boolean): Internal =>
       }
       const union = copySchema(oneof.union);
       union.anyOf = oneof.members.map(([member, field]) =>
-        schemaObject((c) => {
+        schemaRelocation((c) => {
           c.tag(key, field === U ? 0 : field.number);
           return armDefinition(member, field?.path[1], field && c.field(`${field.number}`, leaf(field)));
         }),

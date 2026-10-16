@@ -283,13 +283,13 @@ const schemaNested = function (this: AdvancedObjectCtx & Record<string, unknown>
   }
 };
 
-// @__NO_SIDE_EFFECTS__
-export const schemaObject = (
-  definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
-): Internal => {
-  if (typeof definer !== "function") {
-    return definitionToSchema(definer);
-  }
+type ObjectField = (fieldName: string, schema: Internal) => unknown;
+
+// The object a definer builds, handed the ctx `ctxOf` makes: a consumer's
+// (`schemaObject`), or the one a codec relocates its record with
+// (`schemaRelocation`), which has no use for the rest and so leaves it out of
+// the codec's bundle.
+const definedObject = <Ctx>(definer: (ctx: Ctx) => unknown, ctxOf: (field: ObjectField, flatten: (schema: Internal) => unknown) => Ctx): Internal => {
   let flattened: Internal[] | undefined = U;
   const properties = Object.create(null) as Record<string, Internal>;
   const read = new Set<string>();
@@ -344,9 +344,7 @@ export const schemaObject = (
     return proxifyShapedSchema(schema, [fieldName]);
   };
 
-  const ctx = makeObjectCtx(field, flatten);
-
-  const definition = definer(ctx);
+  const definition = definer(ctxOf(field, flatten));
 
   const mut = baseSchema(objectTag, false, objectDecoder);
   mut.required = Object.keys(properties);
@@ -366,6 +364,17 @@ export const schemaObject = (
   }
   return mut;
 }
+
+// @__NO_SIDE_EFFECTS__
+export const schemaObject = (
+  definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
+): Internal => (typeof definer !== "function" ? definitionToSchema(definer) : definedObject(definer, makeObjectCtx));
+
+type RelocationCtx = { field: ObjectField; tag: (tag: string, asValue: unknown) => void; flatten: (schema: Internal) => unknown };
+
+// @__NO_SIDE_EFFECTS__
+export const schemaRelocation = (definer: (ctx: RelocationCtx) => unknown): Internal =>
+  definedObject(definer, (field, flatten) => ({ field, tag: makeTag(field), flatten }));
 
 // @__NO_SIDE_EFFECTS__
 export const schemaTuple = (
