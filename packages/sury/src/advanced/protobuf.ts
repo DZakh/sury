@@ -15,6 +15,7 @@ import {
   type SuryErrorRecord,
   initSchema,
   inlinedProperty,
+  inputExpression,
   instanceTag,
   type Internal,
   noopDecoder,
@@ -151,13 +152,16 @@ type Ctx = {
   // A reader's messages, whose values run the chains and refinements of the
   // refs a walk passes (`Message.links`).
   reads?: boolean;
+  // A writer's messages, each the object its chain ends with (`lastObject`).
+  last?: boolean;
 };
 
-const newCtx = (reads?: boolean): Ctx => ({
+const newCtx = (reads?: boolean, last?: boolean): Ctx => ({
   names: new Map(),
   messages: new Map(),
   stack: [],
   reads,
+  last,
 });
 
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
@@ -181,6 +185,19 @@ const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
     else current = deref(current, ctx);
   }
   return current;
+};
+
+// The object a writer is handed for a nested message: the last its chain
+// reaches, which is also the one a reader starts the reversed chain from. A
+// chain that leaves the object for something else has no message to write.
+const lastObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
+  let object = firstObject(schema, ctx);
+  while (object?.to !== U) {
+    const next = firstObject(object.to, ctx);
+    if (next === U) return panic(`S.protobuf: ${inputExpression(object)} converts with S.to into something other than a message`);
+    object = next;
+  }
+  return object;
 };
 
 const typeNameOf = (schema: Internal, ctx: Ctx): string | undefined => {
@@ -649,13 +666,8 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const known = m.type.startsWith("google.") ? (m.type as WellKnownType) : U;
     if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) return [anyMessage(whole, ctx, where), at, at];
     if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape) ? shape : scalarSchema(m.type as ProtobufType), at];
-    const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage(at, ctx);
+    const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.last && lastObject(at, ctx)) || at, ctx);
     if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
-    // A nested value converts field by field, output to output, so a chain
-    // past the object has nothing to run it: only the root's does.
-    if (getOutputSchema(message.object) !== message.object) {
-      return panic(`S.protobuf: ${where} is a message that converts further with S.to, which a nested field can't`);
-    }
     const raw = message.unwrap || message.codec ? message.raw : at;
     return [message, raw, message.codec ? refinedAs(at, raw) : at];
   };
@@ -2460,7 +2472,7 @@ const protobufDecoder = (input: Val): Val => {
   // other, so it validates as one instead of planning a message it has no
   // value for.
   if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
-  const message = compileMessage(objectSchemaOf(input), newCtx());
+  const message = compileMessage(objectSchemaOf(input), newCtx(false, true));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
@@ -3335,7 +3347,11 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   if (options?.name && !/^[A-Za-z_]\w*$/.test(options.name)) {
     return panic(`S.toProtoOrThrow: "${options.name}" is not a message name`);
   }
-  const ctx = newCtx();
+  // A message is printed as a writer is handed it where the schema converts
+  // into the wire, and as a reader reads it otherwise, as the root is.
+  let writes = false;
+  for (let current = schema.to; current !== U; current = current.to) if (current.flags & 256) writes = true;
+  const ctx = newCtx(false, writes);
   const wire = wireObject(schema, ctx);
   const message = wire === U ? U : compileMessage(wire, ctx);
   if (message === U) return panic("S.toProtoOrThrow: the schema is not an object");

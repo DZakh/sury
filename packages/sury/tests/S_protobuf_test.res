@@ -150,7 +150,7 @@ message User {
   )
 })
 
-test("the guide's wire error and its S.object warning", t => {
+test("the guide's wire error, and a nested S.object", t => {
   t->U.assertThrowsMessage(
     () =>
       %raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
@@ -160,8 +160,8 @@ test("the guide's wire error and its S.object warning", t => {
     "Failed at home.street: Protobuf string is not valid UTF-8",
   )
 
-  // `S.object` builds the record out of named JS fields, which is a `.to`, so
-  // the message sits on the far side of a conversion a nested field can't take.
+  // `S.object` builds the record out of named JS fields, which is a `.to`: the
+  // message is the record the value holds.
   let objectAddress = S.object(s => {
     street: s.field("street", S.string->S.protobufField(1)),
   })
@@ -172,11 +172,16 @@ test("the guide's wire error and its S.object warning", t => {
     home: s.matches(S.option(objectAddress)->S.protobufField(4)),
     kind: s.matches(S.enum([1, 2])->S.protobufField(5)),
   })
-  t->Assert.throws(
-    () => nested->S.toProtoOrThrow,
-    ~expectations={
-      message: `[Sury] S.protobuf: field "home" is a message that converts further with S.to, which a nested field can't`,
-    },
+  t->Assert.deepEqual(
+    nested->S.toProtoOrThrow->String.includes("optional Home home = 4;"),
+    true,
+  )
+  let value = {id: 1, name: "", tags: [], home: Some({street: "Main"}), kind: 1}
+  t->Assert.deepEqual(
+    value
+    ->S.convertOrThrow(~from=nested, ~to=S.protobuf)
+    ->S.convertOrThrow(~from=S.protobuf, ~to=nested),
+    value,
   )
 })
 

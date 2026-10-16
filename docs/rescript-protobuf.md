@@ -57,8 +57,7 @@ With the [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.
 type address = {street: @s.with(S.protobufField(_, 1)) string}
 ```
 
-Build messages with `S.schema` or the PPX. A nested message can't be an
-`S.object`.
+Build messages with `S.schema`, `S.object` or the PPX.
 
 ## Field types
 
