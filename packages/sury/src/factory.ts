@@ -12,10 +12,12 @@ import {
   copySchema,
   globalConfig,
   immutableEmptyArray,
+  inlinedProperty,
   inlinedValueFromString,
   inputExpression,
   type Internal,
   isLiteral,
+  isOptional,
   itemSymbol,
   noopDecoder,
   objectTag,
@@ -33,6 +35,7 @@ import {
   type Val,
 } from "./base";
 import {
+  _notVar,
   _notVarAtParent,
   _var,
   B_addObjectField,
@@ -163,6 +166,9 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
     return field(fieldName, fieldOrSchema(schema, or));
   };
 
+const unionKeys = (union: Internal): Set<string> =>
+  new Set(union.anyOf!.flatMap((member) => Object.keys(member.properties!)));
+
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
   mut.from = from;
@@ -286,6 +292,7 @@ export const schemaObject = (
   }
   let flattened: Internal[] | undefined = U;
   const properties = Object.create(null) as Record<string, Internal>;
+  const read = new Set<string>();
 
   const flatten = (schema: Internal): unknown => {
     if (schema.type === objectTag) {
@@ -302,6 +309,16 @@ export const schemaObject = (
         } else {
           properties[key] = flattenedSchema;
         }
+      }
+      const f = flattened || (flattened = []);
+      return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
+    } else if (schema.type === anyOfTag && schema.anyOf!.every((m) => m.type === objectTag && m.properties !== U)) {
+      // The union reads and checks these keys itself, so the parent hands them
+      // over as they are.
+      for (const key of unionKeys(schema)) {
+        if (key in properties) panic(`The field "${key}" defined twice with incompatible schemas`);
+        properties[key] = unknown;
+        read.add(key);
       }
       const f = flattened || (flattened = []);
       return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
@@ -330,6 +347,15 @@ export const schemaObject = (
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
     mut.flattened = flattened;
+    if (read.size) {
+      // `{ id: number; } & ({ r: number; } | { s: number; })`: the keys a
+      // union reads are its members' to describe.
+      const own = baseSchema(objectTag, false, objectDecoder);
+      own.properties = Object.create(null);
+      for (const key in properties) if (!read.has(key)) own.properties![key] = properties[key]!;
+      mut.expression = () =>
+        inputExpression(own) + flattened!.map((schema) => (schema.anyOf ? ` & (${inputExpression(schema)})` : "")).join("");
+    }
   }
   return mut;
 }
@@ -464,8 +490,22 @@ const shapedParser: Builder = (input: Val) => {
       // decoded vals. Reuse them here instead of decoding again - re-decoding
       // would re-apply field-level transforms on the already-transformed value
       // (issue #271).
-      let flattenedVal: Val;
-      if (flattenedSchema.to !== U) {
+      let flattenedVal!: Val;
+      if (flattenedSchema.type === anyOfTag) {
+        // The whole object, whose fields the parent already read. Re-read
+        // rather than held in a var: only a failure or an arm that hands it
+        // on unchanged reads it whole, and the arm the union picks goes to a
+        // var of the union's own. Compiled inside the guard, so that var is
+        // declared where the parent's output reads it.
+        const unionInput = B_scope(input);
+        unionInput.v = _notVar;
+        unionInput.fz = true;
+        unionInput.e = flattenedSchema;
+        unionInput.io = false;
+        B_unlessCollected(input, () => B_merge((flattenedVal = parse(unionInput))));
+        flattenedVals.push(flattenedVal);
+        continue;
+      } else if (flattenedSchema.to !== U) {
         // The flattened schema has its own reshape/transform. Mark the input as
         // output so the parse loop skips the decoder and runs only that `.to`,
         // reading the decoded fields back through the shared `vals`.
@@ -626,8 +666,19 @@ const getShapedSerializerOutput = (
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
             v.cp = v.cp + B_merge(flattenedOutput);
-            for (const key of Object.keys(flattenedOutput.d!)) {
-              B_addObjectField(v, key, valGet(flattenedOutput, key));
+            if (flattenedSchemas[idx]!.anyOf !== U) {
+              const at = flattenedOutput.v();
+              const arms = flattenedOutput.s.anyOf ?? [flattenedOutput.s];
+              for (const key of unionKeys(flattenedSchemas[idx]!)) {
+                const field = B_next(flattenedOutput, inlinedProperty(at, key), unknown);
+                field.prev = U;
+                field.o = arms.some((arm) => arm.properties?.[key] === U || isOptional(arm.properties[key]!));
+                B_addObjectField(v, key, field);
+              }
+            } else {
+              for (const key of Object.keys(flattenedOutput.d!)) {
+                B_addObjectField(v, key, valGet(flattenedOutput, key));
+              }
             }
           });
         }

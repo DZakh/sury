@@ -972,6 +972,10 @@ const unionEmit = (
   trustedSelf?: boolean
 ): Val => {
   const initialInline = input.i;
+  // An object handed over as its field vals and not built yet: each case
+  // assigns its own result to a var of the union's, so the object is built
+  // only by a case that hands it on unchanged.
+  const built: { n?: string } | undefined = input.v === _notVar && input.d !== U && !input.cp ? {} : U;
   let output = B_refine(input);
   // An async case only has to be awaited so that its rejection can be caught and
   // the value handed to a later group - which is exactly where a group is marked
@@ -1310,9 +1314,12 @@ const unionEmit = (
     const label = leave();
     const async = caseOut.f & 1;
     output.f |= async;
-    if (caseOut.t) {
+    if (built !== U && !caseOut.t && !async) {
+      // Handed on as it is, so this is the one case that builds it.
+      body += `${(built.n ||= B_varWithoutAllocation(g))}=${caseOut.i};`;
+    } else if (caseOut.t) {
       output.t = true;
-      const itemVar = target.v();
+      const itemVar = built !== U ? (built.n ||= B_varWithoutAllocation(g)) : target.v();
       if (async || caseOut.i !== itemVar) {
         body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i};`;
         // The one assignment into the operation's own parameter; `make*`
@@ -1482,6 +1489,7 @@ const unionEmit = (
   } else if (!noop) {
     let dispatch = emitChain(cases, true);
     if (failures) dispatch = B_let(input.g, failures) + dispatch;
+    if (built?.n !== U) dispatch = B_let(input.g, built!.n!) + dispatch;
     if (asyncDispatch) {
       const itemVar = input.v();
       output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
@@ -1489,7 +1497,10 @@ const unionEmit = (
       output.cp += dispatch;
     }
   }
-  if (!asyncDispatch) output.i = input.i;
+  if (built?.n !== U) {
+    output.i = built!.n!;
+    output.v = _var;
+  } else if (!asyncDispatch) output.i = input.i;
   let out: Val;
   if (output.f & 1) {
     output.i = `Promise.resolve(${output.i})`;

@@ -336,3 +336,76 @@ test("Can destructure flattened schema", t => {
     `i=>{return {name:i.name,age:i.age,id:i.id}}`,
   )
 })
+
+type shape = Circle({radius: float}) | Square({side: float})
+
+test("Flattens a union of shapes into the object's own keys", t => {
+  let schema = S.object(s =>
+    {
+      "id": s.field("id", S.float),
+      "shape": s.flatten(
+        S.union([
+          S.object(s => Circle({radius: s.field("r", S.float)})),
+          S.object(s => Square({side: s.field("s", S.float)})),
+        ]),
+      ),
+    }
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{id: 1, s: 2}`)->S.parseOrThrow(~to=schema),
+    {"id": 1., "shape": Square({side: 2.})},
+  )
+  t->Assert.deepEqual(
+    {"id": 1., "shape": Circle({radius: 2.})}->S.convertOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{id: 1, r: 2}`),
+  )
+})
+
+test("Fails to flatten a union whose key is the object's own field", t => {
+  t->Assert.throws(
+    () => {
+      S.object(
+        s =>
+          {
+            "id": s.field("r", S.float),
+            "shape": s.flatten(
+              S.union([
+                S.object(s => Circle({radius: s.field("r", S.float)})),
+                S.object(s => Square({side: s.field("s", S.float)})),
+              ]),
+            ),
+          },
+      )
+    },
+    ~expectations={
+      message: `[Sury] The field "r" defined twice with incompatible schemas`,
+    },
+  )
+})
+
+test("Fails to flatten two unions reading the same key", t => {
+  t->Assert.throws(
+    () => {
+      let shape = S.union([
+        S.object(s => Circle({radius: s.field("r", S.float)})),
+        S.object(s => Square({side: s.field("s", S.float)})),
+      ])
+      S.object(s => {"a": s.flatten(shape), "b": s.flatten(shape)})
+    },
+    ~expectations={
+      message: `[Sury] The field "r" defined twice with incompatible schemas`,
+    },
+  )
+})
+
+test("Fails to flatten a union of values that aren't objects", t => {
+  t->Assert.throws(
+    () => {
+      S.object(s => {"foo": s.flatten(S.union([S.string, S.literal("a")]))})
+    },
+    ~expectations={
+      message: `[Sury] The 'string | "a"' schema can\'t be flattened`,
+    },
+  )
+})
