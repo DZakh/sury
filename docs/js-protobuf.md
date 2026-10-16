@@ -170,7 +170,8 @@ const Contact = S.schema({
   ]),
 });
 S.encodeOrThrow(Contact, S.protobuf);
-// throws: oneof "contact" has no arm for no member set
+// throws: oneof "contact" has no arm for no member set. Add one holding only its
+// literal, such as S.schema({ type: "none" }), or wrap the union in S.optional
 ```
 
 A flat oneof is optional fields sharing a `oneof` name:

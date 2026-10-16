@@ -488,10 +488,13 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   if (all.length > 1 || unset !== U) {
     tag = Object.keys(arms[0]!.member.properties!).find((property) => {
       if (!all.every((member) => member.properties![property] !== U)) return false;
-      // A bare literal for no member set is read where the tag is, so it
-      // can't equal an arm's tag either.
+      // A bare literal for no member set meets the arms' `v&&v[tag]` too, so
+      // what that reads off it can't equal an arm's tag either.
       const literals = all.map((member) => literalOf(member.properties![property]));
-      if (unset !== U && unset.type !== objectTag) literals.push(literalOf(unset));
+      if (unset !== U && unset.type !== objectTag) {
+        const bare = literalOf(unset) as Record<string, unknown> | undefined;
+        literals.push(bare && bare[property]);
+      }
       return new Set(literals).size === literals.length && arms.every((arm) => arm.key !== property && literalOf(arm.member.properties![property]) !== U);
     });
     if (tag === U) return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
