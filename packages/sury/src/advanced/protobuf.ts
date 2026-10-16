@@ -61,7 +61,7 @@ import {
 import { arrayFactory, B_record, dictFactory, objectDecoder } from "../composites";
 import { B_unrecord, schemaRelocation } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
-import { bigint, bool, float, int, integer, string, unit } from "../primitives";
+import { bigint, bool, float, int, integer, Literal_parse, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
 import { fieldMetadata, protobufField, wellKnownTakes, wrappers } from "./protobufField";
 import { uint8Array } from "./uint8Array";
@@ -2273,6 +2273,19 @@ const awaitedMap = (map: Record<string, unknown>, path: Path): Promise<Record<st
   });
 };
 
+// What a case slot holds: one of `numbers`, spelled as a copy of the union
+// whose members they number, which keeps the codec off the union compiler.
+const caseOf = (union: Internal, numbers: number[]): Internal => {
+  if (numbers.length === 1) return Literal_parse(numbers[0]);
+  const tag = copySchema(union);
+  delete tag.refiner;
+  delete tag.inputRefiner;
+  delete tag.to;
+  tag.anyOf = numbers.map(Literal_parse);
+  tag.has = { [numberTag]: true };
+  return tag;
+};
+
 // The value of a message the reader read into `local`s, built by the core: each
 // field converts from what the wire read into what the record holds, the
 // relocation places it, then the object's chain runs and each link's.
@@ -2303,7 +2316,13 @@ const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => 
         return out;
       });
     });
-    for (const key in sets) field(key, () => B_slot(at, local("c", sets[key]!), unknown, unknown, [key]));
+    for (const key in sets) {
+      // The number of the member set, or 0 for none, which only an Any's
+      // reader never leaves: it fails first.
+      const numbers = msg.fields.flatMap((field) => (field.name !== U && field.key === key ? [field.number] : []));
+      const tag = caseOf(msg.any !== U ? msg.object : msg.oneofs![key]!.union, msg.any !== U ? numbers : [0, ...numbers]);
+      field(key, () => B_slot(at, local("c", sets[key]!), tag, tag, [key]));
+    }
   });
   // The record is the relocation's own Input: what each member reads is that
   // member's.

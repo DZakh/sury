@@ -37,14 +37,20 @@ operations:
         input: '{ id: 1, case: "phone", phone: 1 }'
         error: "Failed at phone: Expected string, received 1"
   decode:
-    expression: i=>{let v1=i.case;let v0;for(;;){if(v1==="email"){v0={type:"email",email:i.email};break}if(v1==="phone"){v0={type:"phone",phone:i.phone};break}v0={type:"none"};break}return {id:i.id,contact:v0}}
+    expression: i=>{try{let v0=i.email,v2=i.phone;let v1;for(;;){if((i).case==="email"){typeof v0==="string"||e[0](v0);v1={type:"email",email:v0};break}if((i).case==="phone"){typeof v2==="string"||e[1](v2);v1={type:"phone",phone:v2};break}if((i).case==="none"){v1={type:"none"};break}throw e[2]((i))}return {id:i.id,contact:v1}}catch(v3){e[3](v3)}}
     examples:
       phone:
         input: '{ id: 1, case: "phone", phone: "1" }'
         output: '{ id: 1, contact: { type: "phone", phone: "1" } }'
-      unknown-case-is-the-last:
+      wrong-case:
         input: '{ id: 1, case: "fax" }'
-        output: '{ id: 1, contact: { type: "none" } }'
+        error: 'Expected { case: "email"; email: string; } | { case: "phone"; phone: string; } | { case: "none"; }, received { id: 1; case: "fax"; }'
+      no-case:
+        input: "{ id: 1 }"
+        error: 'Expected { case: "email"; email: string; } | { case: "phone"; phone: string; } | { case: "none"; }, received { id: 1; }'
+      wrong-value:
+        input: '{ id: 1, case: "phone", phone: 1 }'
+        error: "Failed at phone: Expected string, received 1"
   encode:
     expression: i=>{try{let v0=i.contact;let v3;let v2;let v1;for(;;){if(v0.type==="email"){v1="email";v2=v0.email;break}if(v0.type==="phone"){v1="phone";v3=v0.phone;break}if(v0.type==="none"){v1="none";break}throw e[0](v0)}let v4={case:v1,id:i.id};if(v2!==void 0){v4.email=v2}if(v3!==void 0){v4.phone=v3}return v4}catch(v5){e[1](v5)}}
     examples:

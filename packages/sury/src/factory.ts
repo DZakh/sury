@@ -530,11 +530,21 @@ const shapedParser: Builder = (input: Val) => {
         const unionInput = B_scope(input);
         unionInput.v = _notVar;
         unionInput.fz = true;
-        // Decoding the parent's own Input, the keys hold one of the union's,
+        // A codec's record, decoded as the parent's own Input with every key
+        // the union's members read already read and typed, holds one of them,
         // so a member that reshapes from a literal of its own is picked by it.
-        // Each reads its fields where the parent read them, so the object is
-        // read only for a failure that names it.
-        if (input.s === input.e && flattenedSchema.anyOf!.every((member) => member.to !== U && Object.values(member.properties!).some(isLiteral))) {
+        // Each reads its fields where the parent read them, so the record is
+        // read only for a failure that names it. A key the Input declares
+        // `unknown` is the member's to check.
+        if (
+          input.s === input.e &&
+          flattenedSchema.anyOf!.every(
+            (member) =>
+              member.to !== U &&
+              Object.values(member.properties!).some(isLiteral) &&
+              Object.keys(member.properties!).every((key) => input.d?.[key] !== U && input.d![key]!.s !== unknown)
+          )
+        ) {
           unionInput.s = flattenedSchema;
         } else {
           unionInput.i = (input.t ? input.prev! : input).v();

@@ -1310,9 +1310,9 @@ const unionEmit = (
         for (const key in member.s.properties) {
           if (read[key] === U) continue;
           const field = B_scope(read[key]!);
-          // One the source knew nothing of is the member's own; one it read
-          // as something else still converts.
-          if (field.s === unknown) field.s = member.s.properties[key]!;
+          // The tag is the member's once the dispatch picked it; every other
+          // field converts from what the source read it as.
+          if (key === trustedD[0]) field.s = member.s.properties[key]!;
           caseInput.d![key] = field;
         }
       }
@@ -1376,9 +1376,15 @@ const unionEmit = (
       // A field the source already read is read again from where it was put,
       // which for a codec's record is the only place it is.
       const read = source.d?.[trustedD[0]];
-      // Each member's tag read where the source read it: the value holds one
-      // of them, so the last member is what is left once the others are not.
-      if (read === U || ++tagged !== members || cond.c !== "") {
+      // Each member's tag read where the source read it. A source that reads
+      // the tag as a union of literals, each one a member's, holds one of
+      // them, so the last member is what is left once the others are not.
+      if (
+        read === U ||
+        ++tagged !== members ||
+        cond.c !== "" ||
+        !(read.s.anyOf ?? [read.s]).every((literal) => isLiteral(literal) && plan.some((group) => group.a.some((m) => m.d !== U && m.d[0] === trustedD[0] && unionLiteralEqual(m.d[1], literal.const))))
+      ) {
         const dRead = read !== U ? read.v() : inlinedProperty(source.v(), trustedD[0]);
         const dCond =
           dSchema.type === nanTag
