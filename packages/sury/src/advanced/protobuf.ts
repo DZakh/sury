@@ -830,6 +830,7 @@ export class Reader {
     reader.buf = buf;
     reader.pos = 0;
     reader.limit = buf.length;
+    reader.n = 0;
     return reader;
   }
   varint32(): number {
@@ -1144,6 +1145,25 @@ export class Reader {
   // Enters a length-delimited field: narrows `limit` to it and returns the
   // outer limit for the caller to restore. Bounds checks against `limit`
   // are what stop a nested read escaping its field.
+  // The payloads a field seen again was given past its first, kept for the
+  // read after the loop: each as its range and the next one's index, the
+  // first also holding the last's. Reused from one decode to the next, so a
+  // merge allocates nothing once it has grown.
+  x: number[] = [];
+  n = 0;
+  more(first?: number): number {
+    const x = this.x;
+    const at = this.n;
+    this.n = at + 4;
+    x[at] = this.pos;
+    x[at + 1] = this.limit;
+    x[at + 2] = -1;
+    x[at + 3] = at;
+    if (first === U) return at;
+    x[x[first + 3]! + 2] = at;
+    x[first + 3] = at;
+    return first;
+  }
   sub(): number {
     const len = this.len();
     const end = this.pos + len;
@@ -1685,11 +1705,11 @@ const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?:
 // A codec's reader over every payload a field was given, as a compiled
 // message's reads them (`readParts`): each continues from what the one before
 // read.
-const ranged = (read: (r: Reader, d: number, prev?: unknown) => unknown) => (r: Reader, d: number, x?: number[]): unknown => {
+const ranged = (read: (r: Reader, d: number, prev?: unknown) => unknown) => (r: Reader, d: number, x?: number): unknown => {
   let value = read(r, d);
-  for (let j = 0; x !== U && j < x.length; ) {
-    r.pos = x[j++]!;
-    r.limit = x[j++]!;
+  for (; x! >= 0; x = r.x[x! + 2]) {
+    r.pos = r.x[x!]!;
+    r.limit = r.x[x! + 1]!;
     value = read(r, d, value);
   }
   return value;
@@ -2095,10 +2115,10 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
 // function that reads a message.
 //
 // A message field seen again is the parse of every payload it was given, back
-// to back, which is what merging it is: each payload is noted as it comes, the
-// first as `a` and `b`, the rest as ranges in `x`, and the message is read once
-// after the loop, its reader continuing from one range into the next. A
-// message's own reader takes such ranges as `x`.
+// to back, which is what merging it is: the first payload is noted as `a` and
+// `b`, the rest in the reader's `x` from the index in `x`, and the message is
+// read once after the loop, its reader continuing from one payload into the
+// next. A message's own reader takes that index as `x`.
 const readParts = (msg: Message, local: (kind: string, idx: number) => string, fn: (msg: Message) => string) => {
   const fields = msg.fields;
   const locals: [name: string, init: string][] = [];
@@ -2107,7 +2127,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   const sets = new Map<string, string>();
   let after = "";
   const zero = 'fail("Invalid protobuf field number 0")';
-  const note = (a: string, b: string, x: string): string => `if(${a}<0){${a}=r.pos;${b}=r.limit}else ${x}===void 0?${x}=[r.pos,r.limit]:${x}.push(r.pos,r.limit);r.pos=r.limit;`;
+  const note = (a: string, b: string, x: string): string => `if(${a}<0){${a}=r.pos;${b}=r.limit}else ${x}=r.more(${x});r.pos=r.limit;`;
   // An absent message reads the empty range where the loop ended: its default.
   const read = (a: string, b: string, x: string, value: string, message: Message): string =>
     `g=r.limit;${a}<0?r.pos=g:(r.pos=${a},r.limit=${b});${value}=${fn(message)}(r,d+1,${x});r.pos=r.limit=g`;
@@ -2197,7 +2217,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   // no field's, and must not frame the error with the tag before it.
   const loop = (miss: string, ranges?: boolean) => {
     const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}`;
-    return `${ranges ? `for(;;){${body}if(x===void 0||j===x.length)break;r.pos=x[j++];r.limit=x[j++]}` : body}${after}`;
+    return `${ranges ? `for(;;){${body}if(!(x>=0))break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}${after}`;
   };
   return { locals, temps, frame, loop };
 };
@@ -2227,7 +2247,7 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
     loop: (miss, ranges) => {
       const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases}}if(t<8)fail("Invalid protobuf field number 0");${miss}}`;
       // The type URL read, a failure picking the member is no field's.
-      return `${ranges ? `for(;;){${body}if(x===void 0||j===x.length)break;r.pos=x[j++];r.limit=x[j++]}` : body}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`;
+      return `${ranges ? `for(;;){${body}if(!(x>=0))break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`;
     },
   };
 };
@@ -2333,7 +2353,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
       const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns) : readParts(msg, local, (m) => fns.get(m)!);
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
-      src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars},j=0;try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
+      src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars};try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
     }
     names.push(name);
   });
