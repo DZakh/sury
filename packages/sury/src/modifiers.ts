@@ -3,7 +3,6 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
-  anyOfTag,
   type AdditionalItems,
   baseSchema,
   type Builder,
@@ -19,7 +18,6 @@ import {
   pathEmpty,
   refTag,
   type SchemaErrorMessage,
-  setHas,
   U,
   undefinedTag,
   unknown,
@@ -63,7 +61,6 @@ import {
 } from "./primitives";
 import {
  unionFactory,
- unionPlaceEmpty,
  unionWrap
 } from "./union";
 
@@ -93,68 +90,37 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
-export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  const out = getOutputSchema(item);
+// The schema read one option level deeper: an undefined it outputs is Some(None)
+// and a Some(None) marker counts one more Some. Recurses into output unions,
+// since a coder's input never reaches its output.
+export const someOf = (schema: Internal): Internal => {
+  const out = getOutputSchema(schema);
+  const nestedSchema = out.properties?.[nestedLoc];
   if (out.type === undefinedTag) {
-    return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === anyOfTag) {
-    const anyOf = out.anyOf;
-    const has = out.has;
-    return updateOutput<Internal>(item, (mut) => {
-      const schemas = anyOf!;
-      const mutHas = { ...has! };
-
-      const newAnyOf: Internal[] = [];
-      for (let idx = 0; idx < schemas.length; idx++) {
-        const schema = schemas[idx]!;
-        let toPush: Internal;
-        const schemaOut = getOutputSchema(schema);
-        if (schemaOut.type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
-          toPush = nestedOption(schema);
-        } else if (schemaOut.properties !== U) {
-          const properties = schemaOut.properties;
-          const nestedSchema = properties[nestedLoc];
-          if (nestedSchema !== U) {
-            toPush = updateOutput<Internal>(schema, (mut) => {
-              // copySchema, not a spread: a spread keeps the original's seq,
-              // and two schemas sharing a seq can collide in the seq-keyed
-              // operation caches.
-              const bumped = copySchema(nestedSchema);
-              bumped.const = (nestedSchema.const as number) + 1;
-              const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = bumped;
-              mut.properties = properties;
-            });
-          } else {
-            toPush = schema;
-          }
-        } else {
-          toPush = schema;
-        }
-        newAnyOf.push(toPush);
-      }
-
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        // The copy keeps the union's own `default`, which the arm it now goes
-        // ahead of was the one to apply.
-        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
-      }
-
-      mut.anyOf = newAnyOf;
-      mut.has = mutHas;
+    return nestedOption(schema);
+  } else if (nestedSchema !== U) {
+    return updateOutput<Internal>(schema, (mut) => {
+      // copySchema, not a spread: a spread keeps the original's seq,
+      // and two schemas sharing a seq can collide in the seq-keyed
+      // operation caches.
+      const bumped = copySchema(nestedSchema);
+      bumped.const = (nestedSchema.const as number) + 1;
+      const properties: Record<string, Internal> = {};
+      properties[nestedLoc] = bumped;
+      mut.properties = properties;
+    });
+  } else if (out.anyOf !== U) {
+    return updateOutput<Internal>(schema, (mut) => {
+      mut.anyOf = out.anyOf!.map(someOf);
     });
   } else {
-    return unionWrap(item, [unitSchema]);
+    return schema;
   }
 }
 
 // @__NO_SIDE_EFFECTS__
-export const option = (item: Internal): Internal => {
-  return optionFactory(item, unit);
-}
+export const option = (item: Internal): Internal =>
+  unionWrap(someOf(item), [unit]);
 
 export type MetadataId = string;
 

@@ -79,8 +79,8 @@ test("Classify schema", t => {
     schema->S.castToUnknown,
     S.union([
       S.string->S.castToUnknown,
-      S.unit->S.castToUnknown,
       S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.castToUnknown,
+      S.unit->S.castToUnknown,
     ]),
   )
 
@@ -88,8 +88,8 @@ test("Classify schema", t => {
     schema->S.reverse,
     S.union([
       S.string->S.castToUnknown,
-      S.unit->S.castToUnknown,
       S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.castToUnknown,
+      S.unit->S.castToUnknown,
     ]),
   )
 })
@@ -130,12 +130,12 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+    `i=>{try{for(;;){if(typeof i==="boolean")break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=void 0;break}if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
 
@@ -214,12 +214,12 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={};break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
+      `i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i={};break}if(i===void 0)break;throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
     )
   },
 )
@@ -276,3 +276,127 @@ test("Option with transformed unknown", t => {
     `i=>{try{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i=i.field;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}`,
   )
 })
+
+module CoderToOption = {
+  let blankToNone = S.string->S.to(
+    S.option(S.string),
+    ~custom={
+      decode: Sync(s => s == "" ? None : Some(s)),
+      encode: Sync(o => o->Option.getOr("")),
+    },
+  )
+
+  test("Option over a coder to option parses undefined as None", t => {
+    let schema = S.option(blankToNone)
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(Some(Some("a"))->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"a"`))
+  })
+
+  test("Option over a coder to option in an absent object field", t => {
+    let schema = S.object(s => s.field("a", S.option(blankToNone)))
+
+    t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(~to=schema), None)
+  })
+
+  test("Option over a coder to option with getOrWith", t => {
+    let schema = S.option(blankToNone)->S.Option.getOrWith(() => None)
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some("a"))
+  })
+
+  test("nullAsOption over a coder to option parses null as None", t => {
+    let schema = S.nullAsOption(blankToNone)
+
+    t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  })
+
+  test("nullableAsOption over a coder to option", t => {
+    let schema = S.nullableAsOption(blankToNone)
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+    t->Assert.deepEqual(None->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+  })
+
+  test("Nested option over a coder to option", t => {
+    let schema = S.option(S.option(blankToNone))
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(Some(None)))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some(Some("a"))))
+    t->Assert.deepEqual(Some(Some(None))->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  })
+
+  test("Option over a coder whose input takes undefined reads it as None", t => {
+    let workaround = S.option(
+      S.option(S.string)->S.to(
+        S.option(S.string),
+        ~custom={
+          decode: Sync(o =>
+            switch o {
+            | Some("") => None
+            | _ => o
+            }
+          ),
+          encode: Sync(o => o),
+        },
+      ),
+    )
+    let toUnion = S.option(
+      S.option(S.string)->S.to(
+        S.union([S.literal(1), S.literal(2)]),
+        ~custom={
+          decode: Sync(o => o->Option.isNone ? 1 : 2),
+          encode: Sync(i => i === 1 ? None : Some("x")),
+        },
+      ),
+    )
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=workaround), None)
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=toUnion), None)
+    t->Assert.deepEqual(%raw(`"x"`)->S.parseOrThrow(~to=toUnion), Some(2))
+  })
+
+  test("Option over a union holding a coder to option", t => {
+    let floatToSome = S.float->S.to(
+      S.option(S.string),
+      ~custom={
+        decode: Sync(f => Some(f->Float.toString)),
+        encode: Sync(o => o->Option.flatMap(Float.fromString)->Option.getOr(0.)),
+      },
+    )
+    let schema = S.option(S.union([blankToNone, floatToSome]))
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`""`)->S.parseOrThrow(~to=schema), Some(None))
+    t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=schema), Some(Some("a")))
+    t->Assert.deepEqual(Some(None)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`""`))
+  })
+
+  test("Option over a coder to a union parses undefined as None", t => {
+    let schema = S.option(
+      S.string->S.to(
+        S.union([S.literal(1), S.literal(2)]),
+        ~custom={decode: Sync(s => s == "1" ? 1 : 2), encode: Sync(i => i->Int.toString)},
+      ),
+    )
+
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
+    t->Assert.deepEqual(%raw(`"1"`)->S.parseOrThrow(~to=schema), Some(1))
+    t->Assert.deepEqual(Some(2)->S.convertOrThrow(~from=schema, ~to=S.unknown), %raw(`"2"`))
+  })
+}

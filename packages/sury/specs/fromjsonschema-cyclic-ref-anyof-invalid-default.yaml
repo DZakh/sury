@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }], default: "x" } } } } })'
+  input: "{ v?: number | undefined; next?: ... | null | undefined; }"
+  output: "{ v?: number | undefined; next?: ... | null | undefined; }"
+  instantiations: 4635
+jsonSchema:
+  # FIXME: the input document's default is dropped, the default being unchecked
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] } } } } }'
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }], default: "x" } }, required: ["next"] } } }'
+  fromOutputType: "{ next: ... | null; v?: number | undefined; }"
+  openapi-3.0:
+    input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", nullable: true } } } } }'
+    output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", nullable: true, default: "x" } }, required: ["next"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      # FIXME: a default beside a ref one level down in the union goes unchecked, so a value N | null rejects is set
+      next-missing:
+        input: "{ v: 2 }"
+        output: '{ v: 2, next: "x" }'
+        divergence:
+          reason: the unchecked default is set though the output schema rejects it
+          ajv: "output: data/next must be object, data/next must be null, data/next must match a schema in anyOf"
+  decode: eq-to-parse
+  encode: eq-to-parse
