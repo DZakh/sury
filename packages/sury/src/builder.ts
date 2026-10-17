@@ -967,7 +967,53 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
   }
   objectVal.cp += B_merge(val);
   objectVal.d![location] = val;
+  if (val.f & 1) B_guard(objectVal, `[${val.i}]`);
 }
+
+// A container joins its async children once its sync phase is through, so a
+// sibling failing synchronously after one of them made its promise - a raise,
+// an `is` operation's `return`, a union case's `break` - leaves that promise
+// with nothing to read it, and its rejection crashes Node. The guard is a `try`
+// around the rest of the sync phase with the join assigned last: `finally` sees
+// every way out, and the join var, still unset there, says the join never ran.
+// Only that path pays, joining the children there to drop what they reject with.
+const abandon = (children: object): void => {
+  // An item loop that failed on its first item made none.
+  const made = Object.values(children);
+  if (made.length) Promise.all(made).catch(() => {});
+};
+
+// Opens a guard over the container's code from here on, for the promises
+// `children` reads. One per async field of an object: a `finally` reads only
+// what was declared ahead of its `try`. The container must reach
+// `B_closeGuards`, or the `try` is left open. A collecting container's children
+// are settled and never reject.
+export const B_guard = (container: Val, children: string): void => {
+  if (B_collects(container.g)) return;
+  container.cp += "try{";
+  (container.ac ||= []).unshift(children);
+};
+
+// Closes the container's guards around its join, answering what reads the
+// join. Nothing emitted after the innermost `try` means nothing there can fail,
+// so that guard is dropped.
+export const B_closeGuards = (container: Val, join: string): string => {
+  const children = container.ac;
+  if (!children) return join;
+  let cp = container.cp;
+  if (cp.endsWith("try{")) {
+    cp = cp.slice(0, -4);
+    children.shift();
+  }
+  if (children.length) {
+    const g = container.g, v = B_varWithoutAllocation(g), m = B_embedPure(container, abandon);
+    cp = B_let(g, v) + cp + `${v}=${join}` + children.map((c) => `}finally{${v}||${m}(${c})}`).join("");
+    join = v;
+    container.v = _var;
+  }
+  container.cp = cp;
+  return join;
+};
 
 // Code that reads a container's value but lands inside the container's own
 // segment, ahead of the guard `B_merge` puts after it (a flattened member's

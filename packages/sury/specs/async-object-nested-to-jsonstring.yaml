@@ -23,7 +23,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[7](v0);let v1=v0.x,v5=v0.b;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v3=v1.a;typeof v3==="string"||e[4](v3);let v2;try{v2=e[3](e[0](v3),v2=>{typeof v2==="string"||e[2](v2);return v2},e[1])}catch(x){e[1](x)}let v4=Promise.all([v2]).then(([v2])=>{return {a:v2}});typeof v5==="string"||e[6](v5);let v6=Promise.all([v4]).then(([v4])=>{return {x:v4,b:v5}});return Promise.all([v6]).then(([v6])=>{return "{\"w\":{\"x\":{\"a\":"+e[8](v6.x.a)+"},\"b\":"+e[8](v6.b)+"}}"}).catch(e[10])}catch(v7){return e[11](v7)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v1=v0.x,v5=v0.b;let v6;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[5](v1);let v3=v1.a;typeof v3==="string"||e[4](v3);let v2;try{v2=e[3](e[0](v3),v2=>{typeof v2==="string"||e[2](v2);return v2},e[1])}catch(x){e[1](x)}let v4=Promise.all([v2]).then(([v2])=>{return {a:v2}});try{typeof v5==="string"||e[6](v5);v6=Promise.all([v4]).then(([v4])=>{return {x:v4,b:v5}})}finally{v6||e[7]([v4])}return Promise.all([v6]).then(([v6])=>{return "{\"w\":{\"x\":{\"a\":"+e[9](v6.x.a)+"},\"b\":"+e[9](v6.b)+"}}"}).catch(e[11])}catch(v7){return e[12](v7)}}
     examples:
       nested:
         input: '{ w: { x: { a: "1" }, b: "2" } }'
@@ -37,7 +37,7 @@ operations:
         output: '"{\"w\":{\"x\":{\"a\":\"1!\"},\"b\":\"2\"}}"'
   encode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[9](v0);let v1=v0.w;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[8](v1);let v2=v1.x,v6=v1.b;typeof v2==="object"&&v2&&!Array.isArray(v2)||e[6](v2);let v4=v2.a;typeof v4==="string"||e[5](v4);let v3;try{v3=e[4](e[1](v4),v3=>{typeof v3==="string"||e[3](v3);return v3},e[2])}catch(x){e[2](x)}let v5=Promise.all([v3]).then(([v3])=>{return {a:v3}});typeof v6==="string"||e[7](v6);let v7=Promise.all([v5]).then(([v5])=>{return {x:v5,b:v6}});return Promise.all([v7]).then(([v7])=>{return {w:v7}}).catch(e[10])}catch(v8){return e[11](v8)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[10](v0);let v1=v0.w;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[9](v1);let v2=v1.x,v6=v1.b;let v7;typeof v2==="object"&&v2&&!Array.isArray(v2)||e[6](v2);let v4=v2.a;typeof v4==="string"||e[5](v4);let v3;try{v3=e[4](e[1](v4),v3=>{typeof v3==="string"||e[3](v3);return v3},e[2])}catch(x){e[2](x)}let v5=Promise.all([v3]).then(([v3])=>{return {a:v3}});try{typeof v6==="string"||e[7](v6);v7=Promise.all([v5]).then(([v5])=>{return {x:v5,b:v6}})}finally{v7||e[8]([v5])}return Promise.all([v7]).then(([v7])=>{return {w:v7}}).catch(e[11])}catch(v8){return e[12](v8)}}
     examples:
       nested:
         input: '"{\"w\":{\"x\":{\"a\":\"1!\"},\"b\":\"2\"}}"'

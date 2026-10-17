@@ -683,7 +683,7 @@ test("a collecting outcome waits for an async child started before a sync failur
   }
 });
 
-test("FIXME: a collecting outcome leaves an untagged union arm's started async child unhandled", async () => {
+test("a collecting outcome leaves no untagged union arm's started async child unhandled", async () => {
   const unhandled: unknown[] = [];
   const onUnhandled = (reason: unknown) => unhandled.push(reason);
   process.on("unhandledRejection", onUnhandled);
@@ -698,7 +698,7 @@ test("FIXME: a collecting outcome leaves an untagged union arm's started async c
     ]);
     expect((await S.parseAsResultPromise(union, { w: { a: "t", b: "2" } })).success).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(unhandled.map((reason) => (reason as Error).message)).toEqual(["Failed at w.a: taken"]);
+    expect(unhandled).toEqual([]);
   } finally {
     process.off("unhandledRejection", onUnhandled);
   }
