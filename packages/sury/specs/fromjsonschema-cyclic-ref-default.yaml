@@ -2,8 +2,9 @@
 ts:
   schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } })'
   input: "{ v?: number | undefined; next?: ... | undefined; }"
+  # FIXME: the type takes the default, which the runtime rightly drops ({ v: 1 } lacks next, which N's Output requires, and no finite value has it): should be { v?: number | undefined; next?: ... | undefined; }
   output: "{ next: ...; v?: number | undefined; }"
-  instantiations: 4298
+  instantiations: 4291
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'
   output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'
@@ -16,21 +17,18 @@ operations:
   parse:
     expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
       next-missing:
         input: "{ v: 2 }"
         output: "{ v: 2, next: undefined }"
   decode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
       next-missing:
         input: "{ v: 2 }"
         output: "{ v: 2 }"
   encode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
       next-missing:
         input: "{ v: 2 }"
         output: "{ v: 2 }"

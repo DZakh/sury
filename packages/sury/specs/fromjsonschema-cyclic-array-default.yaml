@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { type: "array", items: { $ref: "#/$defs/N" }, default: [{ v: 1 }] } } } } })'
+  input: "{ v?: number | undefined; next?: ...[] | undefined; }"
+  output: "{ v?: number | undefined; next?: ...[] | undefined; }"
+  instantiations: 4412
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { items: { $ref: "#/$defs/N" }, type: "array", default: [{ v: 1 }] } } } } }'
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { items: { $ref: "#/$defs/N" }, type: "array", default: [{ v: 1 }] } }, required: ["next"] } } }'
+  fromOutputType: "{ next: ...[]; v?: number | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      # FIXME: the default is applied unchecked, its item { v: 1 } lacks next, which N's Output requires; should be dropped, giving { v: 2, next: undefined }
+      next-missing:
+        input: "{ v: 2 }"
+        output: "{ v: 2, next: [{ v: 1 }] }"
+        divergence:
+          reason: the applied default is no value of N's Output
+          ajv: "output: data/next/0 must have required property 'next'"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      next-missing:
+        input: "{ v: 2 }"
+        error: "Failed at next: Expected N[], received undefined"

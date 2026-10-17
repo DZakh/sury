@@ -384,25 +384,36 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     }
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
+    let unbuilt: Internal | undefined;
+
+    // The definition being built is left out of the check: a default read as
+    // it would find the same absent field in it, and read its default, without
+    // end. The arms already built answer instead. S.option keeps a union item
+    // whole as one arm, so the ref can sit a level down; only then is that
+    // arm opened, so a union's own refinement still checks the default.
+    const isUnbuilt = (outputSchema: Internal): boolean =>
+      outputSchema.type === refTag && !outputSchema.definition!();
+    const check = (variant: Internal): void => {
+      const outputSchema = getOutputSchema(variant);
+      if (isUnbuilt(outputSchema)) {
+        unbuilt = outputSchema;
+      } else if (outputSchema === variant && variant.anyOf?.some((arm) => isUnbuilt(getOutputSchema(arm)))) {
+        variant.anyOf.forEach(check);
+      } else if (outputSchema.type !== undefinedTag) {
+        originalItems.push(variant);
+      }
+    };
 
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
       const outputSchema = getOutputSchema(variant);
       if (outputSchema.type !== undefinedTag) {
-        // The default is read as the item on every decode, so an item that is
-        // the definition being built would read the default as that definition,
-        // find the same absent field in it, and read its default, without end.
-        if (outputSchema.type === refTag && !outputSchema.definition!()) {
-          panic(
-            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
-          );
-        }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
         if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
         }
-        originalItems.push(variant);
+        check(variant);
       }
     }
 
@@ -413,11 +424,21 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
           ? outputItems[0]!
           : unionFactory(outputItems);
 
-    if (default_.type === "value") {
-      setDefault(
-        mut,
-        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
-        default_.value
+    if (default_.type === "value" && originalItems.length) {
+      try {
+        setDefault(
+          mut,
+          originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
+          default_.value
+        );
+        unbuilt = U;
+      } catch (exn) {
+        if (!unbuilt) throw exn;
+      }
+    }
+    if (unbuilt) {
+      panic(
+        `Can't set default for ${inputExpression(mut)}: the default is read as ${unbuilt.name}, which would need a default of its own`
       );
     }
 
