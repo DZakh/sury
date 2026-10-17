@@ -2538,7 +2538,6 @@ const armDefinition = (member: Internal, key: string | undefined, leaf: unknown)
   return definition;
 };
 
-// Reads the member's value at the arm's location into the local the writer writes it from.
 const sinkOf = (location: string[], local: string): Internal =>
   baseSchema(unknownTag, false, (input) => {
     const value = B_scope(valAt(input, location));

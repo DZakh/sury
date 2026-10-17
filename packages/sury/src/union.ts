@@ -1325,7 +1325,6 @@ const unionEmit = (
         string,
         Internal
       >)[trustedD[0]]!;
-      // `===` can't match a NaN discriminant (`x===NaN` is always false).
       const dRead = inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag
@@ -1603,7 +1602,7 @@ export const unionDecoder: Builder = (input: Val) => {
       flags |= 1;
     }
     // A recursive object is as broad as a plain one, so an instance arm goes
-    // ahead of it: a `Date` it reached first came out as an object.
+    // ahead of it.
     const def = member.type === refTag ? member.definition!() : U;
     flags |= tagFlags[(def || member).type]! & (64 | tagFlags[numberTag]!);
   }
