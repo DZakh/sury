@@ -677,7 +677,7 @@ test("An option around a defaulted option advertises no default", t => {
   )
 })
 
-test("A null-as-option around a nullable default advertises no default", t => {
+test("A null-as-option around a nullable default keeps the default on its arm", t => {
   let schema = S.object(s => s.field("seen", S.nullAsOption(S.nullAsOption(S.bool)->S.Option.getOr(false))))
 
   t->Assert.deepEqual(%raw(`{"seen": null}`)->S.parseOrThrow(~to=schema), None)
@@ -685,7 +685,14 @@ test("A null-as-option around a nullable default advertises no default", t => {
     schema->S.toInputJSONSchemaOrThrow,
     %raw(`{
       "type": "object",
-      "properties": {"seen": {"anyOf": [{"type": "boolean"}, {"type": "null"}]}},
+      "properties": {
+        "seen": {
+          "anyOf": [
+            {"anyOf": [{"type": "boolean"}, {"type": "null"}], "default": false},
+            {"type": "null"},
+          ],
+        },
+      },
       "required": ["seen"],
     }`),
   )
