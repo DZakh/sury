@@ -5,11 +5,10 @@ ts:
   output: "{ next: ... | null; v?: number | undefined; }"
   instantiations: 4153
 jsonSchema:
-  # FIXME: the input document's default is dropped, the default beside a ref one level down going unchecked
-  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] } } } } }'
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { default: null, anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }] } } } } }'
   output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { anyOf: [{ $ref: "#/$defs/N" }, { type: "null" }], default: null } }, required: ["next"] } } }'
   openapi-3.0:
-    input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", nullable: true } } } } }'
+    input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { default: null, $ref: "#/$defs/N", nullable: true } } } } }'
     output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", nullable: true, default: null } }, required: ["next"] } } }'
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

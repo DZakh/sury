@@ -386,6 +386,24 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const originalItems: Internal[] = [];
     let unbuilt: Internal | undefined;
 
+    // The definition being built is left out of the check: a default read as
+    // it would find the same absent field in it, and read its default, without
+    // end. The arms already built answer instead. S.option keeps a union item
+    // whole as one arm, so the ref can sit a level down; only then is that
+    // arm opened, so a union's own refinement still checks the default.
+    const isUnbuilt = (outputSchema: Internal): boolean =>
+      outputSchema.type === refTag && !outputSchema.definition!();
+    const check = (variant: Internal): void => {
+      const outputSchema = getOutputSchema(variant);
+      if (isUnbuilt(outputSchema)) {
+        unbuilt = outputSchema;
+      } else if (outputSchema === variant && variant.anyOf?.some((arm) => isUnbuilt(getOutputSchema(arm)))) {
+        variant.anyOf.forEach(check);
+      } else if (outputSchema.type !== undefinedTag) {
+        originalItems.push(variant);
+      }
+    };
+
     for (let idx = 0; idx < anyOf.length; idx++) {
       const variant = anyOf[idx]!;
       const outputSchema = getOutputSchema(variant);
@@ -395,14 +413,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
         }
-        // The definition being built is left out of the check: a default read
-        // as it would find the same absent field in it, and read its default,
-        // without end. The arms already built answer instead.
-        if (outputSchema.type === refTag && !outputSchema.definition!()) {
-          unbuilt = outputSchema;
-        } else {
-          originalItems.push(variant);
-        }
+        check(variant);
       }
     }
 
