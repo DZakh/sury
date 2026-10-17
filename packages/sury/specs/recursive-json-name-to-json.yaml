@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("JSON", (self) => S.schema({ a: S.bigint, kid: S.optional(self) })).with(S.to, S.json)'
+  input: unknown
+  output: JSON
+  instantiations: 8074
+jsonSchema:
+  input: "Failed at a: Expected JSON, received bigint"
+  output: "{}"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);e[1](v0);return v0}catch(v1){e[2](v1)}}
+    examples:
+      bigint:
+        input: "{ a: 1n }"
+        error: "Failed at a: Expected JSON, received 1n"
+      nested:
+        input: "{ a: 1n, kid: { a: 2n } }"
+        error: "Failed at a: Expected JSON, received 1n"
+  decode:
+    expression: i=>{try{e[0](i);e[1](i);return i}catch(v0){e[2](v0)}}
+    examples:
+      bigint:
+        input: "{ a: 1n }"
+        error: "Failed at a: Expected JSON, received 1n"
+  encode:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      bigint-text:
+        input: '{ a: "1" }'
+        output: "{ a: 1n, kid: undefined }"
+      nested:
+        input: '{ a: "1", kid: { a: "2" } }'
+        output: "{ a: 1n, kid: { a: 2n, kid: undefined } }"

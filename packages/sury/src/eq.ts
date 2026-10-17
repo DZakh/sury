@@ -29,7 +29,6 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
-  jsonName,
   neverTag,
   noopDecoder,
   panic,
@@ -627,7 +626,7 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
   // `S.json` describes every JSON value, which is precisely what the structural
   // comparison already covers, and unrolling its `$ref` cycle would emit a
   // comparator for each arm of it.
-  const def = schema.name === jsonName ? U : schema.definition!();
+  const def = schema.flags & 16 ? U : schema.definition!();
   if (def === U) return deep(ctx, schema, a, b);
   // A def compiles to its own function and is called, not inlined.
   eqOnly(ctx, schema);

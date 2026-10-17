@@ -1299,6 +1299,6 @@ export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): vo
 // and both sit below the converter in the layering.
 export const defsPath = `#/$defs/`;
 
-// `S.json`'s schema identity, recognised by name where importing the schema
-// itself would close a cycle (composites' JSON-sourced object reads).
+// `S.json`'s name and `$defs` key, never its identity: `S.recursive("JSON", …)`
+// carries both, and only flag 16 marks `S.json`.
 export const jsonName = `JSON`;

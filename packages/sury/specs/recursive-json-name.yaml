@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("JSON", (self) => S.schema({ a: S.string, kid: S.optional(self) }))'
+  input: unknown
+  output: unknown
+  instantiations: 7709
+jsonSchema:
+  input: '{ $ref: "#/$defs/JSON", $defs: { JSON: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/JSON" } }, required: ["a"] } } }'
+  fromInputType: "{ a: string; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/JSON", $defs: { JSON: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/JSON" } }, required: ["a"] } } }'
+  fromOutputType: "{ a: string; kid?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      chain:
+        input: '{ a: "x", kid: { a: "y" } }'
+        output: '{ a: "x", kid: { a: "y", kid: undefined } }'
+      wrong-type-at-depth:
+        input: '{ a: "x", kid: { a: 1 } }'
+        error: "Failed at kid.a: Expected string, received 1"
+      not-any-json:
+        input: "1"
+        error: "Expected { a: string; kid: JSON | undefined; }, received 1"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ a: "x", kid: { a: "y" } }'
+        output: '{ a: "x", kid: { a: "y" } }'
+      wrong-type-at-depth:
+        input: '{ a: "x", kid: { a: 1 } }'
+        output: '{ a: "x", kid: { a: 1 } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ a: "x", kid: { a: "y" } }'
+        output: '{ a: "x", kid: { a: "y" } }'
+      wrong-type-at-depth:
+        input: '{ a: "x", kid: { a: 1 } }'
+        output: '{ a: "x", kid: { a: 1 } }'
