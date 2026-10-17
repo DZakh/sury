@@ -609,9 +609,9 @@ const getShapedSerializerOutput = (
       },
       (v) => {
         v.e = resolvedTargetSchema;
+        // Keeps its own `v` (declared after its own code): a decl hoisted onto
+        // `input` lands ahead of the field code an async object's join reads.
         v.prev = U;
-        v.p = input;
-        v.v = _notVarAtParent;
         const flattened = resolvedTargetSchema.flattened;
         if (flattened !== U && acc !== U && acc.flattened !== U) {
           const flattenedSchemas = flattened;
