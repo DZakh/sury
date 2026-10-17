@@ -718,6 +718,127 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   return values;
 };
 
+// The graph's message refined where a message sits: the root, a field, a list
+// item, a map value, a bare oneof arm, and the arm a oneof builds around it.
+// Read through either spelling of the link, a refinement that passes leaves
+// the value as the plain message reads it, and one that refuses fails at the
+// refined message whenever the bytes hold one. Then a bare arm beside a
+// Timestamp held as a Date: each writes as itself and reads back as itself.
+// Its own stream, as the Any family's.
+type Placement = { name: string; wrap: (message: S.Schema<unknown, unknown>, refine: (s: S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>; value: (v: unknown, r: Random) => unknown; at: (v: unknown) => Segment[] | undefined };
+const refinePlacements: Placement[] = [
+  { name: "root", wrap: (m, refine) => refine(m), value: (v) => v, at: () => [] },
+  { name: "field", wrap: (m, refine) => S.schema({ m: refine(m).with(S.protobufField, 1) }), value: (v) => ({ m: v }), at: () => ["m"] },
+  { name: "list item", wrap: (m, refine) => S.schema({ l: S.array(refine(m)).with(S.protobufField, 1) }), value: (v, r) => ({ l: chance(r, 0.2) ? [] : [v] }), at: (v) => ((v as { l: unknown[] }).l.length ? ["l", 0] : undefined) },
+  { name: "map value", wrap: (m, refine) => S.schema({ m: S.record(refine(m)).with(S.protobufField, { number: 1, type: "message", key: "string" }) }), value: (v) => ({ m: { a: v } }), at: () => ["m", "a"] },
+  {
+    name: "bare oneof arm",
+    wrap: (m, refine) => S.schema({ o: S.optional(S.union([refine(m).with(S.protobufField, 1), S.string.with(S.protobufField, 2)])) }),
+    value: (v, r) => ({ o: chance(r, 0.2) ? "s" : v }),
+    at: (v) => (typeof (v as { o: unknown }).o === "object" ? ["o"] : undefined),
+  },
+  {
+    name: "oneof arm",
+    wrap: (m, refine) => S.schema({ o: S.union([refine(S.schema({ type: "m", m: m.with(S.protobufField, 1) })), S.schema({ type: "none" })]) }),
+    value: (v, r) => ({ o: chance(r, 0.2) ? { type: "none" } : { type: "m", m: v } }),
+    at: (v) => ((v as { o: { type: string } }).o.type === "m" ? ["o"] : undefined),
+  },
+];
+
+// What a throw says, without the value it names, so one cause is one kind.
+const thrown = (e: unknown): string => String((e as Error).message).replace(/, received [^]*/, "").replace(/\d+/g, "#");
+
+const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
+  const r = rng(seed ^ 0x3c6ef372);
+  let message: S.Schema<unknown, unknown>;
+  try {
+    message = suryMessage(fields);
+  } catch {
+    return 0;
+  }
+  const placement = pick(r, refinePlacements);
+  const kind = `refine: ${placement.name}`;
+  // Each reads what it is handed, so one handed anything but the message read,
+  // the bytes or a var never assigned, answers wrong.
+  const read = (v: unknown) => typeof v === "object" && v !== null && !ArrayBuffer.isView(v);
+  const passes = (s: S.Schema<unknown, unknown>) => s.with(S.refine, read);
+  const refuses = (s: S.Schema<unknown, unknown>) => s.with(S.refine, (v) => !read(v), { error: "refused" });
+  let write: (value: unknown) => Uint8Array;
+  let plain: (bytes: Uint8Array) => unknown;
+  let reads: [spelling: string, read: (bytes: Uint8Array) => unknown, refused: (bytes: Uint8Array) => unknown][];
+  try {
+    const schema = (refine: typeof passes) => placement.wrap(message, refine);
+    write = S.decodeOrThrow(schema(passes), S.protobuf) as never;
+    plain = S.decodeOrThrow(S.protobuf, schema((s) => s)) as never;
+    reads = [
+      ["S.protobuf.with(S.to, X)", S.decodeOrThrow(S.protobuf, schema(passes)) as never, S.decodeOrThrow(S.protobuf, schema(refuses)) as never],
+      ["X.with(S.to, S.protobuf)", S.encodeOrThrow(schema(passes).with(S.to, S.protobuf)) as never, S.encodeOrThrow(schema(refuses).with(S.to, S.protobuf)) as never],
+    ];
+  } catch (e) {
+    findings.push({ kind: `${kind}: compile (${thrown(e)})`, seed, detail: "" });
+    return 1;
+  }
+  for (let i = 0; i < values; i++) {
+    const value = placement.value(genValue(r, fields, 0), r);
+    const at = placement.at(value);
+    try {
+      const bytes = write(value).slice();
+      const want = plain(bytes);
+      for (const [spelling, read, refused] of reads) {
+        if (!equalValue(read(bytes), want)) {
+          findings.push({ kind: `${kind}: a refinement that passes changes what ${spelling} reads`, seed, detail: `value=${show(value).slice(0, 300)}` });
+          continue;
+        }
+        let error: unknown;
+        try {
+          refused(bytes);
+        } catch (e) {
+          error = e;
+        }
+        const failed = error instanceof S.Error && error.reason === "refused";
+        if (at === undefined ? error !== undefined : !failed || error.path.join("\0") !== at.join("\0")) {
+          findings.push({
+            kind: `${kind}: ${spelling} ${at === undefined ? "fails with no refined message read" : failed ? "refuses at another path" : "reads past a refinement that refuses"}`,
+            seed,
+            detail: `value=${show(value).slice(0, 300)} got ${error instanceof S.Error ? `${JSON.stringify(error.path)} ${error.reason}` : String(error)}`,
+          });
+        }
+      }
+    } catch (e) {
+      findings.push({ kind: `${kind}: throws (${thrown(e)})`, seed, detail: `value=${show(value).slice(0, 300)}` });
+    }
+  }
+  try {
+    // A recursive message listed first takes the Date before the union reaches
+    // it, which is the core union's (union-recursive-object-before-instance).
+    const dateFirst = chance(r, 0.5) || (message as unknown as { type: string }).type === "ref";
+    const arms = [message.with(S.protobufField, 1), S.date.with(S.protobufField, 2)];
+    const beside = S.schema({ o: S.optional(S.union(dateFirst ? arms.reverse() : arms)) });
+    const writeBeside = S.decodeOrThrow(beside, S.protobuf) as (value: unknown) => Uint8Array;
+    const readBeside = S.decodeOrThrow(S.protobuf, beside) as (bytes: Uint8Array) => { o?: unknown };
+    const writeMessage = S.decodeOrThrow(message, S.protobuf) as (value: unknown) => Uint8Array;
+    const readMessage = S.decodeOrThrow(S.protobuf, message) as (bytes: Uint8Array) => unknown;
+    for (let i = 0; i < values; i++) {
+      const date = new Date(int(r, 2 ** 40));
+      const back = readBeside(writeBeside({ o: date }).slice()).o;
+      if (!(back instanceof Date) || back.getTime() !== date.getTime()) {
+        findings.push({ kind: "oneof: a Timestamp arm beside a message arm reads back as another", seed, detail: `date=${date.toISOString()} got ${show(back)}` });
+      }
+      // The union tells the arms apart by checking the message, whose S.number
+      // fields refuse the NaN a value drawn for the wire may hold.
+      const value = genValue(r, fields, 0);
+      if (!S.isInput(value, message)) continue;
+      const again = readBeside(writeBeside({ o: value }).slice()).o;
+      if (again instanceof Date || !equalValue(again, readMessage(writeMessage(value).slice()))) {
+        findings.push({ kind: "oneof: a message arm beside a Timestamp arm reads back as another", seed, detail: `value=${show(value).slice(0, 300)}` });
+      }
+    }
+  } catch (e) {
+    findings.push({ kind: `oneof: a message arm beside a Timestamp arm throws (${thrown(e)})`, seed, detail: "" });
+  }
+  return values * 3;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -743,6 +864,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
     }
     checks += anyChecks(findings, seed, fields, values);
     checks += oneofChecks(findings, seed, fields, values);
+    checks += refineChecks(findings, seed, fields, values);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;
