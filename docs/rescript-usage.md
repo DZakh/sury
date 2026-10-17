@@ -449,6 +449,24 @@ let schema = S.option(S.string)
 
 The `S.option` schema represents a data of a specific type that might be undefined.
 
+`undefined` is always the outer `None`, even when the item already reads to an `option`:
+
+```rescript
+let blankToNone = S.string->S.to(
+  S.option(S.string),
+  ~custom={
+    decode: Sync(s => s == "" ? None : Some(s)),
+    encode: Sync(o => o->Option.getOr("")),
+  },
+)
+let schema = S.option(blankToNone)
+
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
+// None
+""->S.parseOrThrow(~to=schema)
+// Some(None)
+```
+
 ### **`Option.getOr`**
 
 `(S.t<option<'value>>, 'value) => S.t<'value>`
