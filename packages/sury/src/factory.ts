@@ -549,6 +549,14 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
+// A value placed whole was checked by its own decode; one assembled from the
+// shape has had only its fields checked, so its own refinements run here.
+const markAssembled = (val: Val, acc: ShapedSerializerAcc | undefined, path: Path): Val => {
+  if (acc !== U && acc.val !== U) return val;
+  val.path = pathConcat(val.path, path);
+  return B_markOutput(val);
+};
+
 // Returns an unparsed head with no chain of its own, like getShapedParserOutput:
 // shapedSerializer links `input` as its `prev`, and a chain parsed here would
 // be cut off there - at the root the compile pipeline advances it (#471).
@@ -594,15 +602,11 @@ const getShapedSerializerOutput = (
     const assembled = assembleShapedObject(
       input,
       resolvedTargetSchema,
-      (location, childSchema) =>
-        parse(
-          getShapedSerializerOutput(
-            input,
-            acc !== U && acc.properties !== U ? acc.properties[location] : U,
-            childSchema,
-            pathConcat(path, [location])
-          )
-        ),
+      (location, childSchema) => {
+        const childAcc = acc !== U && acc.properties !== U ? acc.properties[location] : U;
+        const childPath = pathConcat(path, [location]);
+        return parse(markAssembled(getShapedSerializerOutput(input, childAcc, childSchema, childPath), childAcc, childPath));
+      },
       (v) => {
         v.e = resolvedTargetSchema;
         v.prev = U;
@@ -644,7 +648,7 @@ const shapedSerializer: Builder = (input: Val) => {
   const output = getShapedSerializerOutput(input, acc, targetSchema, pathEmpty);
   output.t = true;
   output.prev = input;
-  return output;
+  return markAssembled(output, acc, pathEmpty);
 }
 
 const definitionToShapedSchema = (definition: unknown): Internal => {
