@@ -809,9 +809,7 @@ const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], val
     }
   }
   try {
-    // A recursive message listed first takes the Date before the union reaches
-    // it, which is the core union's (union-recursive-object-before-instance).
-    const dateFirst = chance(r, 0.5) || (message as unknown as { type: string }).type === "ref";
+    const dateFirst = chance(r, 0.5);
     const arms = [message.with(S.protobufField, 1), S.date.with(S.protobufField, 2)];
     const beside = S.schema({ o: S.optional(S.union(dateFirst ? arms.reverse() : arms)) });
     const writeBeside = S.decodeOrThrow(beside, S.protobuf) as (value: unknown) => Uint8Array;

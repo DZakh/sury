@@ -1603,7 +1603,11 @@ export const unionDecoder: Builder = (input: Val) => {
     if (sourceLiteral && isLiteral(member) && unionLiteralEqual(member.const, source.const)) {
       flags |= 1;
     }
-    flags |= tagFlags[member.type]! & (64 | tagFlags[numberTag]!);
+    // A recursive object is as broad as a plain one, so an instance arm goes
+    // ahead of it: a `Date` it reached first came out as an object.
+    flags |=
+      tagFlags[(member.type === refTag ? member.definition!() : member).type]! &
+      (64 | tagFlags[numberTag]!);
   }
   const sourceTag = tagFlags[source.type]!;
   // A source that can hold anything constrains nothing, so it can't prove two
