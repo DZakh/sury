@@ -1326,8 +1326,7 @@ const unionEmit = (
         Internal
       >)[trustedD[0]]!;
       // `===` can't match a NaN discriminant (`x===NaN` is always false), which
-      // made the member unreachable and rejected a value it declares. The
-      // hoisted-check path this replaces used the same NaN-aware form.
+      // made the member unreachable and rejected a value it declares.
       const dRead = inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag

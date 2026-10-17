@@ -89,6 +89,8 @@ type Field = {
   text?: boolean;
   fromWire: Internal;
   held: Internal;
+  // The key path to the value. A oneof member's starts with the oneof's key,
+  // an Any member's is the arm's own.
   path: string[];
   omit?: boolean;
   fromWireIsHeld?: boolean;
@@ -151,15 +153,15 @@ type Ctx = {
   // refs a walk passes (`Message.links`).
   reads?: boolean;
   // A writer's messages, each the object its chain ends with (`lastObject`).
-  last?: boolean;
+  writes?: boolean;
 };
 
-const newCtx = (reads?: boolean, last?: boolean): Ctx => ({
+const newCtx = (reads?: boolean, writes?: boolean): Ctx => ({
   names: new Map(),
   messages: new Map(),
   stack: [],
   reads,
-  last,
+  writes,
 });
 
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
@@ -185,9 +187,7 @@ const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   return current;
 };
 
-// The object a writer is handed for a nested message: the last its chain
-// reaches, which is also the one a reader starts the reversed chain from. A
-// chain that leaves the object for something else has no message to write.
+// Also the object a reader starts the reversed chain from.
 const lastObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let object = firstObject(schema, ctx);
   while (object?.to !== U) {
@@ -664,7 +664,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const known = m.type.startsWith("google.") ? (m.type as WellKnownType) : U;
     if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) return [anyMessage(whole, ctx, where), at, at];
     if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape) ? shape : scalarSchema(m.type as ProtobufType), at];
-    const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.last && lastObject(at, ctx)) || at, ctx);
+    const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.writes && lastObject(at, ctx)) || at, ctx);
     if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
     const raw = message.unwrap || message.codec ? message.raw : at;
     return [message, raw, message.codec ? refinedAs(at, raw) : at];
@@ -2295,7 +2295,6 @@ const awaitedMap = (map: Record<string, unknown>, path: Path): Promise<Record<st
   });
 };
 
-// A value the reader holds in `local`, converted from what the wire read.
 const slotOf = (at: Val, msg: Message, field: Field, local: (kind: string, idx: number) => string, held: Internal = field.held): Val => {
   const { fromWire: raw, fromWireIsHeld: done, path, repeated, map, message, name, key } = field;
   const slot = B_slot(at, local("f", msg.fields.indexOf(field)), raw, held, path);
@@ -2309,14 +2308,11 @@ const slotOf = (at: Val, msg: Message, field: Field, local: (kind: string, idx: 
   return slot;
 };
 
-// Where an arm holds its member's value: the arm's key path to it, under the
-// message's own key for a oneof.
 const locationOf = (msg: Message, field: Field): string[] => (msg.any !== U ? field.path : field.path.slice(1));
 
-// The arm the reader set, built from its member's value: placed at the arm's
-// location beside its literals, as S.shape places a value, then checked as
-// the union is. `set` holds the number of the member set, and the arm with no
-// member is the one left when none is, else the last.
+// The arm the reader set, built from its member's value. `set` holds the
+// number of the member set, and the arm with no member is the one left when
+// none is, else the last.
 const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Internal, field: Field | undefined][], set: string, path: Path, local: (kind: string, idx: number) => string): Val => {
   const g = at.g;
   const out = B_varWithoutAllocation(g);
@@ -2330,7 +2326,6 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
       value = B_slot(at, "void 0", unit, schemaShape(unit, () => armDefinition(member, U, U)), path);
       value.io = true;
     } else {
-      // A message read as it stands is placed as it is.
       const placed = schemaShape<Internal>(field.fromWireIsHeld ? getOutputSchema(field.held) : field.held, (leaf) => armDefinition(member, locationOf(msg, field)[0], leaf));
       value = slotOf(at, msg, field, local, placed);
       if (field.fromWireIsHeld) {
@@ -2548,9 +2543,9 @@ const armDefinition = (member: Internal, key: string | undefined, leaf: unknown)
   return definition;
 };
 
-// Where an arm's value goes on its way to the writer: its member's value, read
-// at the arm's location into the local the writer writes it from. The arm
-// itself goes on as it was.
+// A schema because a union's per-arm targets (`flags & 64`) are the one way a
+// codec gets code into a single arm: it reads the member's value at the arm's
+// location into the local the writer writes it from, and hands the arm on.
 const sinkOf = (location: string[], local: string): Internal =>
   baseSchema(unknownTag, false, (input) => {
     const value = B_scope(valAt(input, location));
@@ -2559,7 +2554,6 @@ const sinkOf = (location: string[], local: string): Internal =>
     return out;
   });
 
-// A copy of a decoded value's schema that checks nothing of its own.
 const unchecked = (schema: Internal): Internal => {
   const mut = copySchema(schema);
   delete mut.refiner;
@@ -2567,13 +2561,11 @@ const unchecked = (schema: Internal): Internal => {
   return mut;
 };
 
-// A message's value as a writer is handed it.
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
-// The code that reads a message's value field by field, and what each field
-// is read as. The arm a union holds is the union's own to tell, each arm
-// continuing into the local of its member, so the writer writes every member
-// as an optional field of which only the one set holds a value.
+// The arm a union holds is the union's own to tell, each arm continuing into
+// the local of its member, so the writer writes every member as an optional
+// field of which only the one set holds a value.
 const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
   const g = value.g;
   const reads = new Map<Field, string>();

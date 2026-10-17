@@ -535,8 +535,6 @@ test("toProtoOrThrow prints the first object of a .to chain, which the wire spea
   t.expect(S.toProtoOrThrow(S.arrayBuffer.with(S.to, S.protobuf).with(S.to, S.schema({ c: S.boolean.with(S.protobufField, 1) })))).toContain(
     "message Message {\n  bool c = 1;\n}",
   );
-  // A nested message is the object its value holds where the schema converts
-  // into the wire, and the object the wire is read into otherwise.
   t.expect(S.toProtoOrThrow(S.schema({ m: M.with(S.protobufField, 1) }))).toContain("message M {\n    int32 a = 1;\n  }");
   t.expect(S.toProtoOrThrow(S.schema({ m: M.with(S.protobufField, 1) }).with(S.to, S.protobuf))).toContain("message M {\n    string b = 1;\n  }");
   t.expect(S.toProtoOrThrow(S.schema({ a: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf))).toContain("message Message {\n  int32 a = 1;\n}");
