@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.shape(S.reverse(S.string.with(S.minLength, 3)), (string) => ({ foo: string }))"
+  input: string
+  output: "{ foo: string; }"
+  instantiations: 1451
+jsonSchema:
+  input: '{ type: "string", minLength: 3 }'
+  output: '{ type: "object", properties: { foo: { type: "string", minLength: 3 } }, required: ["foo"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.foo===b.foo
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { foo: string.length >= 3; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[0](i);i.length>2||e[1](i);return {foo:i}}catch(v0){e[2](v0)}}
+    examples:
+      checked-once:
+        input: '"bar"'
+        output: '{ foo: "bar" }'
+      too-short:
+        input: '"ba"'
+        error: Expected string.length >= 3, received "ba"
+  decode:
+    expression: i=>{try{i.length>2||e[0](i);return {foo:i}}catch(v0){e[1](v0)}}
+    examples:
+      checked-once:
+        input: '"bar"'
+        output: '{ foo: "bar" }'
+      too-short:
+        input: '"ba"'
+        error: Expected string.length >= 3, received "ba"
+  encode:
+    expression: i=>{try{let v0=i.foo;v0.length>2||e[0](v0);return v0}catch(v1){e[1](v1)}}
+    examples:
+      checked-once:
+        input: '{ foo: "bar" }'
+        output: '"bar"'
+      too-short:
+        input: '{ foo: "ba" }'
+        error: 'Failed at foo: Expected string.length >= 3, received "ba"'

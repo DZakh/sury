@@ -9,7 +9,7 @@
   "sources": [
     {
       "dir": "src",
-      "public": ["S", "JSONSchema", "StandardSchema"]
+      "public": ["S", "JSONSchema", "StandardSchema", "SuryProtobuf"]
     },
     {
       "dir": "tests",

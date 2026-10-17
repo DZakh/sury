@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.protobufAny.with(S.to, S.jsonString)
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: string
+  instantiations: 4537
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[1](v0);v1 instanceof e[3]||e[4](v1);let v2=e[2](v1);return "{\"typeUrl\":"+e[0](v0)+",\"value\":\""+v2+"\"}"}catch(v3){e[6](v3)}}
+    examples:
+      bytes-as-base64:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '"{\"typeUrl\":\"type.googleapis.com/acme.v1.User\",\"value\":\"CAE=\"}"'
+  decode:
+    expression: i=>{try{let v0=i.value;let v1=e[1](v0);return "{\"typeUrl\":"+e[0](i.typeUrl)+",\"value\":\""+v1+"\"}"}catch(v2){e[2](v2)}}
+    examples:
+      bytes-as-base64:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'
+        output: '"{\"typeUrl\":\"type.googleapis.com/acme.v1.User\",\"value\":\"CAE=\"}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0.typeUrl,v2=v0.value;typeof v1==="string"||e[1](v1);typeof v2==="string"||e[5](v2);e[3](v2)||e[4](v2);return {typeUrl:v1,value:e[2](v2)}}catch(v3){e[7](v3)}}
+    examples:
+      bytes-as-base64:
+        input: '"{\"typeUrl\":\"type.googleapis.com/acme.v1.User\",\"value\":\"CAE=\"}"'
+        output: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'

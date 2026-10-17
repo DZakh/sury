@@ -150,7 +150,7 @@ message User {
   )
 })
 
-test("the guide's wire error and its S.object warning", t => {
+test("the guide's wire error, and a nested S.object", t => {
   t->U.assertThrowsMessage(
     () =>
       %raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
@@ -160,8 +160,8 @@ test("the guide's wire error and its S.object warning", t => {
     "Failed at home.street: Protobuf string is not valid UTF-8",
   )
 
-  // `S.object` builds the record out of named JS fields, which is a `.to`, so
-  // the message sits on the far side of a conversion a nested field can't take.
+  // `S.object` builds the record out of named JS fields, which is a `.to`: the
+  // message is the record the value holds.
   let objectAddress = S.object(s => {
     street: s.field("street", S.string->S.protobufField(1)),
   })
@@ -172,11 +172,115 @@ test("the guide's wire error and its S.object warning", t => {
     home: s.matches(S.option(objectAddress)->S.protobufField(4)),
     kind: s.matches(S.enum([1, 2])->S.protobufField(5)),
   })
-  t->Assert.throws(
-    () => nested->S.toProtoOrThrow,
-    ~expectations={
-      message: `[Sury] S.protobuf: field "home" is a message that converts further with S.to, which a nested field can't`,
-    },
+  t->Assert.deepEqual(
+    nested->S.toProtoOrThrow->String.includes("optional Home home = 4;"),
+    true,
+  )
+  let value = {id: 1, name: "", tags: [], home: Some({street: "Main"}), kind: 1}
+  t->Assert.deepEqual(
+    value
+    ->S.convertOrThrow(~from=nested, ~to=S.protobuf)
+    ->S.convertOrThrow(~from=S.protobuf, ~to=nested),
+    value,
+  )
+})
+
+// The shapes protoc-gen-sury writes for ReScript: an enum is a variant whose
+// constructors carry their proto numbers, and a oneof is a variant tagged by
+// `case` under `option`, which is the `{ case, value }` object on the wire
+// side and `undefined` while no member is set.
+@val external bytesToArray: 'a => array<int> = "Array.from"
+
+type kind = | @as(0) Unspecified | @as(1) Primary | @as(2) Secondary
+
+type address = {street: string}
+
+@tag("case")
+type contact =
+  | @as("email") Email({value: string})
+  | @as("home") Home({value: address})
+
+type person = {id: int, kind: kind, contact: option<contact>}
+
+let addressSchema = S.schema(s => {
+  street: s.matches(S.string->S.protobufField(1, ~type_=#string)),
+})
+
+let personSchema = S.schema(s => {
+  id: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
+  kind: s.matches(S.enum([Unspecified, Primary, Secondary])->S.protobufField(2, ~type_=#enum)),
+  contact: s.matches(
+    S.option(
+      S.union([
+        S.schema(s => Email({value: s.matches(S.string->S.protobufField(3, ~type_=#string))})),
+        S.schema(s => Home({value: s.matches(addressSchema->S.protobufField(4, ~type_=#message))})),
+      ]),
+    ),
+  ),
+})
+
+@tag("kind")
+type channel =
+  | @as("email") EmailChannel({email: string})
+  | @as("sms") SmsChannel({phone: string})
+  | @as("none") NoChannel
+
+type subscriber = {channel: channel}
+
+let subscriberSchema = S.schema(s => {
+  channel: s.matches(
+    S.union([
+      S.schema(s => EmailChannel({email: s.matches(S.string->S.protobufField(1, ~type_=#string))})),
+      S.schema(s => SmsChannel({phone: s.matches(S.string->S.protobufField(2, ~type_=#string))})),
+      S.literal(NoChannel),
+    ]),
+  ),
+})
+
+test("a variant with a tag and payload keys of its own is a oneof", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=subscriberSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=subscriberSchema)
+  let sms = {channel: SmsChannel({phone: "1"})}
+  t->Assert.deepEqual(toBytes(sms)->bytesToArray, [18, 1, 49])
+  t->Assert.deepEqual(fromBytes(toBytes(sms)), sms)
+  let none = {channel: NoChannel}
+  t->Assert.deepEqual(toBytes(none)->bytesToArray, [])
+  t->Assert.deepEqual(fromBytes(toBytes(none)), none)
+})
+
+test("a variant enum travels as its number and a tagged variant as a oneof", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=personSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=personSchema)
+  let email = {id: 1, kind: Secondary, contact: Some(Email({value: "a@b"}))}
+  t->Assert.deepEqual(toBytes(email)->bytesToArray, [8, 1, 16, 2, 26, 3, 97, 64, 98])
+  t->Assert.deepEqual(fromBytes(toBytes(email)), email)
+  let home = {id: 2, kind: Unspecified, contact: Some(Home({value: {street: "x"}}))}
+  t->Assert.deepEqual(fromBytes(toBytes(home)), home)
+  let none = {id: 3, kind: Primary, contact: None}
+  t->Assert.deepEqual(toBytes(none)->bytesToArray, [8, 3, 16, 1])
+  t->Assert.deepEqual(fromBytes(toBytes(none)), none)
+  t->Assert.deepEqual(
+    personSchema->S.toProtoOrThrow(~name="Person"),
+    `syntax = "proto3";
+
+message Person {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_1 = 1;
+    KIND_2 = 2;
+  }
+  message Home {
+    string street = 1;
+  }
+
+  int32 id = 1;
+  Kind kind = 2;
+  oneof contact {
+    string email = 3;
+    Home home = 4;
+  }
+}
+`,
   )
 })
 
@@ -265,4 +369,60 @@ message Category {
 }
 `,
   )
+})
+
+type order = {total: int}
+
+@tag("type")
+type event =
+  | @as("address") Address({value: address})
+  | @as("order") Order({value: order})
+
+let namedAddressSchema = addressSchema->S.protobufTypeName("acme.v1.Address")
+let orderSchema = S.schema(s => {total: s.matches(S.int->S.protobufField(1))})->S.protobufTypeName("acme.v1.Order")
+
+type envelope = {event: event}
+
+let envelopeSchema = S.schema(s => {
+  event: s.matches(
+    S.union([
+      S.schema(s => Address({value: s.matches(namedAddressSchema)})),
+      S.schema(s => Order({value: s.matches(orderSchema)})),
+    ])->S.protobufField(1),
+  ),
+})
+
+test("a tagged variant of named messages travels as an Any", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=envelopeSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=envelopeSchema)
+  let order = {event: Order({value: {total: 5}})}
+  let bytes = toBytes(order)
+  // type_url "type.googleapis.com/acme.v1.Order", then the order as value
+  t->Assert.deepEqual(
+    bytes->bytesToArray,
+    [10, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 5],
+  )
+  t->Assert.deepEqual(fromBytes(bytes), order)
+  let address = {event: Address({value: {street: "x"}})}
+  t->Assert.deepEqual(fromBytes(toBytes(address)), address)
+})
+
+test("S.protobufAny unpacks to a variant of named messages and packs it back", t => {
+  let eventSchema = S.protobufAny->S.to(
+    S.union([
+      S.schema(s => Address({value: s.matches(namedAddressSchema)})),
+      S.schema(s => Order({value: s.matches(orderSchema)})),
+    ]),
+  )
+  let any: S.protobufAny = {
+    typeUrl: "example.com/acme.v1.Order",
+    value: Uint8Array.fromArray([8, 5]),
+  }
+  t->Assert.deepEqual(
+    any->S.convertOrThrow(~from=S.protobufAny, ~to=eventSchema),
+    Order({value: {total: 5}}),
+  )
+  let packed = Order({value: {total: 5}})->S.convertOrThrow(~from=eventSchema, ~to=S.protobufAny)
+  t->Assert.deepEqual(packed.typeUrl, "type.googleapis.com/acme.v1.Order")
+  t->Assert.deepEqual(packed.value->bytesToArray, [8, 5])
 })

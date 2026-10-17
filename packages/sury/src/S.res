@@ -102,6 +102,7 @@ type protobufType = [
 // A Google well-known type, printed as an import. See `ProtobufWellKnownType`
 // in index.d.ts for the value each takes.
 type protobufWellKnownType = [
+  | #"google.protobuf.Any"
   | #"google.protobuf.Timestamp"
   | #"google.protobuf.Duration"
   | #"google.protobuf.Value"
@@ -510,6 +511,10 @@ type json = JSON.t
 @module("sury") external arrayBuffer: t<ArrayBuffer.t> = "arrayBuffer"
 /** The Protocol Buffers binary wire format. */
 @module("sury") external protobuf: t<Uint8Array.t> = "protobuf"
+
+type protobufAny = {typeUrl: string, value: Uint8Array.t}
+/** A `google.protobuf.Any`. Convert it with `S.to` to a message `S.protobufTypeName` names, or to an `S.union` of them. */
+@module("sury") external protobufAny: t<protobufAny> = "protobufAny"
 type protoOptions = {name?: string, package?: string}
 @module("sury") external toProtoOrThrow_: (t<'value>, protoOptions) => string = "toProtoOrThrow"
 let toProtoOrThrow = (schema, ~name=?, ~package=?) => toProtoOrThrow_(schema, {?name, ?package})
@@ -648,6 +653,7 @@ type protobufFieldOptions = {
 external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
 let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
   protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
+@module("sury") external protobufTypeName: (t<'value>, string) => t<'value> = "protobufTypeName"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
@@ -681,16 +687,9 @@ type codecs<'from, 'to> = {
   external toCustom: (
     t<'from>,
     t<'to>,
-    {"decodeToOutput": conversion<'from, 'to>, "encodeFromOutput": conversion<'to, 'from>},
-  ) => t<'to> = "to"
+    codecs<'from, 'to>,
+  ) => t<'to> = "$to"
 )
-// Auto/Never already erase to the exact "auto"/"never" strings via @as, while
-// Sync/Async keep the default variant representation the JS side doesn't
-// understand, so each slot unwraps to the JS `f` / `{async: f}` forms.
-// The slots are the toOutput ones: `t<'to>` exposes only the target's output
-// type, so the coder can't be typed against the target's input the way the JS
-// `{decode, encode}` surface is. Nothing is lost, because the compiler
-// already checks the coder's signature.
 %%private(
   let unwrapConversion = (conversion: conversion<'i, 'o>): conversion<'i, 'o> =>
     switch conversion {
@@ -707,8 +706,8 @@ let to = (from, target, ~custom=?) =>
       from,
       target,
       {
-        "decodeToOutput": unwrapConversion(decode),
-        "encodeFromOutput": unwrapConversion(encode),
+        decode: unwrapConversion(decode),
+        encode: unwrapConversion(encode),
       },
     )
   }

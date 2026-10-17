@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.optional(S.union([S.schema({ kind: "email", email: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema("none")])) }).with(S.to, S.protobuf)'
+  input: '{ c?: { kind: "email"; email: string; } | "none" | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8880
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "email" }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", const: "none" }] } } }'
+  output: "[Sury] S.protobuf: oneof \"c\" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", enum: ["none"] }] } } }'
+isEqual:
+  input: (a,b)=>a===b||!!(typeof a.c==="object"&&a.c&&!Array.isArray(a.c)?typeof b.c==="object"&&b.c&&!Array.isArray(b.c)&&a.c.email===b.c.email:a.c==="none"?b.c==="none":b.c===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { kind: \"email\"; email: string; } | \"none\" | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm"
+  decode: eq-to-parse
+  encode: eq-to-parse

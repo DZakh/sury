@@ -351,6 +351,41 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Protobuf Any
+
+`S.protobufAny` (`{ typeUrl, value }`) converts to a message `S.protobufTypeName`
+names, to an object holding one beside literals, or to a union of those:
+
+```ts
+const Payload = S.protobufAny.with(S.to, S.union([
+  S.schema({ type: "user", value: User }), // acme.v1.User
+  S.schema({ type: "other", value: S.protobufAny }),
+]));
+```
+
+- **Decode picks the member by name, not by rule 2.** Every member is an
+  object, the same type as the source, so rule 2 would only validate; the Any
+  reads the name after the type URL's last `/` instead and decodes `value` into
+  the member holding that message. A member holding `S.protobufAny` takes every
+  name no other member holds, the empty Any included; without one, an unlisted
+  name fails (`codec-protobuf-any`, `codec-protobuf-any-closed`).
+- **Encode is rule 3.** The union dispatches the value to its member, and that
+  member packs: `type.googleapis.com/` and the name, and the message encoded
+  (`codec-protobuf-any-standalone`).
+- **Both directions refuse what wouldn't come back as it left.** Several
+  members need a literal, distinct per member, to tell them apart, and a message
+  is held by one member only; either is rejected when the operation is created
+  (`codec-protobuf-any-untagged`, `codec-protobuf-any-same-tag`,
+  `codec-protobuf-any-same-type`). A catch-all holding a type another member
+  names fails the encode, since it would decode as that member.
+- **Copies of one Any merge as the message it is.** A second copy's type URL
+  or value replaces the first's, so a copy naming a new type over the first's
+  value reads that value as the new type, as protobuf-es does
+  (`codec-protobuf-any` `second-copy-*`).
+- **Anything else is the Any's own object.** `S.parseOrThrow(S.protobufAny)`
+  validates `{ typeUrl, value }`, and a target holding no named message converts
+  field by field (`codec-protobuf-any-json-string`).
+
 ## Custom conversions
 
 `S.to`'s third argument replaces the built-in decoder for a pair, one direction
@@ -383,6 +418,14 @@ proof. A literal, since a type says `string` and never the string `"a"`, so a
 a pair written against it goes through the junction like the JS one. Because
 the trusting seam skips the target's own conversion, it rejects a target that
 converts (`The target already converts`); chain `S.to` instead.
+
+A target whose fields convert on their own is linked through what its output
+claims, so those conversions don't run a second time over the coder's result,
+while its refinements still check it (`codec-custom-output-seam-field-coder`,
+`codec-custom-output-seam-union-field-coder`). That holds when both directions
+are coders; a direction left to `"auto"` converts through the target itself,
+and the coder's side then runs the field's conversion again
+(`codec-custom-output-seam-mixed-auto`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped

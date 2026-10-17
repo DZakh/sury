@@ -30,7 +30,7 @@ operations:
         input: "{ byKey: { k: { a: 1, b: 0 } } }"
         output: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.byKey;return v0}catch(v4){e[3](v4)}}
+    expression: i=>{try{let v0={};{let r,ma,mb,mx,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:k=void 0;p=r.sub();ma=-1;mx=void 0;while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)fail("Invalid protobuf field number 0");if(y===10)k=r.string();else if(y===18){g=r.sub();if(ma<0){ma=r.pos;mb=r.limit}else mx=r.more(mx);r.pos=r.limit;r.limit=g}else skip(r,y&7,y>>>3,0)}if(k===void 0)k="";g=r.limit;ma<0?r.pos=g:(r.pos=ma,r.limit=mb);c=m1(r,d+1,mx);r.pos=r.limit=g;r.limit=p;k==="__proto__"?Object.defineProperty(v0,k,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[k]=c;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k);e[6](x)}}return {byKey:v0}}catch(v1){e[7](v1)}}
     examples:
       entry:
         input: new Uint8Array([10, 7, 10, 1, 107, 18, 2, 8, 1])

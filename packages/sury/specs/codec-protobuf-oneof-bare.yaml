@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.int32.with(S.protobufField, 1), value: S.optional(S.union([S.int32.with(S.protobufField, 2), S.protobufField(S.string, { number: 3, type: "int64" }), S.protobufField(S.schema({ street: S.string.with(S.protobufField, 1) }), { number: 4, type: "message" })])) }).with(S.to, S.protobuf)'
+  input: "{ id: number; value?: string | number | { street: string; } | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 9955
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, value: { anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string" }, { type: "object", properties: { street: { type: "string" } }, required: ["street"] }] } }, required: ["id"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&!!(typeof a.value==="number"&&a.value==a.value?typeof b.value==="number"&&b.value==b.value&&a.value===b.value:typeof a.value==="string"?typeof b.value==="string"&&a.value===b.value:typeof a.value==="object"&&a.value&&!Array.isArray(a.value)?typeof b.value==="object"&&b.value&&!Array.isArray(b.value)&&a.value.street===b.value.street:b.value===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: int32; value: int32 | string | { street: string; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.id,v1=i.value;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);for(;;){if(typeof v1==="number"&&v1==v1&&v1<=2147483647&&v1>=-2147483648&&v1%1==0)break;if(typeof v1==="string")break;if(typeof v1==="object"&&v1&&!Array.isArray(v1)){let v2=v1.street;typeof v2==="string"||e[1](v2);v1={street:v2};break}if(v1===void 0)break;throw e[2](v1)}let v3;let v4;let v5;for(;;){if(typeof v1==="number"&&v1==v1){v3=v1;break}if(typeof v1==="string"){v4=v1;break}if(typeof v1==="object"&&v1&&!Array.isArray(v1)){v5=v1;break}if(v1===void 0)break;throw e[4](v1)}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[5](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v3;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[5](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=2;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);w.varint64(e[6](v,-9223372036854775808n,9223372036854775807n))};f=3;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[3](w,v);w.end(h)};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v6}catch(v7){e[12](v7)}}
+    examples:
+      int32:
+        input: "{ id: 1, value: 5 }"
+        output: new Uint8Array([8, 1, 16, 5])
+      int64-string:
+        input: '{ id: 1, value: "12" }'
+        output: new Uint8Array([8, 1, 24, 12])
+      message:
+        input: '{ id: 1, value: { street: "x" } }'
+        output: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+      none:
+        input: "{ id: 0 }"
+        output: new Uint8Array([])
+      int64-not-digits:
+        input: '{ id: 1, value: "x" }'
+        error: 'Failed at value: Expected int64, received "x"'
+      wrong-type:
+        input: "{ id: 1, value: true }"
+        error: "Failed at value: Expected int32 | string | { street: string; } | undefined, received true"
+  decode:
+    expression: i=>{try{let v3=i.value;let v0;let v1;let v2;for(;;){if(typeof v3==="number"&&v3==v3){v0=i.value;break}if(typeof v3==="string"){v1=v3;break}if(typeof v3==="object"&&v3&&!Array.isArray(v3)){v2=v3;break}if(v3===void 0)break;throw e[1](v3)}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=2;v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);w.varint64(e[3](v,-9223372036854775808n,9223372036854775807n))};f=3;v=v2;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[0](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v4}catch(v5){e[8](v5)}}
+    examples:
+      int32:
+        input: "{ id: 1, value: 5 }"
+        output: new Uint8Array([8, 1, 16, 5])
+      zero-member-is-written:
+        input: "{ id: 1, value: 0 }"
+        output: new Uint8Array([8, 1, 16, 0])
+      int64-string:
+        input: '{ id: 1, value: "12" }'
+        output: new Uint8Array([8, 1, 24, 12])
+      message:
+        input: '{ id: 1, value: { street: "x" } }'
+        output: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+      none:
+        input: "{ id: 0 }"
+        output: new Uint8Array([])
+      int64-not-digits:
+        input: '{ id: 1, value: "x" }'
+        error: 'Failed at value: Expected int64, received "x"'
+  encode:
+    expression: i=>{try{let v0=0,v2=0,v1=void 0,v3=void 0,v4=void 0;{let r,a3=-1,b3=0,x3,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 16:v2=2;v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 24:v2=3;v3=r.int64();continue;case 34:p=r.sub();if(v2!==4){v2=4;a3=-1;x3=void 0}if(a3<0){a3=r.pos;b3=r.limit}else x3=r.more(x3);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v2===4){t=34;g=r.limit;a3<0?r.pos=g:(r.pos=a3,r.limit=b3);v4=m1(r,d+1,x3);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v5;if(v2===2){v5=v1}else if(v2===3){v5=""+v3}else if(v2===4){v5=v4}return {id:v0,value:v5}}catch(v6){e[7](v6)}}
+    examples:
+      int32:
+        input: new Uint8Array([8, 1, 16, 5])
+        output: "{ id: 1, value: 5 }"
+      int64-string:
+        input: new Uint8Array([8, 1, 24, 12])
+        output: '{ id: 1, value: "12" }'
+      message:
+        input: new Uint8Array([8, 1, 34, 3, 10, 1, 120])
+        output: '{ id: 1, value: { street: "x" } }'
+      none-set:
+        input: new Uint8Array([8, 1])
+        output: "{ id: 1, value: undefined }"
+      last-member-wins:
+        input: new Uint8Array([16, 5, 24, 12])
+        output: '{ id: 0, value: "12" }'
+      same-message-member-merges:
+        input: new Uint8Array([34, 3, 10, 1, 120, 34, 0])
+        output: '{ id: 0, value: { street: "x" } }'

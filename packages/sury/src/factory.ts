@@ -56,6 +56,7 @@ import {
   makeObjectVal,
   objectDecoder,
   traverseDefinition,
+  valAt,
   valGet,
 } from "./composites";
 import { getOutputSchema, parse, reverse, setDefault } from "./parse";
@@ -384,18 +385,6 @@ export const schemaTuple = (
   return mut;
 }
 
-const getValByFrom = (input: Val, from: string[], idx: number): Val => {
-  // Flattened schemas are resolved by the caller (getShapedParserOutput picks
-  // the right `input.fv[fromFlattened]` before calling this) - this walk only
-  // needs to handle a plain nested `from` path.
-  const key = from[idx];
-  if (key !== U) {
-    return getValByFrom(input.d![key]!, from, idx + 1);
-  } else {
-    return input;
-  }
-}
-
 // Owns the shaped structure walk: assembles an object/tuple val from a
 // per-location field producer. `init` wires the fresh objectVal before the
 // walk and may pre-populate `d` (flattened merge) - pre-populated locations
@@ -443,10 +432,10 @@ const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
     v = B_scope(
-      getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
+      valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!)
     );
   } else if (targetSchema.from !== U) {
-    v = B_scope(getValByFrom(input, targetSchema.from, 0));
+    v = B_scope(valAt(input, targetSchema.from));
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
@@ -506,7 +495,9 @@ const shapedParser: Builder = (input: Val) => {
   const output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return B_markOutput(output, input);
+  // The source's input checks ran with its own decode; handing `input` here
+  // would emit them a second time.
+  return B_markOutput(output, output);
 }
 
 const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
@@ -558,6 +549,14 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
+// A value placed whole was checked by its own decode; one assembled from the
+// shape has had only its fields checked, so its own refinements run here.
+const markAssembled = (val: Val, acc: ShapedSerializerAcc | undefined, path: Path): Val => {
+  if (acc !== U && acc.val !== U) return val;
+  val.path = pathConcat(val.path, path);
+  return B_markOutput(val);
+};
+
 // Returns an unparsed head with no chain of its own, like getShapedParserOutput:
 // shapedSerializer links `input` as its `prev`, and a chain parsed here would
 // be cut off there - at the root the compile pipeline advances it (#471).
@@ -603,20 +602,16 @@ const getShapedSerializerOutput = (
     const assembled = assembleShapedObject(
       input,
       resolvedTargetSchema,
-      (location, childSchema) =>
-        parse(
-          getShapedSerializerOutput(
-            input,
-            acc !== U && acc.properties !== U ? acc.properties[location] : U,
-            childSchema,
-            pathConcat(path, [location])
-          )
-        ),
+      (location, childSchema) => {
+        const childAcc = acc !== U && acc.properties !== U ? acc.properties[location] : U;
+        const childPath = pathConcat(path, [location]);
+        return parse(markAssembled(getShapedSerializerOutput(input, childAcc, childSchema, childPath), childAcc, childPath));
+      },
       (v) => {
         v.e = resolvedTargetSchema;
+        // Keeps its own `v` (declared after its own code): a decl hoisted onto
+        // `input` lands ahead of the field code an async object's join reads.
         v.prev = U;
-        v.p = input;
-        v.v = _notVarAtParent;
         const flattened = resolvedTargetSchema.flattened;
         if (flattened !== U && acc !== U && acc.flattened !== U) {
           const flattenedSchemas = flattened;
@@ -653,7 +648,7 @@ const shapedSerializer: Builder = (input: Val) => {
   const output = getShapedSerializerOutput(input, acc, targetSchema, pathEmpty);
   output.t = true;
   output.prev = input;
-  return output;
+  return markAssembled(output, acc, pathEmpty);
 }
 
 const definitionToShapedSchema = (definition: unknown): Internal => {

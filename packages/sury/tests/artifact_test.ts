@@ -16,7 +16,10 @@ const artifactsPath = fileURLToPath(new URL("../artifacts", import.meta.url));
 const FILES = [
   "LICENSE",
   "README.md",
+  "bin/protoc-gen-sury/index.mjs",
+  "docs/js-protobuf.md",
   "docs/js-usage.md",
+  "docs/rescript-protobuf.md",
   "docs/rescript-usage.md",
   "index.d.mts",
   "index.d.ts",
@@ -24,6 +27,8 @@ const FILES = [
   "index.mjs",
   "jsr.json",
   "package.json",
+  "protobuf/wkt/index.js",
+  "protobuf/wkt/index.mjs",
   "rescript.json",
   "src/JSONSchema.res",
   "src/JSONSchema.res.mjs",
@@ -35,6 +40,20 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/SuryProtobuf.res",
+  "src/SuryProtobuf.res.js",
+  "src/SuryProtobuf.res.mjs",
+  "src/protobuf/wkt/google/protobuf/any_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/api_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/duration_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/empty_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/field_mask_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/source_context_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/struct_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/timestamp_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/type_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/wrappers_pb.d.ts",
+  "src/protobuf/wkt/index.d.ts",
   "src/types/json.d.ts",
   "src/types/jsonschema.d.ts",
   "src/types/standard.d.ts",
@@ -224,7 +243,7 @@ describeArtifact("artifact", () => {
       api.add(name);
     }
     const unknown = new Set<string>();
-    for (const file of ["README.md", "docs/js-usage.md"]) {
+    for (const file of ["README.md", "docs/js-usage.md", "docs/js-protobuf.md"]) {
       // The README's "Coming next:" sentence names API that doesn't exist yet
       // on purpose; nothing else in the docs may.
       const text = read(file).replace(/Coming next:[^\n]*/, "");
@@ -259,10 +278,10 @@ describeArtifact("artifact", () => {
     add(/^\s*(?:type|and)\s+\w+\s*=\s*([A-Z]\w*)\(/gm);
 
     const unknown = new Set<string>();
-    for (const [, name] of read("docs/rescript-usage.md").matchAll(
-      /\bS\.([A-Za-z_][A-Za-z0-9_]*)/g
-    )) {
-      if (!api.has(name!)) unknown.add(`S.${name}`);
+    for (const file of ["docs/rescript-usage.md", "docs/rescript-protobuf.md"]) {
+      for (const [, name] of read(file).matchAll(/\bS\.([A-Za-z_][A-Za-z0-9_]*)/g)) {
+        if (!api.has(name!)) unknown.add(`${file} -> S.${name}`);
+      }
     }
     expect([...unknown]).toEqual([]);
   });

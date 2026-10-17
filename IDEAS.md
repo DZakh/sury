@@ -321,8 +321,8 @@ of a form-data story. What they were built to make cheap, roughly in order:
   value has to be fed to the chain's input. The slots that place no coder are
   exempt - `Auto`, `Never`, and the `Pack`/`Unpack` readings
   (`tests/S_to_custom_test.res` carries `S.uint8Array->S.to(S.jsonString->S.to(S.string),
-  ~custom={decode: Unpack, encode: Pack})`), the guard is the `outputSeam`
-  branch of `to` in `src/entry.ts`. JS has no such limit: its `{decode,
+  ~custom={decode: Unpack, encode: Pack})`), the guard is `seamTarget`, behind
+  `$to` in `src/entry.ts`. JS has no such limit: its `{decode,
   encode}` pair lands at the chain head and the whole chain runs after it. So
   the runtime is already there and only the ReScript type is missing:
   `t<'value>` names the output, so a chain's input type has no name to write,
