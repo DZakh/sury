@@ -718,12 +718,6 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   return values;
 };
 
-// The graph's message refined where a message sits: the root, a field, a list
-// item, a map value, a bare oneof arm, and the arm a oneof builds around it.
-// Read through either spelling of the link, a refinement that passes leaves
-// the value as the plain message reads it, and one that refuses fails at the
-// refined message whenever the bytes hold one. Then a bare arm beside a
-// Timestamp held as a Date: each writes as itself and reads back as itself.
 // Its own stream, as the Any family's.
 type Placement = { name: string; wrap: (message: S.Schema<unknown, unknown>, refine: (s: S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>; value: (v: unknown, r: Random) => unknown; at: (v: unknown) => Segment[] | undefined };
 const refinePlacements: Placement[] = [

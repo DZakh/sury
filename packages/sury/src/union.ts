@@ -1325,8 +1325,7 @@ const unionEmit = (
         string,
         Internal
       >)[trustedD[0]]!;
-      // `===` can't match a NaN discriminant (`x===NaN` is always false), which
-      // made the member unreachable and rejected a value it declares.
+      // `===` can't match a NaN discriminant (`x===NaN` is always false).
       const dRead = inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag

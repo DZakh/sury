@@ -152,7 +152,6 @@ type Ctx = {
   // A reader's messages, whose values run the chains and refinements of the
   // refs a walk passes (`Message.links`).
   reads?: boolean;
-  // A writer's messages, each the object its chain ends with (`lastObject`).
   writes?: boolean;
 };
 
@@ -187,7 +186,6 @@ const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   return current;
 };
 
-// Also the object a reader starts the reversed chain from.
 const lastObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let object = firstObject(schema, ctx);
   while (object?.to !== U) {
@@ -2310,9 +2308,6 @@ const slotOf = (at: Val, msg: Message, field: Field, local: (kind: string, idx: 
 
 const locationOf = (msg: Message, field: Field): string[] => (msg.any !== U ? field.path : field.path.slice(1));
 
-// The arm the reader set, built from its member's value. `set` holds the
-// number of the member set, and the arm with no member is the one left when
-// none is, else the last.
 const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Internal, field: Field | undefined][], set: string, path: Path, local: (kind: string, idx: number) => string): Val => {
   const g = at.g;
   const out = B_varWithoutAllocation(g);
@@ -2543,9 +2538,7 @@ const armDefinition = (member: Internal, key: string | undefined, leaf: unknown)
   return definition;
 };
 
-// A schema because a union's per-arm targets (`flags & 64`) are the one way a
-// codec gets code into a single arm: it reads the member's value at the arm's
-// location into the local the writer writes it from, and hands the arm on.
+// Reads the member's value at the arm's location into the local the writer writes it from.
 const sinkOf = (location: string[], local: string): Internal =>
   baseSchema(unknownTag, false, (input) => {
     const value = B_scope(valAt(input, location));
