@@ -2720,27 +2720,14 @@ const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   return [arms, other, told];
 };
 
-const anyListed = (input: Val, owners: Map<string, string>): ((name: string, path?: Path) => ErrorDetails) => {
+const anyFailure = (input: Val, target: Internal, reason: (name: string) => string): ((name: string, path?: Path) => ErrorDetails) => {
   const snap = B_pathSnap(input);
-  let site: object;
-  return (name, path) => {
-    const error = Object.create((site ??= conversionSite(input.s, input.e))) as SuryErrorRecord;
-    error.code = "invalid_conversion";
-    error.path = snap ?? path!;
-    error.reason = `Protobuf Any holds ${name}, which ${owners.get(name)} is for`;
-    return error as unknown as ErrorDetails;
-  };
-};
-
-const anyMismatch = (input: Val, target: Internal, names: string[]): ((name: string, path?: Path) => ErrorDetails) => {
-  const snap = B_pathSnap(input);
-  const expected = names.join(" or ");
   let site: object;
   return (name, path) => {
     const error = Object.create((site ??= conversionSite(input.s, target))) as SuryErrorRecord;
     error.code = "invalid_conversion";
     error.path = snap ?? path!;
-    error.reason = `Protobuf Any ${name ? `holds ${name}` : "has no type URL"}, expected ${expected}`;
+    error.reason = reason(name);
     return error as unknown as ErrorDetails;
   };
 };
@@ -2795,7 +2782,8 @@ const anyUnpack: Encoder = (input, target) => {
   arms.forEach((arm, idx) => {
     code += `${idx ? "else " : ""}if(${name}===${JSON.stringify(arm[0])}){${land(arm, converted[idx]!)}}`;
   });
-  const last = rest !== U ? land(other!, rest) : `${B_fail(input, anyMismatch(input, target, arms.map((arm) => arm[0])), name)};`;
+  const expected = arms.map((arm) => arm[0]).join(" or ");
+  const last = rest !== U ? land(other!, rest) : `${B_fail(input, anyFailure(input, target, (name) => `Protobuf Any ${name ? `holds ${name}` : "has no type URL"}, expected ${expected}`), name)};`;
   code += arms.length ? `else{${last}}` : last;
   const output = B_next(input, out, target, target);
   output.v = _var;
@@ -2866,7 +2854,7 @@ const anyPack: Builder = (input) => {
     const owners = new Map(known[0].map((arm, idx) => [arm[0], ownerOf(known[2], idx)]));
     output.cp +=
       `${B_let(input.g, held, `${valueIn.i}.typeUrl`)}${held}=${held}.slice(${held}.lastIndexOf("/")+1);` +
-      B_fail(valueIn, anyListed(valueIn, owners), held, `!(${known[0].map((arm) => `${held}===${JSON.stringify(arm[0])}`).join("||")})`);
+      B_fail(valueIn, anyFailure(valueIn, valueIn.e, (name) => `Protobuf Any holds ${name}, which ${owners.get(name)} is for`), held, `!(${known[0].map((arm) => `${held}===${JSON.stringify(arm[0])}`).join("||")})`);
   }
   return B_markOutput(output, input);
 };
