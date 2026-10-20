@@ -2788,8 +2788,6 @@ const anyUnpack: Encoder = (input, target) => {
   return B_markOutput(output, input);
 };
 
-// Packs one member, which is what reaches it: a union converts into it member
-// by member. Anything else is the Any's own object shape.
 // The union whose conversion leads into this val's target, if one does.
 const convertingUnion = (input: Val): Internal | undefined => {
   const stack: (Val | undefined)[] = [input];
@@ -2804,6 +2802,8 @@ const convertingUnion = (input: Val): Internal | undefined => {
   return U;
 };
 
+// Packs one member, which is what reaches it: a union converts into it member
+// by member. Anything else is the Any's own object shape.
 const anyPack: Builder = (input) => {
   // A tuple member is found as the object one is: the expected side first,
   // since what a conversion inside it rebuilt has lost the type names.
