@@ -66,7 +66,7 @@ import { schemaShape } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
 import type { ProtobufType, StoredField, WellKnownType } from "./protobufField";
-import { fieldMetadata, protobufField, wellKnownTakes, wrappers } from "./protobufField";
+import { fieldMetadata, isContainer, protobufField, wellKnownTakes, wrappers } from "./protobufField";
 import { uint8Array } from "./uint8Array";
 
 type Field = {
@@ -614,9 +614,6 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
   }
   return msg;
 };
-
-const isContainer = (shape: Internal): boolean =>
-  (shape.type === arrayTag || shape.type === objectTag) && typeof shape.additionalItems === objectTag;
 
 // `wellKnown` is set for a Timestamp or Duration written as its own message,
 // whose fields `seconds` and `nanos` are numbered by name, and for Empty.

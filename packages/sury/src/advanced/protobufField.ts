@@ -161,7 +161,7 @@ export const wrappers: Record<string, ProtobufType> = {
   "google.protobuf.BytesValue": "bytes",
 };
 
-const isContainer = (schema: Internal): boolean =>
+export const isContainer = (schema: Internal): boolean =>
   (schema.type === arrayTag || schema.type === objectTag) && typeof schema.additionalItems === objectTag;
 
 // `{ seconds, nanos }` is the Timestamp and Duration message itself: its keys
