@@ -516,6 +516,10 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   const all: Internal[] = [];
   for (let idx = 0; idx < output.anyOf.length; idx++) {
     const declared = output.anyOf[idx]!;
+    // Read as an arm, the default would look like one holding only literals.
+    if (declared.type === undefinedTag && declared.to !== U) {
+      return panic(`S.protobuf: oneof "${key}" can't have a default. Drop it and add an arm for no member set`);
+    }
     const member = getOutputSchema(declared);
     all.push(member);
     if (member.type === undefinedTag) {
