@@ -514,13 +514,17 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   let stray = false;
   let numbered = false;
   const all: Internal[] = [];
+  let defaulted = false;
   for (let idx = 0; idx < output.anyOf.length; idx++) {
     const declared = output.anyOf[idx]!;
-    // Read as an arm, the default would look like one holding only literals.
-    if (declared.type === undefinedTag && declared.to !== U) {
-      return panic(`S.protobuf: oneof "${key}" can't have a default. Drop it and add an arm for no member set`);
-    }
     const member = getOutputSchema(declared);
+    // A default's `undefined` arm converts into the item it defaults to, which
+    // read as an arm would look like one holding only literals. One converting
+    // to a literal is an arm for no member set like any other.
+    if (declared.type === undefinedTag && declared.to !== U && literalOf(member) === U) {
+      defaulted = true;
+      continue;
+    }
     all.push(member);
     if (member.type === undefinedTag) {
       optional = true;
@@ -557,6 +561,7 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
     arms.push({ name: member.type === arrayTag ? `${key}_${metadata.number}` : values[0]!, key: values[0]!, value: entries[values[0]!]!, member, metadata });
   }
   if (!arms.length && !numbered) return U;
+  if (defaulted) return panic(`S.protobuf: oneof "${key}" can't have a default. Drop it and add an arm for no member set`);
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
   const members = arms.map((arm) => arm.member);
   if (unset !== U) members.push(unset);
