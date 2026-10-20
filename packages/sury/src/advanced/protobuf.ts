@@ -2234,13 +2234,15 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
   }
   const lists = fields.flatMap((field, idx) => (field.repeated ? [`,${local("f", idx)}`] : [])).join("");
   const frame = lists || fields.some((field) => field.map !== U) ? `,k${lists}` : "";
-  // `t=-1` before a tag of several bytes is read: one that fails part way is
-  // no field's, and must not frame the error with the tag before it.
-  const loop = (miss: string, ranges?: boolean) => {
-    const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases.join("")}}if(t<8)${zero};${miss}}`;
-    return `${ranges ? `for(;;){${body}if(x===void 0||x<0)break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}${after}`;
-  };
+  const loop = (miss: string, ranges?: boolean) => tagLoop(cases.join(""), miss, ranges) + after;
   return { locals, temps, frame, loop };
+};
+
+// `t=-1` before a tag of several bytes is read: one that fails part way is
+// no field's, and must not frame the error with the tag before it.
+const tagLoop = (cases: string, miss: string, ranges?: boolean): string => {
+  const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases}}if(t<8)fail("Invalid protobuf field number 0");${miss}}`;
+  return ranges ? `for(;;){${body}if(x===void 0||x<0)break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body;
 };
 
 // An Any's reader: its type URL and the range of its value, then the member
@@ -2265,11 +2267,8 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
     locals: [["c2", "0"], ...members.map((_, idx) => [`f${idx + 2}`, "void 0"] as [string, string])],
     temps: ["o=r.pos", "l=r.limit", 'n=""', "a=-1", "b=0"],
     frame: "",
-    loop: (miss, ranges) => {
-      const body = `while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){${cases}}if(t<8)fail("Invalid protobuf field number 0");${miss}}`;
-      // The type URL read, a failure picking the member is no field's.
-      return `${ranges ? `for(;;){${body}if(x===void 0||x<0)break;r.pos=r.x[x];r.limit=r.x[x+1];x=r.x[x+2]}` : body}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`;
-    },
+    // The type URL read, a failure picking the member is no field's.
+    loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`,
   };
 };
 
