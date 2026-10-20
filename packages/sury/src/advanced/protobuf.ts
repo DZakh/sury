@@ -570,17 +570,13 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
 const literalSource = (value: unknown): string =>
   value === U ? "void 0" : typeof value === "bigint" ? `${value}n` : typeof value === "number" ? (Object.is(value, -0) ? "-0" : `${value}`) : JSON.stringify(value);
 
-// An optional property holding nothing is left out, as a decode leaves out an
-// absent field.
-const armSource = (member: Internal, key: string | undefined, value?: string): string => {
-  if (value !== U && key === U) return value;
-  const entries = entriesOf(member);
-  return entries === U ? literalSource(literalOf(member))
-    : member.type === arrayTag ? `[${Object.keys(entries).map((entry) => (entry === key ? value : literalSource(literalOf(entries[entry]))))}]`
-    : `{${Object.keys(entries)
-      .filter((entry) => entry === key || !(getOutputSchema(entries[entry]!).type === anyOfTag && holdsNothing(entries[entry]!)))
-      .map((entry) => `${entry === "__proto__" ? '["__proto__"]' : JSON.stringify(entry)}:${entry === key ? value : literalSource(literalOf(entries[entry]))}`)
-      .join(",")}}`;
+const armSource = (member: Internal, key: string | undefined, value: string): string => {
+  if (key === U) return value;
+  const definition = armDefinition(member, key, value) as Record<string, unknown>;
+  const entries = Object.keys(definition);
+  const sources = entries.map((entry) => (entry === key ? value : literalSource(definition[entry])));
+  return Array.isArray(definition) ? `[${sources}]`
+    : `{${entries.map((entry, idx) => `${entry === "__proto__" ? '["__proto__"]' : JSON.stringify(entry)}:${sources[idx]}`)}}`;
 };
 
 
