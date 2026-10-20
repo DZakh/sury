@@ -562,7 +562,8 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   const tag = tagAmong(members, arms.map((arm) => arm.key));
   for (const arm of arms) {
     const literal = tag === U ? U : literalOf(entriesOf(arm.member)![tag]);
-    if (typeof literal === "string") arm.name = literal;
+    // Arms told apart by a number or a boolean share their value's key.
+    arm.name = typeof literal === "string" ? literal : literal !== U ? `${key}_${arm.metadata.number}` : arm.name;
   }
   return { arms, unset, optional, all };
 };

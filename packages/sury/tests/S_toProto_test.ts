@@ -668,6 +668,35 @@ message User {
 `);
 });
 
+test("toProtoOrThrow names a oneof member after its number when its case is no string", (t) => {
+  const numbered = S.schema({
+    c: S.optional(
+      S.union([
+        S.schema({ case: 1, value: S.string.with(S.protobufField, 2) }),
+        S.schema({ case: 2, value: S.int32.with(S.protobufField, 3) }),
+      ]),
+    ),
+  }).with(S.meta, { name: "N" });
+  t.expect(S.toProtoOrThrow(numbered)).toBe(`syntax = "proto3";
+
+message N {
+  oneof c {
+    string c_2 = 2;
+    int32 c_3 = 3;
+  }
+}
+`);
+  const flagged = S.schema({
+    c: S.optional(
+      S.union([
+        S.schema({ case: true, value: S.string.with(S.protobufField, 2) }),
+        S.schema({ case: false, value: S.int32.with(S.protobufField, 3) }),
+      ]),
+    ),
+  });
+  t.expect(S.toProtoOrThrow(flagged, { name: "B" })).toContain("  oneof c {\n    string c_2 = 2;\n    int32 c_3 = 3;\n  }");
+});
+
 test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
   const schema = S.schema({
     count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
