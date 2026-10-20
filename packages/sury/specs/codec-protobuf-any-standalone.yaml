@@ -18,7 +18,7 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v6={typeUrl:v0,value:v1};let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.User"){let v5=v1;let v4=0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[3],skip=e[4];try{r=e[6].acquire(v5);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v4=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[7](x,e[5],t);e[8](x)}}v3={"type":"user","value":{id:v4}};}else{let v7=v6;v3={"type":"other","value":v7};}return v3}catch(v8){e[10](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.User"){let v5=v1;let v4=0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[3],skip=e[4];try{r=e[6].acquire(v5);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v4=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[7](x,e[5],t);e[8](x)}}v3={"type":"user","value":{id:v4}};}else{let v6={typeUrl:v0,value:v1};v3={"type":"other","value":v6};}return v3}catch(v7){e[10](v7)}}
     examples:
       user:
         input: '{ typeUrl: "type.googleapis.com/acme.v1.User", value: new Uint8Array([8, 1]) }'

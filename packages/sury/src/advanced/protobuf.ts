@@ -2768,7 +2768,7 @@ const anyUnpack: Encoder = (input, target) => {
     return [B_merge(valueOut), valueOut.i, !!(valueOut.f & 1)];
   };
   const converted = arms.map((arm) => convert(arm, field("value"), protobuf));
-  const rest = other !== U ? convert(other, input.v(), protobufAny) : U;
+  const rest = other !== U ? convert(other, input.i, protobufAny) : U;
   // One async arm makes the whole value a promise, the sync ones resolved.
   const async = converted.some((arm) => arm[2]) || !!rest?.[2];
   const land = (arm: AnyArm, [code, value, isAsync]: [string, string, boolean]): string =>
