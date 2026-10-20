@@ -4,8 +4,8 @@ Generates Sury schemas from `.proto` files: a protoc plugin that `buf generate`
 and `protoc` run. It ships inside the `sury` package as its `protoc-gen-sury`
 bin (`scripts/pack.ts` bundles `src/cli.ts`), so the generator that wrote a
 schema is always the runtime that runs it. This package is where it is built
-and tested; user documentation is in `docs/js-usage.md` and
-`docs/rescript-usage.md`, under Protocol Buffers.
+and tested; user documentation is in `docs/js-protobuf.md` and
+`docs/rescript-protobuf.md`.
 
 ```bash
 pnpm protobuf:codegen                   # every gate below

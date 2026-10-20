@@ -215,7 +215,8 @@ const Message = S.schema({
   text: S.optional(S.string).with(S.protobufField, { number: 1, oneof: "value" }),
   count: S.optional(S.int32).with(S.protobufField, { number: 2, oneof: "value" }),
 });
-S.encodeOrThrow(Message, S.protobuf)({ text: "a", count: 1 }); // throws: two members set
+S.encodeOrThrow(Message, S.protobuf)({ text: "a", count: 1 });
+// throws: Failed at count: Protobuf oneof "value" has more than one member set
 ```
 
 ## Recursive messages
