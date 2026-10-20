@@ -349,6 +349,14 @@ const unionRaw = (schema: Internal): number => {
   return mask;
 };
 
+// What a ref names past the refs a definition can itself be (`S.recursive`
+// directly inside another's definer): `undefined` while a definer still runs,
+// and still a ref for one that names only itself.
+const refDefinition = (ref: Internal, steps = 0): Internal | undefined => {
+  const def = ref.definition!();
+  return def?.type === refTag && steps < 50 ? refDefinition(def, steps + 1) : def;
+};
+
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
   if (mode === 2) {
     const resolved = unionRefDef(schema);
@@ -590,7 +598,7 @@ const unionAnalyze = (
     // member claims every type, so `S.optional(self)` tried the recursive call
     // on `undefined` and caught its throw at every leaf of a tree. The case
     // still calls through the ref, so the definition compiles once.
-    const def = s.type === refTag ? s.definition!() : U;
+    const def = s.type === refTag ? refDefinition(s) : U;
     const defTag = def === U ? 0 : tagFlags[def.type]!;
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
@@ -1603,7 +1611,7 @@ export const unionDecoder: Builder = (input: Val) => {
     }
     // A recursive object is as broad as a plain one, so an instance arm goes
     // ahead of it.
-    const def = member.type === refTag ? member.definition!() : U;
+    const def = member.type === refTag ? refDefinition(member) : U;
     flags |= tagFlags[(def || member).type]! & (64 | tagFlags[numberTag]!);
   }
   const sourceTag = tagFlags[source.type]!;
