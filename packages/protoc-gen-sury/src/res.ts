@@ -73,11 +73,16 @@ export type ResContext = {
   s: string;
   // Where a well-known type another file declares lives.
   wkt: (desc: Message | Enum) => string;
+  // The JS module each schema is an external from, instead of one built here.
+  // An external is an unchecked cast, so every type is then spelled as the
+  // value that module's schema holds: a oneof with no member set is
+  // `{case: undefined}`, as protobuf-es has it, and a label is the JS property.
+  bind?: string;
 };
 
-// The well-known types ship in sury as `SuryProtobuf`: a module of its own, so
-// a ReScript program that never names one never loads them.
-export const wktModule = "SuryProtobuf";
+// S.res's `Protobuf`: types only, each schema an external from
+// `sury/protobuf/wkt`, so only a module that names one imports them.
+export const wktModule = "S.Protobuf";
 
 export const consumerContext = (generating: Set<string>): ResContext => ({
   s: "S.",
@@ -218,22 +223,37 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   };
 
   const oneofDecl = (message: Message, oneof: Oneof, keyword: string, indent: string): string => {
+    const constructors = oneof.fields.map((field) => upperIdent(field.localName));
     const arms = oneof.fields.map(
-      (field) => `${indent}  | @as(${JSON.stringify(field.localName)}) ${upperIdent(field.localName)}({value: ${fieldType({ ...field, list: false, optional: false, element: field.element })
+      (field, idx) => `${indent}  | @as(${JSON.stringify(field.localName)}) ${constructors[idx]}({value: ${fieldType({ ...field, list: false, optional: false, element: field.element })
         .replace(/^option<(.*)>$/, "$1")}})`,
     );
+    if (ctx.bind !== undefined) {
+      let unset = "Unset";
+      while (constructors.includes(unset)) unset = `${unset}_`;
+      arms.push(`${indent}  | @as(undefined) ${unset}({value?: unit})`);
+    }
     return `${indent}@tag("case")\n${indent}${keyword} ${oneofTypeName(message, oneof)} =\n${arms.join("\n")}\n`;
   };
 
   const recordDecl = (message: Message, indent: string): string => {
     const names = fieldNames(message);
+    const label = (member: Field | Oneof): string =>
+      ctx.bind !== undefined && names.get(member) !== member.localName ? `@as(${JSON.stringify(member.localName)}) ${names.get(member)}` : names.get(member)!;
     const lines = message.members.map((member) =>
       member.kind === "oneof"
-        ? `${indent}  ${names.get(member)}: option<${oneofTypeName(message, member)}>,`
-        : `${docstring(member.path, `${indent}  `)}${indent}  ${names.get(member)}: ${fieldType(member)},`,
+        ? `${indent}  ${label(member)}: ${ctx.bind !== undefined ? oneofTypeName(message, member) : `option<${oneofTypeName(message, member)}>`},`
+        : `${docstring(member.path, `${indent}  `)}${indent}  ${label(member)}: ${fieldType(member)},`,
     );
     return `{\n${lines.join("\n")}\n${indent}}`;
   };
+
+  // `t` is the module's own type by the time this is read, so a bound schema
+  // names S's schema type by its other name.
+  const schemaDecl = (desc: Message | Enum, built: () => string): string =>
+    ctx.bind !== undefined
+      ? `  @module(${JSON.stringify(ctx.bind)}) external schema: ${S}schema<t> = ${JSON.stringify(namesOf(file).schema.get(desc))}\n`
+      : `  let schema: ${S}t<t> = ${built()}\n`;
 
   const out: string[] = [];
   for (const desc of nestedTypes(file)) {
@@ -244,7 +264,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     out.push(
       `${docstring(desc.path, "")}module ${moduleOf(desc)} = {\n` +
         `  type t =${values.map((value, idx) => ` | @as(${value.number}) ${constructors[idx]}`).join("")}\n` +
-        `  let schema: ${S}t<t> = ${named(`${S}enum([${constructors.join(", ")}])`, desc)}\n}\n`,
+        `${schemaDecl(desc, () => named(`${S}enum([${constructors.join(", ")}])`, desc))}}\n`,
     );
   }
 
@@ -265,7 +285,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
         const scope: Scope = { bindings: new Map(), component: members, depth: 0 };
         out.push(
           `${docstring(message.path, "")}module ${moduleOf(message)} = {\n  type t = ${groupNames.get(message)}\n` +
-            `  let schema: ${S}t<t> = ${recursiveExpr(message, scope)}\n}\n`,
+            `${schemaDecl(message, () => recursiveExpr(message, scope))}}\n`,
         );
       }
       continue;
@@ -273,10 +293,13 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     const message = component[0]!;
     const oneofs = message.oneofs.map((oneof) => oneofDecl(message, oneof, "type", "  ")).join("");
     const any = message.typeName === "google.protobuf.Any";
-    const type = message.members.length === 0 ? "  type t\n" : `  type t = ${any ? `${S}protobufAny = ` : ""}${recordDecl(message, "  ")}\n`;
+    const type =
+      message.members.length === 0 ? (ctx.bind !== undefined ? "  type t = {}\n" : "  type t\n")
+      : `  type t = ${any ? `${S}protobufAny = ` : ""}${recordDecl(message, "  ")}\n`;
     out.push(
       `${docstring(message.path, "")}module ${moduleOf(message)} = {\n${oneofs}${type}` +
-        `  let schema: ${S}t<t> = ${any ? `${S}protobufAny` : named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message)}\n}\n`,
+        schemaDecl(message, () => (any ? `${S}protobufAny` : named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message))) +
+        "}\n",
     );
   }
   return { body: out.join("\n"), usesNumber };

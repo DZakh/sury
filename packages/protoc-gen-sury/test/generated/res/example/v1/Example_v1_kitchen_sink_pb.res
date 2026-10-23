@@ -103,7 +103,7 @@ module User = {
     | @as("email") Email({value: string})
     | @as("phone") Phone({value: bigint})
     | @as("mailbox") Mailbox({value: User_Mailbox.t})
-    | @as("boxedInOneof") BoxedInOneof({value: SuryProtobuf.Int32Value.t})
+    | @as("boxedInOneof") BoxedInOneof({value: S.Protobuf.Int32Value.t})
   type t = {
     id: int,
     firstName: string,
@@ -134,7 +134,7 @@ module User = {
         S.schema(s => Email({value: s.matches(S.string->S.protobufField(8, ~type_=#string))})),
         S.schema(s => Phone({value: s.matches(S.bigint->S.protobufField(9, ~type_=#int64))})),
         S.schema(s => Mailbox({value: s.matches(User_Mailbox.schema->S.protobufField(10, ~type_=#message))})),
-        S.schema(s => BoxedInOneof({value: s.matches(SuryProtobuf.Int32Value.schema->S.protobufField(11, ~type_=#message))})),
+        S.schema(s => BoxedInOneof({value: s.matches(S.Protobuf.Int32Value.schema->S.protobufField(11, ~type_=#message))})),
       ]),
     )),
     unpacked: s.matches(S.array(S.int)->S.protobufField(12, ~type_=#int32, ~packed=false)),
@@ -150,40 +150,40 @@ module User = {
 module WellKnown = {
   @tag("case")
   type when_ =
-    | @as("atTime") AtTime({value: SuryProtobuf.Timestamp.t})
-    | @as("after") After({value: SuryProtobuf.Duration.t})
+    | @as("atTime") AtTime({value: S.Protobuf.Timestamp.t})
+    | @as("after") After({value: S.Protobuf.Duration.t})
   type t = {
-    at: option<SuryProtobuf.Timestamp.t>,
-    took: option<SuryProtobuf.Duration.t>,
+    at: option<S.Protobuf.Timestamp.t>,
+    took: option<S.Protobuf.Duration.t>,
     label: option<string>,
     count: option<bigint>,
     meta: option<dict<JSON.t>>,
     metas: array<dict<JSON.t>>,
     byName: dict<dict<JSON.t>>,
-    value: option<SuryProtobuf.Value.t>,
-    boxedList: array<SuryProtobuf.Int32Value.t>,
-    log: array<SuryProtobuf.Timestamp.t>,
-    timeouts: dict<SuryProtobuf.Duration.t>,
-    seen: option<SuryProtobuf.Timestamp.t>,
+    value: option<S.Protobuf.Value.t>,
+    boxedList: array<S.Protobuf.Int32Value.t>,
+    log: array<S.Protobuf.Timestamp.t>,
+    timeouts: dict<S.Protobuf.Duration.t>,
+    seen: option<S.Protobuf.Timestamp.t>,
     when_: option<when_>,
   }
   let schema: S.t<t> = S.schema(s => {
-    at: s.matches(S.option(SuryProtobuf.Timestamp.schema)->S.protobufField(1, ~type_=#message)),
-    took: s.matches(S.option(SuryProtobuf.Duration.schema)->S.protobufField(2, ~type_=#message)),
+    at: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(1, ~type_=#message)),
+    took: s.matches(S.option(S.Protobuf.Duration.schema)->S.protobufField(2, ~type_=#message)),
     label: s.matches(S.option(S.string)->S.protobufField(3, ~type_=#"google.protobuf.StringValue")),
     count: s.matches(S.option(S.bigint)->S.protobufField(4, ~type_=#"google.protobuf.Int64Value")),
     meta: s.matches(S.option(S.dict(S.json))->S.protobufField(5, ~type_=#"google.protobuf.Struct")),
     metas: s.matches(S.array(S.dict(S.json))->S.protobufField(6, ~type_=#"google.protobuf.Struct")),
     byName: s.matches(S.dict(S.dict(S.json))->S.protobufField(7, ~type_=#"google.protobuf.Struct", ~key=#string)),
-    value: s.matches(S.option(SuryProtobuf.Value.schema)->S.protobufField(8, ~type_=#message)),
-    boxedList: s.matches(S.array(SuryProtobuf.Int32Value.schema)->S.protobufField(9, ~type_=#message)),
-    log: s.matches(S.array(SuryProtobuf.Timestamp.schema)->S.protobufField(10, ~type_=#message)),
-    timeouts: s.matches(S.dict(SuryProtobuf.Duration.schema)->S.protobufField(11, ~type_=#message, ~key=#string)),
-    seen: s.matches(S.option(SuryProtobuf.Timestamp.schema)->S.protobufField(12, ~type_=#message)),
+    value: s.matches(S.option(S.Protobuf.Value.schema)->S.protobufField(8, ~type_=#message)),
+    boxedList: s.matches(S.array(S.Protobuf.Int32Value.schema)->S.protobufField(9, ~type_=#message)),
+    log: s.matches(S.array(S.Protobuf.Timestamp.schema)->S.protobufField(10, ~type_=#message)),
+    timeouts: s.matches(S.dict(S.Protobuf.Duration.schema)->S.protobufField(11, ~type_=#message, ~key=#string)),
+    seen: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(12, ~type_=#message)),
     when_: s.matches(S.option(
       S.union([
-        S.schema(s => AtTime({value: s.matches(SuryProtobuf.Timestamp.schema->S.protobufField(13, ~type_=#message))})),
-        S.schema(s => After({value: s.matches(SuryProtobuf.Duration.schema->S.protobufField(14, ~type_=#message))})),
+        S.schema(s => AtTime({value: s.matches(S.Protobuf.Timestamp.schema->S.protobufField(13, ~type_=#message))})),
+        S.schema(s => After({value: s.matches(S.Protobuf.Duration.schema->S.protobufField(14, ~type_=#message))})),
       ]),
     )),
   })->S.protobufTypeName("example.v1.WellKnown")
@@ -305,11 +305,11 @@ module Uses = {
  */
 module Envelope = {
   type t = {
-    payload: option<SuryProtobuf.Any.t>,
-    details: array<SuryProtobuf.Any.t>,
+    payload: option<S.Protobuf.Any.t>,
+    details: array<S.Protobuf.Any.t>,
   }
   let schema: S.t<t> = S.schema(s => {
-    payload: s.matches(S.option(SuryProtobuf.Any.schema)->S.protobufField(1, ~type_=#message)),
-    details: s.matches(S.array(SuryProtobuf.Any.schema)->S.protobufField(2, ~type_=#message)),
+    payload: s.matches(S.option(S.Protobuf.Any.schema)->S.protobufField(1, ~type_=#message)),
+    details: s.matches(S.array(S.Protobuf.Any.schema)->S.protobufField(2, ~type_=#message)),
   })->S.protobufTypeName("example.v1.Envelope")
 }

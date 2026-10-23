@@ -22,9 +22,9 @@ import { decodeFileDescriptorSet, type FileDescriptorProto } from "../src/descri
 import { buildRegistry, type Message, nestedTypes } from "../src/model";
 import { namesOf } from "../src/names";
 import { fieldNames, fileModule, moduleOf } from "../src/res";
-import { isStruct, wrapperScalar } from "../src/shared";
+import { isStruct, wktFiles, wrapperScalar } from "../src/shared";
 import { generate } from "../src/plugin";
-import { generateWkt, generateWktRes } from "../scripts/wkt";
+import { generateWkt, generateWktRes, sRes, withWktRes } from "../scripts/wkt";
 import { normalize, rngOf, sampleMessage } from "./sample";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -56,14 +56,16 @@ const holdGoldens = (dir: string, files: { name: string; content: string }[], la
   }
 };
 
-// One generated file among hand-written ones: rewritten or compared on its own.
+// One generated file, or a hand-written one with a generated region, rewritten
+// or compared on its own.
 const holdFile = (path: string, content: string, label: string) => {
   if (update) writeFileSync(path, content);
   else if (!existsSync(path) || readFileSync(path, "utf8") !== content) fail(`${label}: ${path} differs from what the generator writes`);
 };
 
-// A value in the shape the ReScript schemas hold, and back: an unset oneof is
-// `undefined` there.
+// A value in the shape the ReScript schemas hold, and back: an unset oneof of a
+// generated message is `undefined` there, while a well-known type, bound to
+// `sury/protobuf/wkt`, keeps protobuf-es's shape.
 const mapValues = (value: unknown, fn: (v: unknown) => unknown): unknown =>
   Array.isArray(value) ? value.map(fn)
   : value !== null && typeof value === "object" && !(value instanceof Uint8Array)
@@ -71,6 +73,7 @@ const mapValues = (value: unknown, fn: (v: unknown) => unknown): unknown =>
     : value;
 // ...and each field under its ReScript label.
 const toRes = (message: Message, value: Record<string, unknown>): Record<string, unknown> => {
+  if (wktFiles.has(message.file.proto.name)) return value;
   const names = fieldNames(message);
   const out: Record<string, unknown> = {};
   const element = (field: Message["fields"][number], item: unknown): unknown =>
@@ -110,7 +113,7 @@ try {
   holdGoldens(join(root, "test/generated/ts"), run("target=ts"), "ts golden");
   holdGoldens(join(root, "test/generated/res"), run("target=res"), "res golden");
   holdGoldens(join(root, "../sury/src/protobuf/wkt"), generateWkt(), "sury/protobuf/wkt");
-  holdFile(join(root, "../sury/src/SuryProtobuf.res"), generateWktRes(), "SuryProtobuf");
+  holdFile(sRes, withWktRes(readFileSync(sRes, "utf8"), generateWktRes()), "S.Protobuf");
 
   // ── protoc-gen-es, the reference ─────────────────────────────────────────
   const es = join(root, "test/.es");
@@ -339,11 +342,13 @@ type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ?
     [],
     ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', "nanos"],
   );
+  const timestampOnly = join(root, "test/res/TimestampOnly.res.mjs");
+  if (!readFileSync(timestampOnly, "utf8").includes('from "sury/protobuf/wkt"')) fail(`tree-shaking: ${timestampOnly} doesn't import sury/protobuf/wkt`);
   shakes(
-    "one SuryProtobuf module",
-    await bundled('import { Timestamp } from "sury/src/SuryProtobuf.res.mjs";\nconsole.log(Timestamp.schema);\n'),
-    ["seconds", "nanos"],
-    ['"Struct"', '"Value"', "typeUrl", "fileName", "responseStreaming", '"Int32Value"'],
+    "one S.Protobuf type",
+    await bundled(`import { schema } from ${JSON.stringify(timestampOnly)};\nconsole.log(schema);\n`),
+    ['name: "Timestamp"', "seconds"],
+    ['name: "Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "Int32Value"', '"google.protobuf.Mixin"'],
   );
 
   console.log(`protoc-gen-sury: ${corpus.length} files, ${messages.length} messages, ${cases} value cases, ${printed.length} reprints`);

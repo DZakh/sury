@@ -182,23 +182,6 @@ function emitWktDeclarations(): void {
   );
 }
 
-// SuryProtobuf's CJS twin, for the same consumers as S.res.js. It shares S
-// rather than carrying its own: `./S.res.mjs` stays external and points at the
-// CJS S.res.js.
-async function resolveSuryProtobuf(): Promise<void> {
-  const bundle = await rollup({
-    input: path.join(artifactsPath, "src/SuryProtobuf.res.mjs"),
-    external: ["sury", "./S.res.mjs"],
-  });
-  await bundle.write({
-    file: path.join(artifactsPath, "src/SuryProtobuf.res.js"),
-    format: "cjs",
-    exports: "named",
-    paths: { "./S.res.mjs": "./S.res.js" },
-  });
-  await bundle.close();
-}
-
 async function pack(): Promise<void> {
   if (fs.existsSync(artifactsPath)) {
     fs.rmSync(artifactsPath, { recursive: true, force: true });
@@ -235,7 +218,6 @@ async function pack(): Promise<void> {
   // will use sury without running a compiler (rescript-stdlib-vendorer)
   await resolveRescriptRuntime("es", "src/S.res.mjs", "src/S.res.mjs");
   await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
-  await resolveSuryProtobuf();
 
   await buildWkt("cjs", path.join(artifactsPath, "protobuf/wkt/index.js"));
   await buildWkt("esm", path.join(artifactsPath, "protobuf/wkt/index.mjs"));
