@@ -205,9 +205,17 @@ let jobSchema = S.schema(s => {
 A `Date.t` holds milliseconds, so use the `{seconds, nanos}` record when you
 need nanoseconds.
 
-`SuryProtobuf` holds every well-known type as an ordinary message, the way
-generated code uses them: `SuryProtobuf.Timestamp.t`,
-`SuryProtobuf.Timestamp.schema`.
+`S.Protobuf` holds every well-known type as an ordinary message, the way
+generated code uses them. Each is a module with `t` and `schema`, the same
+schema `sury/protobuf/wkt` exports to TypeScript:
+
+```rescript
+let at: S.Protobuf.Timestamp.t = {seconds: 1700000000n, nanos: 0}
+at->S.convertOrThrow(~from=S.Protobuf.Timestamp.schema, ~to=S.protobuf)
+
+let price: S.Protobuf.Value.t = {kind: NumberValue({value: 9.99})}
+let blank: S.Protobuf.Value.t = {kind: Unset({})} // no kind set
+```
 
 An `Any` is a variant of the messages it may hold, each named with
 `S.protobufTypeName` and tagged by a literal of your choosing:

@@ -25,8 +25,9 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
   protoplugin's order.
 - `src/ts.ts`, `src/res.ts` - the two targets.
 - `src/plugin.ts` - options, refusals, one response per request.
-- `scripts/wkt.ts` - generates `sury/protobuf/wkt` and `SuryProtobuf.res` from the
-  upstream well-known type protos.
+- `scripts/wkt.ts` - generates `sury/protobuf/wkt` from the upstream
+  well-known type protos, and `S.Protobuf`, the region of `S.res` between its
+  `@generated` markers that binds the same types for ReScript.
 - `test/proto` - the corpus: a kitchen sink covering every field shape, and a
   second file for cross-file imports.
 
@@ -35,7 +36,7 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
 `test/cli.ts`, in order:
 
 1. **Goldens** - the generated corpus, `packages/sury/src/protobuf/wkt` and
-   `packages/sury/src/SuryProtobuf.res`.
+   the `S.Protobuf` region of `packages/sury/src/S.res`.
 2. **Compile** - `tsc` over the TypeScript (where `S.schemaOf` holds every
    schema equal to its type) and `rescript` over the ReScript, warnings as
    errors.
@@ -47,7 +48,8 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
 5. **Reprint** - `S.toProtoOrThrow` of every generated schema, compiled again
    by buf, declares the fields the source did.
 6. **Tree-shaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt` type,
-   one ReScript module and one `SuryProtobuf` type keep none of their siblings.
+   one ReScript module and one `S.Protobuf` type (`test/res`) keep none of
+   their siblings.
 
 ## Rules the output follows
 

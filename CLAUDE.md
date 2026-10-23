@@ -72,12 +72,15 @@ base → builder → primitives → parse → union → composites → factory
   `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
-- The protobuf well-known types are the two exceptions, both written by
-  protoc-gen-sury and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
-  second entry that imports only `"sury"`) and `src/SuryProtobuf.res`. The
-  latter depends on `S`; `S` may never name it, which is a dependency cycle,
-  and folding it into `S.res` would build every well-known type at startup
-  for every ReScript user, since `S.res.mjs` is in `sideEffects`.
+- The protobuf well-known types are the exception, written by protoc-gen-sury
+  and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
+  second entry that imports only `"sury"`), and its ReScript binding
+  `S.Protobuf`, the `@generated` region at the end of `S.res`. That region is
+  types and `external`s only: a `let` there would build every well-known type
+  at startup for every ReScript user, since `S.res.mjs` is in `sideEffects`,
+  where an external is inlined into the module that names it. An external is
+  an unchecked cast, so each type spells the value the TS schema holds, and
+  `tests/S_Protobuf_wkt_test.res` holds it to that.
 
 ## Writing code
 
@@ -194,7 +197,7 @@ relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
 
 Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
 regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
-order: the committed goldens (the corpus, `src/protobuf/wkt`, `SuryProtobuf.res`), that
+order: the committed goldens (the corpus, `src/protobuf/wkt`, `S.Protobuf`), that
 the TypeScript and ReScript compile, that every type equals protoc-gen-es's
 once the differences `docs/js-usage.md` lists are normalized, that values
 round-trip through both libraries in both directions byte for byte from both
