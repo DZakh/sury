@@ -217,6 +217,10 @@ let price: S.Protobuf.Value.t = {kind: NumberValue({value: 9.99})}
 let blank: S.Protobuf.Value.t = {kind: Unset({})} // no kind set
 ```
 
+`Value.kind` spells "no kind set" as `Unset({})`, the `{ case: undefined }` the
+TypeScript schema holds, where a oneof in your own generated messages is an
+`option`.
+
 An `Any` is a variant of the messages it may hold, each named with
 `S.protobufTypeName` and tagged by a literal of your choosing:
 
