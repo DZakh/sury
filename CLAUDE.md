@@ -76,11 +76,11 @@ base → builder → primitives → parse → union → composites → factory
   and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
   second entry that imports only `"sury"`), and its ReScript binding
   `S.Protobuf`, the `@generated` region at the end of `S.res`. That region is
-  types and `external`s only: a `let` there would build every well-known type
-  at startup for every ReScript user, since `S.res.mjs` is in `sideEffects`,
-  where an external is inlined into the module that names it. An external is
-  an unchecked cast, so each type spells the value the TS schema holds, and
-  `tests/S_Protobuf_wkt_test.res` holds it to that.
+  types and `external`s only. An external is inlined into the module that
+  names it, while a `let` there would build every well-known type at startup
+  for every ReScript user, since `S.res.mjs` is in `sideEffects`. An external
+  is also an unchecked cast, so each type spells the value the TS schema
+  holds, and `tests/S_Protobuf_wkt_test.res` holds it to that.
 
 ## Writing code
 
@@ -199,7 +199,7 @@ Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
 regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
 order: the committed goldens (the corpus, `src/protobuf/wkt`, `S.Protobuf`), that
 the TypeScript and ReScript compile, that every type equals protoc-gen-es's
-once the differences `docs/js-usage.md` lists are normalized, that values
+once the differences `docs/js-protobuf.md` lists are normalized, that values
 round-trip through both libraries in both directions byte for byte from both
 targets, that `S.toProtoOrThrow` reprints every message's fields, and that
 importing one message keeps none of its siblings in a Rollup 4 bundle.
