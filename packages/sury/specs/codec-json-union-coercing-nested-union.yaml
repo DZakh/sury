@@ -21,15 +21,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}v0||i.trim()||e[1](i);i=v0;break}if(typeof i==="boolean")break;throw e[2](i)}e[3](i)||e[4](i);break}return i}catch(v1){e[5](v1)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="number"&&i==i)break;if(i===null)break;l2:{try{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){v1=[v1,e[0],i];break l2}if(!(v0||i.trim())){v1=[v1,e[1],i];break l2}i=v0;break}if(typeof i==="boolean")break;v1=[v1,e[2](i)];break l2}if(!(e[3](i))){v1=[v1,e[4],i];break l2}break}catch(x){v1=[v1,e[5](x)]}}throw e[6](i,v1)}return i}catch(v3){e[7](v3)}}
     examples:
-      # FIXME: the nested union coerces JSON text with no guard and never hands on to the later members
       number:
         input: "1"
-        error: Expected bigint | boolean, received 1
+        output: "1"
       "null":
         input: "null"
-        error: Expected bigint | boolean, received null
+        output: "null"
       bigint-text:
         input: '"10"'
         output: 10n

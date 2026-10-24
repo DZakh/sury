@@ -1,0 +1,83 @@
+# protoc-gen-sury
+
+Generates Sury schemas from `.proto` files: a protoc plugin that `buf generate`
+and `protoc` run. It ships inside the `sury` package as its `protoc-gen-sury`
+bin (`scripts/pack.ts` bundles `src/cli.ts`), so the generator that wrote a
+schema is always the runtime that runs it. This package is where it is built
+and tested; user documentation is in `docs/js-protobuf.md` and
+`docs/rescript-protobuf.md`.
+
+```bash
+pnpm protobuf:codegen                   # every gate below
+pnpm protobuf:codegen update            # rewrite the goldens
+SEED=7 pnpm protobuf:codegen            # another draw of values
+pnpm protobuf:conformance:generated     # Google's suite over the generated schema
+```
+
+## Layout
+
+- `src/descriptor.ts` - the parts of `descriptor.proto` and `plugin.proto` the
+  generator reads, decoded by Sury. Both are proto2, which the generator
+  doesn't take, so these stay hand-written.
+- `src/model.ts` - descriptors resolved into messages, fields, oneofs and
+  enums, named the way protobuf-es names them.
+- `src/names.ts` - the exported names of a file, clashes resolved in
+  protoplugin's order.
+- `src/ts.ts`, `src/res.ts` - the two targets.
+- `src/plugin.ts` - options, refusals, one response per request.
+- `scripts/wkt.ts` - generates `sury/protobuf/wkt` from the upstream
+  well-known type protos, and `S.Protobuf`, the region of `S.res` between its
+  `@generated` markers that binds the same types for ReScript.
+- `test/proto` - the corpus: a kitchen sink covering every field shape, a
+  second file for cross-file imports, and a third whose names are the ones the
+  generated code itself uses.
+- `bin/protoc-gen-sury.mjs` - the plugin run from source, as the gate runs it.
+
+## What the gates hold
+
+`test/cli.ts`, one function each:
+
+1. **descriptors** - `src/descriptor.ts` decodes the corpus's descriptor set
+   as protobuf-es does.
+2. **goldens** - the generated corpus, `packages/sury/src/protobuf/wkt` and
+   the `S.Protobuf` region of `packages/sury/src/S.res`.
+3. **plugin** - the bin, run by buf over stdin and on a descriptor set,
+   writes what `generate()` returns, and exits 1 on an invalid option.
+4. **options** - every option and every refusal, by what `generate()` answers.
+5. **compile** - `tsc` over the TypeScript (where `S.schemaOf` holds every
+   schema equal to its type), with every message and enum type equal to
+   protoc-gen-es's after normalizing the differences the JS guide lists, and
+   `rescript` over the ReScript, warnings as errors.
+6. **values** - values drawn from each descriptor, encoded by protobuf-es and
+   decoded by the generated TypeScript and ReScript schemas, and the reverse,
+   compared by value and by byte.
+7. **typedAny** - an Any read as a tagged union of generated messages,
+   against protobuf-es's `anyPack`.
+8. **reprint** - `S.toProtoOrThrow` of every generated schema, compiled again
+   by buf, declares the fields the source did.
+9. **treeShaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt`
+   type, one ReScript module and one `S.Protobuf` type (`test/res`) keep none
+   of their siblings.
+
+## Rules the output follows
+
+- Every schema is built with the functional forms (`S.protobufField(schema,
+  …)`), never `.with(…)`: a method call on a schema can't be dropped by a
+  bundler, and one message imported must not keep the file.
+- Every `S.protobufField` states its `type`, and `key` on a map. Inference is
+  for schemas written by hand.
+- A singular message field is always `S.optional`: that is proto3 presence,
+  and it is what keeps a recursive message finite.
+- Each export of a recursive group builds the whole group in its own
+  `S.recursive`, every member once, and reads nothing another export built:
+  `S.recursive` is `@__NO_SIDE_EFFECTS__`, so a bundler drops an export nothing
+  imports along with whatever it filled in. A callback that doesn't read its
+  own schema takes no parameter, for `noUnusedParameters` and ReScript's
+  warning 27.
+
+## Not generated
+
+proto2, editions, extensions and groups are refused, naming the file or field.
+Services are skipped. Left for later: open enums (the printer can't yet keep an
+enum's name on an `S.int32` field), `protovalidate` rules as refinements, and
+a Connect transport over generated service descriptors.

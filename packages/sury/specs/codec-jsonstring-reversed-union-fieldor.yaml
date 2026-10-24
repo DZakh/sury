@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.literal(S.parseOrThrow({ f: "x" }, S.reverse(S.union([S.schema({ kind: "k3", b: S.boolean }), S.object((s) => ({ f: s.fieldOr("f", S.string, "d") }))])).with(S.to, S.unknown.with(S.noValidation, true)).with(S.to, S.jsonString)))'
+  input: string
+  output: string
+  instantiations: 7915
+jsonSchema:
+  input: '{ type: "string", const: "{\"f\":x}" }'
+  fromInputType: '"{\"f\":x}"'
+  output: '{ type: "string", const: "{\"f\":x}" }'
+  fromOutputType: '"{\"f\":x}"'
+  openapi-3.0:
+    input: '{ type: "string", enum: ["{\"f\":x}"] }'
+    output: '{ type: "string", enum: ["{\"f\":x}"] }'
+isEqual: alwaysEqual
+compare: alwaysCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i==="{\"f\":x}"||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: the literal is what a sync parse of the reversed union into
+      # S.jsonString answers for { f: "x" }: the fieldOr member's string written
+      # bare, which is not JSON. parseAsPromiseOrReject answers "{\"f\":\"x\"}".
+      sync-parse-answer:
+        input: '"{\"f\":x}"'
+        output: '"{\"f\":x}"'
+  decode: eq-to-parse
+  encode: eq-to-parse

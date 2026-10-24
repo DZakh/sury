@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.schema({ a: S.union([S.string.with(S.to, S.schema(undefined), { decode: () => undefined, encode: () => "u" }), S.number]) }), { decode: (i: { v: any }) => i.v, encode: (o: unknown) => ({ v: o }) } as any).with(S.to, S.json)'
+  input: "{ v?: unknown; }"
+  output: JSON
+  instantiations: 8753
+jsonSchema:
+  input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
+  fromInputType: "{ v: JSON; }"
+  output: '{ type: "object", properties: { a: { type: "number" } }, additionalProperties: false }'
+  fromOutputType: "{ a?: number | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.v,b.v)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { v: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0]({v:i.v})}catch(x){e[1](x)}let v2=v0.a;let v1={};if(v2!==void 0){v1.a=v2}return v1}catch(v3){e[3](v3)}}
+    examples:
+      absent-arm-leaves-the-key-out:
+        input: "{ v: { a: undefined } }"
+        output: "{}"
+      number:
+        input: "{ v: { a: 1 } }"
+        output: "{ a: 1 }"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v2=v0.a;let v1={};if(v2!==void 0){v1.a=v2}return v1}catch(v3){e[2](v3)}}
+    examples:
+      absent-arm-leaves-the-key-out:
+        input: "{ v: { a: undefined } }"
+        output: "{}"
+      number:
+        input: "{ v: { a: 1 } }"
+        output: "{ a: 1 }"
+  encode:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.a;if(v0!==void 0){typeof v0==="number"&&v0==v0||e[0](v0);}let v1;try{v1=e[1]({a:v0})}catch(x){e[2](x)}return v1}catch(v2){e[4](v2)}}
+    examples:
+      absent-key:
+        input: "{}"
+        output: "{ v: { a: undefined } }"

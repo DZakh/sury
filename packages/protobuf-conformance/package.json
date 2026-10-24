@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Runs Google's protobuf conformance suite against S.protobuf and snapshots the score",
   "scripts": {
-    "conformance": "pnpm --filter=sury build:entry && tsx ./cli.ts"
+    "conformance": "pnpm --filter=sury build:entry && tsx ./cli.ts",
+    "conformance:generated": "pnpm --filter=sury build:entry && tsx ./cli.ts generated"
   },
   "dependencies": {
     "sury": "file:../sury"

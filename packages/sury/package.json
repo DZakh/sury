@@ -42,6 +42,10 @@
       "types": "./index.d.ts",
       "import": "./index.mjs"
     },
+    "./protobuf/wkt": {
+      "types": "./src/protobuf/wkt/index.ts",
+      "import": "./protobuf/wkt/index.mjs"
+    },
     "./src/*": "./src/*",
     "./S.gen.js": {
       "types": "./src/S.gen.d.ts"

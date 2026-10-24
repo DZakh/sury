@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.union([S.schema({ f: (S as any).list(S.url) }), S.schema({ TAG: "T7", _0: S.integer })]), { decode: (v: unknown) => v, encode: (v: unknown) => v } as any))'
+  input: '{ f?: any; } | { TAG: "T7"; _0: number; }'
+  output: unknown
+  instantiations: 5877
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", const: "T7" }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
+  fromInputType: '{ f: JSON; } | { TAG: "T7"; _0: number; }'
+  output: '{ description: "seam" }'
+  fromOutputType: JSON
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", enum: ["T7"] }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { f: unknown; } | { TAG: \"T7\"; _0: integer; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){i={f:i.f};break}}else{throw e[1](i)}let v1;try{v1=e[2](i)}catch(x){e[3](x)}return v1}catch(v2){e[4](v2)}}
+    examples:
+      # FIXME: an Output read back through the seam is checked against the view,
+      # where S.list's arm holds an unknown and takes every object, keeping only
+      # its own key; the target itself reads this as the tagged member.
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: "{ f: undefined }"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: '{ TAG: "T7", _0: 2 }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: '{ TAG: "T7", _0: 2 }'

@@ -1,5 +1,7 @@
 import {
   arrayTag,
+  copySchema,
+  setHas,
   type BGlobal,
   type Check,
   type Continuation,
@@ -32,6 +34,7 @@ import {
   tagFlags,
   U,
   unknown,
+  reversedKey,
   type Val
 } from "./base";
 
@@ -483,7 +486,7 @@ const B_foreignFail = (
 // its code, reason, class and fields read through, and owns only `path`,
 // `cause` and a union's prefixed cases. A deeper level wraps the same original
 // again rather than nesting.
-const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
+export const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
   if (!p.length) return error;
   const path = pathConcat(p, error.path);
   const proto = Object.getPrototypeOf(error) as SuryErrorRecord;
@@ -771,28 +774,30 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput - object, array, tuple, union, recursive - has to
 // call this. Not calling it silently drops the user's S.refine.
-export const B_markOutput = (val: Val, valInput: Val): Val => {
-  let outC: Check[] | undefined;
-  const ir = valInput.e.inputRefiner;
+//
+// Without `valInput` the value is its own input, as a record a codec built is:
+// its input checks read it where the output checks do, an async one once it
+// resolves, and a record not as the carrier it was read from.
+export const B_markOutput = (val: Val, valInput?: Val): Val => {
+  let outC: Check[] = [];
+  const ir = (valInput || val).e.inputRefiner;
   if (ir) {
-    const c = ir(valInput);
-    if (c.length) (valInput.vc ??= []).push(...c);
+    const c = ir(valInput || val);
+    if (!valInput) outC = c;
+    else if (c.length) (valInput.vc ??= []).push(...c);
   }
   const rf = val.e.refiner;
-  if (rf) {
-    const c = rf(val);
-    if (c.length) outC = c;
-  }
+  if (rf) outC = outC.concat(rf(val));
   // An async result is a Promise, so the output checks run where the value
   // is: inside a `.then`, the way the parse loop continues an async val.
-  if (outC && (val.f & 1)) {
+  if (outC.length && (val.f & 1)) {
     const v = val.v();
     const then = B_then(v, B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC))), v);
     if (!val.fu?.(then, true)) {
       val.i = `${v}.then(${then()})`;
       val.v = _notVar;
     }
-  } else if (outC) val = B_refine(val, U, outC);
+  } else if (outC.length) val = B_refine(val, U, outC);
   val.io = true;
   return val;
 }
@@ -972,8 +977,8 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 // Code that reads a container's value but lands inside the container's own
 // segment, ahead of the guard `B_merge` puts after it (a flattened member's
 // refine or transform): run only if the container's own children, whose code
-// is already in `container.cp`, added nothing. Its declarations go to the
-// sink, since the `if` is a block.
+// is already in `container.cp`, collected no failure. Its declarations go to
+// the sink, since the `if` is a block.
 export const B_unlessCollected = (container: Val, emit: () => string): void => {
   const g = container.g, k = g.k;
   if (!k || !B_collects(g)) {
@@ -1042,6 +1047,87 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
+const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && B_converts(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const B_viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+export const B_outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = B_outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || B_converts(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = B_outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in
 // exactly one thing: what the coder's result claims to already be, which is
 // what decides how much of the target the parse loop still runs over it.
@@ -1049,7 +1135,7 @@ export const B_scope = (val: Val): Val => {
 //  - `junction` (the JS `{decode, encode}` surface): the result claims
 //    `unknown`, so the loop owes the target a full decode. A coder returning
 //    the wrong thing is caught there.
-//  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
+//  - otherwise (`$to`, the ReScript `~custom` adapter's seam):
 //    the result claims the target itself, so the loop only runs what a typed
 //    decode would, the same deal `S.decodeOrThrow` gives a caller who declares the
 //    input's schema. The ReScript compiler has already checked the coder's
@@ -1231,3 +1317,33 @@ export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
 
 export const noopOperation = (i: unknown): unknown => i;
 (noopOperation as unknown as Record<string, unknown>)["embedded"] = immutableEmptyArray;
+
+// A value a codec read into `i` itself, one slot of a record it hands the core
+// (`B_record`). Hung off `owner` rather than chained through `prev`, so each
+// slot's merge emits only its own code; `location` is where the value lands in
+// the output, which is what a failure in it names.
+// Canonical Val field order (see B_operationArg).
+export const B_slot = (owner: Val, i: string, s: Internal, e: Internal, location: Path): Val => ({
+  b: U,
+  p: owner,
+  v: _var,
+  i,
+  s,
+  io: U,
+  e,
+  prev: U,
+  f: 0,
+  d: U,
+  fv: U,
+  cp: "",
+  fu: U,
+  fs: U,
+  hd: "",
+  fz: U,
+  vc: U,
+  u: U,
+  t: true,
+  path: pathConcat(owner.path, location),
+  g: owner.g,
+  o: U,
+});

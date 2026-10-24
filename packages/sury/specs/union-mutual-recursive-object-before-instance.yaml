@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.recursive("A", (a) => S.recursive("B", (b) => S.schema({ x: S.optional(a), y: S.optional(b) }))), S.date])'
+  input: unknown
+  output: unknown
+  instantiations: 8121
+jsonSchema:
+  input: Expected JSON, received B | Date
+  output: Expected JSON, received B | Date
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare B | Date. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(i instanceof e[0])break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0;v0=e[1](i);i=v0;break}throw e[2](i)}return i}catch(v1){e[3](v1)}}
+    examples:
+      date:
+        input: new Date("1970-01-01T00:00:01.000Z")
+        output: new Date("1970-01-01T00:00:01.000Z")
+      object:
+        input: "{ x: { y: {} } }"
+        output: "{ x: { y: {} }, y: undefined }"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((S as any).$to as typeof S.to)(S.schema({ name: S.string }), S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decode: "auto", encode: (o: { name: string }) => ({ name: o.name.slice(0, -1) }) } as any).with(S.to, S.jsonString)'
+  input: "{ name: string; }"
+  output: string
+  instantiations: 6055
+jsonSchema:
+  input: '{ type: "object", properties: { name: { type: "string" } }, required: ["name"] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||a.name===b.name
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { name: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}typeof v1==="string"||e[3](v1);return "{\"name\":"+e[4](v1)+"}"}catch(v2){e[6](v2)}}
+    examples:
+      auto-converts-the-target:
+        input: '{ name: "x" }'
+        output: '"{\"name\":\"x!\"}"'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i.name)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return "{\"name\":"+e[3](v0)+"}"}catch(v1){e[4](v1)}}
+    examples:
+      auto-converts-the-target:
+        input: '{ name: "x" }'
+        output: '"{\"name\":\"x!\"}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.name;typeof v1==="string"||e[1](v1);let v2;try{v2=e[2]({name:v1})}catch(x){e[3](x)}return v2}catch(v3){e[5](v3)}}
+    examples:
+      coder-takes-the-output:
+        input: '"{\"name\":\"x!\"}"'
+        output: '{ name: "x" }'
+  assert:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}typeof v1==="string"||e[3](v1);return void 0}catch(v2){e[6](v2)}}
+    examples:
+      asserts-and-drops:
+        input: '{ name: "x" }'
+        output: undefined

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ outer: S.schema({ inner: S.schema({ a: S.int32.with(S.protobufField, 1), b: S.int32.with(S.protobufField, 2) }).with(S.protobufField, 1), n: S.int32.with(S.protobufField, 2) }).with(S.protobufField, 1), id: S.int32.with(S.protobufField, 3) }).with(S.to, S.protobuf)"
+  input: "{ outer: { inner: { a: number; b: number; }; n: number; }; id: number; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8509
+jsonSchema:
+  input: '{ type: "object", properties: { outer: { type: "object", properties: { inner: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, b: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a", "b"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["inner", "n"] }, id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["outer", "id"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.outer.inner.a===b.outer.inner.a&&a.outer.inner.b===b.outer.inner.b&&a.outer.n===b.outer.n&&a.id===b.id
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { outer: { inner: { a: int32; b: int32; }; n: int32; }; id: int32; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[13](i);let v0=i.outer,v5=i.id;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1=v0.inner,v4=v0.n;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[2](v1);let v2=v1.a,v3=v1.b;typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[0](v2);typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[1](v3);typeof v4==="number"&&v4<=2147483647&&v4>=-2147483648&&v4%1==0||e[3](v4);typeof v5==="number"&&v5<=2147483647&&v5>=-2147483648&&v5%1==0||e[5](v5);let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[11].acquire();f=0;v={inner:{a:v2,b:v3},n:v4};if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};f=1;v=v5;if(v){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=Number(v);if(s<-2147483648||s>2147483647)e[8](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[9](x,e[10],f,j,a);e[12](x)}}return v6}catch(v7){e[14](v7)}}
+    examples:
+      nested:
+        input: "{ outer: { inner: { a: 1, b: 2 }, n: 5 }, id: 9 }"
+        output: new Uint8Array([10, 8, 10, 4, 8, 1, 16, 2, 16, 5, 24, 9])
+  decode:
+    expression: i=>{try{let v0=i.outer;let v1=v0.inner;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=24:w.varint32(24);s=Number(v);if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v2}catch(v3){e[7](v3)}}
+    examples:
+      nested:
+        input: "{ outer: { inner: { a: 1, b: 2 }, n: 5 }, id: 9 }"
+        output: new Uint8Array([10, 8, 10, 4, 8, 1, 16, 2, 16, 5, 24, 9])
+  encode:
+    expression: i=>{try{let v0=void 0,v1=0;{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;case 24:v1=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g;r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}return {outer:v0,id:v1}}catch(v2){e[7](v2)}}
+    examples:
+      inner-merges-across-the-outer-payloads:
+        input: new Uint8Array([10, 4, 10, 2, 8, 1, 24, 9, 10, 6, 10, 2, 16, 2, 16, 5])
+        output: "{ outer: { inner: { a: 1, b: 2 }, n: 5 }, id: 9 }"
+      inner-seen-in-every-payload:
+        input: new Uint8Array([10, 8, 10, 2, 8, 1, 10, 2, 16, 2, 10, 4, 10, 2, 8, 3, 10, 4, 10, 2, 16, 4])
+        output: "{ outer: { inner: { a: 3, b: 4 }, n: 0 }, id: 0 }"
+      later-payload-fails-at-its-field:
+        input: new Uint8Array([10, 4, 10, 2, 8, 1, 10, 3, 10, 1, 8])
+        error: "Failed at outer.inner.a: Truncated protobuf message"

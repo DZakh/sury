@@ -60,8 +60,27 @@ async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void>
   });
 }
 
-const buildDevEntries = (): Promise<void> =>
-  buildEntry("esm", path.join(projectPath, "index.mjs"));
+// It imports the library through "sury", which stays external, so the schemas
+// it builds are the same instance's that index.mjs parses with.
+async function buildWkt(format: "esm" | "cjs", outfile: string): Promise<void> {
+  await build({
+    entryPoints: [path.join(projectPath, "src/protobuf/wkt/index.ts")],
+    outfile,
+    bundle: true,
+    write: true,
+    format,
+    target: "es2020",
+    platform: "neutral",
+    external: ["sury"],
+    banner: { js: "// Generated from src/protobuf/wkt by scripts/pack.ts - do not edit." },
+    logLevel: "silent",
+  });
+}
+
+const buildDevEntries = async (): Promise<void> => {
+  await buildEntry("esm", path.join(projectPath, "index.mjs"));
+  await buildWkt("esm", path.join(projectPath, "protobuf/wkt/index.mjs"));
+};
 
 // ── Stage 2: the publishable artifact ────────────────────────────────────────
 
@@ -122,6 +141,46 @@ async function resolveRescriptRuntime(
   await bundle.close();
 }
 
+// protoc-gen-sury, the plugin buf and protoc run, bundled into one file that
+// imports the library through "sury": the installed package's own entry, so the
+// generator that wrote a schema is always the runtime that runs it.
+async function buildProtocGen(): Promise<void> {
+  await build({
+    entryPoints: [path.join(repoRootPath, "packages/protoc-gen-sury/src/cli.ts")],
+    outfile: path.join(artifactsPath, "bin/protoc-gen-sury/index.mjs"),
+    bundle: true,
+    write: true,
+    format: "esm",
+    target: "node18",
+    platform: "node",
+    external: ["sury"],
+    banner: { js: "#!/usr/bin/env node\n// Generated from packages/protoc-gen-sury by scripts/pack.ts - do not edit." },
+    logLevel: "silent",
+  });
+  fs.chmodSync(path.join(artifactsPath, "bin/protoc-gen-sury/index.mjs"), 0o755);
+}
+
+// sury/protobuf/wkt's declarations, emitted from the generated sources next to where they
+// sat, before stripSources removes the sources themselves.
+function emitWktDeclarations(): void {
+  execaSync(
+    path.join(projectPath, "node_modules/.bin/tsc"),
+    [
+      path.join(artifactsPath, "src/protobuf/wkt/index.ts"),
+      "--declaration",
+      "--emitDeclarationOnly",
+      "--skipLibCheck",
+      "--strict",
+      "--target", "es2020",
+      "--module", "nodenext",
+      "--moduleResolution", "nodenext",
+      "--rootDir", path.join(artifactsPath, "src/protobuf/wkt"),
+      "--outDir", path.join(artifactsPath, "src/protobuf/wkt"),
+    ],
+    { cwd: artifactsPath, stdio: "inherit" }
+  );
+}
+
 async function pack(): Promise<void> {
   if (fs.existsSync(artifactsPath)) {
     fs.rmSync(artifactsPath, { recursive: true, force: true });
@@ -159,6 +218,11 @@ async function pack(): Promise<void> {
   await resolveRescriptRuntime("es", "src/S.res.mjs", "src/S.res.mjs");
   await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
 
+  await buildWkt("cjs", path.join(artifactsPath, "protobuf/wkt/index.js"));
+  await buildWkt("esm", path.join(artifactsPath, "protobuf/wkt/index.mjs"));
+  emitWktDeclarations();
+  await buildProtocGen();
+
   stripSources(path.join(artifactsPath, "src"));
 
   // Every field below is rewritten rather than inherited, because the dev
@@ -181,11 +245,17 @@ async function pack(): Promise<void> {
         import: { types: "./index.d.mts", default: "./index.mjs" },
         require: { types: "./index.d.ts", default: "./index.js" },
       },
+      "./protobuf/wkt": {
+        types: "./src/protobuf/wkt/index.d.ts",
+        import: "./protobuf/wkt/index.mjs",
+        require: "./protobuf/wkt/index.js",
+      },
       "./src/*": "./src/*",
       "./S.gen.js": { types: "./src/S.gen.d.ts" },
       "./package.json": "./package.json",
     };
-    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "src", "rescript.json", "docs"];
+    pkg.files = ["index.mjs", "index.js", "index.d.ts", "index.d.mts", "protobuf", "bin", "src", "rescript.json", "docs"];
+    pkg.bin = { "protoc-gen-sury": "./bin/protoc-gen-sury/index.mjs" };
     // Nothing here builds the artifact, and dropping the scripts also drops the
     // prepublishOnly guard that makes publishing the dev package fail.
     delete pkg.devDependencies;

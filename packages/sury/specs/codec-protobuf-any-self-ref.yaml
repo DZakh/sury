@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ p: S.protobufField(S.recursive("a", (a) => S.string.with(S.to, a)), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
+  input: "{ p?: unknown; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8166
+jsonSchema:
+  input: '{ type: "object", properties: { p: { $ref: "#/$defs/a" } }, required: ["p"], $defs: { a: { type: "string" } } }'
+  fromInputType: "{ p: string; }"
+  output: '[Sury] S.protobuf: field "p" is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.p,b.p)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { p: a; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: field "p" is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals'
+  decode: eq-to-parse
+  encode: eq-to-parse

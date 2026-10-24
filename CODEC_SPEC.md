@@ -351,6 +351,62 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Protobuf oneof
+
+A union in a message is a oneof, and what decode makes of bytes with no member
+set depends on how the union spells it:
+
+```ts
+S.union([email, phone, S.schema({ case: undefined })]); // no member set: { case: undefined }
+S.optional(S.union([email, phone]));                    // no member set: undefined
+S.union([email, phone]);                                // no member set: fails at the oneof
+```
+
+- **An arm for no member set is what none set reads as.** It holds only
+  literals, or is a bare literal (`codec-protobuf-oneof-case`,
+  `codec-protobuf-oneof-literal-unset`).
+- **`S.optional` reads none set as `undefined`** (`codec-protobuf-oneof-case-optional`).
+- **With neither, the oneof is required.** None set is `undefined` for the
+  union to check, as any absent field is its default for the field's schema to
+  check, so the decode fails at the oneof with the union's own error
+  (`codec-protobuf-oneof-required`, `codec-protobuf-oneof-required-nested`).
+  Encode writes the member the union dispatches to, whichever spelling.
+
+## Protobuf Any
+
+`S.protobufAny` (`{ typeUrl, value }`) converts to a message `S.protobufTypeName`
+names, to an object holding one beside literals, or to a union of those:
+
+```ts
+const Payload = S.protobufAny.with(S.to, S.union([
+  S.schema({ type: "user", value: User }), // acme.v1.User
+  S.schema({ type: "other", value: S.protobufAny }),
+]));
+```
+
+- **Decode picks the member by name, not by rule 2.** Every member is an
+  object, the same type as the source, so rule 2 would only validate; the Any
+  reads the name after the type URL's last `/` instead and decodes `value` into
+  the member holding that message. A member holding `S.protobufAny` takes every
+  name no other member holds, the empty Any included; without one, an unlisted
+  name fails (`codec-protobuf-any`, `codec-protobuf-any-closed`).
+- **Encode is rule 3.** The union dispatches the value to its member, and that
+  member packs: `type.googleapis.com/` and the name, and the message encoded
+  (`codec-protobuf-any-standalone`).
+- **Both directions refuse what wouldn't come back as it left.** Several
+  members need a literal, distinct per member, to tell them apart, and a message
+  is held by one member only; either is rejected when the operation is created
+  (`codec-protobuf-any-untagged`, `codec-protobuf-any-same-tag`,
+  `codec-protobuf-any-same-type`). A catch-all holding a type another member
+  names fails the encode, since it would decode as that member.
+- **Copies of one Any merge as the message it is.** A later copy's type URL
+  or value replaces the one before, so a copy naming a new type over the first's
+  value reads that value as the new type, the catch-all's included, as
+  protobuf-es does (`codec-protobuf-any` `second-copy-*`, `third-copy-*`).
+- **Anything else is the Any's own object.** `S.parseOrThrow(S.protobufAny)`
+  validates `{ typeUrl, value }`, and a target holding no named message converts
+  field by field (`codec-protobuf-any-json-string`).
+
 ## Custom conversions
 
 `S.to`'s third argument replaces the built-in decoder for a pair, one direction
@@ -383,6 +439,14 @@ proof. A literal, since a type says `string` and never the string `"a"`, so a
 a pair written against it goes through the junction like the JS one. Because
 the trusting seam skips the target's own conversion, it rejects a target that
 converts (`The target already converts`); chain `S.to` instead.
+
+A target whose fields convert on their own is linked through what its output
+claims, so those conversions don't run a second time over the coder's result,
+while its refinements still check it (`codec-custom-output-seam-field-coder`,
+`codec-custom-output-seam-union-field-coder`). That holds when both directions
+are coders; a direction left to `"auto"` converts through the target itself,
+and the coder's side then runs the field's conversion again
+(`codec-custom-output-seam-mixed-auto`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped

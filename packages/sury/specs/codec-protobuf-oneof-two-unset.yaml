@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema({ case: "x" }), S.schema({ case: "y" })]) }).with(S.to, S.protobuf)'
+  input: '{ c: { case: "a"; value: number; } | { case: "x"; } | { case: "y"; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10335
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "x" } }, required: ["case"] }, { type: "object", properties: { case: { type: "string", const: "y" } }, required: ["case"] }] } }, required: ["c"] }'
+  output: "[Sury] S.protobuf: oneof \"c\" has two arms for no member set, which a decode can't choose between. Keep one"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["a"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", enum: ["x"] } }, required: ["case"] }, { type: "object", properties: { case: { type: "string", enum: ["y"] } }, required: ["case"] }] } }, required: ["c"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.c.case==="a"?b.c.case==="a"&&a.c.value===b.c.value:a.c.case==="x"?b.c.case==="x":b.c.case==="y")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { case: \"a\"; value: int32; } | { case: \"x\"; } | { case: \"y\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" has two arms for no member set, which a decode can't choose between. Keep one"
+  decode: eq-to-parse
+  encode: eq-to-parse

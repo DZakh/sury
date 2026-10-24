@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(() => { const Node = S.recursive("Node", (self) => S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kids: S.array(self) })); return S.schema({ a: S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, Node, { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any), b: Node }) })()'
+  input: "{ a: { v?: unknown; }; b?: unknown; }"
+  output: "{ a?: unknown; b?: unknown; }"
+  instantiations: 11812
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "object", properties: { v: {} }, required: ["v"] }, b: { $ref: "#/$defs/Node" } }, required: ["a", "b"], $defs: { Node: { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["name", "kids"] } } }'
+  fromInputType: "{ a: { v: JSON; }; b: { name: string; kids: ...[]; }; }"
+  output: '{ type: "object", properties: { a: { $ref: "#/$defs/Node" }, b: { $ref: "#/$defs/Node" } }, required: ["a", "b"], $defs: { Node: { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["name", "kids"] } } }'
+  fromOutputType: "{ a: { name: string; kids: ...[]; }; b: { name: string; kids: ...[]; }; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.a.v,b.a.v)&&e[1](a.b,b.b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)&&e[1](a.b,b.b)
+compare:
+  input: "throws: [Sury] Can't compare { a: { v: unknown; }; b: Node; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: Node; b: Node; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.a;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1;try{v1=e[0]({v:v0.v})}catch(x){e[1](x)}try{e[2](v1);}catch(v2){e[3](v2,["a"])}let v3;try{v3=e[5](i.b);}catch(v4){e[6](v4,["b"])}return {a:v1,b:v3}}catch(v5){e[8](v5)}}
+    examples:
+      seam-hands-over-the-output:
+        input: '{ a: { v: { name: "x!", kids: [] } }, b: { name: "y", kids: [{ name: "z", kids: [] }] } }'
+        output: '{ a: { name: "x!", kids: [] }, b: { name: "y!", kids: [{ name: "z!", kids: [] }] } }'
+  decode:
+    expression: i=>{try{let v0=i.a;let v1;try{v1=e[0](v0)}catch(x){e[1](x)}try{e[2](v1);}catch(v2){e[3](v2,["a"])}let v3;try{v3=e[4](i.b);}catch(v4){e[5](v4,["b"])}return {a:v1,b:v3}}catch(v5){e[6](v5)}}
+    examples:
+      seam-hands-over-the-output:
+        input: '{ a: { v: { name: "x!", kids: [] } }, b: { name: "y", kids: [{ name: "z", kids: [] }] } }'
+        output: '{ a: { name: "x!", kids: [] }, b: { name: "y!", kids: [{ name: "z!", kids: [] }] } }'
+  encode:
+    expression: i=>{try{try{e[0](i.a);}catch(v0){e[1](v0,["a"])}let v1;try{v1=e[2](i.a)}catch(x){e[3](x)}let v2;try{v2=e[4](i.b);}catch(v3){e[5](v3,["b"])}return {a:v1,b:v2}}catch(v4){e[6](v4)}}
+    examples:
+      seam-takes-the-output:
+        input: '{ a: { name: "x!", kids: [] }, b: { name: "y!", kids: [{ name: "z!", kids: [] }] } }'
+        output: '{ a: { v: { name: "x!", kids: [] } }, b: { name: "y", kids: [{ name: "z", kids: [] }] } }'

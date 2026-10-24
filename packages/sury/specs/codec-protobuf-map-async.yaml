@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ byKey: S.record(S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x + "!" } }, encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1) })).with(S.protobufField, 1) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ byKey: Record<string, { a: string; }>; }"
+  instantiations: 8332
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { byKey: { type: "object", additionalProperties: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } } }, required: ["byKey"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a.byKey,b.byKey)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { byKey: { [key: string]: { a: string; }; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[8]||e[9](i);let v0={};{let r,ma,mb,mx,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:k=void 0;p=r.sub();ma=-1;mx=void 0;while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)fail("Invalid protobuf field number 0");if(y===10)k=r.string();else if(y===18){g=r.sub();if(ma<0){ma=r.pos;mb=r.limit}else mx=r.more(mx);r.pos=r.limit;r.limit=g}else skip(r,y&7,y>>>3,0)}if(k===void 0)k="";g=r.limit;ma<0?r.pos=g:(r.pos=ma,r.limit=mb);c=m1(r,d+1,mx);r.pos=r.limit=g;r.limit=p;k==="__proto__"?Object.defineProperty(v0,k,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[k]=c;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k);e[6](x)}}let v1=e[7](v0,["byKey"]);return Promise.all([v1]).then(([v1])=>{return {byKey:v1}}).catch(e[10])}catch(v2){return e[11](v2)}}
+    examples:
+      entries:
+        input: new Uint8Array([10, 8, 10, 1, 107, 18, 3, 10, 1, 120, 10, 8, 10, 1, 106, 18, 3, 10, 1, 121])
+        output: '{ byKey: { k: { a: "x!" }, j: { a: "y!" } } }'
+      rejected-in-an-entry:
+        input: new Uint8Array([10, 8, 10, 1, 107, 18, 3, 10, 1, 120, 10, 10, 10, 1, 106, 18, 5, 10, 3, 98, 97, 100])
+        error: "Failed at byKey.j.a: rejected"
+      empty:
+        input: new Uint8Array([])
+        output: "{ byKey: {} }"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0={};{let r,ma,mb,mx,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:k=void 0;p=r.sub();ma=-1;mx=void 0;while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)fail("Invalid protobuf field number 0");if(y===10)k=r.string();else if(y===18){g=r.sub();if(ma<0){ma=r.pos;mb=r.limit}else mx=r.more(mx);r.pos=r.limit;r.limit=g}else skip(r,y&7,y>>>3,0)}if(k===void 0)k="";g=r.limit;ma<0?r.pos=g:(r.pos=ma,r.limit=mb);c=m1(r,d+1,mx);r.pos=r.limit=g;r.limit=p;k==="__proto__"?Object.defineProperty(v0,k,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[k]=c;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k);e[6](x)}}let v1=e[7](v0,["byKey"]);return Promise.all([v1]).then(([v1])=>{return {byKey:v1}}).catch(e[8])}catch(v2){return e[9](v2)}}
+    examples:
+      entries:
+        input: new Uint8Array([10, 8, 10, 1, 107, 18, 3, 10, 1, 120])
+        output: '{ byKey: { k: { a: "x!" } } }'
+  encode:
+    expression: i=>{try{let v0=i.byKey;let v4={};for(let v1 in v0){let v2=v0[v1];let v3;try{v3=e[0](v2.a)}catch(x){e[1](x,["byKey",v1,"a"])}typeof v3==="string"||e[2](v3,["byKey",v1,"a"]);v4[v1]={a:v3}}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=v4;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[3](w,c);w.end(g);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v5}catch(v6){e[8](v6)}}
+    examples:
+      entries:
+        input: '{ byKey: { k: { a: "x!" } } }'
+        output: new Uint8Array([10, 8, 10, 1, 107, 18, 3, 10, 1, 120])
