@@ -28,28 +28,36 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
 - `scripts/wkt.ts` - generates `sury/protobuf/wkt` from the upstream
   well-known type protos, and `S.Protobuf`, the region of `S.res` between its
   `@generated` markers that binds the same types for ReScript.
-- `test/proto` - the corpus: a kitchen sink covering every field shape, and a
-  second file for cross-file imports.
+- `test/proto` - the corpus: a kitchen sink covering every field shape, a
+  second file for cross-file imports, and a third whose names are the ones the
+  generated code itself uses.
+- `bin/protoc-gen-sury.mjs` - the plugin run from source, as the gate runs it.
 
 ## What the gates hold
 
-`test/cli.ts`, in order:
+`test/cli.ts`, one function each:
 
-1. **Goldens** - the generated corpus, `packages/sury/src/protobuf/wkt` and
+1. **descriptors** - `src/descriptor.ts` decodes the corpus's descriptor set
+   as protobuf-es does.
+2. **goldens** - the generated corpus, `packages/sury/src/protobuf/wkt` and
    the `S.Protobuf` region of `packages/sury/src/S.res`.
-2. **Compile** - `tsc` over the TypeScript (where `S.schemaOf` holds every
-   schema equal to its type) and `rescript` over the ReScript, warnings as
-   errors.
-3. **Types** - every message and enum type equal to protoc-gen-es's for the
-   same file, after normalizing the differences the JS guide lists.
-4. **Values** - values drawn from each descriptor, encoded by protobuf-es and
+3. **plugin** - the bin, run by buf over stdin and on a descriptor set,
+   writes what `generate()` returns, and exits 1 on an invalid option.
+4. **options** - every option and every refusal, by what `generate()` answers.
+5. **compile** - `tsc` over the TypeScript (where `S.schemaOf` holds every
+   schema equal to its type), with every message and enum type equal to
+   protoc-gen-es's after normalizing the differences the JS guide lists, and
+   `rescript` over the ReScript, warnings as errors.
+6. **values** - values drawn from each descriptor, encoded by protobuf-es and
    decoded by the generated TypeScript and ReScript schemas, and the reverse,
    compared by value and by byte.
-5. **Reprint** - `S.toProtoOrThrow` of every generated schema, compiled again
+7. **typedAny** - an Any read as a tagged union of generated messages,
+   against protobuf-es's `anyPack`.
+8. **reprint** - `S.toProtoOrThrow` of every generated schema, compiled again
    by buf, declares the fields the source did.
-6. **Tree-shaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt` type,
-   one ReScript module and one `S.Protobuf` type (`test/res`) keep none of
-   their siblings.
+9. **treeShaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt`
+   type, one ReScript module and one `S.Protobuf` type (`test/res`) keep none
+   of their siblings.
 
 ## Rules the output follows
 

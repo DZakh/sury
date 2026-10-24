@@ -1,7 +1,7 @@
 // The parts of google/protobuf/descriptor.proto and compiler/plugin.proto the
 // generator reads, decoded by Sury itself. Both files are proto2, which the
-// generator doesn't take, so these stay hand-written; `test/input.test.ts`
-// holds them to protobuf-es's own decode of the same requests.
+// generator doesn't take, so these stay hand-written; test/cli.ts's
+// `descriptors` gate holds them to protobuf-es's own decode of the corpus.
 import * as S from "sury";
 
 const field = <TInput, TOutput>(schema: S.Schema<TInput, TOutput>, number: number, type: S.ProtobufType) =>

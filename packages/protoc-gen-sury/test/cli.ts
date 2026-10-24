@@ -2,12 +2,13 @@
 //
 //   pnpm protobuf:codegen           check
 //   pnpm protobuf:codegen update    rewrite the goldens
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { decodeFileDescriptorSet, type FileDescriptorProto } from "../src/descriptor";
+import type { DescMessage, MessageShape } from "@bufbuild/protobuf";
+import { type CodeGeneratorResponse, type DescriptorProto, decodeFileDescriptorSet, type FieldDescriptorProto, type FileDescriptorProto } from "../src/descriptor";
 import { buildRegistry, type Message, nestedTypes, type Registry } from "../src/model";
 import { namesOf } from "../src/names";
 import { fieldNames, moduleOf, resPath } from "../src/res";
@@ -22,6 +23,7 @@ const update = process.argv[2] === "update";
 const failures: string[] = [];
 const fail = (message: string) => failures.push(message);
 const S = await import("sury");
+const { version } = JSON.parse(readFileSync(join(root, "../sury/package.json"), "utf8")) as { version: string };
 const { create, fromBinary, toBinary } = await import("@bufbuild/protobuf");
 
 const listFiles = (dir: string): string[] =>
@@ -87,16 +89,18 @@ const toRes = (message: Message, value: Record<string, unknown>): Record<string,
 };
 
 type Corpus = {
+  bytes: Uint8Array;
   set: { file: FileDescriptorProto[] };
   files: FileDescriptorProto[];
   registry: Registry;
   messages: { file: string; message: Message; name: string }[];
-  run: (parameter: string) => { name: string; content: string }[];
+  run: (parameter: string, version?: string) => { name: string; content: string }[];
 };
 
 const corpusOf = (work: string): Corpus => {
   execFileSync(bin("buf"), ["build", join(root, "test"), "-o", join(work, "set.binpb")], { stdio: ["ignore", "ignore", "inherit"] });
-  const set = decodeFileDescriptorSet(new Uint8Array(readFileSync(join(work, "set.binpb"))));
+  const bytes = new Uint8Array(readFileSync(join(work, "set.binpb")));
+  const set = decodeFileDescriptorSet(bytes);
   const files = set.file.filter((file) => !file.name.startsWith("google/"));
   const registry = buildRegistry(set.file);
   const messages: Corpus["messages"] = [];
@@ -106,12 +110,12 @@ const corpusOf = (work: string): Corpus => {
       if (desc.kind === "message") messages.push({ file: `./${file.name}_pb`, message: desc, name: namesOf(file).schema.get(desc)! });
     }
   }
-  const run = (parameter: string) => {
-    const response = generate({ fileToGenerate: files.map((f) => f.name), parameter, protoFile: set.file }, "");
+  const run = (parameter: string, version = "") => {
+    const response = generate({ fileToGenerate: files.map((f) => f.name), parameter, protoFile: set.file }, version);
     if (response.error !== undefined) throw new Error(response.error);
     return response.file;
   };
-  return { set, files, registry, messages, run };
+  return { bytes, set, files, registry, messages, run };
 };
 
 const goldens = (corpus: Corpus) => {
@@ -301,6 +305,194 @@ const reprint = async (corpus: Corpus, work: string) => {
   return printed.length;
 };
 
+// descriptor.ts's decode of the corpus's descriptor set against protobuf-es's
+// own, over every field the generator reads.
+const descriptors = async (corpus: Corpus) => {
+  const { fromBinary, isFieldSet } = await import("@bufbuild/protobuf");
+  const wkt = await import("@bufbuild/protobuf/wkt");
+  type Es<T extends DescMessage> = MessageShape<T>;
+  const set = (message: object, schema: DescMessage, name: string) => isFieldSet(message as never, schema.field[name]!);
+  const only = <T>(present: boolean, value: T): T | undefined => (present ? value : undefined);
+  const options = (o: Es<typeof wkt.FieldOptionsSchema> | undefined) =>
+    o && { packed: only(set(o, wkt.FieldOptionsSchema, "packed"), o.packed), deprecated: o.deprecated, jstype: o.jstype };
+  const field = (f: Es<typeof wkt.FieldDescriptorProtoSchema>) => ({
+    name: f.name,
+    extendee: f.extendee,
+    number: f.number,
+    label: f.label,
+    type: f.type,
+    typeName: f.typeName,
+    defaultValue: only(set(f, wkt.FieldDescriptorProtoSchema, "defaultValue"), f.defaultValue),
+    options: options(f.options),
+    oneofIndex: only(set(f, wkt.FieldDescriptorProtoSchema, "oneofIndex"), f.oneofIndex),
+    jsonName: only(set(f, wkt.FieldDescriptorProtoSchema, "jsonName"), f.jsonName),
+    proto3Optional: f.proto3Optional,
+  });
+  const enumType = (e: Es<typeof wkt.EnumDescriptorProtoSchema>) => ({
+    name: e.name,
+    value: e.value.map((v) => ({ name: v.name, number: v.number, options: v.options && { deprecated: v.options.deprecated } })),
+    options: e.options && { deprecated: e.options.deprecated },
+  });
+  const message = (m: Es<typeof wkt.DescriptorProtoSchema>): unknown => ({
+    name: m.name,
+    field: m.field.map(field),
+    nestedType: m.nestedType.map(message),
+    enumType: m.enumType.map(enumType),
+    extension: m.extension.map(field),
+    options: m.options && { deprecated: m.options.deprecated, mapEntry: m.options.mapEntry },
+    oneofDecl: m.oneofDecl.map((o) => ({ name: o.name })),
+  });
+  const file = (f: Es<typeof wkt.FileDescriptorProtoSchema>) => ({
+    name: f.name,
+    package: f.package,
+    dependency: f.dependency,
+    messageType: f.messageType.map(message),
+    enumType: f.enumType.map(enumType),
+    service: f.service.map((s) => ({ name: s.name })),
+    extension: f.extension.map(field),
+    sourceCodeInfo: f.sourceCodeInfo && {
+      location: f.sourceCodeInfo.location.map((l) => ({
+        path: l.path,
+        leadingComments: only(set(l, wkt.SourceCodeInfo_LocationSchema, "leadingComments"), l.leadingComments),
+        trailingComments: only(set(l, wkt.SourceCodeInfo_LocationSchema, "trailingComments"), l.trailingComments),
+      })),
+    },
+    syntax: f.syntax,
+  });
+  const es = fromBinary(wkt.FileDescriptorSetSchema, corpus.bytes).file;
+  for (const [idx, ours] of corpus.set.file.entries()) {
+    const want = JSON.stringify(normalize(file(es[idx]!)));
+    if (JSON.stringify(normalize(ours)) !== want) fail(`descriptors: ${ours.name} decodes otherwise than protobuf-es reads it\n  protobuf-es ${want}\n  ours        ${JSON.stringify(normalize(ours))}`);
+  }
+};
+
+const protocGenSury = join(root, "bin/protoc-gen-sury.mjs");
+
+// The bin as buf runs it, a CodeGeneratorRequest on stdin, and as it runs on a
+// descriptor set, each writing what generate() returns for the same files.
+const plugin = (corpus: Corpus, work: string) => {
+  const expected = corpus.run("target=ts+res", version);
+  const holds = (label: string, dir: string) => {
+    const written = listFiles(dir);
+    if (written.length !== expected.length) fail(`${label}: wrote ${written.join(", ")}`);
+    for (const { name, content } of expected) {
+      if (!existsSync(join(dir, name))) fail(`${label}: didn't write ${name}`);
+      else if (readFileSync(join(dir, name), "utf8") !== content) fail(`${label}: ${name} differs from what generate() returns`);
+    }
+  };
+  writeFileSync(
+    join(work, "plugin.gen.yaml"),
+    `version: v2\nplugins:\n  - local: ${protocGenSury}\n    out: ${join(work, "plugin")}\n    opt: target=ts+res\n    strategy: all\n`,
+  );
+  execFileSync(bin("buf"), ["generate", join(root, "test"), "--template", join(work, "plugin.gen.yaml")], { cwd: root, stdio: "inherit" });
+  holds("plugin over stdin", join(work, "plugin"));
+  const run = (out: string, opt: string) =>
+    spawnSync(protocGenSury, [`--descriptor_set_in=${join(work, "set.binpb")}`, `--out=${out}`, `--opt=${opt}`], { cwd: root, encoding: "utf8" });
+  const done = run(join(work, "set"), "target=ts+res");
+  if (done.status !== 0) fail(`plugin over a descriptor set: exited ${done.status}\n${done.stderr}`);
+  holds("plugin over a descriptor set", join(work, "set"));
+  const refused = run(join(work, "refused"), "target=go");
+  if (refused.status !== 1 || !refused.stderr.includes('protoc-gen-sury: invalid option "target=go"') || existsSync(join(work, "refused"))) {
+    fail(`plugin over a descriptor set: an invalid option exited ${refused.status} and wrote ${refused.stderr}`);
+  }
+};
+
+const proto = (name: string, fields: Partial<FileDescriptorProto> = {}): FileDescriptorProto => ({
+  name,
+  package: "",
+  dependency: [],
+  messageType: [],
+  enumType: [],
+  service: [],
+  extension: [],
+  syntax: "proto3",
+  ...fields,
+});
+const messageProto = (name: string, field: FieldDescriptorProto[] = [], fields: Partial<DescriptorProto> = {}): DescriptorProto => ({
+  name,
+  field,
+  nestedType: [],
+  enumType: [],
+  extension: [],
+  oneofDecl: [],
+  ...fields,
+});
+const fieldProto = (name: string, type: number, typeName = "", fields: Partial<FieldDescriptorProto> = {}): FieldDescriptorProto => ({
+  name,
+  number: 1,
+  label: 1,
+  type,
+  typeName,
+  extendee: "",
+  proto3Optional: false,
+  ...fields,
+});
+
+// Every option, and every refusal, by what generate() answers.
+const options = (corpus: Corpus) => {
+  const sink = "example/v1/kitchen_sink.proto";
+  const one = (parameter: string, files = [sink], protoFile = corpus.set.file) =>
+    generate({ fileToGenerate: files, parameter, protoFile }, "");
+  const names = (response: CodeGeneratorResponse) => response.error ?? response.file.map((file) => file.name).join(", ");
+  const content = (response: CodeGeneratorResponse) => response.error ?? response.file.map((file) => file.content).join("\n");
+  const imports = (response: CodeGeneratorResponse) => content(response).match(/from "\.[^"]*"/g)?.join(", ") ?? "";
+  const extensionField = fieldProto("x", 5, "", { extendee: ".M", number: 100 });
+  const cases: [string, () => string, (got: string) => boolean][] = [
+    ["target=ts+res", () => names(one("target=ts+res")), (got) => got === "example/v1/kitchen_sink_pb.ts, example/v1/Example_v1_kitchen_sink_pb.res"],
+    ["target=res", () => names(one("target=res")), (got) => got === "example/v1/Example_v1_kitchen_sink_pb.res"],
+    ["no target", () => names(one("")), (got) => got === "example/v1/kitchen_sink_pb.ts"],
+    ["ts_nocheck", () => content(one("ts_nocheck")), (got) => got.includes("/* eslint-disable */\n// @ts-nocheck\n")],
+    ["ts_nocheck=false", () => content(one("ts_nocheck=false")), (got) => !got.includes("@ts-nocheck")],
+    ["import_extension=ts", () => imports(one("import_extension=ts")), (got) => got === 'from "../common/address_pb.ts"'],
+    ["import_extension=js", () => imports(one("import_extension=js")), (got) => got === 'from "../common/address_pb.js"'],
+    ["import_extension=none", () => imports(one("import_extension=none")), (got) => got === 'from "../common/address_pb"'],
+    ["a file with no types", () => names(one("", ["e.proto"], [proto("e.proto")])), (got) => got === ""],
+    ["keep_empty_files", () => names(one("keep_empty_files", ["e.proto"], [proto("e.proto")])), (got) => got === "e_pb.ts"],
+    ["keep_empty_files=false", () => names(one("keep_empty_files=false", ["e.proto"], [proto("e.proto")])), (got) => got === ""],
+    ["target=go", () => names(one("target=go")), (got) => got === 'invalid option "target=go": the targets are ts, res and ts+res'],
+    ["import_extension=mjs", () => names(one("import_extension=mjs")), (got) => got === 'invalid option "import_extension=mjs": use none, js or ts'],
+    ["ts_nocheck=yes", () => names(one("ts_nocheck=yes")), (got) => got === 'invalid option "ts_nocheck=yes": use true or false'],
+    ["keep_empty_files=1", () => names(one("keep_empty_files=1")), (got) => got === 'invalid option "keep_empty_files=1": use true or false'],
+    ["an unknown option", () => names(one("target=ts,json_types=true")), (got) => got === 'unknown option "json_types": protoc-gen-sury takes target, import_extension, keep_empty_files and ts_nocheck'],
+    ["a file not in the request", () => names(one("", ["missing.proto"])), (got) => got === "missing.proto is not among the files in the request"],
+    ["proto2", () => names(one("", ["p.proto"], [proto("p.proto", { syntax: "" })])), (got) => got === "p.proto is proto2; protoc-gen-sury generates proto3 files"],
+    ["editions", () => names(one("", ["p.proto"], [proto("p.proto", { syntax: "editions" })])), (got) => got === "p.proto is editions; protoc-gen-sury generates proto3 files"],
+    [
+      "an extension",
+      () => names(one("", ["p.proto"], [proto("p.proto", { messageType: [messageProto("M")], extension: [extensionField] })])),
+      (got) => got === "p.proto declares an extension, which protoc-gen-sury does not generate",
+    ],
+    [
+      "a nested extension",
+      () => names(one("", ["p.proto"], [proto("p.proto", { messageType: [messageProto("M", [], { nestedType: [messageProto("N", [], { extension: [extensionField] })] })] })])),
+      (got) => got === "p.proto declares an extension, which protoc-gen-sury does not generate",
+    ],
+    [
+      "a group",
+      () => names(one("", ["p.proto"], [proto("p.proto", { messageType: [messageProto("M", [fieldProto("g", 10, ".M.G")], { nestedType: [messageProto("G")] })] })])),
+      (got) => got === "field M.g is a group, which protoc-gen-sury does not generate",
+    ],
+    [
+      "a proto2 dependency",
+      () =>
+        names(one("", ["p.proto"], [
+          proto("old.proto", { syntax: "proto2", messageType: [messageProto("Old")] }),
+          proto("p.proto", { dependency: ["old.proto"], messageType: [messageProto("M", [fieldProto("old", 11, ".Old")])] }),
+        ])),
+      (got) => got === "field M.old refers to Old, from old.proto, which is proto2",
+    ],
+    [
+      "a type no file declares",
+      () => names(one("", ["p.proto"], [proto("p.proto", { messageType: [messageProto("M", [fieldProto("gone", 11, ".Gone")])] })])),
+      (got) => got === "field M.gone refers to .Gone, which no file in the request declares",
+    ],
+  ];
+  for (const [label, run, holds] of cases) {
+    const got = run();
+    if (!holds(got)) fail(`options: ${label} answered ${JSON.stringify(got)}`);
+  }
+};
+
 // Rollup 4, which honors `@__NO_SIDE_EFFECTS__` across the package boundary
 // (esbuild does only within a file): importing one message keeps no other.
 const treeShaking = async (corpus: Corpus) => {
@@ -338,7 +530,7 @@ const treeShaking = async (corpus: Corpus) => {
     "one generated message",
     await bundled('import { EmptySchema } from "./example/v1/kitchen_sink_pb.js";\nconsole.log(EmptySchema);\n'),
     ['"Empty"'],
-    ['"Scalars"', '"User"', '"WellKnown"', '"Node"', '"Branch"', '"Address"', '"sfixed64"', "boxedInOneof", "nanos"],
+    ['"Scalars"', '"User"', '"WellKnown"', '"Node"', '"Branch"', '"GraphA"', '"Address"', '"sfixed64"', "boxedInOneof", "nanos"],
   );
   shakes(
     "one well-known type",
@@ -351,7 +543,7 @@ const treeShaking = async (corpus: Corpus) => {
     "one ReScript module",
     await bundled(`import { Empty } from ${resModule};\nconsole.log(Empty.schema);\n`),
     [],
-    ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', "nanos"],
+    ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', '"GraphA"', "nanos"],
   );
   const timestampOnly = join(root, "test/res/TimestampOnly.res.mjs");
   if (!readFileSync(timestampOnly, "utf8").includes('from "sury/protobuf/wkt"')) fail(`tree-shaking: ${timestampOnly} doesn't import sury/protobuf/wkt`);
@@ -375,7 +567,10 @@ function report(): void {
 const work = mkdtempSync(join(tmpdir(), "protoc-gen-sury-"));
 try {
   const corpus = corpusOf(work);
+  await descriptors(corpus);
   goldens(corpus);
+  plugin(corpus, work);
+  options(corpus);
   reference(work);
   compile(corpus);
   // What follows imports the compiled output.

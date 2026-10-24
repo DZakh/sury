@@ -1,7 +1,7 @@
 // Descriptors resolved into the shapes the emitters read. Names follow
 // protobuf-es (`@bufbuild/protobuf` registry and `@bufbuild/protoplugin`
 // names), so a message, enum, field or oneof is called what protoc-gen-es
-// calls it; `test/parity.test.ts` holds the generated names and types to it.
+// calls it; test/cli.ts's `compile` gate holds the generated types to it.
 import type {
   DescriptorProto,
   EnumDescriptorProto,

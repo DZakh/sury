@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "description": "Generates Sury schemas from .proto files. Ships inside the sury package as its protoc-gen-sury bin",
-  "bin": {
-    "protoc-gen-sury": "./bin/protoc-gen-sury.mjs"
-  },
   "scripts": {
     "test": "pnpm --filter=sury build:entry && tsx ./test/cli.ts"
   },
