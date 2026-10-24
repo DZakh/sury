@@ -3083,10 +3083,13 @@ const declaredThrough = ({ schema, shape }: Use): Internal | undefined => {
 // The name a use gives its type: down the chain of its own schema for a
 // direct use, of the wrapped declaration otherwise. A `$ref` breaks the chain,
 // so a message `S.recursive` named falls back to that name - which is what
-// makes a self-reference key to the message it points back at.
+// makes a self-reference key to the message it points back at - and then to
+// the one `S.protobufTypeName` gave it, which an Any's type URL names it by.
 const nameOf = (use: Use): string | undefined =>
   chainMeta(declaredThrough(use) || use.schema, use.shape).name ??
-  (use.field.message && use.field.message.name);
+  (use.field.message && (use.field.message.name ?? shortName(use.field.message.typeName)));
+
+const shortName = (typeName: string | undefined): string | undefined => typeName?.slice(typeName.lastIndexOf(".") + 1);
 
 const useType = (decl: TypeDecl, use: Use): void => {
   decl.metas.push(chainMeta(declaredThrough(use) || use.stored.numberedAs, use.shape));
@@ -3344,7 +3347,8 @@ export const toProtoOrThrow = (schema: Internal, options?: ProtoOptions): string
   proto.decls.set(key, decl);
   // A root named by the caller or its meta claims first; the default yields
   // to whatever the fields named.
-  const given = options?.name || (rootMeta.name && protoTypeName(rootMeta.name));
+  const named = rootMeta.name ?? shortName(message.typeName);
+  const given = options?.name || (named && protoTypeName(named));
   if (given) proto.names.set(key, uniqueName(given, proto.used));
   reserveNames(proto, message, new Set());
   const name = proto.names.get(key) || uniqueName("Message", proto.used);

@@ -719,6 +719,31 @@ message M {
 `);
 });
 
+test("toProtoOrThrow prints a message S.protobufTypeName names at the top level, under its last segment", (t) => {
+  const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
+  const schema = S.schema({
+    owner: S.protobufField(User, 1),
+    c: S.optional(S.union([S.schema({ case: "u", value: S.protobufField(User, 2) }), S.schema({ case: "s", value: S.protobufField(S.string, 3) })])),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M", package: "acme.v1" })).toBe(`syntax = "proto3";
+
+package acme.v1;
+
+message M {
+  User owner = 1;
+  oneof c {
+    User u = 2;
+    string s = 3;
+  }
+}
+
+message User {
+  int32 id = 1;
+}
+`);
+  t.expect(S.toProtoOrThrow(User)).toContain("message User {");
+});
+
 test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
   const schema = S.schema({
     count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
