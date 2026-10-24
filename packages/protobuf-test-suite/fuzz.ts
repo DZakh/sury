@@ -642,8 +642,9 @@ const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values
 // of the `""` for no member set (what a string member is most often drawn as);
 // that refusal is the only one a spelling may meet.
 // Numeric tags start at 0, falsy, and sit under `length`, a key a bare literal
-// for no member set answers too; neither may be read as an arm. Its own
-// stream, as the Any family's.
+// for no member set answers too; neither may be read as an arm. With no arm
+// for no member set the union is optional or, left bare, required, which reads
+// no member set as a failure at the oneof. Its own stream, as the Any family's.
 const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
   const group = fields.find((def) => def.oneof)?.oneof;
   if (group === undefined) return 0;
@@ -664,6 +665,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     : spelling === 4 ? S.tuple(["none"])
     : spelling === 6 ? S.schema("")
     : undefined;
+  const required = unsetArm === undefined && chance(r, 0.5);
   let flat: (value: unknown) => Uint8Array;
   let encode: (value: unknown) => Uint8Array;
   let decode: (bytes: Uint8Array) => unknown;
@@ -673,7 +675,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
       arm(def, idx, (suryMessage([{ ...def, oneof: undefined }]) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties[def.key]!),
     );
     const union = S.union(unsetArm === undefined ? arms : [...arms, unsetArm]);
-    properties[group] = unsetArm === undefined ? S.optional(union) : union;
+    properties[group] = unsetArm === undefined && !required ? S.optional(union) : union;
     const message = S.schema(properties);
     flat = S.decodeOrThrow(suryMessage(fields), S.protobuf) as never;
     encode = S.decodeOrThrow(message, S.protobuf) as never;
@@ -704,6 +706,21 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     const shaped = asUnion(value);
     try {
       const want = flat(value).slice();
+      // Neither side holds a value missing its required oneof.
+      if (required && shaped[group] === undefined) {
+        for (const run of [() => encode(shaped), () => decode(want)]) {
+          let message: string | undefined;
+          try {
+            run();
+          } catch (e) {
+            message = (e as Error).message;
+          }
+          if (!message?.startsWith(`Failed at ${group}: `)) {
+            findings.push({ kind: "oneof: a required oneof with no member set is no failure at it", seed, detail: `spelling=${spelling} value=${show(shaped)} got ${message}` });
+          }
+        }
+        continue;
+      }
       const got = encode(shaped).slice();
       if (bytesOf(got).join() !== bytesOf(want).join()) {
         findings.push({ kind: "oneof: a union writes other bytes than the same oneof flat", seed, detail: `spelling=${spelling} value=${show(shaped)}` });

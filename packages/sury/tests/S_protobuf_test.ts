@@ -805,29 +805,6 @@ test("generated message shapes check against their declared types", (t) => {
   );
 });
 
-test("protobuf refuses a oneof with no arm for no member set, and a case or number used twice", (t) => {
-  const codec = (schema: S.Schema<unknown, unknown>) => () => S.decodeOrThrow(schema, S.protobuf);
-  t.expect(
-    codec(S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "b", value: S.protobufField(S.string, 2) })]) })),
-  ).toThrow('oneof "c" has no arm for no member set');
-  t.expect(
-    codec(
-      S.schema({
-        id: S.protobufField(S.int32, 1),
-        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: undefined })]),
-      }),
-    ),
-  ).toThrow('field number 1 of "c" is already taken');
-  t.expect(
-    codec(
-      S.schema({
-        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "a", value: S.protobufField(S.string, 2) }), S.schema({ case: undefined })]),
-      }),
-    ),
-  ).toThrow();
-});
-
-// A throw at schema construction, which a spec can't record.
 // Spelled as a test: a spec can't record a schema whose construction throws.
 test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
   for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Api", "google.protobuf.constructor"]) {
@@ -914,9 +891,6 @@ message Event {
   );
 });
 
-// The schemas sury/protobuf/wkt exports carry Google's full name, so a field
-// holding one in protobuf-es's shape prints as an import, and puts on the wire
-// what the S.json and unboxed spellings do.
 test("A well-known type from sury/protobuf/wkt is Google's own", async (t) => {
   const wkt = await import("../src/protobuf/wkt/index");
   const Holder = S.schema({
@@ -953,8 +927,7 @@ message Holder {
 `);
 });
 
-// The spec format runs neither isOutput nor assertOutput, and a payload nested
-// 150 Anys deep is no literal to write in one.
+// The spec format runs neither isOutput nor assertOutput.
 test("S.protobufAny checks and asserts its unpacked value", (t) => {
   const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
   const Payload = S.protobufAny.with(S.to, S.union([S.schema({ type: "user", value: User }), S.schema({ type: "other", value: S.protobufAny })]));
@@ -964,6 +937,7 @@ test("S.protobufAny checks and asserts its unpacked value", (t) => {
   t.expect(() => S.assertOutputOrThrow(Payload)(other)).not.toThrow();
 });
 
+// A payload nested 150 Anys deep is no literal to write in a spec.
 test("an Any holding its own message counts toward the nesting limit", (t) => {
   const Node: S.Schema<any, any> = S.recursive("Node", (self) =>
     S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node"),

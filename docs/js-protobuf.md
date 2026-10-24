@@ -194,18 +194,23 @@ S.encodeOrThrow(Message, S.protobuf);
 // case: "email", beside the value it holds
 ```
 
-It needs an arm for no member set, or `S.optional`:
+No member set reads as the arm for no member set, as `undefined` under
+`S.optional`, and with neither the oneof is required:
 
 ```ts
-const Contact = S.schema({
-  contact: S.union([
-    S.schema({ type: "email", email: S.string.with(S.protobufField, 2) }),
-    S.schema({ type: "phone", phone: S.string.with(S.protobufField, 3) }),
-  ]),
-});
-S.encodeOrThrow(Contact, S.protobuf);
-// throws: oneof "contact" has no arm for no member set. Add one holding only its
-// literal, such as S.schema({ type: "none" }), or wrap the union in S.optional
+const email = S.schema({ type: "email", email: S.string.with(S.protobufField, 2) });
+const phone = S.schema({ type: "phone", phone: S.string.with(S.protobufField, 3) });
+const empty = new Uint8Array([]);
+
+S.decodeOrThrow(S.protobuf, S.schema({ contact: S.union([email, phone, S.schema({ type: "none" })]) }))(empty);
+// { contact: { type: "none" } }
+
+S.decodeOrThrow(S.protobuf, S.schema({ contact: S.optional(S.union([email, phone])) }))(empty);
+// { contact: undefined }
+
+S.decodeOrThrow(S.protobuf, S.schema({ contact: S.union([email, phone]) }))(empty);
+// throws: Failed at contact: Expected { type: "email"; email: string; } |
+// { type: "phone"; phone: string; }, received undefined
 ```
 
 A flat oneof is optional fields sharing a `oneof` name:

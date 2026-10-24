@@ -697,6 +697,57 @@ message N {
   t.expect(S.toProtoOrThrow(flagged, { name: "B" })).toContain("  oneof c {\n    string c_2 = 2;\n    int32 c_3 = 3;\n  }");
 });
 
+test("toProtoOrThrow names a oneof member after the case telling it from the members of its own type", (t) => {
+  const schema = S.schema({
+    c: S.optional(
+      S.union([
+        S.protobufField(S.string, 1),
+        S.schema({ case: "a", value: S.protobufField(S.int32, 2) }),
+        S.schema({ case: "b", value: S.protobufField(S.boolean, 3) }),
+      ]),
+    ),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M" })).toBe(`syntax = "proto3";
+
+message M {
+  oneof c {
+    string c_1 = 1;
+    int32 a = 2;
+    bool b = 3;
+  }
+}
+`);
+});
+
+test("toProtoOrThrow prints a message S.protobufTypeName names at the top level, under its last segment", (t) => {
+  const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
+  const schema = S.schema({
+    owner: S.protobufField(User, 1),
+    c: S.optional(S.union([S.schema({ case: "u", value: S.protobufField(User, 2) }), S.schema({ case: "s", value: S.protobufField(S.string, 3) })])),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M", package: "acme.v1" })).toBe(`syntax = "proto3";
+
+package acme.v1;
+
+message M {
+  User owner = 1;
+  oneof c {
+    User u = 2;
+    string s = 3;
+  }
+}
+
+message User {
+  int32 id = 1;
+}
+`);
+  t.expect(S.toProtoOrThrow(User)).toContain("message User {");
+});
+
+test("toProtoOrThrow prints an enum field with no members to declare as int32", (t) => {
+  t.expect(S.toProtoOrThrow(S.schema({ k: S.int32.with(S.protobufField, { number: 1, type: "enum" }) }))).toContain("  int32 k = 1;\n");
+});
+
 test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
   const schema = S.schema({
     count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
@@ -742,7 +793,6 @@ message Any {
   bytes value = 2;
 }
 `);
-  // A name Google doesn't declare has no file to import it from.
   const unknown = S.protobufTypeName(S.schema({ a: S.string.with(S.protobufField, 1) }), "google.protobuf.Nope");
   t.expect(() => S.toProtoOrThrow(S.schema({ x: S.optional(unknown).with(S.protobufField, 1) }))).toThrow(
     "[Sury] S.toProtoOrThrow: google.protobuf.Nope is no well-known type, so there is no file to import it from",

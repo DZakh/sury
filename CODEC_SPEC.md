@@ -351,6 +351,27 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Protobuf oneof
+
+A union in a message is a oneof, and what decode makes of bytes with no member
+set depends on how the union spells it:
+
+```ts
+S.union([email, phone, S.schema({ case: undefined })]); // no member set: { case: undefined }
+S.optional(S.union([email, phone]));                    // no member set: undefined
+S.union([email, phone]);                                // no member set: fails at the oneof
+```
+
+- **An arm for no member set is what none set reads as.** It holds only
+  literals, or is a bare literal (`codec-protobuf-oneof-case`,
+  `codec-protobuf-oneof-literal-unset`).
+- **`S.optional` reads none set as `undefined`** (`codec-protobuf-oneof-case-optional`).
+- **With neither, the oneof is required.** None set is `undefined` for the
+  union to check, as any absent field is its default for the field's schema to
+  check, so the decode fails at the oneof with the union's own error
+  (`codec-protobuf-oneof-required`, `codec-protobuf-oneof-required-nested`).
+  Encode writes the member the union dispatches to, whichever spelling.
+
 ## Protobuf Any
 
 `S.protobufAny` (`{ typeUrl, value }`) converts to a message `S.protobufTypeName`
@@ -378,10 +399,10 @@ const Payload = S.protobufAny.with(S.to, S.union([
   (`codec-protobuf-any-untagged`, `codec-protobuf-any-same-tag`,
   `codec-protobuf-any-same-type`). A catch-all holding a type another member
   names fails the encode, since it would decode as that member.
-- **Copies of one Any merge as the message it is.** A second copy's type URL
-  or value replaces the first's, so a copy naming a new type over the first's
-  value reads that value as the new type, as protobuf-es does
-  (`codec-protobuf-any` `second-copy-*`).
+- **Copies of one Any merge as the message it is.** A later copy's type URL
+  or value replaces the one before, so a copy naming a new type over the first's
+  value reads that value as the new type, the catch-all's included, as
+  protobuf-es does (`codec-protobuf-any` `second-copy-*`, `third-copy-*`).
 - **Anything else is the Any's own object.** `S.parseOrThrow(S.protobufAny)`
   validates `{ typeUrl, value }`, and a target holding no named message converts
   field by field (`codec-protobuf-any-json-string`).

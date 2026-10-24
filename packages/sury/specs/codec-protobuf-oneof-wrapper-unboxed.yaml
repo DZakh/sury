@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.optional(S.union([S.schema({ case: "w", value: S.protobufField(S.optional(S.int32), { number: 3, type: "google.protobuf.Int32Value" }) }), S.schema({ case: "b", value: S.protobufField(S.boolean, 4) })])) }).with(S.to, S.protobuf)'
+  input: '{ c?: { case: "w"; value?: number | undefined; } | { case: "b"; value: boolean; } | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 12499
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "w" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case"] }, { type: "object", properties: { case: { type: "string", const: "b" }, value: { type: "boolean" } }, required: ["case", "value"] }] } } }'
+  output: "[Sury] S.protobuf: oneof \"c\" case \"w\" can't unwrap google.protobuf.Int32Value, which protobuf-es keeps as its message in a oneof. Hold the message, such as Int32ValueSchema from sury/protobuf/wkt"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["w"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case"] }, { type: "object", properties: { case: { type: "string", enum: ["b"] }, value: { type: "boolean" } }, required: ["case", "value"] }] } } }'
+isEqual:
+  input: (a,b)=>a===b||(a.c?.case==="w"?b.c?.case==="w"&&a.c.value===b.c.value:a.c?.case==="b"?b.c?.case==="b"&&a.c.value===b.c.value:b.c===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { case: \"w\"; value: int32 | undefined; } | { case: \"b\"; value: boolean; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" case \"w\" can't unwrap google.protobuf.Int32Value, which protobuf-es keeps as its message in a oneof. Hold the message, such as Int32ValueSchema from sury/protobuf/wkt"
+  decode: eq-to-parse
+  encode: eq-to-parse
