@@ -166,7 +166,7 @@ const newCtx = (reads?: boolean, writes?: boolean): Ctx => ({
 
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
   const def = ref.definition!();
-  if (def !== U) ctx.names.set(def, ref.name);
+  ctx.names.set(def!, ref.name);
   return def;
 };
 
@@ -2828,16 +2828,9 @@ const anyPack: Builder = (input) => {
     return output;
   }
   const [name, payload, key] = arm;
-  // The val the union's validation left, read once.
-  const read = key === U ? input : fieldValsOf(input)?.[key];
-  const valueIn = B_scope(read ?? input);
-  if (read === U) {
-    valueIn.i = inlinedProperty(input.v(), key!, true);
-    valueIn.v = _notVarBeforeValidation;
-    // The member's field vals would be read as the payload's.
-    valueIn.d = U;
-    valueIn.path = pathConcat(input.path, [key!]);
-  }
+  // The val the member's own parse left, read once: an object or tuple member
+  // parses field by field before it converts.
+  const valueIn = B_scope(key === U ? input : fieldValsOf(input)![key]!);
   valueIn.io = false;
   valueIn.s = payload;
   valueIn.e = name === "google.protobuf.Any" ? input.e : protobuf;

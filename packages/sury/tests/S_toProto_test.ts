@@ -744,6 +744,10 @@ message User {
   t.expect(S.toProtoOrThrow(User)).toContain("message User {");
 });
 
+test("toProtoOrThrow prints an enum field with no members to declare as int32", (t) => {
+  t.expect(S.toProtoOrThrow(S.schema({ k: S.int32.with(S.protobufField, { number: 1, type: "enum" }) }))).toContain("  int32 k = 1;\n");
+});
+
 test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
   const schema = S.schema({
     count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
