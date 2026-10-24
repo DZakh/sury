@@ -426,29 +426,30 @@ const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Sl
   return codecTo(
     schema,
     view,
-    through && typeof decode !== functionTag ? seamDecodeThrough(schema, target, decode as boolean | undefined) : decode,
-    through && typeof encode !== functionTag ? seamEncodeThrough(schema, target) : encode,
+    through && typeof decode !== functionTag ? seamThrough(schema, target, decode as boolean | undefined) : decode,
+    through && typeof encode !== functionTag ? seamThrough(schema, target, U, true) : encode,
   );
 };
 
-// The direction with no coder runs the plain link from where the seam's stands.
-// Decoded, into the target and on as the view, whose output the value now is.
-const seamDecodeThrough = (schema: Internal, target: Internal, reading: boolean | undefined): Builder => (input: Val) => {
-  let into = codecTo(schema, target, reading);
-  while (into.to!.to) into = into.to!;
-  const from = B_refine(input, into, U, into);
-  from.io = true;
-  const through = B_refine(parse(from), U, U, input.e.to);
-  through.io = true;
-  return through;
-};
-
-// Encoded, the whole way back to the source: the reading into it is the one the
+// The direction with no coder runs the plain link from where the seam's stands,
+// node for node beside the seam's own, and rejoins the seam where the plain link
+// ends: the operation goes on from there. Decoded, it steps into the target, and
+// the view after it is what the value now is. Encoded, it runs the target's
+// encode and the whole way back to the source, whose reading is the one the
 // plain link derives from the target, which the view's arms no longer show.
-const seamEncodeThrough = (schema: Internal, target: Internal): Builder => (input: Val) => {
-  const output = reverse(codecTo(schema, target));
-  return parse(B_refine(input, output, U, output));
-};
+const seamThrough = (schema: Internal, target: Internal, reading: boolean | undefined, encode?: boolean): Builder =>
+  (input: Val) => {
+    let plain = codecTo(schema, target, reading);
+    if (encode) plain = reverse(plain);
+    else while (plain.to!.to) plain = plain.to!;
+    let at = input.e;
+    for (let node = plain; node.to; node = node.to) at = at.to!;
+    const from = B_refine(input, plain, U, plain);
+    from.io = !encode;
+    const through = B_refine(parse(from), U, U, at);
+    through.io = true;
+    return through;
+  };
 
 // The ReScript `~custom` adapter's seam: its coders are typed against the
 // target's output, so there is no public-JS spelling of it.

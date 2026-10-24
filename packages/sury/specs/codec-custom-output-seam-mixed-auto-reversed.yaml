@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(((S as any).$to as typeof S.to)(S.schema({ name: S.string }), S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decode: (v: { name: string }) => ({ name: v.name + "!" }), encode: "auto" } as any))'
+  input: "{ name: string; }"
+  output: "{ name: string; }"
+  instantiations: 6306
+jsonSchema:
+  input: '{ type: "object", properties: { name: { type: "string" } }, required: ["name"] }'
+  output: '{ type: "object", properties: { name: { type: "string" } }, required: ["name"] }'
+isEqual: (a,b)=>a===b||a.name===b.name
+compare: "throws: [Sury] Can't compare { name: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}typeof v1==="string"||e[3](v1);return {name:v1}}catch(v2){e[5](v2)}}
+    examples:
+      auto-converts-the-target:
+        input: '{ name: "x!" }'
+        output: '{ name: "x" }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i.name)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {name:v0}}catch(v1){e[3](v1)}}
+    examples:
+      auto-converts-the-target:
+        input: '{ name: "x!" }'
+        output: '{ name: "x" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-result-is-the-output:
+        input: '{ name: "x" }'
+        output: '{ name: "x!" }'
+  assert:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}typeof v1==="string"||e[3](v1);return void 0}catch(v2){e[5](v2)}}
+    examples:
+      asserts-and-drops:
+        input: '{ name: "x!" }'
+        output: undefined
+      not-an-object:
+        input: '"x"'
+        error: 'Expected { name: string; }, received "x"'

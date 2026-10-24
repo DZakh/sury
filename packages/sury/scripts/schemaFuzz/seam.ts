@@ -14,8 +14,10 @@
 //   described   the seam's Output JSON Schema publishes the target's
 //               definitions, each once and under the target's name.
 //   through     with one coder beside "auto", the direction without one
-//               answers what the link without coders does, while the coder's
-//               direction holds untouched or handed-back as above.
+//               answers what the link without coders does, and an operation
+//               going on past it (an assert, a second schema) still runs the
+//               rest, while the coder's direction holds untouched or
+//               handed-back as above.
 //
 // Equality is the structural walk, as in the codec family. Held only on an
 // Output the schema itself reads back from its own encode: a union whose arms
@@ -109,6 +111,12 @@ const check = (ctx: Ctx): void => {
     const autoEncode = compile<Op>("through", () => S.encodeOrThrow(decodes));
     const autoDecode = compile<Op>("through", () => S.decodeOrThrow(encodes));
     const coderEncode = compile<Op>("handed-back", () => S.encodeOrThrow(encodes));
+    const assertsOutput = compile<Op>("through", () => S.assertOutputOrThrow(decodes));
+    const assertsInput = compile<Op>("through", () => S.assertInputOrThrow(encodes));
+    // A second schema that refuses everything: an encode that drops what comes
+    // after the seam returns instead of throwing.
+    const tail = S.unknown.with(S.refine, () => false, { error: "the second schema" });
+    const encodesOn = compile<Op>("through", () => S.encodeOrThrow(decodes, tail));
     if (!isOutput || !plainEncode || !plainDecode) return;
     const run = (property: string, op: Op | undefined, value: unknown, expected: unknown, what: string): void => {
       if (!op) return;
@@ -137,6 +145,16 @@ const check = (ctx: Ctx): void => {
       run("through", autoEncode, o, input, "encode of");
       run("through", autoDecode, input, o, "decode of");
       run("handed-back", coderEncode, o, o, "the coder took, and encode of");
+      run("through", assertsOutput, o, undefined, "assertOutput of");
+      run("through", assertsInput, input, undefined, "assertInput of");
+      if (encodesOn) {
+        try {
+          const result = encodesOn(o);
+          if (settled(result)) report("through", `encode of ${show(o)} into a second schema skipped it and answered ${show(result)}`);
+        } catch (error) {
+          if (!(error as Error).message.includes("the second schema")) report("through", `encode of ${show(o)} into a second schema threw ${reason(error)}`);
+        }
+      }
     }
   };
   // A target with a chain of its own is refused with "The target already
