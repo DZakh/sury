@@ -82,7 +82,10 @@ message WellKnown {
   oneof when {
     google.protobuf.Timestamp at_time = 13;
     google.protobuf.Duration after = 14;
+    google.protobuf.Struct object = 15;
+    google.protobuf.ListValue list = 16;
   }
+  map<string, google.protobuf.Int32Value> boxed_by_name = 17;
 }
 
 // A tree: a message that holds itself.
@@ -104,6 +107,11 @@ message Branch {
 
 message Leaf {
   repeated Branch branches = 1;
+}
+
+// Named as ReScript's Option module, which a group below reads a slot through.
+message Option {
+  int32 o = 1;
 }
 
 // Three messages that each hold all three, one way or another.
@@ -165,6 +173,12 @@ message Uses {
   Lonely lonely = 3;
   repeated Mixed mixes = 4;
   map<string, Aliased> aliases = 5;
+  Empty empty = 6;
+  // Their constructors are named as option's.
+  oneof choice {
+    Empty none = 7;
+    int32 some = 8;
+  }
 }
 
 // Anys, opaque as protobuf-es holds them; the harness also reads them as a

@@ -152,6 +152,8 @@ module WellKnown = {
   type when_ =
     | @as("atTime") AtTime({value: S.Protobuf.Timestamp.t})
     | @as("after") After({value: S.Protobuf.Duration.t})
+    | @as("object") Object({value: dict<JSON.t>})
+    | @as("list") List({value: S.Protobuf.ListValue.t})
   type t = {
     at: option<S.Protobuf.Timestamp.t>,
     took: option<S.Protobuf.Duration.t>,
@@ -166,6 +168,7 @@ module WellKnown = {
     timeouts: dict<S.Protobuf.Duration.t>,
     seen: option<S.Protobuf.Timestamp.t>,
     when_: option<when_>,
+    boxedByName: dict<S.Protobuf.Int32Value.t>,
   }
   let schema: S.t<t> = S.schema(s => {
     at: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(1, ~type_=#message)),
@@ -184,8 +187,11 @@ module WellKnown = {
       S.union([
         S.schema(s => AtTime({value: s.matches(S.Protobuf.Timestamp.schema->S.protobufField(13, ~type_=#message))})),
         S.schema(s => After({value: s.matches(S.Protobuf.Duration.schema->S.protobufField(14, ~type_=#message))})),
+        S.schema(s => Object({value: s.matches(S.dict(S.json)->S.protobufField(15, ~type_=#"google.protobuf.Struct"))})),
+        S.schema(s => List({value: s.matches(S.Protobuf.ListValue.schema->S.protobufField(16, ~type_=#message))})),
       ]),
     )),
+    boxedByName: s.matches(S.dict(S.Protobuf.Int32Value.schema)->S.protobufField(17, ~type_=#message, ~key=#string)),
   })->S.protobufTypeName("example.v1.WellKnown")
 }
 
@@ -259,6 +265,18 @@ module Leaf = {
       branches: s.matches(S.array(branchSchema)->S.protobufField(1, ~type_=#message)),
     })->S.protobufTypeName("example.v1.Leaf")
   })
+}
+
+/**
+ Named as ReScript's Option module, which a group below reads a slot through.
+ */
+module Option = {
+  type t = {
+    o: int,
+  }
+  let schema: S.t<t> = S.schema(s => {
+    o: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
+  })->S.protobufTypeName("example.v1.Option")
 }
 
 type rec graphA = {
@@ -399,17 +417,23 @@ module Reserved = {
 }
 
 module Empty = {
-  type t
-  let schema: S.t<t> = S.schema(_ => %raw(`{}`))->S.protobufTypeName("example.v1.Empty")
+  type t = {}
+  let schema: S.t<t> = S.schema(_ => ({}: t))->S.protobufTypeName("example.v1.Empty")
 }
 
 module Uses = {
+  @tag("case")
+  type choice =
+    | @as("none") None({value: Empty.t})
+    | @as("some") Some({value: int})
   type t = {
     mixed: Mixed.t,
     aliased: Aliased.t,
     lonely: Lonely.t,
     mixes: array<Mixed.t>,
     aliases: dict<Aliased.t>,
+    empty: option<Empty.t>,
+    choice: option<choice>,
   }
   let schema: S.t<t> = S.schema(s => {
     mixed: s.matches(Mixed.schema->S.protobufField(1, ~type_=#enum)),
@@ -417,6 +441,13 @@ module Uses = {
     lonely: s.matches(Lonely.schema->S.protobufField(3, ~type_=#enum)),
     mixes: s.matches(S.array(Mixed.schema)->S.protobufField(4, ~type_=#enum)),
     aliases: s.matches(S.dict(Aliased.schema)->S.protobufField(5, ~type_=#enum, ~key=#string)),
+    empty: s.matches(S.option(Empty.schema)->S.protobufField(6, ~type_=#message)),
+    choice: s.matches(S.option(
+      S.union([
+        S.schema(s => None({value: s.matches(Empty.schema->S.protobufField(7, ~type_=#message))})),
+        S.schema(s => Some({value: s.matches(S.int->S.protobufField(8, ~type_=#int32))})),
+      ]),
+    )),
   })->S.protobufTypeName("example.v1.Uses")
 }
 

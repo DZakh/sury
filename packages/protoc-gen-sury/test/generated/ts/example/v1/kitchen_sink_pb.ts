@@ -4,7 +4,7 @@
 
 import * as S from "sury";
 import { type Address, AddressSchema, Currency, CurrencySchema } from "../common/address_pb";
-import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, TimestampSchema, DurationSchema, ValueSchema, type Any, AnySchema } from "sury/protobuf/wkt";
+import { type Int32Value, Int32ValueSchema, type Timestamp, type Duration, type JsonObject, type Value, type ListValue, TimestampSchema, DurationSchema, ValueSchema, ListValueSchema, type Any, AnySchema } from "sury/protobuf/wkt";
 
 const $number = S.union([S.number, S.schema(NaN)]);
 
@@ -440,7 +440,14 @@ export type WellKnown = {
   when:
     | { case: "atTime"; value: Timestamp }
     | { case: "after"; value: Duration }
+    | { case: "object"; value: JsonObject }
+    | { case: "list"; value: ListValue }
     | { case: undefined; value?: undefined };
+
+  /**
+   * @generated from field: map<string, google.protobuf.Int32Value> boxed_by_name = 17;
+   */
+  boxedByName: { [key: string]: Int32Value };
 };
 
 export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
@@ -459,8 +466,11 @@ export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schem
   when: S.union([
     S.schema({ case: "atTime", value: S.protobufField(TimestampSchema, { number: 13, type: "message" }) }),
     S.schema({ case: "after", value: S.protobufField(DurationSchema, { number: 14, type: "message" }) }),
+    S.schema({ case: "object", value: S.protobufField(S.record(S.json), { number: 15, type: "google.protobuf.Struct" }) }),
+    S.schema({ case: "list", value: S.protobufField(ListValueSchema, { number: 16, type: "message" }) }),
     /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
+  boxedByName: S.protobufField(S.record(Int32ValueSchema), { number: 17, type: "message", key: "string" }),
 }), { name: "WellKnown" }), "example.v1.WellKnown");
 
 /**
@@ -556,6 +566,22 @@ export const LeafSchema = S.recursive<Leaf>("Leaf", (LeafSchema) => {
     branches: S.protobufField(S.array(BranchSchema), { number: 1, type: "message" }),
   }), "example.v1.Leaf");
 });
+
+/**
+ * Named as ReScript's Option module, which a group below reads a slot through.
+ *
+ * @generated from message example.v1.Option
+ */
+export type Option = {
+  /**
+   * @generated from field: int32 o = 1;
+   */
+  o: number;
+};
+
+export const OptionSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
+  o: S.protobufField(S.int32, { number: 1, type: "int32" }),
+}), { name: "Option" }), "example.v1.Option");
 
 /**
  * Three messages that each hold all three, one way or another.
@@ -772,6 +798,21 @@ export type Uses = {
    * @generated from field: map<string, example.v1.Aliased> aliases = 5;
    */
   aliases: { [key: string]: Aliased };
+
+  /**
+   * @generated from field: example.v1.Empty empty = 6;
+   */
+  empty?: Empty | undefined;
+
+  /**
+   * Their constructors are named as option's.
+   *
+   * @generated from oneof example.v1.Uses.choice
+   */
+  choice:
+    | { case: "none"; value: Empty }
+    | { case: "some"; value: number }
+    | { case: undefined; value?: undefined };
 };
 
 export const UsesSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
@@ -780,6 +821,12 @@ export const UsesSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<U
   lonely: S.protobufField(LonelySchema, { number: 3, type: "enum" }),
   mixes: S.protobufField(S.array(MixedSchema), { number: 4, type: "enum" }),
   aliases: S.protobufField(S.record(AliasedSchema), { number: 5, type: "enum", key: "string" }),
+  empty: S.protobufField(S.optional(EmptySchema), { number: 6, type: "message" }),
+  choice: S.union([
+    S.schema({ case: "none", value: S.protobufField(EmptySchema, { number: 7, type: "message" }) }),
+    S.schema({ case: "some", value: S.protobufField(S.int32, { number: 8, type: "int32" }) }),
+    /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
+  ]),
 }), { name: "Uses" }), "example.v1.Uses");
 
 /**

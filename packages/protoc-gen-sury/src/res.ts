@@ -43,7 +43,32 @@ export const fieldNames = (message: Message): Map<Field | Oneof, string> => {
   return names;
 };
 
-export const moduleOf = (desc: Message | Enum): string => upperIdent(namesOf(desc.file).shape.get(desc)!.replace(/\$/g, "_"));
+// The modules the generated code names, which a message or enum declared
+// before that code would shadow.
+const usedModules = new Set(["Float", "JSON", "S", "Stdlib", "Uint8Array"]);
+
+// The types the generated code names, which a oneof's type or a recursive
+// group's would shadow.
+const usedTypes = new Set(["array", "bigint", "bool", "dict", "float", "int", "option", "string", "t", "unit"]);
+
+const claim = (name: string, taken: Set<string>): string => {
+  while (taken.has(name)) name = `${name}_`;
+  taken.add(name);
+  return name;
+};
+
+const modules = new WeakMap<File, Map<Message | Enum, string>>();
+
+export const moduleOf = (desc: Message | Enum): string => {
+  let names = modules.get(desc.file);
+  if (names === undefined) {
+    const taken = new Set(usedModules);
+    names = new Map();
+    for (const type of nestedTypes(desc.file)) names.set(type, claim(upperIdent(namesOf(desc.file).shape.get(type)!.replace(/\$/g, "_")), taken));
+    modules.set(desc.file, names);
+  }
+  return names.get(desc)!;
+};
 
 const scalarTypes: Record<Scalar, [string, string]> = {
   double: ["float", "number"],
@@ -89,9 +114,12 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return ctx.wellKnownModule(desc) || `${fileModule(desc.file)}.${moduleOf(desc)}`;
   };
   // Inside a recursive group, a type is its group name rather than `M.t`,
-  // which isn't declared yet where the group is.
+  // which isn't declared yet where the group is. Outside it, `M.t`: a later
+  // module's oneof type may take the group name's spelling.
   const groupNames = new Map<Message, string>();
-  const typeRef = (desc: Message | Enum): string => groupNames.get(desc as Message) ?? `${ref(desc)}.t`;
+  const groupTaken = new Set(usedTypes);
+  let declaring = new Set<Message>();
+  const typeRef = (desc: Message | Enum): string => (declaring.has(desc as Message) ? groupNames.get(desc as Message)! : `${ref(desc)}.t`);
 
   const scalarSchema = (scalar: Scalar, asString: boolean): string => {
     if (asString && is64(scalar)) return `${S}string`;
@@ -116,8 +144,15 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return typeRef(messageOf(element));
   };
 
-  const oneofTypeName = (message: Message, oneof: Oneof): string =>
-    groupNames.has(message) ? `${groupNames.get(message)}_${lowerIdent(oneof.localName)}` : lowerIdent(oneof.localName);
+  const oneofNames = new Map<Oneof, string>();
+  const oneofTypeName = (message: Message, oneof: Oneof): string => {
+    if (groupNames.has(message)) return `${groupNames.get(message)}_${lowerIdent(oneof.localName)}`;
+    if (!oneofNames.has(oneof)) {
+      const taken = new Set(usedTypes);
+      for (const other of message.oneofs) oneofNames.set(other, claim(lowerIdent(other.localName), taken));
+    }
+    return oneofNames.get(oneof)!;
+  };
 
   const fieldType = (field: Field): string => {
     const wrapped = wrapperScalar(field);
@@ -141,7 +176,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return `${schema}->${S}protobufField(${args})`;
   };
 
-  const local = (message: Message): string => `${groupNames.get(message)}Schema`;
+  const local = (message: Message): string => `${uncapitalize(moduleOf(message))}Schema`;
 
   const messageRef = (message: Message, group: Group | undefined): string => {
     if (!group?.members.has(message)) return `${ref(message)}.schema`;
@@ -193,7 +228,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   };
 
   const objectSchema = (message: Message, scope: Group | undefined, indent: string): string =>
-    message.members.length === 0 ? `${S}schema(_ => %raw(\`{}\`))` : `${S}schema(s => ${recordBody(message, scope, indent)})`;
+    message.members.length === 0 ? `${S}schema(_ => ({}: t))` : `${S}schema(s => ${recordBody(message, scope, indent)})`;
 
   // On the definition itself, so every path to a recursive message reaches it.
   const named = (schema: string, desc: Message | Enum): string => `${schema}->${S}protobufTypeName(${JSON.stringify(desc.typeName)})`;
@@ -270,13 +305,15 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const messages = [...nestedTypes(file)].filter((desc): desc is Message => desc.kind === "message");
   for (const component of componentsOf(messages)) {
     if (isRecursive(component)) {
-      for (const message of component) groupNames.set(message, lowerIdent(moduleOf(message)));
+      for (const message of component) groupNames.set(message, claim(lowerIdent(moduleOf(message)), groupTaken));
       const decls: string[] = [];
+      declaring = new Set(component);
       for (const message of component) {
         for (const oneof of message.oneofs) decls.push(oneofDecl(message, oneof, decls.length ? "and" : "type rec", ""));
         const record = message.members.length === 0 ? "" : ` = ${recordDecl(message, "")}`;
         decls.push(`${decls.length ? "and" : "type rec"} ${groupNames.get(message)}${record}\n`);
       }
+      declaring = new Set();
       out.push(decls.join(""));
       const members = new Set(component);
       for (const message of component) {
@@ -291,7 +328,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     const oneofs = message.oneofs.map((oneof) => oneofDecl(message, oneof, "type", "  ")).join("");
     const any = message.typeName === "google.protobuf.Any";
     const type =
-      message.members.length === 0 ? (ctx.bind !== undefined ? "  type t = {}\n" : "  type t\n")
+      message.members.length === 0 ? "  type t = {}\n"
       : `  type t = ${any ? `${S}protobufAny = ` : ""}${recordDecl(message, "  ")}\n`;
     out.push(
       `${docstring(message.path, "")}module ${moduleOf(message)} = {\n${oneofs}${type}` +

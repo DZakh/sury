@@ -189,7 +189,8 @@ const values = async (corpus: Corpus, rng: () => number): Promise<number> => {
     const esSchema = (await import(pathToFileURL(join(es, `${file}.ts`)).href))[name];
     const surySchema = (await generatedTs(file))[name];
     const resModule = await import(pathToFileURL(join(root, "test/generated/res", `${resPath(message.file)}.res.mjs`)).href);
-    const resSchema = resModule[moduleOf(message)].schema;
+    // ReScript prefixes `$$` to a module named as a JS global, `String` among them.
+    const resSchema = (resModule[moduleOf(message)] ?? resModule[`$$${moduleOf(message)}`]).schema;
     const resEncode = S.decodeOrThrow(resSchema, S.protobuf) as (value: unknown) => Uint8Array;
     const resDecode = S.decodeOrThrow(S.protobuf, resSchema) as (bytes: Uint8Array) => unknown;
     const encode = S.decodeOrThrow(surySchema, S.protobuf) as (value: unknown) => Uint8Array;
@@ -362,12 +363,23 @@ const treeShaking = async (corpus: Corpus) => {
   );
 };
 
+function report(): void {
+  if (failures.length) {
+    console.error(failures.slice(0, 30).join("\n\n"));
+    console.error(`\n${failures.length} failure(s)${update ? "" : " - `pnpm protobuf:codegen update` rewrites the goldens"}`);
+    process.exit(1);
+  }
+  console.log(update ? "goldens written" : "all gates pass");
+}
+
 const work = mkdtempSync(join(tmpdir(), "protoc-gen-sury-"));
 try {
   const corpus = corpusOf(work);
   goldens(corpus);
   reference(work);
   compile(corpus);
+  // What follows imports the compiled output.
+  if (failures.length) report();
   const rng = rngOf(Number(process.env.SEED ?? 1));
   const cases = (await values(corpus, rng)) + (await typedAny(corpus, rng));
   const reprints = await reprint(corpus, work);
@@ -377,9 +389,4 @@ try {
   rmSync(work, { recursive: true, force: true });
 }
 
-if (failures.length) {
-  console.error(failures.slice(0, 30).join("\n\n"));
-  console.error(`\n${failures.length} failure(s)${update ? "" : " - `pnpm protobuf:codegen update` rewrites the goldens"}`);
-  process.exit(1);
-}
-console.log(update ? "goldens written" : "all gates pass");
+report();
