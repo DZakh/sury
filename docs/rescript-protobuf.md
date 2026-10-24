@@ -134,19 +134,24 @@ let subscriberSchema = S.schema(s => {channel: s.matches(channelSchema)})
 
 {channel: Sms({phone: "1"})}->S.convertOrThrow(~from=subscriberSchema, ~to=S.protobuf)
 // [18, 1, 49]
+
+Uint8Array.fromLength(0)->S.convertOrThrow(~from=S.protobuf, ~to=subscriberSchema)
+// {channel: NoChannel}
 ```
 
-Leave the constructor with no value out and wrap the union in `S.option`
-instead:
+Leave the constructor with no value out and wrap the union in `S.option` to
+read no member set as `None`, or leave it out alone to make the oneof required:
 
 ```rescript
-S.option(
-  S.union([
-    S.schema(s => Email({email: s.matches(S.string->S.protobufField(1))})),
-    S.schema(s => Sms({phone: s.matches(S.string->S.protobufField(2))})),
-  ]),
-)
+let email = S.schema(s => Email({email: s.matches(S.string->S.protobufField(1))}))
+let sms = S.schema(s => Sms({phone: s.matches(S.string->S.protobufField(2))}))
+
+S.option(S.union([email, sms]))
 // no member set: None
+
+S.union([email, sms])
+// no member set: throws Failed at channel: Expected { kind: "email"; email: string; } |
+// { kind: "sms"; phone: string; }, received undefined
 ```
 
 An enum reads best as a variant whose constructors carry the numbers:

@@ -59,6 +59,7 @@ import {
   B_slot,
   B_unsupportedDecode,
   B_varWithoutAllocation,
+  failInvalidType,
   rethrowWithPath,
 } from "../builder";
 import { arrayFactory, B_record, dictFactory, objectDecoder, valAt, valGet } from "../composites";
@@ -684,9 +685,6 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       const { arms, unset: unsetArm, optional: groupOptional, all } = group;
       if (unsetArm !== U && groupOptional) {
         return panic(`S.protobuf: oneof "${key}" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm`);
-      }
-      if (unsetArm === U && !groupOptional) {
-        return panic(`S.protobuf: oneof "${key}" has no arm for no member set. Add one holding only its literal, such as S.schema({ type: "none" }), or wrap the union in S.optional`);
       }
       const armFields: Field[] = [];
       for (let armIdx = 0; armIdx < arms.length; armIdx++) {
@@ -2325,6 +2323,10 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
   const branches: string[] = [];
   let rest = "";
   let async = 0;
+  // A oneof with neither an arm for no member set nor S.optional is required:
+  // none set reads as `undefined`, which the union then refuses, as any other
+  // absent field is its default for the field's schema to check.
+  const required = msg.any === U && !arms.some(([, field]) => field === U);
   arms.forEach(([member, field], idx) => {
     let value: Val;
     if (field === U) {
@@ -2350,9 +2352,13 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
     }
     async |= value.f & 1;
     const body = `${B_merge(value)}${out}=${value.i}`;
-    if (field === U || (rest === "" && idx === arms.length - 1 && !arms.some(([, other]) => other === U))) rest = body;
+    if (field === U || (!required && rest === "" && idx === arms.length - 1 && !arms.some(([, other]) => other === U))) rest = body;
     else branches.push(`if(${set}===${field.number}){${body}}`);
   });
+  if (required) {
+    const none = B_slot(at, "void 0", unit, union, path);
+    rest = B_fail(none, failInvalidType(none), "void 0");
+  }
   const value = B_slot(at, out, union, union, path);
   value.cp = B_let(g, out) + branches.join("else ") + (!branches.length ? `${rest};` : rest === "" ? "" : `else{${rest}}`);
   value.f = async;

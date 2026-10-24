@@ -248,6 +248,38 @@ test("a variant with a tag and payload keys of its own is a oneof", t => {
   t->Assert.deepEqual(fromBytes(toBytes(none)), none)
 })
 
+@tag("case")
+type delivery =
+  | @as("email") EmailDelivery({value: string})
+  | @as("sms") SmsDelivery({value: string})
+
+type shipment = {delivery: delivery}
+
+let shipmentSchema = S.schema(s => {
+  delivery: s.matches(
+    S.union([
+      S.schema(s => EmailDelivery({value: s.matches(S.string->S.protobufField(1, ~type_=#string))})),
+      S.schema(s => SmsDelivery({value: s.matches(S.string->S.protobufField(2, ~type_=#string))})),
+    ]),
+  ),
+})
+
+test("a variant with no constructor for none and no S.option is a required oneof", t => {
+  let toBytes = value => value->S.convertOrThrow(~from=shipmentSchema, ~to=S.protobuf)
+  let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=shipmentSchema)
+  let sms = {delivery: SmsDelivery({value: "1"})}
+  t->Assert.deepEqual(toBytes(sms)->bytesToArray, [18, 1, 49])
+  t->Assert.deepEqual(fromBytes(toBytes(sms)), sms)
+  let email = {delivery: EmailDelivery({value: "a"})}
+  t->Assert.deepEqual(fromBytes(toBytes(email)), email)
+  t->Assert.throws(
+    () => fromBytes(Uint8Array.fromLength(0)),
+    ~expectations={
+      message: `Failed at delivery: Expected { case: "email"; value: string; } | { case: "sms"; value: string; }, received undefined`,
+    },
+  )
+})
+
 test("a variant enum travels as its number and a tagged variant as a oneof", t => {
   let toBytes = value => value->S.convertOrThrow(~from=personSchema, ~to=S.protobuf)
   let fromBytes = bytes => bytes->S.convertOrThrow(~from=S.protobuf, ~to=personSchema)
