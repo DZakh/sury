@@ -433,26 +433,21 @@ const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Sl
 
 // The direction with no coder runs the plain link from where the seam's stands.
 // Decoded, into the target and on as the view, whose output the value now is.
-const seamDecodeThrough = (schema: Internal, target: Internal, reading: boolean | undefined): Builder => {
+const seamDecodeThrough = (schema: Internal, target: Internal, reading: boolean | undefined): Builder => (input: Val) => {
   let into = codecTo(schema, target, reading);
   while (into.to!.to) into = into.to!;
-  return (input: Val) => {
-    const from = B_refine(input, into, U, into);
-    from.io = true;
-    const through = B_refine(parse(from), U, U, input.e.to);
-    through.io = true;
-    return through;
-  };
+  const from = B_refine(input, into, U, into);
+  from.io = true;
+  const through = B_refine(parse(from), U, U, input.e.to);
+  through.io = true;
+  return through;
 };
 
 // Encoded, the whole way back to the source: the reading into it is the one the
 // plain link derives from the target, which the view's arms no longer show.
-const seamEncodeThrough = (schema: Internal, target: Internal): Builder => {
-  const plain = codecTo(schema, target);
-  return (input: Val) => {
-    const output = reverse(plain);
-    return parse(B_refine(input, output, U, output));
-  };
+const seamEncodeThrough = (schema: Internal, target: Internal): Builder => (input: Val) => {
+  const output = reverse(codecTo(schema, target));
+  return parse(B_refine(input, output, U, output));
 };
 
 // The ReScript `~custom` adapter's seam: its coders are typed against the
