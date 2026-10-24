@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.meta(S.union([S.jsonString, S.number]), { description: "d" }), S.boolean])'
+  input: string | number | boolean
+  output: string | number | boolean
+  instantiations: 1969
+jsonSchema:
+  input: '{ anyOf: [{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+  output: '{ anyOf: [{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+    output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare JSON string | number | boolean. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="boolean")break;l1:{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){v0=[v0,e[0],i];break l1}break}if(typeof i==="number"&&i==i)break;v0=[v0,e[1](i)];break l1}break}throw e[2](i,v0)}return i}catch(v2){e[3](v2)}}
+    examples:
+      boolean-outer-member:
+        input: "true"
+        output: "true"
+      json-text:
+        input: '"[1]"'
+        output: '"[1]"'
+      not-json:
+        input: '"x"'
+        error: |-
+          Expected JSON string | number | boolean, received "x"
+          - Expected JSON string, received "x"
+      number:
+        input: "1"
+        output: "1"
+  decode: identity
+  encode: identity

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.union([S.schema({ f: (S as any).list(S.url) }), S.schema({ TAG: "T7", _0: S.integer })]), { decode: (v: unknown) => v, encode: "auto" } as any))'
+  input: '{ f?: any; } | { TAG: "T7"; _0: number; }'
+  output: unknown
+  instantiations: 5877
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", const: "T7" }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
+  fromInputType: '{ f: JSON; } | { TAG: "T7"; _0: number; }'
+  output: '{ description: "seam" }'
+  fromOutputType: JSON
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", enum: ["T7"] }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { f: unknown; } | { TAG: \"T7\"; _0: integer; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0;try{v0=e[0](i.f)}catch(x){v1=[v1,e[1],x];break l2}i={f:v0};break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l5:{let v4=i._0;if(!(typeof v4==="number"&&v4%1==0)){v1=[v1,e[2],v4];break l5}i={TAG:i.TAG,_0:v4};break}}throw e[3](i,v1)}return i}catch(v6){e[4](v6)}}
+    examples:
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: '{ TAG: "T7", _0: 2 }'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: '{ TAG: "T7", _0: 2 }'
+  assert:
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l2:{let v0;try{v0=e[0](i.f)}catch(x){v1=[v1,e[1],x];break l2}i=void 0;break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l5:{let v4=i._0;if(!(typeof v4==="number"&&v4%1==0)){v1=[v1,e[2],v4];break l5}i=void 0;break}}throw e[3](i,v1)}return i}catch(v6){e[4](v6)}}
+    examples:
+      tagged-member:
+        input: '{ TAG: "T7", _0: 2 }'
+        output: undefined

@@ -166,7 +166,7 @@ const newCtx = (reads?: boolean, writes?: boolean): Ctx => ({
 
 const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
   const def = ref.definition!();
-  ctx.names.set(def!, ref.name);
+  if (def !== U) ctx.names.set(def, ref.name);
   return def;
 };
 
@@ -198,11 +198,14 @@ const lastObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
 };
 
 // `whole` walks on past the object: reversed, a chain's message is its last
-// link. Bounded as `firstObject` is: a definition can be a ref back to itself.
+// link. Bounded as `firstObject` is, by the refs it follows.
 const typeNameOf = (schema: Internal, ctx: Ctx, whole?: boolean): string | undefined => {
-  for (let current: Internal | undefined = schema, steps = 0; current !== U && ++steps <= 50; current = current.type === refTag ? deref(current, ctx) : current.to) {
+  for (let current: Internal | undefined = schema, refs = 0; current !== U; ) {
     if (current.protobufTypeName !== U) return current.protobufTypeName;
     if (!whole && current.type === objectTag) return U;
+    if (current.type !== refTag) current = current.to;
+    else if (++refs > 50) return U;
+    else current = deref(current, ctx);
   }
   return U;
 };
