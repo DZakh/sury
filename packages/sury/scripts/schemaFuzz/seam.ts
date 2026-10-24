@@ -13,6 +13,9 @@
 //               reason in the other direction.
 //   described   the seam's Output JSON Schema publishes the target's
 //               definitions, each once and under the target's name.
+//   through     with one coder beside "auto", the direction without one
+//               answers what the link without coders does, while the coder's
+//               direction holds untouched or handed-back as above.
 //
 // Equality is the structural walk, as in the codec family. Held only on an
 // Output the schema itself reads back from its own encode: a union whose arms
@@ -92,9 +95,56 @@ const check = (ctx: Ctx): void => {
       }
     }
   };
+  // A copy of `S.unknown`, which every schema converts from and into on its
+  // own; `S.unknown` itself is the seam carve-out `S.any` takes.
+  const loose = S.meta(S.unknown, { description: "seam" });
+  const mixed = (target: unknown, place: (o: unknown) => unknown): void => {
+    const decodes = compile<Op>("seam", () => S.$to(loose, target, { decode: (o: unknown) => o, encode: "auto" }));
+    const encodes = compile<Op>("seam", () => S.$to(loose, target, { decode: "auto", encode: (o: unknown) => o }));
+    if (!decodes || !encodes) return;
+    const isOutput = compile<Op>("untouched", () => S.isOutput(target));
+    const plainEncode = compile<Op>("seam", () => S.encodeOrThrow(S.to(loose, target)));
+    const plainDecode = compile<Op>("seam", () => S.decodeOrThrow(S.to(loose, target)));
+    const coderDecode = compile<Op>("untouched", () => S.decodeOrThrow(decodes));
+    const autoEncode = compile<Op>("through", () => S.encodeOrThrow(decodes));
+    const autoDecode = compile<Op>("through", () => S.decodeOrThrow(encodes));
+    const coderEncode = compile<Op>("handed-back", () => S.encodeOrThrow(encodes));
+    if (!isOutput || !plainEncode || !plainDecode) return;
+    const run = (property: string, op: Op | undefined, value: unknown, expected: unknown, what: string): void => {
+      if (!op) return;
+      try {
+        const result = op(value);
+        if (!settled(result)) return;
+        count("results");
+        if (!structural(result, expected) || (property === "untouched" && isOutput(result) !== true)) {
+          report(property, `${what} ${show(value)} answered ${show(result)}, not ${show(expected)}`);
+        }
+      } catch (error) {
+        report(property, `${what} threw on ${show(value)} - ${reason(error)}`);
+      }
+    };
+    for (const [drawn] of outputs) {
+      const o = place(drawn);
+      let input: unknown;
+      try {
+        input = plainEncode(o);
+        const decoded = plainDecode(input);
+        if (!settled(input) || !settled(decoded) || !structural(decoded, o)) continue;
+      } catch {
+        continue;
+      }
+      run("untouched", coderDecode, o, o, "the coder returned, and decode of");
+      run("through", autoEncode, o, input, "encode of");
+      run("through", autoDecode, input, o, "decode of");
+      run("handed-back", coderEncode, o, o, "the coder took, and encode of");
+    }
+  };
   // A target with a chain of its own is refused with "The target already
   // converts": the coder would skip that chain, and no Output names its input.
-  if ((schema as { to?: unknown }).to === undefined) hold(schema, (o) => o);
+  if ((schema as { to?: unknown }).to === undefined) {
+    hold(schema, (o) => o);
+    mixed(schema, (o) => o);
+  }
   // The schema again two levels into a recursive target, where the coder's
   // Output reaches it through a ref's definition rather than as a child, and
   // where a chain of its own is a field's like any other.
@@ -102,6 +152,7 @@ const check = (ctx: Ctx): void => {
   const twice = (o: unknown) => ({ v: o, next: { v: o, next: undefined } });
   const recursive = S.recursive("Seam", node);
   hold(recursive, twice);
+  mixed(recursive, twice);
   // And the seam as the definition itself, so its target reaches the ref
   // before the definer has returned it.
   hold(recursive, twice, () => S.recursive("Seam", (self: unknown) => seamTo(node(self))));
