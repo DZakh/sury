@@ -65,3 +65,6 @@ operations:
       zero-member:
         input: new Uint8Array([18, 0])
         output: '{ id: 0, contact: { case: "email", value: "" } }'
+      message-member-after-another-starts-over:
+        input: new Uint8Array([26, 3, 10, 1, 120, 18, 1, 97, 26, 0])
+        output: '{ id: 0, contact: { case: "home", value: { street: "" } } }'

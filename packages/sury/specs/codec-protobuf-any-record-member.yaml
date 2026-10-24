@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ p: S.protobufField(S.union([S.schema({ t: "b", v: S.protobufTypeName(S.record(S.string), "a.B") }), S.schema({ t: "u", v: S.protobufTypeName(S.schema({ a: S.protobufField(S.int32, 1) }), "a.M") })]), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
+  input: '{ p: { t: "b"; v: Record<string, string>; } | { t: "u"; v: { a: number; }; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10922
+jsonSchema:
+  input: '{ type: "object", properties: { p: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "b" }, v: { type: "object", additionalProperties: { type: "string" } } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "u" }, v: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a"] } }, required: ["t", "v"] }] } }, required: ["p"] }'
+  output: '[Sury] S.protobuf: field "p" holds a.B, whose schema is not an object'
+  openapi-3.0:
+    input: '{ type: "object", properties: { p: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["b"] }, v: { type: "object", additionalProperties: { type: "string" } } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", enum: ["u"] }, v: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a"] } }, required: ["t", "v"] }] } }, required: ["p"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.p.t==="b"?b.p.t==="b"&&e[0](a.p.v,b.p.v):b.p.t==="u"&&a.p.v.a===b.p.v.a)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { p: { t: \"b\"; v: { [key: string]: string; }; } | { t: \"u\"; v: { a: int32; }; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: field "p" holds a.B, whose schema is not an object'
+  decode: eq-to-parse
+  encode: eq-to-parse

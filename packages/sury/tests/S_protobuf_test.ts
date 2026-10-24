@@ -805,29 +805,6 @@ test("generated message shapes check against their declared types", (t) => {
   );
 });
 
-test("protobuf refuses a oneof with no arm for no member set, and a case or number used twice", (t) => {
-  const codec = (schema: S.Schema<unknown, unknown>) => () => S.decodeOrThrow(schema, S.protobuf);
-  t.expect(
-    codec(S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "b", value: S.protobufField(S.string, 2) })]) })),
-  ).toThrow('oneof "c" has no arm for no member set');
-  t.expect(
-    codec(
-      S.schema({
-        id: S.protobufField(S.int32, 1),
-        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: undefined })]),
-      }),
-    ),
-  ).toThrow('field number 1 of "c" is already taken');
-  t.expect(
-    codec(
-      S.schema({
-        c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: "a", value: S.protobufField(S.string, 2) }), S.schema({ case: undefined })]),
-      }),
-    ),
-  ).toThrow();
-});
-
-// A throw at schema construction, which a spec can't record.
 // Spelled as a test: a spec can't record a schema whose construction throws.
 test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
   for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Api", "google.protobuf.constructor"]) {

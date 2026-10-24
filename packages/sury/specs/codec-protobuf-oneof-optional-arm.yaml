@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ c: S.optional(S.union([S.protobufField(S.optional(S.int32), 3), S.protobufField(S.string, 4)])) }).with(S.to, S.protobuf)"
+  input: "{ c?: string | number | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7103
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string" }] } } }'
+  output: '[Sury] S.protobuf: oneof "c" case "c_3" must hold one value, not an optional, a list or a map'
+isEqual:
+  input: (a,b)=>a===b||a.c===b.c
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: int32 | string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: oneof "c" case "c_3" must hold one value, not an optional, a list or a map'
+  decode: eq-to-parse
+  encode: eq-to-parse
