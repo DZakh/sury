@@ -94,7 +94,7 @@ export type Value = {
     | { case: "boolValue"; value: boolean }
     | { case: "structValue"; value: Struct }
     | { case: "listValue"; value: ListValue }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 };
 
 /**
@@ -126,7 +126,7 @@ export const StructSchema = S.recursive<Struct>("Struct", (StructSchema) => {
         S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
         S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
         S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
-        S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+        /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
       ]),
     }), "google.protobuf.Value");
   });
@@ -154,7 +154,7 @@ export const ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
       S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
       S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
       S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
-      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+      /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
   }), "google.protobuf.Value");
 });
@@ -174,7 +174,7 @@ export const ListValueSchema = S.recursive<ListValue>("ListValue", (ListValueSch
         S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
         S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
         S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
-        S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+        /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
       ]),
     }), "google.protobuf.Value");
   });

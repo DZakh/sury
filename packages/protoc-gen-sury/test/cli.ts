@@ -149,7 +149,6 @@ type Normalize<T> = T extends UnknownEnum ? never
   : T extends Uint8Array | bigint | string | boolean | undefined | null ? T
   : T extends readonly (infer U)[] ? Normalize<U>[]
   : IsJsonObject<Own<T>> extends true ? "JsonObject"
-  : T extends { case: undefined; value?: undefined } ? { case?: undefined; value?: undefined }
   : { [K in keyof Own<T> as K extends number ? string : K]: Normalize<Own<T>[K]> };
 type Equal<A, B> = (<V>() => V extends A ? 1 : 2) extends <V>() => V extends B ? 1 : 2 ? true : false;
 `;

@@ -307,7 +307,7 @@ export type User = {
     | { case: "phone"; value: bigint }
     | { case: "mailbox"; value: User_Mailbox }
     | { case: "boxedInOneof"; value: Int32Value }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 
   /**
    * @generated from field: repeated int32 unpacked = 12 [packed = false];
@@ -359,7 +359,7 @@ export const UserSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<U
     S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 9, type: "int64" }) }),
     S.schema({ case: "mailbox", value: S.protobufField(User_MailboxSchema, { number: 10, type: "message" }) }),
     S.schema({ case: "boxedInOneof", value: S.protobufField(Int32ValueSchema, { number: 11, type: "message" }) }),
-    S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+    /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
   unpacked: S.protobufField(S.array(S.int32), { number: 12, type: "int32", packed: false }),
   mailboxes: S.protobufField(S.record(User_MailboxSchema), { number: 13, type: "message", key: "int32" }),
@@ -440,7 +440,7 @@ export type WellKnown = {
   when:
     | { case: "atTime"; value: Timestamp }
     | { case: "after"; value: Duration }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 };
 
 export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
@@ -459,7 +459,7 @@ export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schem
   when: S.union([
     S.schema({ case: "atTime", value: S.protobufField(TimestampSchema, { number: 13, type: "message" }) }),
     S.schema({ case: "after", value: S.protobufField(DurationSchema, { number: 14, type: "message" }) }),
-    S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+    /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
 }), { name: "WellKnown" }), "example.v1.WellKnown");
 
@@ -490,7 +490,7 @@ export type Node = {
   payload:
     | { case: "leaf"; value: number }
     | { case: "link"; value: Node }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 };
 
 export const NodeSchema = S.recursive<Node>("Node", (NodeSchema) =>
@@ -501,7 +501,7 @@ export const NodeSchema = S.recursive<Node>("Node", (NodeSchema) =>
     payload: S.union([
       S.schema({ case: "leaf", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
       S.schema({ case: "link", value: S.protobufField(NodeSchema, { number: 5, type: "message" }) }),
-      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+      /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
   }), "example.v1.Node"),
 );
@@ -599,7 +599,7 @@ export type GraphB = {
   pick:
     | { case: "c"; value: GraphC }
     | { case: "none"; value: number }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 };
 
 /**
@@ -638,7 +638,7 @@ export const GraphASchema = S.recursive<GraphA>("GraphA", (GraphASchema) => {
       pick: S.union([
         S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
         S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-        S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+        /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
       ]),
     }), "example.v1.GraphB");
   });
@@ -671,7 +671,7 @@ export const GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) => {
     pick: S.union([
       S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
       S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+      /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
   }), "example.v1.GraphB");
 });
@@ -686,7 +686,7 @@ export const GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) => {
         pick: S.union([
           S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
           S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-          S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+          /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
         ]),
       }), "example.v1.GraphB"),
     );

@@ -166,7 +166,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const oneofType = (oneof: Oneof, indent: string): string =>
     [
       ...oneof.fields.map((field) => `${indent}  | { case: ${JSON.stringify(field.localName)}; value: ${elementType(field, field.element)} }`),
-      `${indent}  | { case?: undefined; value?: undefined }`,
+      `${indent}  | { case: undefined; value?: undefined }`,
     ].join("\n");
 
   const oneofSchema = (oneof: Oneof, scope: Group | undefined, indent: string): string => {
@@ -174,7 +174,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       const element = elementSchema(field, field.element, scope);
       return `${indent}  ${S}.schema({ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, wireType(field, field.element))} }),`;
     });
-    arms.push(`${indent}  ${S}.schema({ case: undefined, value: ${S}.optional(${S}.schema(undefined)) }),`);
+    arms.push(`${indent}  /* @__PURE__ */ ${S}.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: ${S}.optional(${S}.schema(undefined)) }),`);
     return `${S}.union([\n${arms.join("\n")}\n${indent}])`;
   };
 

@@ -451,7 +451,7 @@ export type User = {
   contact:
     | { case: "email"; value: string }
     | { case: "phone"; value: string }
-    | { case?: undefined; value?: undefined };
+    | { case: undefined; value?: undefined };
 };
 
 export const UserSchema = S.meta(S.schemaOf<User>()({ /* one S.protobufField per field */ }), { name: "User" });
@@ -496,8 +496,6 @@ What differs from protobuf-es:
 - Enums are closed: `PhoneType` is the union of its values, where protobuf-es
   adds `UnknownEnum`. A number the enum doesn't list still decodes as that
   number, and fails a `parse`.
-- A oneof's unset arm types as `{ case?: undefined }`; protobuf-es writes
-  `{ case: undefined }`. Its values are the same.
 - A map keyed by a 32-bit integer is `{ [key: string]: V }`, not
   `{ [key: number]: V }`.
 
