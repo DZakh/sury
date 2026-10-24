@@ -411,10 +411,13 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => link
 // the slots that place no coder. A reading is exempt with `B_neverSlot`:
 // neither places a coder, so neither claims the target's result - the very case
 // a reading exists for is a target that converts on its own.
-// A coder's direction links to what the target's output claims: the target's
-// own conversions, a field's coder among them, would run again over a value
-// already past them. The other direction, "auto" or a reading, still owes the
-// value those conversions, so it runs them itself on its way across the view.
+// A coder's result is what the target's output claims (its view): the
+// target's own conversions, a field's coder among them, would run again over a
+// value already past them. An encode coder is handed the target's output, so
+// the link is to the view, and a decode with no coder runs the plain link's own
+// step into the target from where the seam's stands. A decode coder beside an
+// encode with none keeps the link to the target, which that encode converts
+// through, and checks its result against the view.
 const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Slot): Internal => {
   const view =
     (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
@@ -422,34 +425,29 @@ const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Sl
         ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
         : B_outputView(target)
       : target;
-  const through = view !== target;
-  return codecTo(
-    schema,
-    view,
-    through && typeof decode !== functionTag ? seamThrough(schema, target, decode as boolean | undefined) : decode,
-    through && typeof encode !== functionTag ? seamThrough(schema, target, U, true) : encode,
-  );
+  if (view === target) return codecTo(schema, target, decode, encode);
+  if (typeof encode === functionTag) {
+    return codecTo(schema, view, typeof decode === functionTag ? decode : seamStep(seamPlain(schema, target, decode as boolean | undefined)), encode);
+  }
+  return codecTo(schema, target, seamStep((input) => B_refine((decode as Builder)(input), view, U, view)), encode);
 };
 
-// The direction with no coder runs the plain link from where the seam's stands,
-// node for node beside the seam's own, and rejoins the seam where the plain link
-// ends: the operation goes on from there. Decoded, it steps into the target, and
-// the view after it is what the value now is. Encoded, it runs the target's
-// encode and the whole way back to the source, whose reading is the one the
-// plain link derives from the target, which the view's arms no longer show.
-const seamThrough = (schema: Internal, target: Internal, reading: boolean | undefined, encode?: boolean): Builder =>
-  (input: Val) => {
-    let plain = codecTo(schema, target, reading);
-    if (encode) plain = reverse(plain);
-    else while (plain.to!.to) plain = plain.to!;
-    let at = input.e;
-    for (let node = plain; node.to; node = node.to) at = at.to!;
-    const from = B_refine(input, plain, U, plain);
-    from.io = !encode;
-    const through = B_refine(parse(from), U, U, at);
-    through.io = true;
-    return through;
-  };
+// The plain link's step into the target, from where the seam's link stands.
+const seamPlain = (schema: Internal, target: Internal, reading: boolean | undefined) => (input: Val): Val => {
+  let into = codecTo(schema, target, reading);
+  while (into.to!.to) into = into.to!;
+  const from = B_refine(input, into, U, into);
+  from.io = true;
+  return from;
+};
+
+// Runs `step` to its end, and hands the value on as the seam link's next node's
+// output, which it now is.
+const seamStep = (step: (input: Val) => Val): Builder => (input: Val) => {
+  const through = B_refine(parse(step(input)), U, U, input.e.to);
+  through.io = true;
+  return through;
+};
 
 // The ReScript `~custom` adapter's seam: its coders are typed against the
 // target's output, so there is no public-JS spelling of it.

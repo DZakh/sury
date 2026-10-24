@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.name;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return "{\"name\":"+e[4](v0)+"}"}catch(v2){e[6](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.name;typeof v0==="string"||e[4](v0);let v1;try{v1=e[0](v0)}catch(x){e[1](x)}typeof v1==="string"||e[3](v1);return "{\"name\":"+e[2](v1)+"}"}catch(v2){e[6](v2)}}
     examples:
       pack-converts-the-target:
         input: '{ name: "x!" }'
@@ -40,7 +40,7 @@ operations:
         input: '"{\"name\":\"x!\"}"'
         output: '{ name: "x!" }'
   assert:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.name;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return void 0}catch(v2){e[6](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.name;typeof v0==="string"||e[4](v0);let v1;try{v1=e[0](v0)}catch(x){e[1](x)}typeof v1==="string"||e[3](v1);return void 0}catch(v2){e[6](v2)}}
     examples:
       asserts-and-drops:
         input: '{ name: "x!" }'
