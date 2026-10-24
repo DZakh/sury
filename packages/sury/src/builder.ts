@@ -1048,11 +1048,12 @@ export const B_scope = (val: Val): Val => {
 }
 
 // A ref met while its own definer still runs has no definition to ask yet, and
-// is viewed on demand like one that converts.
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
 const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
   !seen.has(schema) &&
   (seen.add(schema),
-  !!(schema.to || schema.parser || schema.serializer || (schema.definition && !schema.definition())) ||
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
     [
       schema.definition?.(),
       schema.additionalItems,
@@ -1069,42 +1070,47 @@ const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
 
 // A view claims exactly its source's output, so whoever names definitions
 // (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
-// output is described, but only through a reverse already built.
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
 export const B_viewSource = (def: Internal): Internal => {
   const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
-  let source = reversed ? def.r! : def;
-  while (viewSources.has(source)) source = viewSources.get(source)!;
-  return reversed ? source.r! : source;
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
 };
 
 // What a schema's output claims, as a schema of its own: every node at the end
 // of its chain, children likewise, its refinements kept and its conversions
 // dropped. A value already converted is checked against it without converting
-// it again. The schema itself where nothing in it converts.
+// it again.
 export const B_outputView = (schema: Internal): Internal => {
-  if (!B_converts(schema, new Set())) return schema;
   let last = schema;
   while (last.to) last = last.to;
-  const view = copySchema(last);
-  delete view.parser;
-  delete view.serializer;
-  const viewDict = (dict: Record<string, Internal>): Record<string, Internal> => {
-    const views: Record<string, Internal> = Object.create(null);
-    for (const key in dict) views[key] = B_outputView(dict[key]!);
-    return views;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = B_outputView(child);
+    if (view !== child) converts = true;
+    return view;
   };
-  if (view.properties) view.properties = viewDict(view.properties);
-  if (view.items) view.items = view.items.map(B_outputView);
-  if (typeof view.additionalItems === "object") view.additionalItems = B_outputView(view.additionalItems);
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
   if (view.anyOf) {
-    view.anyOf = view.anyOf.map(B_outputView);
+    view.anyOf = view.anyOf.map(viewOf);
     view.has = {};
     for (const member of view.anyOf) setHas(view.has, member);
   }
   const definition = last.definition;
-  // Answered on demand: viewing the definition now would view the refs inside
-  // it, and through them the definition again.
   if (definition) {
+    const def = definition();
+    if (def === U || B_converts(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
     view.definition = () => {
       const def = definition();
       if (def === U) return def;
@@ -1119,7 +1125,7 @@ export const B_outputView = (schema: Internal): Internal => {
       return defView;
     };
   }
-  return view;
+  return converts ? view : schema;
 };
 
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in
@@ -1316,6 +1322,7 @@ export const noopOperation = (i: unknown): unknown => i;
 // (`B_record`). Hung off `owner` rather than chained through `prev`, so each
 // slot's merge emits only its own code; `location` is where the value lands in
 // the output, which is what a failure in it names.
+// Canonical Val field order (see B_operationArg).
 export const B_slot = (owner: Val, i: string, s: Internal, e: Internal, location: Path): Val => ({
   b: U,
   p: owner,
