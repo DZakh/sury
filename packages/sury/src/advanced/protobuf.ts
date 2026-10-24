@@ -2253,7 +2253,8 @@ const tagLoop = (cases: string, miss: string, ranges?: boolean): string => {
 
 // An Any's reader: its type URL and the range of its value, then the member
 // the type names, read from that range - or from the whole Any again, for the
-// catch-all. `o` and `l` are where the Any is.
+// catch-all. `o` and `l` are where the Any is, `z` the copies after it, which
+// the loop's own walk through them uses up.
 const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeof readParts> => {
   const members = msg.fields.slice(2);
   const listed = members.filter((field) => field.name !== "google.protobuf.Any");
@@ -2262,7 +2263,7 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
   const read = (field: Field): string => {
     const idx = msg.fields.indexOf(field);
     return `t=${field.number * 8 + 2};c2=${field.number};${
-      field === other ? `r.pos=o;r.limit=l;f${idx}=${fns.get(field.message!)}(r,d+1,x)` : `a<0?r.pos=r.limit:(r.pos=a,r.limit=b);f${idx}=${fns.get(field.message!)}(r,d+1)`
+      field === other ? `r.pos=o;r.limit=l;f${idx}=${fns.get(field.message!)}(r,d+1,z)` : `a<0?r.pos=r.limit:(r.pos=a,r.limit=b);f${idx}=${fns.get(field.message!)}(r,d+1)`
     }`;
   };
   const pick =
@@ -2271,7 +2272,7 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
   const cases = `case 10:n=r.string();continue;case 18:p=r.sub();a=r.pos;b=r.limit;r.pos=r.limit;r.limit=p;continue;`;
   return {
     locals: [["c2", "0"], ...members.map((_, idx) => [`f${idx + 2}`, "void 0"] as [string, string])],
-    temps: ["o=r.pos", "l=r.limit", 'n=""', "a=-1", "b=0"],
+    temps: ["o=r.pos", "l=r.limit", ...(other !== U ? ["z=x"] : []), 'n=""', "a=-1", "b=0"],
     frame: "",
     // The type URL read, a failure picking the member is no field's.
     loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`,

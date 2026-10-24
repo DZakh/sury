@@ -378,10 +378,10 @@ const Payload = S.protobufAny.with(S.to, S.union([
   (`codec-protobuf-any-untagged`, `codec-protobuf-any-same-tag`,
   `codec-protobuf-any-same-type`). A catch-all holding a type another member
   names fails the encode, since it would decode as that member.
-- **Copies of one Any merge as the message it is.** A second copy's type URL
-  or value replaces the first's, so a copy naming a new type over the first's
-  value reads that value as the new type, as protobuf-es does
-  (`codec-protobuf-any` `second-copy-*`).
+- **Copies of one Any merge as the message it is.** A later copy's type URL
+  or value replaces the one before, so a copy naming a new type over the first's
+  value reads that value as the new type, the catch-all's included, as
+  protobuf-es does (`codec-protobuf-any` `second-copy-*`, `third-copy-*`).
 - **Anything else is the Any's own object.** `S.parseOrThrow(S.protobufAny)`
   validates `{ typeUrl, value }`, and a target holding no named message converts
   field by field (`codec-protobuf-any-json-string`).
