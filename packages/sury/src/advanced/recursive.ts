@@ -3,6 +3,7 @@ import {
   type Builder,
   defsPath,
   type Internal,
+  panic,
   pathExpr,
   refTag,
   U,
@@ -166,6 +167,11 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   };
   const self = ref();
   def = fn(self);
+  for (let named: Internal | undefined = def; named?.type === refTag; named = named.definition!()) {
+    if (named.definition === definition) {
+      return panic(`${name} is defined as itself. Build a schema around the reference, such as S.array(self)`);
+    }
+  }
   if (def.name) self.name = def.name;
   const schema = ref();
   // Null prototype: the caller names the definition, so one named `__proto__`

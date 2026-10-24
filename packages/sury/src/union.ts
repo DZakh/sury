@@ -34,6 +34,7 @@ import {
   nullTag,
   numberTag,
   objectTag,
+  refDefinition,
   refTag,
   panic,
   type Path,
@@ -347,14 +348,6 @@ const unionRaw = (schema: Internal): number => {
     mask |= flag & 1 ? ~0 : flag;
   }
   return mask;
-};
-
-// What a ref names past the refs a definition can itself be (`S.recursive`
-// directly inside another's definer): `undefined` while a definer still runs,
-// and still a ref for one that names only itself.
-const refDefinition = (ref: Internal, steps = 0): Internal | undefined => {
-  const def = ref.definition!();
-  return def?.type === refTag && steps < 50 ? refDefinition(def, steps + 1) : def;
 };
 
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
