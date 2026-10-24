@@ -505,8 +505,9 @@ What differs from protobuf-es:
   `{ [key: number]: V }`.
 
 proto2, editions, extensions and groups are refused, naming the file or
-field, and services are skipped. Every generated schema is an ordinary Sury schema: validate with it,
-convert it to JSON Schema, or print it back with `S.toProtoOrThrow`.
+field, and services are skipped. Every generated schema is an ordinary Sury
+schema: validate with it, convert it to JSON Schema, or print it back with
+`S.toProtoOrThrow`.
 
 ## Performance and compatibility
 

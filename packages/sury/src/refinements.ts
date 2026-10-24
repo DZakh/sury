@@ -1491,11 +1491,11 @@ export const cidrv6: Internal = /* @__PURE__ */ stringFormat(
 );
 
 // `S.uint8Array` - bytes. It lives in the core because `S.protobufAny` builds
-// on it. Both readings of a bytes link live here rather than
-// on the formats they meet (CONTENT_CODEC_SPEC.md): a value position stores
-// bytes as base64, and a plain string target is the text those bytes spell.
-// `S.jsonString` therefore never names a base64 helper, and a bundle that never
-// mentions bytes never ships one.
+// on it. Both readings of a bytes link live here rather than on the formats
+// they meet (CONTENT_CODEC_SPEC.md): a value position stores bytes as base64,
+// and a plain string target is the text those bytes spell. `S.jsonString`
+// therefore never names a base64 helper, and a bundle that never mentions bytes
+// never ships one.
 
 // The decoder names `uint8Array` rather than the `init` callback's `s`: it is
 // built before the schema exists, and only ever runs after.
