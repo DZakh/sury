@@ -764,7 +764,6 @@ message Any {
   bytes value = 2;
 }
 `);
-  // A name Google doesn't declare has no file to import it from.
   const unknown = S.protobufTypeName(S.schema({ a: S.string.with(S.protobufField, 1) }), "google.protobuf.Nope");
   t.expect(() => S.toProtoOrThrow(S.schema({ x: S.optional(unknown).with(S.protobufField, 1) }))).toThrow(
     "[Sury] S.toProtoOrThrow: google.protobuf.Nope is no well-known type, so there is no file to import it from",

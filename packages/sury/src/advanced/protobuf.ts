@@ -86,8 +86,7 @@ type Field = {
   // with the others: the name it prints as, and the value it declares.
   name?: string;
   armValue?: Internal;
-  // A 64-bit field held as its decimal string, whose zero is "0".
-  text?: boolean;
+  int64String?: boolean;
   fromWire: Internal;
   held: Internal;
   // The key path to the value. A oneof member's starts with the oneof's key,
@@ -118,7 +117,6 @@ type Message = {
   // The name `S.recursive` gave the message, which is what the printer calls it
   // and what an error about it names.
   name?: string;
-  // Set once a field under it refers back to it.
   recursive?: true;
   // The Google type it is, printed as an import rather than declared.
   wellKnown?: WellKnownType;
@@ -265,7 +263,7 @@ const unwrapOptional = (schema: Internal): [Internal, boolean, Internal | undefi
   return [values.length === 1 ? values[0]! : anyOf(values), true, absent];
 };
 
-// A union as a type descriptor only: the raw and normalized sides share it,
+// A union as a type descriptor only: a field's `fromWire` and `held` share it,
 // so nothing ever converts through it, and the union compiler stays out of
 // the bundle.
 const anyOf = (members: Internal[]): Internal => {
@@ -332,8 +330,8 @@ const optionalMessageEncoder: Encoder = (input, target) => {
   return output;
 };
 
-// A present nested object converts field-wise into the (non-optional)
-// normalized target and an absent one stays absent. A real `T | undefined`
+// A present nested object converts field-wise into the (non-optional) `held`
+// schema and an absent one stays absent. A real `T | undefined`
 // union on either side would make the pipeline re-validate the whole nested
 // object, or refuse the object-to-union conversion outright.
 const optionalMessage = (raw: Internal): Internal => {
@@ -347,9 +345,9 @@ const optionalMessage = (raw: Internal): Internal => {
 };
 
 // `S.optional(T, default)`: the raw side is `T | undefined` whose encoder
-// parses a present value into `present` and an absent one through the
-// union's default arm, so the decoded value is never re-validated and an
-// enum stays open.
+// parses a present value into `present`, or keeps it as read when `present` is
+// unset, and an absent one through the union's default arm, so the decoded
+// value is never re-validated and an enum stays open.
 const defaultedOptional = (raw: Internal, present: Internal | undefined, absent: Internal): Internal => {
   const mut = optionalMessage(raw);
   mut.encoder = (input, target) => {
@@ -470,12 +468,11 @@ const tagAmong = (members: Internal[], keys: (string | undefined)[]): string | u
   });
 };
 
-// The runtime type a bare arm's value has.
-const typeOf = (schema: Internal, message: boolean): string | undefined => {
+const bareArmType = (schema: Internal, message: boolean): string | undefined => {
   const output = getOutputSchema(schema);
   const type = output.type;
   if (type === anyOfTag) {
-    const types = new Set(output.anyOf!.filter((member) => member.type !== undefinedTag).map((member) => typeOf(member, message)));
+    const types = new Set(output.anyOf!.filter((member) => member.type !== undefinedTag).map((member) => bareArmType(member, message)));
     return types.size === 1 ? [...types][0] : U;
   }
   return type === stringTag || type === numberTag || type === bigintTag || type === booleanTag || type === arrayTag || type === objectTag ? type
@@ -494,7 +491,7 @@ const tellApart = (members: Internal[], keys: (string | undefined)[], messages?:
   const told = (tags: (string | undefined)[]): Told => ({ tags, literals: tags.map((tag, idx) => (tag === U ? U : literalOf(entriesOf(members[idx]!)![tag]))) });
   const tag = tagAmong(members, keys);
   if (tag !== U) return told(keys.map(() => tag));
-  const types = members.map((member, idx) => (idx < keys.length && keys[idx] === U ? typeOf(member, !!messages?.[idx]) : entriesOf(member) && member.type));
+  const types = members.map((member, idx) => (idx < keys.length && keys[idx] === U ? bareArmType(member, !!messages?.[idx]) : entriesOf(member) && member.type));
   const last = members[keys.length];
   const bare = last !== U && entriesOf(last) === U ? literalOf(last) : U;
   const tags: (string | undefined)[] = [];
@@ -723,7 +720,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           wire: wireType(type),
           name: arm.name,
           armValue: arm.value,
-          text: armShape.type === stringTag && type.includes("64"),
+          int64String: armShape.type === stringTag && type.includes("64"),
           fromWire: raw,
           held: read,
           path: arm.key === U ? [key] : [key, arm.key],
@@ -789,7 +786,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       map,
       oneof: metadata.oneof,
       wire: wireType(type),
-      text: shape.type === stringTag && type.includes("64"),
+      int64String: shape.type === stringTag && type.includes("64"),
       fromWire: raw,
       held: read,
       path: [key],
@@ -1789,7 +1786,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
   return msg;
 };
 
-// `lists` are the message's repeated fields in field order, as `decodeFnSource`
+// `lists` are the message's repeated fields in field order, as `readParts`
 // passes them, and the length a list has reached is the index of the element
 // being read: whole elements go in before a failure.
 //
@@ -2017,7 +2014,7 @@ const keyToWire = (type: ProtobufType, enc: Encoding): string =>
 // does, and a value out of range still fails at the field.
 const fieldLive = (field: Field, numeric: boolean): string =>
   field.optional ? "v!=null"
-  : field.text ? "v&&v!=0"
+  : field.int64String ? "v&&v!=0"
   : field.type === "bytes" ? "v.length"
   : field.type === "float" || field.type === "double" ? "v||v!==v||Object.is(v,-0)"
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
@@ -2069,7 +2066,7 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       const keyPart = `${keyToWire(keyType, enc)}${writeTag(8 + wireType(keyType))};${writeCall(keyType, "k", enc, 2)}`;
       const valuePart = field.type === "message"
         ? `${writeTag(16 + 2)};g=w.begin();${writer(field)}(w,c);w.end(g)`
-        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc, field.text ? 3 : 0)}`;
+        : `${writeTag(16 + field.wire)};${writeCall(field.type, "c", enc, field.int64String ? 3 : 0)}`;
       body.push(`${at}v=${src};a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];${entryTag};h=w.begin();${keyPart};${valuePart};w.end(h)}`);
     } else if (field.repeated) {
       let loop: string;
@@ -2078,19 +2075,19 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
         const fixed = fixedKind(field.type);
         const packed = kind !== U ? `w.varints(v,${kind});`
           : fixed !== U ? `w.fixeds(v,${fixed});`
-          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", enc, field.text ? 3 : 0)}}`;
+          : `j=0;while(j<n){${writeCall(field.type, "v[j++]", enc, field.int64String ? 3 : 0)}}`;
         loop = `${writeTag(field.number * 8 + 2)};h=w.begin();${packed}w.end(h)`;
       } else if (field.type === "message") {
         loop = `j=0;while(j<n){${writeTag(tag)};h=w.begin();${writer(field)}(w,v[j++]);w.end(h)}`;
       } else {
-        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", enc, field.text ? 3 : 0)}}`;
+        loop = `j=0;while(j<n){${writeTag(tag)};${writeCall(field.type, "v[j++]", enc, field.int64String ? 3 : 0)}}`;
       }
       body.push(`${at}v=${src};n=v.length;if(n){${loop}}`);
     } else if (field.type === "message") {
       // `null` is a value to a well-known type: JSON's own.
       body.push(`${at}v=${src};if(${field.message!.codec !== U ? "v!==void 0" : "v!=null"}){${oneof}${writeTag(tag)};h=w.begin();${writer(field)}(w,v);w.end(h)}`);
     } else {
-      body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc, field.text ? 3 : numeric ? 0 : 1)}}`);
+      body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc, field.int64String ? 3 : numeric ? 0 : 1)}}`);
     }
   }
   return (bits.size ? "o=0;" : "") + body.join(";");
@@ -2601,7 +2598,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       // whole once for every level it nests at. A bare one is told from its
       // siblings by its type alone (`tellApart`), so one held as anything but
       // an object, a Timestamp's Date, keeps its own.
-      const held = field.type !== "message" ? unchecked(getOutputSchema(field.armValue!)) : at === U && typeOf(arm, true) !== objectTag ? arm : copySchema(opaque);
+      const held = field.type !== "message" ? unchecked(getOutputSchema(field.armValue!)) : at === U && bareArmType(arm, true) !== objectTag ? arm : copySchema(opaque);
       const mut = at === U ? held : arm;
       if (at !== U) {
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
@@ -2754,7 +2751,6 @@ const anyUnpack: Encoder = (input, target) => {
   const name = B_varWithoutAllocation(g);
   const out = B_varWithoutAllocation(g);
   let code = `${B_let(g, name, field("typeUrl"))}${name}=${name}.slice(${name}.lastIndexOf("/")+1);${B_let(g, out)}`;
-  // Each arm as its code and the value it lands, a promise where it is async.
   const convert = (arm: AnyArm, read: string, source: Internal): [code: string, value: string, async: boolean] => {
     if (source === protobuf && arm[1].type === refTag) {
       const callIn = B_scope(input);
@@ -2779,7 +2775,6 @@ const anyUnpack: Encoder = (input, target) => {
   };
   const converted = arms.map((arm) => convert(arm, field("value"), protobuf));
   const rest = other !== U ? convert(other, input.i, protobufAny) : U;
-  // One async arm makes the whole value a promise, the sync ones resolved.
   const async = converted.some((arm) => arm[2]) || !!rest?.[2];
   const land = (arm: AnyArm, [code, value, isAsync]: [string, string, boolean]): string =>
     `${code}${out}=${
@@ -2798,7 +2793,6 @@ const anyUnpack: Encoder = (input, target) => {
   return B_markOutput(output, input);
 };
 
-// The union whose conversion leads into this val's target, if one does.
 const convertingUnion = (input: Val): Internal | undefined => {
   const stack: (Val | undefined)[] = [input];
   const seen = new Set<Val>();
@@ -2998,7 +2992,6 @@ const messageKey = (proto: Proto, properties: object, name: string | undefined):
   return `${id}:${name}`;
 };
 
-// The file Google declares each of its types in, by the top-level type's name.
 const googleFiles: Record<string, string> = {
   Any: "any",
   Api: "api",

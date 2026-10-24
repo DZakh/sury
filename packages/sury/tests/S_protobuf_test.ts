@@ -891,9 +891,6 @@ message Event {
   );
 });
 
-// The schemas sury/protobuf/wkt exports carry Google's full name, so a field
-// holding one in protobuf-es's shape prints as an import, and puts on the wire
-// what the S.json and unboxed spellings do.
 test("A well-known type from sury/protobuf/wkt is Google's own", async (t) => {
   const wkt = await import("../src/protobuf/wkt/index");
   const Holder = S.schema({
@@ -930,8 +927,7 @@ message Holder {
 `);
 });
 
-// The spec format runs neither isOutput nor assertOutput, and a payload nested
-// 150 Anys deep is no literal to write in one.
+// The spec format runs neither isOutput nor assertOutput.
 test("S.protobufAny checks and asserts its unpacked value", (t) => {
   const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
   const Payload = S.protobufAny.with(S.to, S.union([S.schema({ type: "user", value: User }), S.schema({ type: "other", value: S.protobufAny })]));
@@ -941,6 +937,7 @@ test("S.protobufAny checks and asserts its unpacked value", (t) => {
   t.expect(() => S.assertOutputOrThrow(Payload)(other)).not.toThrow();
 });
 
+// A payload nested 150 Anys deep is no literal to write in a spec.
 test("an Any holding its own message counts toward the nesting limit", (t) => {
   const Node: S.Schema<any, any> = S.recursive("Node", (self) =>
     S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node"),
