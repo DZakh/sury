@@ -697,6 +697,28 @@ message N {
   t.expect(S.toProtoOrThrow(flagged, { name: "B" })).toContain("  oneof c {\n    string c_2 = 2;\n    int32 c_3 = 3;\n  }");
 });
 
+test("toProtoOrThrow names a oneof member after the case telling it from the members of its own type", (t) => {
+  const schema = S.schema({
+    c: S.optional(
+      S.union([
+        S.protobufField(S.string, 1),
+        S.schema({ case: "a", value: S.protobufField(S.int32, 2) }),
+        S.schema({ case: "b", value: S.protobufField(S.boolean, 3) }),
+      ]),
+    ),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M" })).toBe(`syntax = "proto3";
+
+message M {
+  oneof c {
+    string c_1 = 1;
+    int32 a = 2;
+    bool b = 3;
+  }
+}
+`);
+});
+
 test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
   const schema = S.schema({
     count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),

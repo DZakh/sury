@@ -439,7 +439,9 @@ const entriesOf = (member: Internal): Record<string, Internal> | undefined =>
   : member.type === arrayTag && member.items !== U ? ({ ...member.items } as {})
   : U;
 
-type Told = { tag?: string; literals: string[] };
+// Per arm, the property that tells it from the members of its own type, and
+// that property's literal.
+type Told = { tags: (string | undefined)[]; literals: unknown[] };
 
 // `keys` are the arms', which come first in `members`.
 const tagAmong = (members: Internal[], keys: (string | undefined)[]): string | undefined => {
@@ -487,18 +489,21 @@ const typeOf = (schema: Internal, message: boolean): string | undefined => {
 // `members`; a bare literal after them, for no member set, can't be of a bare
 // arm's type. `messages` says which bare arm holds a message.
 const tellApart = (members: Internal[], keys: (string | undefined)[], messages?: boolean[]): Told | undefined => {
+  const told = (tags: (string | undefined)[]): Told => ({ tags, literals: tags.map((tag, idx) => (tag === U ? U : literalOf(entriesOf(members[idx]!)![tag]))) });
   const tag = tagAmong(members, keys);
-  if (tag !== U) return { tag, literals: keys.map((_, idx) => literalSource(literalOf(entriesOf(members[idx]!)![tag]))) };
+  if (tag !== U) return told(keys.map(() => tag));
   const types = members.map((member, idx) => (idx < keys.length && keys[idx] === U ? typeOf(member, !!messages?.[idx]) : entriesOf(member) && member.type));
   const last = members[keys.length];
   const bare = last !== U && entriesOf(last) === U ? literalOf(last) : U;
+  const tags: (string | undefined)[] = [];
   for (let idx = 0; idx < keys.length; idx++) {
     const type = types[idx];
     const same = (_: unknown, other: number) => types[other] === type;
     if (type === U || (keys[idx] === U && bare !== U && typeof bare === type)) return U;
-    if (members.filter(same).length > 1 && tagAmong(members.filter(same), keys.filter(same)) === U) return U;
+    const group = members.filter(same);
+    if (group.length > 1 && (tags[idx] = tagAmong(group, keys.filter(same))) === U) return U;
   }
-  return { literals: [] };
+  return told(tags);
 };
 
 // A oneof is a union of arms, each holding one numbered value: an object or a
@@ -565,15 +570,15 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
   const members = arms.map((arm) => arm.member);
   if (unset !== U) members.push(unset);
-  if ((arms.length > 1 || unset !== U) && tellApart(members, arms.map((arm) => arm.key), arms.map((arm) => arm.metadata.type === "message")) === U) {
+  const told = tellApart(members, arms.map((arm) => arm.key), arms.map((arm) => arm.metadata.type === "message"));
+  if ((arms.length > 1 || unset !== U) && told === U) {
     return panic(`S.protobuf: oneof "${key}" can't tell its arms apart. Give each a literal, such as case: "email", beside the value it holds`);
   }
-  const tag = tagAmong(members, arms.map((arm) => arm.key));
-  for (const arm of arms) {
-    const literal = tag === U ? U : literalOf(entriesOf(arm.member)![tag]);
+  arms.forEach((arm, idx) => {
+    const literal = told?.literals[idx];
     // Arms told apart by a number or a boolean share their value's key.
     arm.name = typeof literal === "string" ? literal : literal !== U ? `${key}_${arm.metadata.number}` : arm.name;
-  }
+  });
   return { arms, unset, optional, all };
 };
 
@@ -1892,8 +1897,10 @@ const writeTag = (tag: number): string =>
 const writeVarint32 = (expr: string): string =>
   `${expr}<128&&w.pos<w.buf.length?w.buf[w.pos++]=${expr}:w.varint32(${expr})`;
 
-const ownerOf = (told: Told | undefined, idx: number): string =>
-  told?.tag !== U ? `${/^\d+$/.test(told.tag) ? `[${told.tag}]` : told.tag}: ${told.literals[idx]}` : "another member";
+const ownerOf = (told: Told | undefined, idx: number): string => {
+  const tag = told?.tags[idx];
+  return tag !== U ? `${/^\d+$/.test(tag) ? `[${tag}]` : tag}: ${literalSource(told!.literals[idx])}` : "another member";
+};
 
 // The member set, written as the Any holding it: its type URL, then its
 // message, left out when empty as protobuf-es leaves it. A type another member
