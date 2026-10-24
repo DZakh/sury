@@ -388,6 +388,8 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
 // Member low bits record Sury throws (1), foreign throws (2), and opacity (4).
 // Case bit 1 is refined from emitted-body throw tracking, never inferred from
 // the semantic Sury bit. Falls (8) and direct dispatch (16) are shared by plan.
+// Member bit 32: a nested union whose dispatch fuses into its case condition
+// (`unionHoists`).
 
 // Bits 1, 2 and 4 of `f` mean different things on a `UnionCase` than on a
 // `UnionGroup`, and are deliberately left as literals (naming them costs ~30
@@ -563,6 +565,21 @@ const unionInvalid = (
 
 // ── Normalize → Analyze → Plan → Emit ────────────────────────────────────────
 
+// A nested union of plain scalar arms read from an unknown value: each arm's
+// case is its narrow alone, so the union's dispatch is one condition (unionEmit's
+// `pure`), which guards its case like any member's. Its own refinement runs past
+// that guard. Only scalars, 19518 = string | number | boolean | undefined | null
+// | bigint | NaN | symbol: anything else may emit a body that fails.
+const unionHoists = (schema: Internal): boolean =>
+  unionIsNoop(schema) &&
+  schema.anyOf!.every(
+    (arm) =>
+      !arm.refiner &&
+      !arm.inputRefiner &&
+      !arm.format &&
+      (arm.anyOf ? unionHoists(arm) : !!(tagFlags[arm.type]! & 19518)),
+  );
+
 const unionAnalyze = (
   sourceMask: number,
   flags: number,
@@ -671,7 +688,8 @@ const unionAnalyze = (
         (traits & 7) |
         (effect ? 1 : 0) |
         (sourceDeopt ? 4 : 0) |
-        ((!unknownSource && same) || (tag & (1 | 256 | 512 | 4096 | 32768)) ? 16 : 0),
+        ((!unknownSource && same) || (tag & (1 | 256 | 512 | 4096 | 32768)) ? 16 : 0) |
+        (unknownSource && s.type === anyOfTag && unionHoists(s) ? 32 : 0),
       p:
         (s.type === objectTag && nestedLoc in s.properties!) ||
         (broadObject && (tag & (128 | 8192))) ||
@@ -860,11 +878,11 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   }
 
   // A ref to a union has no narrow to guard its case, and neither has a nested
-  // union the factory kept whole. Even one made only of checks guards itself
-  // only when its narrows hoist into the case condition, which its own fallback
-  // (a refined arm beside a plain one) or a converted value in front of it
-  // prevents, and the plan can't tell which. Unguarded, once no later group
-  // shares a type with it, it stops falling through and would shadow them all.
+  // union the factory kept whole, unless its dispatch fuses into the case
+  // condition (member bit 32): its own fallback (a refined arm beside a plain
+  // one) or a converted value in front of it prevents that. Unguarded, once no
+  // later group shares a type with it, it stops falling through and would
+  // shadow them all.
   // It runs after the groups it shares no type with instead - order between
   // disjoint groups is unobservable - and before the first one it does share
   // a type with. It still falls, into that group or the union's own failure,
@@ -874,7 +892,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     const head = group.a[0]!;
     if (
       group.a[1] ||
-      !(head.n.type === refTag || head.n.type === anyOfTag) ||
+      !(head.n.type === refTag || (head.n.type === anyOfTag && !(head.f & 32))) ||
       group.m === ~0
     ) continue;
     group.f |= 8 | 2;
