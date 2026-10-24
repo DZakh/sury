@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, messageOf, isStruct, wktFiles, wrapperScalar } from "./shared";
+import { type Options, componentsOf, header, is64, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -12,15 +12,13 @@ const keywords = new Set([
 const capitalize = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1);
 const uncapitalize = (name: string): string => name.charAt(0).toLowerCase() + name.slice(1);
 
-// A lowercase identifier: a field, a type or a binding.
 const lowerIdent = (name: string): string => {
   let out = uncapitalize(name.replace(/\$/g, "_").replace(/[^A-Za-z0-9_]/g, "_"));
   if (/^[0-9]/.test(out)) out = `_${out}`;
   return keywords.has(out) ? `${out}_` : out;
 };
 
-// An uppercase identifier: a module or a constructor. SCREAMING_SNAKE becomes
-// PascalCase, as ReScript spells a variant.
+// SCREAMING_SNAKE becomes PascalCase, as ReScript spells a variant.
 const upperIdent = (name: string): string => {
   const clean = name.replace(/\$/g, "").replace(/[^A-Za-z0-9_]/g, "_");
   const pascal = /^[A-Z0-9_]+$/.test(clean)
@@ -33,7 +31,6 @@ const upperIdent = (name: string): string => {
 // two `user.proto` files in different directories would otherwise collide.
 export const fileModule = (file: File): string => `${capitalize(file.name.replace(/[^A-Za-z0-9]/g, "_"))}_pb`;
 
-// A record field per member, the protobuf-es property made a ReScript label.
 export const fieldNames = (message: Message): Map<Field | Oneof, string> => {
   const names = new Map<Field | Oneof, string>();
   const taken = new Set<string>();
@@ -71,8 +68,7 @@ type Scope = { bindings: Map<Message, string>; component?: Set<Message>; depth: 
 export type ResContext = {
   // How this file refers to Sury: `S.` in a consumer's file, nothing inside S.res.
   s: string;
-  // Where a well-known type another file declares lives.
-  wkt: (desc: Message | Enum) => string;
+  wellKnownModule: (desc: Message | Enum) => string;
   // The JS module each schema is an external from, instead of one built here.
   // An external is an unchecked cast, so every type is then spelled as the
   // value that module's schema holds: a oneof with no member set is
@@ -80,24 +76,19 @@ export type ResContext = {
   bind?: string;
 };
 
-// S.res's `Protobuf`: types only, each schema an external from
-// `sury/protobuf/wkt`, so only a module that names one imports them.
-export const wktModule = "S.Protobuf";
-
-export const consumerContext = (generating: Set<string>): ResContext => ({
+const consumerContext = (generating: Set<string>): ResContext => ({
   s: "S.",
-  wkt: (desc) => (wktFiles.has(desc.file.proto.name) && !generating.has(desc.file.proto.name) ? `${wktModule}.${moduleOf(desc)}` : ""),
+  wellKnownModule: (desc) => (wktImport(desc.file, generating) ? `S.Protobuf.${moduleOf(desc)}` : ""),
 });
 
-// The modules of a file: each enum and message a module holding its type `t`
-// and its `schema`. A recursive group's types are declared together first,
-// since a ReScript type can't refer to one declared after it.
+// A recursive group's types are declared together first, since a ReScript type
+// can't refer to one declared after it.
 export const resModules = (file: File, ctx: ResContext): { body: string; usesNumber: boolean } => {
   const S = ctx.s;
   let usesNumber = false;
   const ref = (desc: Message | Enum): string => {
     if (desc.file === file) return moduleOf(desc);
-    return ctx.wkt(desc) || `${fileModule(desc.file)}.${moduleOf(desc)}`;
+    return ctx.wellKnownModule(desc) || `${fileModule(desc.file)}.${moduleOf(desc)}`;
   };
   // Inside a recursive group, a type is its group name rather than `M.t`,
   // which isn't declared yet where the group is.
@@ -105,7 +96,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const typeRef = (desc: Message | Enum): string => groupNames.get(desc as Message) ?? `${ref(desc)}.t`;
 
   const scalarSchema = (scalar: Scalar, asString: boolean): string => {
-    if (asString && scalar.includes("64")) return `${S}string`;
+    if (asString && is64(scalar)) return `${S}string`;
     const name = scalarTypes[scalar][1];
     if (name === "number") {
       usesNumber = true;
@@ -115,7 +106,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   };
 
   const scalarType = (scalar: Scalar, asString: boolean): string => {
-    if (asString && scalar.includes("64")) return "string";
+    if (asString && is64(scalar)) return "string";
     const type = scalarTypes[scalar][0];
     return type.startsWith("S.") ? `${S}${type.slice(2)}` : type;
   };
@@ -148,9 +139,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const numbered = (field: Field, schema: string, type: string): string => {
     let args = `${field.number}, ~type_=${type}`;
     if (field.mapKey !== undefined) args += `, ~key=#${field.mapKey}`;
-    if (field.list && !field.packed && (field.element.kind === "enum" || (field.element.kind === "scalar" && field.element.scalar !== "string" && field.element.scalar !== "bytes"))) {
-      args += ", ~packed=false";
-    }
+    if (field.list && !field.packed && packable(field.element)) args += ", ~packed=false";
     return `${schema}->${S}protobufField(${args})`;
   };
 
@@ -180,12 +169,11 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return numbered(field, field.optional || field.element.kind === "message" ? `${S}option(${element})` : element, type);
   };
 
-  const oneofSchema = (message: Message, oneof: Oneof, scope: Scope, indent: string): string => {
+  const oneofSchema = (oneof: Oneof, scope: Scope, indent: string): string => {
     const arms = oneof.fields.map((field) => {
       const element = elementSchema(field, field.element, scope);
       return `${indent}    ${S}schema(s => ${upperIdent(field.localName)}({value: s.matches(${numbered(field, element, wireType(field, field.element))})})),`;
     });
-    void message;
     return `${S}option(\n${indent}  ${S}union([\n${arms.join("\n")}\n${indent}  ]),\n${indent})`;
   };
 
@@ -193,7 +181,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     const names = fieldNames(message);
     const lines = message.members.map((member) =>
       member.kind === "oneof"
-        ? `${indent}  ${names.get(member)}: s.matches(${oneofSchema(message, member, scope, `${indent}  `)}),`
+        ? `${indent}  ${names.get(member)}: s.matches(${oneofSchema(member, scope, `${indent}  `)}),`
         : `${indent}  ${names.get(member)}: s.matches(${fieldSchema(member, scope)}),`,
     );
     return `{\n${lines.join("\n")}\n${indent}}`;
@@ -225,8 +213,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const oneofDecl = (message: Message, oneof: Oneof, keyword: string, indent: string): string => {
     const constructors = oneof.fields.map((field) => upperIdent(field.localName));
     const arms = oneof.fields.map(
-      (field, idx) => `${indent}  | @as(${JSON.stringify(field.localName)}) ${constructors[idx]}({value: ${fieldType({ ...field, list: false, optional: false, element: field.element })
-        .replace(/^option<(.*)>$/, "$1")}})`,
+      (field, idx) => `${indent}  | @as(${JSON.stringify(field.localName)}) ${constructors[idx]}({value: ${elementType(field, field.element)}})`,
     );
     if (ctx.bind !== undefined) {
       let unset = "Unset";
@@ -305,16 +292,12 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   return { body: out.join("\n"), usesNumber };
 };
 
-// `S.float` refuses NaN, which a double or float holds as readily as any value.
-export const numberDecl = (s: string): string => `let number = ${s}union([${s}float, ${s}literal(Float.Constants.nan)])\n`;
+// Where a file's ReScript goes, without the extension: beside its .proto, named as its module.
+export const resPath = (file: File): string => `${file.name.slice(0, file.name.lastIndexOf("/") + 1)}${fileModule(file)}`;
 
 export const emitRes = (file: File, options: Options, generating: Set<string>, version: string): { name: string; content: string } => {
   const { body, usesNumber } = resModules(file, consumerContext(generating));
-  const params = options.raw ? ` with parameter "${options.raw}"` : "";
-  const header =
-    `// @generated by protoc-gen-sury${version ? ` v${version}` : ""}${params}\n` +
-    `// @generated from file ${file.proto.name} (${file.proto.package ? `package ${file.proto.package}, ` : ""}syntax proto3)\n` +
-    `@@warning("-30")\n\n`;
-  const dir = file.name.includes("/") ? `${file.name.slice(0, file.name.lastIndexOf("/"))}/` : "";
-  return { name: `${dir}${fileModule(file)}.res`, content: `${header}${usesNumber ? `${numberDecl("S.")}\n` : ""}${body}` };
+  // `S.float` refuses NaN, which a double or float holds as readily as any value.
+  const number = usesNumber ? "let number = S.union([S.float, S.literal(Float.Constants.nan)])\n\n" : "";
+  return { name: `${resPath(file)}.res`, content: `${header(file, options, version)}@@warning("-30")\n\n${number}${body}` };
 };

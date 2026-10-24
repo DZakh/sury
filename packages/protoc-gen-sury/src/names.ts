@@ -11,8 +11,6 @@ const reservedIdentifiers = new Set([
 
 const safeIdentifier = (name: string): string => (reservedIdentifiers.has(name) ? `${name}$` : name);
 
-// The type name without the package, nesting joined by `_`: `pkg.User.Address`
-// is `User_Address`.
 const identifier = (desc: Message | Enum): string => {
   const pkg = desc.file.proto.package;
   return desc.typeName.substring(pkg.length > 0 ? pkg.length + 1 : 0).replace(/\./g, "_");

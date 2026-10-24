@@ -174,14 +174,9 @@ jobs:
           pnpm protobuf:conformance | tee conformance.txt
           echo "### $(tail -n 1 conformance.txt)" >> "$GITHUB_STEP_SUMMARY"
 
-      # protoc-gen-sury: its goldens, the generated TypeScript and ReScript
-      # compiling, their types and values against protoc-gen-es's for the same
-      # files, S.toProtoOrThrow reprinting each message, and tree-shaking.
       - name: protoc-gen-sury
         run: pnpm protobuf:codegen
 
-      # The same conformance suite over the schema protoc-gen-sury generates
-      # from the pinned .proto, every field declared.
       - name: Protobuf conformance over the generated schema
         shell: bash
         run: |

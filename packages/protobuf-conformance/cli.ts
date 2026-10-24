@@ -230,7 +230,7 @@ if (drift.length) {
 
 if (cmd === "generated" || cmd === "update-generated") {
   // The same suite against protoc-gen-sury's output for the pinned .proto
-  // instead of testMessages.ts: every field declared, the five above included.
+  // instead of testMessages.ts.
   const proto = join(upstream(), "proto");
   const buf = join(PKG_DIR, "../protoc-gen-sury/node_modules/.bin/buf");
   writeFileSync(join(proto, "buf.yaml"), "version: v2\n");

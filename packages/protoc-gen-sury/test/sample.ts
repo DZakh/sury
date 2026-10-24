@@ -1,5 +1,5 @@
 // Values for a message, drawn from its descriptor in the shape both
-// protobuf-es and the generated schemas hold it: the one the parity gate hands
+// protobuf-es and the generated schemas hold it: the one the values gate hands
 // to each side. Seeded, so a finding reproduces.
 import type { Element, Field, Message, Scalar } from "../src/model";
 import { isStruct, messageOf, wrapperScalar } from "../src/shared";
@@ -44,10 +44,7 @@ const scalar = (rng: Rng, type: Scalar, asString: boolean): unknown => {
   return asString && typeof value === "bigint" ? `${value}` : value instanceof Uint8Array ? value.slice() : value;
 };
 
-const mapKey = (rng: Rng, type: Scalar): string => {
-  const value = pick(rng, pools[type]);
-  return typeof value === "boolean" ? `${value}` : `${value}`;
-};
+const mapKey = (rng: Rng, type: Scalar): string => `${pick(rng, pools[type])}`;
 
 const json = (rng: Rng, depth: number): unknown => {
   const kind = Math.floor(rng() * (depth > 2 ? 4 : 6));

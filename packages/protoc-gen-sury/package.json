@@ -8,8 +8,7 @@
     "protoc-gen-sury": "./bin/protoc-gen-sury.mjs"
   },
   "scripts": {
-    "test": "pnpm --filter=sury build:entry && tsx ./test/cli.ts",
-    "update": "pnpm --filter=sury build:entry && tsx ./test/cli.ts update"
+    "test": "pnpm --filter=sury build:entry && tsx ./test/cli.ts"
   },
   "dependencies": {
     "sury": "file:../sury"

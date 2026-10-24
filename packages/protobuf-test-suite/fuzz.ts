@@ -3,20 +3,24 @@
 // holding a oneof, a packed field beside an unpacked one of the same type, a
 // message that reaches itself two fields down.
 //
-// Four properties per graph. Every generated value goes through `runRoundTrip`,
-// the check each corpus round trip gets: Sury's bytes equal protobufjs's, both
-// decode back to the value, and protobuf-es reads Sury's bytes and the printed
-// `.proto` alike. Then one leaf of the value - a field, a list element, a map
-// value or a map key - is swapped for one its writer refuses, and the encode
-// must fail at it: the error's path leads there from the value, and its
-// reason shows what it found. Last the valid encoding is mutated - a byte
-// flipped, a truncation, a slice repeated or spliced in - and Sury and
-// protobuf-es each decode the result: they must agree on whether it is a
-// message, and where both say it is, re-encode it to the same bytes. The
-// graph's message is also held by an Any, through S.protobuf and through
-// S.protobufAny, against protobuf-es's anyPack and anyUnpack: packed to the
-// same bytes, read back whatever prefix its type URL carries, and an unlisted
-// type kept whole by the catch-all.
+// Every generated value goes through `runRoundTrip`, the check each corpus
+// round trip gets: Sury's bytes equal protobufjs's, both decode back to the
+// value, and protobuf-es reads Sury's bytes and the printed `.proto` alike.
+// Then one leaf of the value - a field, a list element, a map value or a map
+// key - is swapped for one its writer refuses, and the encode must fail at it:
+// the error's path leads there from the value, and its reason shows what it
+// found. Last the valid encoding is mutated - a byte flipped, a truncation, a
+// slice repeated or spliced in - and Sury and protobuf-es each decode the
+// result: they must agree on whether it is a message, and where both say it is,
+// re-encode it to the same bytes. The graph's message is also held by an Any,
+// through S.protobuf and through S.protobufAny, against protobuf-es's anyPack
+// and anyUnpack: packed to the same bytes, read back whatever prefix its type
+// URL carries, and an unlisted type kept whole by the catch-all. A graph's
+// oneof is also spelled as a union of arms, held to the same group spelled
+// flat, and its message refined where a schema can hold it (the root, a field,
+// a list item, a map value, a oneof arm): a refinement that passes leaves every
+// read as it was, one that refuses fails at the path it sits on. Each seed also
+// draws values for every well-known type, against protobuf-es's own.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
@@ -680,8 +684,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     return 1;
   }
   const flatDecode = S.decodeOrThrow(S.protobuf, suryMessage(fields)) as (bytes: Uint8Array) => Record<string, unknown>;
-  // The flat value, spelled as the union holds it.
-  const shape = (value: Record<string, unknown>): Record<string, unknown> => {
+  const asUnion = (value: Record<string, unknown>): Record<string, unknown> => {
     const shaped: Record<string, unknown> = {};
     for (const def of rest) if (value[def.key] !== undefined) shaped[def.key] = value[def.key];
     const idx = members.findIndex((def) => value[def.key] !== undefined);
@@ -698,7 +701,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   };
   for (let i = 0; i < values; i++) {
     const value = genValue(r, fields, 0);
-    const shaped = shape(value);
+    const shaped = asUnion(value);
     try {
       const want = flat(value).slice();
       const got = encode(shaped).slice();
@@ -708,7 +711,7 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
       }
       // Twice over, the member is seen again: last wins, a message merges.
       const twice = new Uint8Array([...got, ...got]);
-      if (!equalValue(decode(got), shape(flatDecode(want))) || !equalValue(decode(twice), shape(flatDecode(twice)))) {
+      if (!equalValue(decode(got), asUnion(flatDecode(want))) || !equalValue(decode(twice), asUnion(flatDecode(twice)))) {
         findings.push({ kind: "oneof: a union reads its member back as another value", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
       }
     } catch (e) {
@@ -718,7 +721,6 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   return values;
 };
 
-// Its own stream, as the Any family's.
 type Placement = { name: string; wrap: (message: S.Schema<unknown, unknown>, refine: (s: S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>; value: (v: unknown, r: Random) => unknown; at: (v: unknown) => Segment[] | undefined };
 const refinePlacements: Placement[] = [
   { name: "root", wrap: (m, refine) => refine(m), value: (v) => v, at: () => [] },
@@ -742,6 +744,7 @@ const refinePlacements: Placement[] = [
 // What a throw says, without the value it names, so one cause is one kind.
 const thrown = (e: unknown): string => String((e as Error).message).replace(/, received [^]*/, "").replace(/\d+/g, "#");
 
+// Its own stream, as the Any family's.
 const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
   const r = rng(seed ^ 0x3c6ef372);
   let message: S.Schema<unknown, unknown>;

@@ -105,7 +105,6 @@ export type Field = {
   localName: string;
   element: Element;
   list: boolean;
-  // The key scalar of a map field.
   mapKey?: Scalar;
   oneof?: Oneof;
   // proto3 `optional`: a scalar or enum with explicit presence.
