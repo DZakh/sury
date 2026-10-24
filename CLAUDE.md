@@ -197,12 +197,14 @@ relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
 
 Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
 regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
-order: the committed goldens (the corpus, `src/protobuf/wkt`, `S.Protobuf`), that
-the TypeScript and ReScript compile, that every type equals protoc-gen-es's
-once the differences `docs/js-protobuf.md` lists are normalized, that values
-round-trip through both libraries in both directions byte for byte from both
-targets, that `S.toProtoOrThrow` reprints every message's fields, and that
-importing one message keeps none of its siblings in a Rollup 4 bundle.
+order: that the descriptor decoding equals protobuf-es's, the committed goldens
+(the corpus, `src/protobuf/wkt`, `S.Protobuf`), that the bin over stdin and over
+`--descriptor_set_in` writes what `generate()` does, every option and refusal,
+that the TypeScript and ReScript compile, that every type equals protoc-gen-es's
+once the differences `docs/js-protobuf.md` lists are normalized, that values and
+typed Anys round-trip through both libraries in both directions byte for byte
+from both targets, that `S.toProtoOrThrow` reprints every message's fields, and
+that importing one message keeps none of its siblings in a Rollup 4 bundle.
 `SEED=N` widens the value search. `update` rewrites the goldens.
 `pnpm protobuf:conformance:generated` runs Google's suite over the generated
 `TestAllTypesProto3`.
