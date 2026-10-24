@@ -14,19 +14,17 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({name:v0})}catch(x){e[2](x)}let v2;try{v2=e[3](v1.name)}catch(x){e[4](x)}typeof v2==="string"||e[5](v2);return {name:v2}}catch(v3){e[7](v3)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.name;typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({name:v0})}catch(x){e[2](x)}return v1}catch(v2){e[4](v2)}}
     examples:
-      # FIXME: "auto" encodes through the target's own chain, so the link keeps the
-      # target, and its field coder runs again over the coder's output.
       coder-result-is-the-output:
         input: '{ name: "x" }'
-        output: '{ name: "x!!" }'
+        output: '{ name: "x!" }'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0.name)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return {name:v1}}catch(v2){e[5](v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       coder-result-is-the-output:
         input: '{ name: "x" }'
-        output: '{ name: "x!!" }'
+        output: '{ name: "x!" }'
   encode:
     expression: i=>{try{let v0;try{v0=e[0](i.name)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {name:v0}}catch(v1){e[3](v1)}}
     examples:

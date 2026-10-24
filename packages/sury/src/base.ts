@@ -742,6 +742,15 @@ export const isSchemaObject = (obj: unknown): boolean =>
 
 export const isLiteral = (schema: Internal): boolean => "const" in schema;
 
+// What a ref names past the refs a definition can itself be (`S.recursive`
+// directly inside another's definer): `undefined` while a definer still runs.
+// It ends because `S.recursive` refuses a definition made only of refs back to
+// its own.
+export const refDefinition = (ref: Internal): Internal | undefined => {
+  const def = ref.definition!();
+  return def?.type === refTag ? refDefinition(def) : def;
+};
+
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 

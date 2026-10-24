@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.schema({ p: S.protobufField(S.recursive("a", (a) => a), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
+  schema: 'S.schema({ p: S.protobufField(S.recursive("a", (a) => S.string.with(S.to, a)), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
   input: "{ p?: unknown; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5930
+  instantiations: 8166
 jsonSchema:
-  input: '{ type: "object", properties: { p: { $ref: "#/$defs/a" } }, required: ["p"], $defs: { a: { $ref: "#/$defs/a" } } }'
-  fromInputType: "{ p: any; }"
+  input: '{ type: "object", properties: { p: { $ref: "#/$defs/a" } }, required: ["p"], $defs: { a: { type: "string" } } }'
+  fromInputType: "{ p: string; }"
   output: '[Sury] S.protobuf: field "p" is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals'
 isEqual:
   input: (a,b)=>a===b||e[0](a.p,b.p)

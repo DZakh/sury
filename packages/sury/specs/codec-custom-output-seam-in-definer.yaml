@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (self) => { const seam = ((S as any).$to as typeof S.to)(S.schema({ v: S.unknown }), S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kid: S.optional(self) }), { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any); let message = "compiled"; try { S.decodeOrThrow(seam) } catch (e) { message = (e as Error).message } return S.schema({ message: S.literal(message), kid: S.optional(self) }) })'
+  input: unknown
+  output: unknown
+  instantiations: 9686
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", const: "Failed at kid: Node is used before S.recursive returns its definition" }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+  fromInputType: '{ message: "Failed at kid: Node is used before S.recursive returns its definition"; kid?: ... | undefined; }'
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", const: "Failed at kid: Node is used before S.recursive returns its definition" }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+  fromOutputType: '{ message: "Failed at kid: Node is used before S.recursive returns its definition"; kid?: ... | undefined; }'
+  openapi-3.0:
+    input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", enum: ["Failed at kid: Node is used before S.recursive returns its definition"] }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+    output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { message: { type: "string", enum: ["Failed at kid: Node is used before S.recursive returns its definition"] }, kid: { $ref: "#/$defs/Node" } }, required: ["message"] } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      refused-in-definer:
+        input: '{ message: "Failed at kid: Node is used before S.recursive returns its definition" }'
+        output: '{ message: "Failed at kid: Node is used before S.recursive returns its definition", kid: undefined }'
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      refused-in-definer:
+        input: '{ message: "Failed at kid: Node is used before S.recursive returns its definition" }'
+        output: '{ message: "Failed at kid: Node is used before S.recursive returns its definition" }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      refused-in-definer:
+        input: '{ message: "Failed at kid: Node is used before S.recursive returns its definition" }'
+        output: '{ message: "Failed at kid: Node is used before S.recursive returns its definition" }'

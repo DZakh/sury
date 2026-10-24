@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.urlSearchParams.with(S.to, S.schema({ tags: S.optional(S.array(S.string)) }))"
+  input: URLSearchParams
+  output: "{ tags?: string[] | undefined; }"
+  instantiations: 6428
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { tags: { items: { type: "string" }, type: "array" } } }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||(a.tags===void 0?b.tags===void 0:b.tags!==void 0&&e[0](a.tags,b.tags))
+compare:
+  input: "throws: [Sury] Can't compare URLSearchParams. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { tags: string[] | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0=e[0](i),v1=e[1](v0.get("tags"));for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="string"||e[2](v3,["tags",v2]);}return {tags:v1}}catch(v4){e[5](v4)}}
+    examples:
+      repeated:
+        input: ((p) => (p.append("tags", "a"), p.append("tags", "b"), p))(new URLSearchParams())
+        output: '{ tags: ["a", "b"] }'
+      one:
+        input: ((p) => (p.append("tags", "a"), p))(new URLSearchParams())
+        output: '{ tags: ["a"] }'
+      absent:
+        input: new URLSearchParams()
+        output: "{ tags: [] }"
+  decode:
+    expression: i=>{try{let v0=e[0](i),v1=e[1](v0.get("tags"));for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="string"||e[2](v3,["tags",v2]);}return {tags:v1}}catch(v4){e[3](v4)}}
+    examples:
+      absent:
+        input: new URLSearchParams()
+        output: "{ tags: [] }"
+  encode:
+    expression: i=>{try{let v1=i.tags;let v0=new e[0]();if(v1!=null){for(let v2=0;v2<v1.length;++v2){v0.append("tags",v1[v2]);}}return v0}catch(v3){e[1](v3)}}
+    examples:
+      built:
+        input: '{ tags: ["a", "b"] }'
+        output: ((p) => (p.append("tags", "a"), p.append("tags", "b"), p))(new URLSearchParams())
+      absent:
+        input: "{}"
+        output: new URLSearchParams()

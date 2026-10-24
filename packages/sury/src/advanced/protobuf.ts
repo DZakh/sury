@@ -66,9 +66,9 @@ import { arrayFactory, B_record, dictFactory, objectDecoder, valAt, valGet } fro
 import { schemaShape } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
+import { uint8Array } from "../refinements";
 import type { FieldType, ProtobufType, StoredField, WellKnownType } from "./protobufField";
 import { fieldMetadata, isContainer, protobufField, wellKnownTakes, wrappers } from "./protobufField";
-import { uint8Array } from "./uint8Array";
 
 type Field = {
   number: number;
@@ -175,10 +175,10 @@ const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
 // `S.recursive` being the only way a message contains itself.
 const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let current: Internal | undefined = schema;
-  // Only the refs are counted, and bounded the way the parse loop is: a `.to`
-  // chain is finite by construction, where a definition that is itself a `$ref`
-  // back to the one naming it - `S.recursive("a", (a) => a)` - never reaches an
-  // object at all.
+  // Only the refs are counted: a `.to` chain is finite by construction, where a
+  // definition converting back into its own ref -
+  // `S.recursive("a", (a) => S.string.with(S.to, a))` - never reaches an object.
+  // `S.recursive` refuses only a definition made of refs alone.
   for (let refs = 0; current !== U && current.type !== objectTag; ) {
     if (current.type !== refTag) current = current.to;
     else if (++refs > 50) return panic("S.protobuf: a $ref resolves to itself, so it names no message");

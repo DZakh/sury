@@ -19,7 +19,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.f;if(v0!==void 0){let v1;for(;;){if(typeof v0==="number"&&v0==v0)break;l2:{try{for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}v1=[v1,e[0](v0)];break l2}if(!(e[1](v0))){v1=[v1,e[2],v0];break l2}break}catch(x){v1=[v1,e[3](x)]}}throw e[4](v0,v1)}}else{let v3;for(;;){if(typeof v0==="number"&&v0==v0)break;if((typeof v0==="string"||v0===void 0)){l4:{try{if(!(e[5](v0))){v3=[v3,e[6],v0];break l4}break}catch(x){v3=[v3,e[7](x)]}}}throw e[8](v0,v3)}}return {f:v0}}catch(v5){e[10](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.f;if(v0!==void 0){let v1;for(;;){if(typeof v0==="number"&&v0==v0)break;l2:{try{for(;;){if(typeof v0==="string")break;if(v0===null){v0=void 0;break}v1=[v1,e[0](v0)];break l2}if(!(e[1](v0))){v1=[v1,e[2],v0];break l2}break}catch(x){v1=[v1,e[3](x)]}}throw e[4](v0,v1)}}else{for(;;){if((typeof v0==="string"||v0===void 0)){e[5](v0)||e[6](v0);break}if(typeof v0==="number"&&v0==v0)break;throw e[7](v0)}}return {f:v0}}catch(v3){e[9](v3)}}
     examples:
       absent:
         input: "{}"

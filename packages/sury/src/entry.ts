@@ -47,7 +47,8 @@ import {
   B_conversion,
   B_invalidOperation,
   B_neverSlot,
-  B_outputView
+  B_outputView,
+  B_refine
 } from "./builder";
 import {
  definitionToSchema,
@@ -63,6 +64,7 @@ import {
 } from "./modifiers";
 import {
  getOutputSchema,
+ parse,
  reverse
 } from "./parse";
 import {
@@ -93,7 +95,6 @@ export {
 } from "./primitives";
 export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
-export { uint8Array } from "./advanced/uint8Array";
 export { arrayBuffer } from "./advanced/arrayBuffer";
 export { protobuf, protobufAny, toProtoOrThrow } from "./advanced/protobuf";
 export { protobufField, protobufTypeName } from "./advanced/protobufField";
@@ -141,6 +142,7 @@ export {
   idnEmail,
   jsonPointer,
   relativeJsonPointer,
+  uint8Array,
 } from "./refinements";
 export { nullAsUnit as $nullAsUnit } from "./modifiers";
 export {
@@ -301,21 +303,23 @@ const conversionBuilder = (
   }
 };
 
+type Slot = Builder | boolean | undefined;
+
 // `seam` is passed in rather than called here so a bundle reaching only `to`
 // carries none of it.
 const link = (
   schema: Internal,
   target: Internal,
   custom: unknown,
-  seam?: (target: Internal, decode: unknown, encode: unknown) => Internal,
+  seam?: (schema: Internal, target: Internal, decode: Slot, encode: Slot) => Internal,
 ) => {
   // A misspelled export arrives as `undefined`, which would otherwise hand back
   // the source unchanged.
   if (!target) {
     return panic(`Expected a schema to convert to`);
   }
-  let decode: Builder | boolean | undefined;
-  let encode: Builder | boolean | undefined;
+  let decode: Slot;
+  let encode: Slot;
   // `S.any` is this very `unknown` schema under a second name, and its
   // ReScript type is `t<'any>` - a variable that unifies with whatever the
   // coder returns, so the seam against it carries nothing to trust. Same
@@ -388,7 +392,7 @@ const link = (
   if (schema === target && typeof decode !== functionTag && typeof encode !== functionTag) {
     return schema;
   }
-  if (outputSeam) target = seam!(target, decode, encode);
+  if (outputSeam) return seam!(schema, target, decode, encode);
   // Interned when the third argument is bounded by construction - absent, or
   // one of the two reading strings. A coder is not: `{decode, encode}` and an
   // inline function are fresh objects, so keying on them would miss every time
@@ -407,16 +411,43 @@ export const to = (schema: Internal, target: Internal, custom?: unknown) => link
 // the slots that place no coder. A reading is exempt with `B_neverSlot`:
 // neither places a coder, so neither claims the target's result - the very case
 // a reading exists for is a target that converts on its own.
-// Where both directions are coders, the link is to what the target's output
-// claims: the target's own conversions, a field's coder among them, would run
-// again over a value already past them. A reading or "auto" converts the target
-// itself, through its own chain.
-const seamTarget = (target: Internal, decode: unknown, encode: unknown): Internal => {
-  const decodes = typeof decode === functionTag, encodes = typeof encode === functionTag;
-  if (target.to && ((decodes && decode !== B_neverSlot) || (encodes && encode !== B_neverSlot))) {
-    return panic(`The target already converts. Chain S.to instead of passing a custom codec`);
-  }
-  return decodes && encodes ? B_outputView(target) : target;
+// A coder's direction links to what the target's output claims: the target's
+// own conversions, a field's coder among them, would run again over a value
+// already past them. The other direction, "auto" or a reading, still owes the
+// value those conversions, so it runs them itself on its way across the view.
+const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Slot): Internal => {
+  const view =
+    (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
+      ? target.to
+        ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
+        : B_outputView(target)
+      : target;
+  const through = view !== target;
+  return codecTo(
+    schema,
+    view,
+    through && typeof decode !== functionTag ? seamDecodeThrough(schema, target, decode as boolean | undefined) : decode,
+    through && typeof encode !== functionTag ? seamEncodeThrough(schema, target) : encode,
+  );
+};
+
+// The direction with no coder runs the plain link from where the seam's stands.
+// Decoded, into the target and on as the view, whose output the value now is.
+const seamDecodeThrough = (schema: Internal, target: Internal, reading: boolean | undefined): Builder => (input: Val) => {
+  let into = codecTo(schema, target, reading);
+  while (into.to!.to) into = into.to!;
+  const from = B_refine(input, into, U, into);
+  from.io = true;
+  const through = B_refine(parse(from), U, U, input.e.to);
+  through.io = true;
+  return through;
+};
+
+// Encoded, the whole way back to the source: the reading into it is the one the
+// plain link derives from the target, which the view's arms no longer show.
+const seamEncodeThrough = (schema: Internal, target: Internal): Builder => (input: Val) => {
+  const output = reverse(codecTo(schema, target));
+  return parse(B_refine(input, output, U, output));
 };
 
 // The ReScript `~custom` adapter's seam: its coders are typed against the
