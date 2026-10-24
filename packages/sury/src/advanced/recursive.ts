@@ -167,6 +167,7 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   };
   const self = ref();
   def = fn(self);
+  // union.ts `refDefinition` follows refs unbounded on the strength of this.
   for (let named: Internal | undefined = def; named?.type === refTag; named = named.definition!()) {
     if (named.definition === definition) {
       return panic(`${name} is defined as itself. Build a schema around the reference, such as S.array(self)`);
