@@ -2699,9 +2699,12 @@ type AnyArms = [arms: AnyArm[], other: AnyArm | undefined, told: Told | undefine
 const anyArms = (target: Internal, ctx: Ctx): AnyArms | undefined => {
   const arms: AnyArm[] = [];
   let other: AnyArm | undefined;
-  for (const member of target.type === anyOfTag ? target.anyOf! : [target]) {
-    // An absent Any never reaches a conversion.
-    if (getOutputSchema(member).type === undefinedTag) continue;
+  const union = target.type === anyOfTag;
+  for (const member of union ? target.anyOf! : [target]) {
+    // An absent Any never reaches a conversion. Only a member is asked: a lone
+    // target's output is past whatever it converts into next, which is the
+    // tail a check closes on.
+    if (union && getOutputSchema(member).type === undefinedTag) continue;
     const arm = anyArm(member, ctx);
     if (arm === U) return U;
     if (arm[0] === "google.protobuf.Any" ? other !== U : arms.some((known) => known[0] === arm[0])) {
