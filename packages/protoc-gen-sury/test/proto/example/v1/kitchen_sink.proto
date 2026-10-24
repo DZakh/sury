@@ -106,6 +106,28 @@ message Leaf {
   repeated Branch branches = 1;
 }
 
+// Three messages that each hold all three, one way or another.
+message GraphA {
+  GraphA a = 1;
+  repeated GraphB b = 2;
+  map<string, GraphC> c = 3;
+}
+
+message GraphB {
+  GraphA a = 1;
+  GraphB b = 2;
+  oneof pick {
+    GraphC c = 3;
+    int32 none = 4;
+  }
+}
+
+message GraphC {
+  repeated GraphA a = 1;
+  map<int32, GraphB> b = 2;
+  GraphC c = 3;
+}
+
 // Names protobuf-es escapes.
 message Reserved {
   string constructor = 1;

@@ -137,6 +137,65 @@ export const componentsOf = (messages: Message[]): Message[][] => {
   return out;
 };
 
+export const isRecursive = (component: Message[]): boolean =>
+  component.length > 1 || component[0]!.fields.some((field) => field.element.kind === "message" && field.element.message === component[0]);
+
+type Frame = { message: Message; statements: string[]; declared: Set<Message> };
+
+// One export of a recursive group. S.recursive hands a member its own schema
+// only inside its callback, so every other member is built once, as a
+// statement of the innermost callback open where a body first refers to it.
+// A member read again after that callback has closed needs a slot declared in
+// the export's own callback: S.recursive is `@__NO_SIDE_EFFECTS__`, so one
+// export filling a slot another export reads would be dropped by a bundler
+// once that other export is all a consumer imports.
+export type Group = {
+  members: Set<Message>;
+  open: Frame[];
+  built: Set<Message>;
+  readsItself: Set<Message>;
+  slots: Set<Message>;
+  strays: Set<Message>;
+};
+
+// Where a member's schema is read from at the point being written: its own
+// callback's parameter, a statement still in scope, or its slot.
+export const groupRef = (group: Group, message: Message, build: () => string[]): "self" | "local" | "slot" => {
+  if (group.open.some((frame) => frame.message === message)) {
+    group.readsItself.add(message);
+    return "self";
+  }
+  if (!group.built.has(message)) {
+    const frame = group.open[group.open.length - 1]!;
+    frame.statements.push(...build());
+    frame.declared.add(message);
+    return "local";
+  }
+  if (group.open.some((frame) => frame.declared.has(message))) return "local";
+  if (!group.slots.has(message)) group.strays.add(message);
+  return "slot";
+};
+
+export const inCallback = (group: Group, message: Message, write: () => string): { body: string; statements: string[]; readsItself: boolean } => {
+  const frame: Frame = { message, statements: [], declared: new Set() };
+  group.open.push(frame);
+  group.built.add(message);
+  const body = write();
+  group.open.pop();
+  return { body, statements: frame.statements, readsItself: group.readsItself.has(message) };
+};
+
+// Written twice when a member needs a slot, since that is known only once a
+// later body reads it.
+export const groupExport = (members: Set<Message>, write: (group: Group) => string): string => {
+  const pass = (slots: Set<Message>) => {
+    const group: Group = { members, open: [], built: new Set(), readsItself: new Set(), slots, strays: new Set() };
+    return { text: write(group), strays: group.strays };
+  };
+  const first = pass(new Set());
+  return first.strays.size === 0 ? first.text : pass(first.strays).text;
+};
+
 // The message an element names; plugin.ts refuses an unsupported one before
 // any emitter runs, so reaching one here is a bug.
 export const messageOf = (element: Element): Message => {

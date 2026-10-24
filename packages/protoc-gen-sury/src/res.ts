@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, header, is64, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
+import { type Group, type Options, componentsOf, groupExport, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -62,8 +62,6 @@ const scalarTypes: Record<Scalar, [string, string]> = {
   string: ["string", "string"],
   bytes: ["Uint8Array.t", "uint8Array"],
 };
-
-type Scope = { bindings: Map<Message, string>; component?: Set<Message>; depth: number };
 
 export type ResContext = {
   // How this file refers to Sury: `S.` in a consumer's file, nothing inside S.res.
@@ -143,21 +141,26 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return `${schema}->${S}protobufField(${args})`;
   };
 
-  const messageRef = (message: Message, scope: Scope): string => {
-    const bound = scope.bindings.get(message);
-    if (bound !== undefined) return bound;
-    if (scope.component?.has(message)) return recursiveExpr(message, scope);
-    return `${ref(message)}.schema`;
+  const local = (message: Message): string => `${groupNames.get(message)}Schema`;
+
+  const messageRef = (message: Message, group: Group | undefined): string => {
+    if (!group?.members.has(message)) return `${ref(message)}.schema`;
+    const name = local(message);
+    const at = groupRef(group, message, () => [
+      `let ${name} = ${member(message, group)}`,
+      ...(group.slots.has(message) ? [`${name}Ref.contents = Some(${name})`] : []),
+    ]);
+    return at === "slot" ? `${name}Ref.contents->Stdlib.Option.getUnsafe` : name;
   };
 
-  const elementSchema = (field: Field, element: Element, scope: Scope): string => {
+  const elementSchema = (field: Field, element: Element, scope: Group | undefined): string => {
     if (element.kind === "scalar") return scalarSchema(element.scalar, field.longAsString && field.mapKey === undefined);
     if (element.kind === "enum") return `${ref(element.enum)}.schema`;
     if (isStruct(field, element)) return `${S}dict(${S}json)`;
     return messageRef(messageOf(element), scope);
   };
 
-  const fieldSchema = (field: Field, scope: Scope): string => {
+  const fieldSchema = (field: Field, scope: Group | undefined): string => {
     const wrapped = wrapperScalar(field);
     if (wrapped !== undefined) {
       return numbered(field, `${S}option(${scalarSchema(wrapped, false)})`, `#"${(field.element as { message: Message }).message.typeName}"`);
@@ -169,15 +172,17 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return numbered(field, field.optional || field.element.kind === "message" ? `${S}option(${element})` : element, type);
   };
 
-  const oneofSchema = (oneof: Oneof, scope: Scope, indent: string): string => {
+  const oneofSchema = (oneof: Oneof, scope: Group | undefined, indent: string): string => {
     const arms = oneof.fields.map((field) => {
       const element = elementSchema(field, field.element, scope);
-      return `${indent}    ${S}schema(s => ${upperIdent(field.localName)}({value: s.matches(${numbered(field, element, wireType(field, field.element))})})),`;
+      // Named in a group, whose oneofs share one scope and may share a constructor.
+      const s = scope === undefined ? "s" : `(s): ${oneofTypeName(field.parent, oneof)}`;
+      return `${indent}    ${S}schema(${s} => ${upperIdent(field.localName)}({value: s.matches(${numbered(field, element, wireType(field, field.element))})})),`;
     });
     return `${S}option(\n${indent}  ${S}union([\n${arms.join("\n")}\n${indent}  ]),\n${indent})`;
   };
 
-  const recordBody = (message: Message, scope: Scope, indent: string): string => {
+  const recordBody = (message: Message, scope: Group | undefined, indent: string): string => {
     const names = fieldNames(message);
     const lines = message.members.map((member) =>
       member.kind === "oneof"
@@ -187,20 +192,27 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return `{\n${lines.join("\n")}\n${indent}}`;
   };
 
-  const objectSchema = (message: Message, scope: Scope, indent: string): string =>
+  const objectSchema = (message: Message, scope: Group | undefined, indent: string): string =>
     message.members.length === 0 ? `${S}schema(_ => %raw(\`{}\`))` : `${S}schema(s => ${recordBody(message, scope, indent)})`;
 
   // On the definition itself, so every path to a recursive message reaches it.
   const named = (schema: string, desc: Message | Enum): string => `${schema}->${S}protobufTypeName(${JSON.stringify(desc.typeName)})`;
 
-  function recursiveExpr(message: Message, scope: Scope): string {
-    const name = scope.depth === 0 ? "self" : `self${scope.depth + 1}`;
-    const inner: Scope = { bindings: new Map(scope.bindings).set(message, name), component: scope.component, depth: scope.depth + 1 };
-    const indent = "  ".repeat(scope.depth + 2);
-    const body = named(objectSchema(message, inner, indent), message);
-    const binder = new RegExp(`\\b${name}\\b`).test(body) ? name : `_${name}`;
-    const annotated = scope.depth === 0 ? binder : `(${binder}: ${S}t<${typeRef(message)}>)`;
-    return `${S}recursive(${JSON.stringify(namesOf(file).shape.get(message))}, ${annotated} =>\n${indent}${body.replace(new RegExp(`\\b${name}\\b`, "g"), binder)}\n${"  ".repeat(scope.depth + 1)})`;
+  // The record is named for the same reason a oneof arm is: a group's records
+  // share one scope and may share labels. A slot is spelled with its type, as a
+  // oneof's `None` or `Some` would shadow option's.
+  function member(message: Message, group: Group): string {
+    const depth = group.open.length;
+    const indent = "  ".repeat(depth + 2);
+    const { body, statements, readsItself } = inCallback(group, message, () =>
+      named(`${S}schema((s): ${groupNames.get(message)} => ${recordBody(message, group, indent)})`, message),
+    );
+    if (depth === 0) statements.unshift(...[...group.slots].map((slot) => `let ${local(slot)}Ref: ref<option<${S}t<${groupNames.get(slot)}>>> = {contents: None}`));
+    const head = `${S}recursive(${JSON.stringify(namesOf(file).shape.get(message))}, ${readsItself ? local(message) : "_"} =>`;
+    const close = "  ".repeat(depth + 1);
+    return statements.length === 0
+      ? `${head}\n${indent}${body}\n${close})`
+      : `${head} {\n${statements.map((statement) => `${indent}${statement}\n`).join("")}${indent}${body}\n${close}})`;
   }
 
   const docstring = (path: number[], indent: string): string => {
@@ -257,8 +269,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
 
   const messages = [...nestedTypes(file)].filter((desc): desc is Message => desc.kind === "message");
   for (const component of componentsOf(messages)) {
-    const recursive = component.length > 1 || component[0]!.fields.some((field) => field.element.kind === "message" && field.element.message === component[0]);
-    if (recursive) {
+    if (isRecursive(component)) {
       for (const message of component) groupNames.set(message, lowerIdent(moduleOf(message)));
       const decls: string[] = [];
       for (const message of component) {
@@ -269,10 +280,9 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
       out.push(decls.join(""));
       const members = new Set(component);
       for (const message of component) {
-        const scope: Scope = { bindings: new Map(), component: members, depth: 0 };
         out.push(
           `${docstring(message.path, "")}module ${moduleOf(message)} = {\n  type t = ${groupNames.get(message)}\n` +
-            `${schemaDecl(message, () => recursiveExpr(message, scope))}}\n`,
+            `${schemaDecl(message, () => groupExport(members, (group) => member(message, group)))}}\n`,
         );
       }
       continue;
@@ -285,7 +295,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
       : `  type t = ${any ? `${S}protobufAny = ` : ""}${recordDecl(message, "  ")}\n`;
     out.push(
       `${docstring(message.path, "")}module ${moduleOf(message)} = {\n${oneofs}${type}` +
-        schemaDecl(message, () => (any ? `${S}protobufAny` : named(objectSchema(message, { bindings: new Map(), depth: 0 }, "  "), message))) +
+        schemaDecl(message, () => (any ? `${S}protobufAny` : named(objectSchema(message, undefined, "  "), message))) +
         "}\n",
     );
   }

@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Options, componentsOf, header, is64, messageOf, importPath, isStruct, jsdoc, outputPath, packable, wrapperScalar, wktImport } from "./shared";
+import { type Group, type Options, componentsOf, groupExport, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, wrapperScalar, wktImport } from "./shared";
 
 const scalarType = (scalar: Scalar, asString: boolean): string =>
   is64(scalar) ? (asString ? "string" : "bigint")
@@ -88,8 +88,6 @@ class Symbols {
   }
 }
 
-type Scope = { bindings: Map<Message, string>; component?: Set<Message>; depth: number };
-
 export const emitTs = (file: File, options: Options, generating: Set<string>, version: string): { name: string; content: string } => {
   const sym = new Symbols(file, options, generating);
   const S = sym.S;
@@ -121,14 +119,16 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return field.list ? `${element}[]` : element;
   };
 
-  const messageRef = (message: Message, scope: Scope): string => {
-    const bound = scope.bindings.get(message);
-    if (bound !== undefined) return bound;
-    if (scope.component?.has(message)) return recursiveExpr(message, scope);
-    return sym.ref(message, "schema");
+  // A group member is read by the name of its export, which the callback
+  // parameter or statement holding it shadows.
+  const messageRef = (message: Message, group: Group | undefined): string => {
+    if (!group?.members.has(message)) return sym.ref(message, "schema");
+    const name = names.schema.get(message)!;
+    groupRef(group, message, () => [`${group.slots.has(message) ? "" : "const "}${name} = ${member(message, group)};`]);
+    return name;
   };
 
-  const elementSchema = (field: Field, element: Element, scope: Scope): string => {
+  const elementSchema = (field: Field, element: Element, scope: Group | undefined): string => {
     if (element.kind === "scalar") {
       return scalarSchema(field.longAsString && field.mapKey === undefined && is64(element.scalar) ? "string" : scalarSchemas[element.scalar]);
     }
@@ -150,7 +150,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return `${S}.protobufField(${schema}, { ${opts} })`;
   };
 
-  const fieldSchema = (field: Field, scope: Scope): string => {
+  const fieldSchema = (field: Field, scope: Group | undefined): string => {
     const wrapped = wrapperScalar(field);
     if (wrapped !== undefined) {
       return numbered(field, `${S}.optional(${scalarSchema(scalarSchemas[wrapped])})`, (field.element as { message: Message }).message.typeName);
@@ -169,7 +169,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       `${indent}  | { case?: undefined; value?: undefined }`,
     ].join("\n");
 
-  const oneofSchema = (oneof: Oneof, scope: Scope, indent: string): string => {
+  const oneofSchema = (oneof: Oneof, scope: Group | undefined, indent: string): string => {
     const arms = oneof.fields.map((field) => {
       const element = elementSchema(field, field.element, scope);
       return `${indent}  ${S}.schema({ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, wireType(field, field.element))} }),`;
@@ -178,7 +178,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return `${S}.union([\n${arms.join("\n")}\n${indent}])`;
   };
 
-  const objectBody = (message: Message, scope: Scope, indent: string): string => {
+  const objectBody = (message: Message, scope: Group | undefined, indent: string): string => {
     const lines = message.members.map((member) =>
       member.kind === "oneof"
         ? `${indent}  ${property(member.localName)}: ${oneofSchema(member, scope, `${indent}  `)},`
@@ -187,14 +187,17 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return lines.length ? `{\n${lines.join("\n")}\n${indent}}` : "{}";
   };
 
-  function recursiveExpr(message: Message, scope: Scope): string {
-    const self = scope.depth === 0 ? "self" : `self${scope.depth + 1}`;
-    const inner: Scope = { bindings: new Map(scope.bindings).set(message, self), component: scope.component, depth: scope.depth + 1 };
-    const indent = "  ".repeat(scope.depth + 1);
-    const body = objectBody(message, inner, indent);
-    // A member only its siblings refer back to leaves its own binding unread.
-    const binder = new RegExp(`\\b${self}\\b`).test(body) ? self : `_${self}`;
-    return `${S}.recursive<${names.shape.get(message)}>(${JSON.stringify(names.shape.get(message))}, (${binder}) =>\n${indent}${typed(`${S}.schema(${body})`, message)},\n${"  ".repeat(scope.depth)})`;
+  function member(message: Message, group: Group): string {
+    const depth = group.open.length;
+    const indent = "  ".repeat(depth + 1);
+    const shape = names.shape.get(message)!;
+    const { body, statements, readsItself } = inCallback(group, message, () => typed(`${S}.schema(${objectBody(message, group, indent)})`, message));
+    if (depth === 0) statements.unshift(...[...group.slots].map((slot) => `let ${names.schema.get(slot)}!: ${S}.Schema<${names.shape.get(slot)}>;`));
+    const head = `${S}.recursive<${shape}>(${JSON.stringify(shape)}, (${readsItself ? names.schema.get(message) : ""}) =>`;
+    const close = "  ".repeat(depth);
+    return statements.length === 0
+      ? `${head}\n${indent}${body},\n${close})`
+      : `${head} {\n${statements.map((statement) => `${indent}${statement}\n`).join("")}${indent}return ${body};\n${close}})`;
   }
 
   const typeDecl = (message: Message): string => {
@@ -234,20 +237,19 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   }
 
   for (const component of componentsOf(messages)) {
-    const recursive = component.length > 1 || component[0]!.fields.some((field) => field.element.kind === "message" && field.element.message === component[0]);
+    const recursive = isRecursive(component);
     for (const message of component) out.push(typeDecl(message));
     const members = new Set(component);
     for (const message of component) {
       const schema = names.schema.get(message)!;
       const shape = names.shape.get(message)!;
       if (recursive) {
-        const scope: Scope = { bindings: new Map(), component: members, depth: 0 };
-        out.push(`export const ${schema} = ${recursiveExpr(message, scope)};\n`);
+        out.push(`export const ${schema} = ${groupExport(members, (group) => member(message, group))};\n`);
       } else if (message.typeName === "google.protobuf.Any") {
         // Built from its fields, Any would lack the pack and unpack `S.protobufAny` carries.
         out.push(`export const ${schema}: ${S}.Schema<${shape}, ${shape}> = ${S}.protobufAny;\n`);
       } else {
-        const body = objectBody(message, { bindings: new Map(), depth: 0 }, "");
+        const body = objectBody(message, undefined, "");
         // `S.schemaOf` is annotated, the function it returns can't be: without
         // this, a bundler keeps every message of a file once one is imported.
         out.push(`export const ${schema} = ${typed(`${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} })`, message)};\n`);

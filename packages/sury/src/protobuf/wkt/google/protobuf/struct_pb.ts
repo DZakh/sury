@@ -111,68 +111,74 @@ export type ListValue = {
   values: Value[];
 };
 
-export const StructSchema = S.recursive<Struct>("Struct", (self) =>
-  S.protobufTypeName(S.schema({
-    fields: S.protobufField(S.record(S.recursive<Value>("Value", (self2) =>
-    S.protobufTypeName(S.schema({
+export const StructSchema = S.recursive<Struct>("Struct", (StructSchema) => {
+  const ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
+    const ListValueSchema = S.recursive<ListValue>("ListValue", () =>
+      S.protobufTypeName(S.schema({
+        values: S.protobufField(S.array(ValueSchema), { number: 1, type: "message" }),
+      }), "google.protobuf.ListValue"),
+    );
+    return S.protobufTypeName(S.schema({
       kind: S.union([
         S.schema({ case: "nullValue", value: S.protobufField(NullValueSchema, { number: 1, type: "enum" }) }),
         S.schema({ case: "numberValue", value: S.protobufField($number, { number: 2, type: "double" }) }),
         S.schema({ case: "stringValue", value: S.protobufField(S.string, { number: 3, type: "string" }) }),
         S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
-        S.schema({ case: "structValue", value: S.protobufField(self, { number: 5, type: "message" }) }),
-        S.schema({ case: "listValue", value: S.protobufField(S.recursive<ListValue>("ListValue", (_self3) =>
-      S.protobufTypeName(S.schema({
-        values: S.protobufField(S.array(self2), { number: 1, type: "message" }),
-      }), "google.protobuf.ListValue"),
-    ), { number: 6, type: "message" }) }),
+        S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
+        S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
         S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
       ]),
-    }), "google.protobuf.Value"),
-  )), { number: 1, type: "message", key: "string" }),
-  }), "google.protobuf.Struct"),
-);
+    }), "google.protobuf.Value");
+  });
+  return S.protobufTypeName(S.schema({
+    fields: S.protobufField(S.record(ValueSchema), { number: 1, type: "message", key: "string" }),
+  }), "google.protobuf.Struct");
+});
 
-export const ValueSchema = S.recursive<Value>("Value", (self) =>
-  S.protobufTypeName(S.schema({
+export const ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
+  const StructSchema = S.recursive<Struct>("Struct", () =>
+    S.protobufTypeName(S.schema({
+      fields: S.protobufField(S.record(ValueSchema), { number: 1, type: "message", key: "string" }),
+    }), "google.protobuf.Struct"),
+  );
+  const ListValueSchema = S.recursive<ListValue>("ListValue", () =>
+    S.protobufTypeName(S.schema({
+      values: S.protobufField(S.array(ValueSchema), { number: 1, type: "message" }),
+    }), "google.protobuf.ListValue"),
+  );
+  return S.protobufTypeName(S.schema({
     kind: S.union([
       S.schema({ case: "nullValue", value: S.protobufField(NullValueSchema, { number: 1, type: "enum" }) }),
       S.schema({ case: "numberValue", value: S.protobufField($number, { number: 2, type: "double" }) }),
       S.schema({ case: "stringValue", value: S.protobufField(S.string, { number: 3, type: "string" }) }),
       S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
-      S.schema({ case: "structValue", value: S.protobufField(S.recursive<Struct>("Struct", (_self2) =>
-    S.protobufTypeName(S.schema({
-      fields: S.protobufField(S.record(self), { number: 1, type: "message", key: "string" }),
-    }), "google.protobuf.Struct"),
-  ), { number: 5, type: "message" }) }),
-      S.schema({ case: "listValue", value: S.protobufField(S.recursive<ListValue>("ListValue", (_self2) =>
-    S.protobufTypeName(S.schema({
-      values: S.protobufField(S.array(self), { number: 1, type: "message" }),
-    }), "google.protobuf.ListValue"),
-  ), { number: 6, type: "message" }) }),
+      S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
+      S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
       S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
-  }), "google.protobuf.Value"),
-);
+  }), "google.protobuf.Value");
+});
 
-export const ListValueSchema = S.recursive<ListValue>("ListValue", (self) =>
-  S.protobufTypeName(S.schema({
-    values: S.protobufField(S.array(S.recursive<Value>("Value", (self2) =>
-    S.protobufTypeName(S.schema({
+export const ListValueSchema = S.recursive<ListValue>("ListValue", (ListValueSchema) => {
+  const ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
+    const StructSchema = S.recursive<Struct>("Struct", () =>
+      S.protobufTypeName(S.schema({
+        fields: S.protobufField(S.record(ValueSchema), { number: 1, type: "message", key: "string" }),
+      }), "google.protobuf.Struct"),
+    );
+    return S.protobufTypeName(S.schema({
       kind: S.union([
         S.schema({ case: "nullValue", value: S.protobufField(NullValueSchema, { number: 1, type: "enum" }) }),
         S.schema({ case: "numberValue", value: S.protobufField($number, { number: 2, type: "double" }) }),
         S.schema({ case: "stringValue", value: S.protobufField(S.string, { number: 3, type: "string" }) }),
         S.schema({ case: "boolValue", value: S.protobufField(S.boolean, { number: 4, type: "bool" }) }),
-        S.schema({ case: "structValue", value: S.protobufField(S.recursive<Struct>("Struct", (_self3) =>
-      S.protobufTypeName(S.schema({
-        fields: S.protobufField(S.record(self2), { number: 1, type: "message", key: "string" }),
-      }), "google.protobuf.Struct"),
-    ), { number: 5, type: "message" }) }),
-        S.schema({ case: "listValue", value: S.protobufField(self, { number: 6, type: "message" }) }),
+        S.schema({ case: "structValue", value: S.protobufField(StructSchema, { number: 5, type: "message" }) }),
+        S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, { number: 6, type: "message" }) }),
         S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
       ]),
-    }), "google.protobuf.Value"),
-  )), { number: 1, type: "message" }),
-  }), "google.protobuf.ListValue"),
-);
+    }), "google.protobuf.Value");
+  });
+  return S.protobufTypeName(S.schema({
+    values: S.protobufField(S.array(ValueSchema), { number: 1, type: "message" }),
+  }), "google.protobuf.ListValue");
+});

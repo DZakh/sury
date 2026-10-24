@@ -60,9 +60,12 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
   for schemas written by hand.
 - A singular message field is always `S.optional`: that is proto3 presence,
   and it is what keeps a recursive message finite.
-- A recursive group is one `S.recursive` per exported member, the others
-  inlined inside it; a binding the body doesn't read is `_`-prefixed, for
-  `noUnusedParameters` and ReScript's warning 27.
+- Each export of a recursive group builds the whole group in its own
+  `S.recursive`, every member once, and reads nothing another export built:
+  `S.recursive` is `@__NO_SIDE_EFFECTS__`, so a bundler drops an export nothing
+  imports along with whatever it filled in. A callback that doesn't read its
+  own schema takes no parameter, for `noUnusedParameters` and ReScript's
+  warning 27.
 
 ## Not generated
 
