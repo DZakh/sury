@@ -62,3 +62,9 @@ operations:
       absent:
         input: new Uint8Array([])
         output: "{}"
+      type-url-not-utf8:
+        input: new Uint8Array([10, 5, 10, 3, 10, 1, 255])
+        error: "Failed at payload: Protobuf string is not valid UTF-8"
+      value-truncated:
+        input: new Uint8Array([10, 2, 18, 5])
+        error: "Failed at payload: Truncated protobuf message"

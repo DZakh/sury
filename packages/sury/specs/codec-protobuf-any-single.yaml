@@ -47,3 +47,9 @@ operations:
       absent:
         input: new Uint8Array([])
         error: "Failed at one: Protobuf Any has no type URL, expected acme.v1.User"
+      type-url-not-utf8:
+        input: new Uint8Array([10, 5, 10, 3, 10, 1, 255])
+        error: "Failed at one: Protobuf string is not valid UTF-8"
+      value-truncated:
+        input: new Uint8Array([10, 2, 18, 5])
+        error: "Failed at one: Truncated protobuf message"

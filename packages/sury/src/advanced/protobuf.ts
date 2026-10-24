@@ -90,7 +90,8 @@ type Field = {
   fromWire: Internal;
   held: Internal;
   // The key path to the value. A oneof member's starts with the oneof's key,
-  // an Any member's is the arm's own.
+  // an Any member's is the arm's own, and the Any's own two fields have none: the
+  // value holds no `typeUrl`, so a failure there is the Any field's.
   path: string[];
   omit?: boolean;
   fromWireIsHeld?: boolean;
@@ -517,6 +518,7 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
   let unset: Internal | undefined;
   let optional = false;
   let stray = false;
+  let twice = false;
   let numbered = false;
   const all: Internal[] = [];
   let defaulted = false;
@@ -543,31 +545,27 @@ const oneofOf = (key: string, property: Internal): Oneof | undefined => {
       continue;
     }
     const entries = entriesOf(member);
-    if (entries === U) {
-      // A literal is the arm for no member set too: a ReScript constructor with
-      // no payload is its tag's string.
-      if (literalOf(member) === U || unset !== U) stray = true;
+    const values = entries && Object.keys(entries).filter((entry) => fieldMetadata(entries[entry]!) !== U || (literalOf(entries[entry]) === U && !holdsNothing(entries[entry]!)));
+    // A bare literal is the arm for no member set too: a ReScript constructor
+    // with no payload is its tag's string.
+    if (values === U ? literalOf(member) !== U : values.length === 0) {
+      if (unset !== U) twice = true;
       unset = member;
       continue;
     }
-    const values = Object.keys(entries).filter((entry) => fieldMetadata(entries[entry]!) !== U || (literalOf(entries[entry]) === U && !holdsNothing(entries[entry]!)));
-    if (values.length === 0) {
-      if (unset !== U) stray = true;
-      unset = member;
-      continue;
-    }
-    const metadata = values.length === 1 ? fieldMetadata(entries[values[0]!]!) : U;
+    const metadata = values?.length === 1 ? fieldMetadata(entries![values[0]!]!) : U;
     if (metadata === U) {
       // Still a oneof, one arm of which holds a numbered value beside another.
-      if (values.some((entry) => fieldMetadata(entries[entry]!) !== U)) numbered = true;
+      if (values?.some((entry) => fieldMetadata(entries![entry]!) !== U)) numbered = true;
       stray = true;
       continue;
     }
-    arms.push({ name: member.type === arrayTag ? `${key}_${metadata.number}` : values[0]!, key: values[0]!, value: entries[values[0]!]!, member, metadata });
+    arms.push({ name: member.type === arrayTag ? `${key}_${metadata.number}` : values![0]!, key: values![0]!, value: entries![values![0]!]!, member, metadata });
   }
   if (!arms.length && !numbered) return U;
   if (defaulted) return panic(`S.protobuf: oneof "${key}" can't have a default. Drop it and add an arm for no member set`);
   if (stray) return panic(`S.protobuf: oneof "${key}" has an arm that doesn't hold one numbered value beside literals`);
+  if (twice) return panic(`S.protobuf: oneof "${key}" has two arms for no member set, which a decode can't choose between. Keep one`);
   const members = arms.map((arm) => arm.member);
   if (unset !== U) members.push(unset);
   const told = tellApart(members, arms.map((arm) => arm.key), arms.map((arm) => arm.metadata.type === "message"));
@@ -614,7 +612,7 @@ const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
     return panic(`S.protobuf: ${where} is an Any, which takes a message S.protobufTypeName names, or an object or tuple holding one beside literals`);
   }
   const [arms, other, told] = known;
-  const own = (number: number, key: string, type: ProtobufType): Field => ({ number, type, packed: true, key, repeated: false, optional: false, wire: wireType(type), fromWire: unknown, held: unknown, path: [key] });
+  const own = (number: number, key: string, type: ProtobufType): Field => ({ number, type, packed: true, key, repeated: false, optional: false, wire: wireType(type), fromWire: unknown, held: unknown, path: [] });
   msg = { fields: [own(1, "typeUrl", "string"), own(2, "value", "bytes")], object: shape, raw: shape, links: [], typeName: "google.protobuf.Any", any: { members: [], told } };
   ctx.messages.set(memo, msg);
   for (const [name, payload, key, member] of other === U ? arms : [...arms, other]) {
@@ -700,6 +698,9 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
         const [armValue, armOptional] = unwrapOptional(arm.value);
         const armShape = getOutputSchema(armValue);
         const known = m.type.startsWith("google.") ? (m.type as WellKnownType) : U;
+        if (armOptional && known !== U && wrappers[known] !== U) {
+          return panic(`S.protobuf: ${where} can't unwrap ${known}, which protobuf-es keeps as its message in a oneof. Hold the message, such as ${known.slice(16)}Schema from sury/protobuf/wkt`);
+        }
         if (armOptional || (isContainer(armShape) && !(known !== U && wellKnownTakes(known, armShape)))) {
           return panic(`S.protobuf: ${where} must hold one value, not an optional, a list or a map`);
         }
