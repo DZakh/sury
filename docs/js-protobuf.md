@@ -493,14 +493,14 @@ What differs from protobuf-es:
 - A message is a plain object: no `$typeName`, no `create()`. A literal spells
   every field the type requires.
 - Unknown fields are skipped, not kept in `$unknown` (see above).
-- Enums are closed: `PhoneType` is the union of its values, where protobuf-es
-  adds `UnknownEnum`. A number the enum doesn't list still decodes as that
-  number, and fails a `parse`.
+- An enum's type is the union of the values it lists, where protobuf-es adds
+  `UnknownEnum`. Decoding still keeps a number it doesn't list, as proto3 asks,
+  so a value can be one the type doesn't name; a `parse` refuses it.
 - A map keyed by a 32-bit integer is `{ [key: string]: V }`, not
   `{ [key: number]: V }`.
 
-proto2, editions, extensions and services are refused, naming the file or
-field. Every generated schema is an ordinary Sury schema: validate with it,
+proto2, editions, extensions and groups are refused, naming the file or
+field, and services are skipped. Every generated schema is an ordinary Sury schema: validate with it,
 convert it to JSON Schema, or print it back with `S.toProtoOrThrow`.
 
 ## Performance and compatibility

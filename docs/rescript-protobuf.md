@@ -330,13 +330,39 @@ module User = {
 ```
 
 ```rescript
-let bytes = {id: 1, firstName: "Ada", contact: Some(Email({value: "a@b"}))}
-  ->S.convertOrThrow(~from=Acme_v1_user_pb.User.schema, ~to=S.protobuf)
+let user: Acme_v1_user_pb.User.t = {id: 1, firstName: "Ada", contact: Some(Email({value: "a@b"}))}
+let bytes = user->S.convertOrThrow(~from=Acme_v1_user_pb.User.schema, ~to=S.protobuf)
+```
+
+An enum is a module too, its `t` a variant of the values the `.proto` lists:
+
+```rescript
+module Kind = {
+  type t = | @as(0) Unspecified | @as(1) Person | @as(2) Robot
+  let schema: S.t<t> = S.enum([Unspecified, Person, Robot])->S.protobufTypeName("acme.v1.Kind")
+}
+```
+
+Decoding keeps a number the enum doesn't list, as proto3 asks, so a field can
+hold a value no constructor names: one a newer sender added. `S.Protobuf`'s
+enums behave the same. A `switch` on the variant compiles to the constructors
+it knows, a `| _` arm included, so `switch` on the number to handle the rest:
+
+```rescript
+let label = (kind: Acme_v1_user_pb.Kind.t) =>
+  switch (kind :> int) {
+  | 1 => "person"
+  | 2 => "robot"
+  | _ => "unspecified, or a kind this build doesn't know"
+  }
 ```
 
 A field is named as in TypeScript, `firstName`, with a keyword or a `$` made a
 valid label (`type_`, `constructor_`); the wire only cares about numbers. A
 `uint32` or `fixed32` field is `S.integer`, since it can pass `int`'s range.
+A message or enum named as a module the generated code reads, `S`, `Float`,
+`Stdlib` or `Uint8Array`, gets a trailing `_` (`S_`), and so does a oneof's
+type named as one it reads, such as `t`, `string` or `option`.
 The generated files silence warning 30, which a recursive group of messages
 sharing a field name raises.
 
