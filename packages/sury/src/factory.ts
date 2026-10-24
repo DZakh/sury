@@ -549,36 +549,30 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
-// A value placed whole was checked by its own decode; one assembled from the
-// shape has had only its fields checked, so its own refinements run here.
-const markAssembled = (val: Val, acc: ShapedSerializerAcc | undefined, path: Path): Val => {
-  if (acc !== U && acc.val !== U) return val;
-  val.path = pathConcat(val.path, path);
-  return B_markOutput(val);
-};
-
 // Returns an unparsed head with no chain of its own, like getShapedParserOutput:
-// shapedSerializer links `input` as its `prev`, and a chain parsed here would
-// be cut off there - at the root the compile pipeline advances it (#471).
+// the root links `input` as its `prev`, and a chain parsed here would be cut
+// off there - at the root the compile pipeline advances it (#471).
 const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
   targetSchema: Internal,
-  path: Path
+  path: Path,
+  root?: boolean
 ): Val => {
+  let v: Val;
   if (acc !== U && acc.val !== U) {
     // Placement of an already-decoded val - don't overwrite its schema (#284)
-    const v = B_scope(acc.val);
+    v = B_scope(acc.val);
     v.t = true;
     v.e = targetSchema;
+    if (root) v.prev = input;
     return v;
   } else if (isLiteral(targetSchema)) {
-    const v = B_nextConst(input, targetSchema, targetSchema);
+    v = B_nextConst(input, targetSchema, targetSchema);
     v.prev = U;
     v.p = input;
     v.v = _notVarAtParent;
     v.io = true;
-    return v;
   } else {
     // When acc is undefined (discriminant field with no input), follow the to chain
     // to get the actual output schema properties (e.g., for reversed transformed objects)
@@ -599,14 +593,18 @@ const getShapedSerializerOutput = (
       return missingInput();
     }
 
-    const assembled = assembleShapedObject(
+    v = assembleShapedObject(
       input,
       resolvedTargetSchema,
-      (location, childSchema) => {
-        const childAcc = acc !== U && acc.properties !== U ? acc.properties[location] : U;
-        const childPath = pathConcat(path, [location]);
-        return parse(markAssembled(getShapedSerializerOutput(input, childAcc, childSchema, childPath), childAcc, childPath));
-      },
+      (location, childSchema) =>
+        parse(
+          getShapedSerializerOutput(
+            input,
+            acc !== U && acc.properties !== U ? acc.properties[location] : U,
+            childSchema,
+            pathConcat(path, [location])
+          )
+        ),
       (v) => {
         v.e = resolvedTargetSchema;
         // Keeps its own `v` (declared after its own code): a decl hoisted onto
@@ -636,19 +634,22 @@ const getShapedSerializerOutput = (
       },
       missingInput
     );
-    return assembled;
   }
+  // A value placed whole was checked by its own decode; one assembled from the
+  // shape has had only its fields checked, so its own refinements run here.
+  if (root) {
+    v.t = true;
+    v.prev = input;
+  }
+  v.path = pathConcat(v.path, path);
+  return B_markOutput(v);
 }
 
 const shapedSerializer: Builder = (input: Val) => {
   const acc: ShapedSerializerAcc = {};
   prepareShapedSerializerAcc(acc, input);
 
-  const targetSchema = input.e.to!;
-  const output = getShapedSerializerOutput(input, acc, targetSchema, pathEmpty);
-  output.t = true;
-  output.prev = input;
-  return markAssembled(output, acc, pathEmpty);
+  return getShapedSerializerOutput(input, acc, input.e.to!, pathEmpty, true);
 }
 
 const definitionToShapedSchema = (definition: unknown): Internal => {
