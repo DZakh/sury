@@ -55,16 +55,23 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
    against protobuf-es's `anyPack`.
 8. **reprint** - `S.toProtoOrThrow` of every generated schema, compiled again
    by buf, declares the fields the source did.
-9. **treeShaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt`
-   type, one ReScript module and one `S.Protobuf` type (`test/res`) keep none
-   of their siblings, and one member of a recursive group, bundled alone in
-   either language, encodes and decodes.
+9. **treeShaking** - Rollup 4 and esbuild bundles of one message, one
+   `sury/protobuf/wkt` type and one `S.Protobuf` type (`test/res`), and a
+   Rollup bundle of one ReScript module, keep none of their siblings; one
+   member of a recursive group, bundled alone, encodes and decodes.
 
 ## Rules the output follows
 
 - Every schema is built with the functional forms (`S.protobufField(schema,
   …)`), never `.with(…)`: a method call on a schema can't be dropped by a
   bundler, and one message imported must not keep the file.
+- Every call that runs as a TypeScript module loads is `/* @__PURE__ */`:
+  Rollup sees from Sury's own declarations that its factories are
+  `@__NO_SIDE_EFFECTS__`, esbuild doesn't, and keeps an unused export along
+  with the protobuf runtime it reaches. A minifier drops the comments. A call
+  inside an `S.recursive` callback runs only when the call around it does, and
+  takes none. ReScript can't write one, so its modules shake under Rollup
+  only.
 - An `S.protobufField` states `type` only where it differs from what the
   field's schema infers, and `key` only where it isn't `string`:
   `S.protobufField(S.int32, 3)`, `S.protobufField(S.int32, { number: 7, type:
@@ -73,12 +80,14 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
   repeats it.
 - A singular message field is always `S.optional`: that is proto3 presence,
   and it is what keeps a recursive message finite.
-- A recursive group of messages is built once, by a function that returns
-  every member and whose result each export reads. No export reads a variable
-  another one fills in: `S.recursive` is `@__NO_SIDE_EFFECTS__`, so a bundler
-  drops an export nothing imports along with whatever it filled in. The
-  ReScript function is a named one, as ReScript inlines a function called
-  where it is written. A callback that doesn't read its own schema takes no
+- A recursive group of messages is built once, by a function that builds
+  every member, and each export is a call to it. No export reads a variable
+  another one fills in: a bundler drops an export nothing imports along with
+  whatever it filled in. In TypeScript the function keeps what it built for
+  the next export and hands back the member asked for, since esbuild keeps a
+  destructured or property-read result; the ReScript function is a named one
+  returning a tuple, as ReScript inlines a function called where it is
+  written. A callback that doesn't read its own schema takes no
   parameter, for `noUnusedParameters` and ReScript's warning 27.
 
 ## Not generated

@@ -153,7 +153,7 @@ export const Field_Kind = {
  */
 export type Field_Kind = (typeof Field_Kind)[keyof typeof Field_Kind];
 
-export const Field_KindSchema = S.protobufTypeName(S.union([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]), "google.protobuf.Field.Kind");
+export const Field_KindSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]), "google.protobuf.Field.Kind");
 
 /**
  * Whether a field is optional, required, or repeated.
@@ -197,7 +197,7 @@ export const Field_Cardinality = {
  */
 export type Field_Cardinality = (typeof Field_Cardinality)[keyof typeof Field_Cardinality];
 
-export const Field_CardinalitySchema = S.protobufTypeName(S.union([0, 1, 2, 3]), "google.protobuf.Field.Cardinality");
+export const Field_CardinalitySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1, 2, 3]), "google.protobuf.Field.Cardinality");
 
 /**
  * The syntax in which a protocol buffer element is defined.
@@ -234,7 +234,7 @@ export const Syntax = {
  */
 export type Syntax = (typeof Syntax)[keyof typeof Syntax];
 
-export const SyntaxSchema = S.protobufTypeName(S.union([0, 1, 2]), "google.protobuf.Syntax");
+export const SyntaxSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1, 2]), "google.protobuf.Syntax");
 
 /**
  * A protocol buffer option, which can be attached to a message, field,
@@ -268,9 +268,9 @@ export type Option = {
   value?: Any | undefined;
 };
 
-export const OptionSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
-  name: S.protobufField(S.string, 1),
-  value: S.protobufField(S.optional(AnySchema), { number: 2, type: "message" }),
+export const OptionSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  value: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.optional(AnySchema), { number: 2, type: "message" }),
 }), { name: "Option" }), "google.protobuf.Option");
 
 /**
@@ -357,17 +357,17 @@ export type Field = {
   defaultValue: string;
 };
 
-export const FieldSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Field>()({
-  kind: S.protobufField(Field_KindSchema, 1),
-  cardinality: S.protobufField(Field_CardinalitySchema, 2),
-  number: S.protobufField(S.int32, 3),
-  name: S.protobufField(S.string, 4),
-  typeUrl: S.protobufField(S.string, 6),
-  oneofIndex: S.protobufField(S.int32, 7),
-  packed: S.protobufField(S.boolean, 8),
-  options: S.protobufField(S.array(OptionSchema), 9),
-  jsonName: S.protobufField(S.string, 10),
-  defaultValue: S.protobufField(S.string, 11),
+export const FieldSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Field>()({
+  kind: /* @__PURE__ */ S.protobufField(Field_KindSchema, 1),
+  cardinality: /* @__PURE__ */ S.protobufField(Field_CardinalitySchema, 2),
+  number: /* @__PURE__ */ S.protobufField(S.int32, 3),
+  name: /* @__PURE__ */ S.protobufField(S.string, 4),
+  typeUrl: /* @__PURE__ */ S.protobufField(S.string, 6),
+  oneofIndex: /* @__PURE__ */ S.protobufField(S.int32, 7),
+  packed: /* @__PURE__ */ S.protobufField(S.boolean, 8),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 9),
+  jsonName: /* @__PURE__ */ S.protobufField(S.string, 10),
+  defaultValue: /* @__PURE__ */ S.protobufField(S.string, 11),
 }), { name: "Field" }), "google.protobuf.Field");
 
 /**
@@ -431,14 +431,14 @@ export type Type = {
   edition: string;
 };
 
-export const TypeSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Type>()({
-  name: S.protobufField(S.string, 1),
-  fields: S.protobufField(S.array(FieldSchema), 2),
-  oneofs: S.protobufField(S.array(S.string), 3),
-  options: S.protobufField(S.array(OptionSchema), 4),
-  sourceContext: S.protobufField(S.optional(SourceContextSchema), 5),
-  syntax: S.protobufField(SyntaxSchema, 6),
-  edition: S.protobufField(S.string, 7),
+export const TypeSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Type>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  fields: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(FieldSchema), 2),
+  oneofs: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(S.string), 3),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 4),
+  sourceContext: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.optional(SourceContextSchema), 5),
+  syntax: /* @__PURE__ */ S.protobufField(SyntaxSchema, 6),
+  edition: /* @__PURE__ */ S.protobufField(S.string, 7),
 }), { name: "Type" }), "google.protobuf.Type");
 
 /**
@@ -474,10 +474,10 @@ export type EnumValue = {
   options: Option[];
 };
 
-export const EnumValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<EnumValue>()({
-  name: S.protobufField(S.string, 1),
-  number: S.protobufField(S.int32, 2),
-  options: S.protobufField(S.array(OptionSchema), 3),
+export const EnumValueSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<EnumValue>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  number: /* @__PURE__ */ S.protobufField(S.int32, 2),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 3),
 }), { name: "EnumValue" }), "google.protobuf.EnumValue");
 
 /**
@@ -534,11 +534,11 @@ export type Enum = {
   edition: string;
 };
 
-export const EnumSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Enum>()({
-  name: S.protobufField(S.string, 1),
-  enumvalue: S.protobufField(S.array(EnumValueSchema), 2),
-  options: S.protobufField(S.array(OptionSchema), 3),
-  sourceContext: S.protobufField(S.optional(SourceContextSchema), 4),
-  syntax: S.protobufField(SyntaxSchema, 5),
-  edition: S.protobufField(S.string, 6),
+export const EnumSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Enum>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  enumvalue: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(EnumValueSchema), 2),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 3),
+  sourceContext: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.optional(SourceContextSchema), 4),
+  syntax: /* @__PURE__ */ S.protobufField(SyntaxSchema, 5),
+  edition: /* @__PURE__ */ S.protobufField(S.string, 6),
 }), { name: "Enum" }), "google.protobuf.Enum");

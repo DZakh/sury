@@ -120,7 +120,7 @@ export type Timestamp = {
   nanos: number;
 };
 
-export const TimestampSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Timestamp>()({
-  seconds: S.protobufField(S.bigint, 1),
-  nanos: S.protobufField(S.int32, 2),
+export const TimestampSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Timestamp>()({
+  seconds: /* @__PURE__ */ S.protobufField(S.bigint, 1),
+  nanos: /* @__PURE__ */ S.protobufField(S.int32, 2),
 }), { name: "Timestamp" }), "google.protobuf.Timestamp");

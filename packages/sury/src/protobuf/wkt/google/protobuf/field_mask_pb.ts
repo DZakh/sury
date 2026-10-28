@@ -214,6 +214,6 @@ export type FieldMask = {
   paths: string[];
 };
 
-export const FieldMaskSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<FieldMask>()({
-  paths: S.protobufField(S.array(S.string), 1),
+export const FieldMaskSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<FieldMask>()({
+  paths: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(S.string), 1),
 }), { name: "FieldMask" }), "google.protobuf.FieldMask");

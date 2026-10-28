@@ -4,7 +4,7 @@
 
 import * as S from "sury";
 
-const $number = S.union([S.number, S.schema(NaN)]);
+const $number = /* @__PURE__ */ S.union([S.number, /* @__PURE__ */ S.schema(NaN)]);
 
 /**
  * Represents a JSON `null`.
@@ -43,7 +43,7 @@ export const NullValue = {
  */
 export type NullValue = (typeof NullValue)[keyof typeof NullValue];
 
-export const NullValueSchema = S.protobufTypeName(S.union([0]), "google.protobuf.NullValue");
+export const NullValueSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0]), "google.protobuf.NullValue");
 
 /**
  * Represents a JSON object.
@@ -111,31 +111,40 @@ export type ListValue = {
   values: Value[];
 };
 
-export const [StructSchema, ValueSchema, ListValueSchema] = (() => {
-  let ValueSchema!: S.Schema<Value>;
-  let ListValueSchema!: S.Schema<ListValue>;
-  const StructSchema = S.recursive<Struct>("Struct", (StructSchema) => {
-    ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
-      ListValueSchema = S.recursive<ListValue>("ListValue", () =>
-        S.protobufTypeName(S.schema({
-          values: S.protobufField(S.array(ValueSchema), 1),
-        }), "google.protobuf.ListValue"),
-      );
+let $StructGroup: readonly [S.Schema<Struct>, S.Schema<Value>, S.Schema<ListValue>] | undefined;
+
+const $StructGroupMember = <M extends 0 | 1 | 2>(member: M) => {
+  if ($StructGroup === undefined) {
+    let ValueSchema!: S.Schema<Value>;
+    let ListValueSchema!: S.Schema<ListValue>;
+    const StructSchema = S.recursive<Struct>("Struct", (StructSchema) => {
+      ValueSchema = S.recursive<Value>("Value", (ValueSchema) => {
+        ListValueSchema = S.recursive<ListValue>("ListValue", () =>
+          S.protobufTypeName(S.schema({
+            values: S.protobufField(S.array(ValueSchema), 1),
+          }), "google.protobuf.ListValue"),
+        );
+        return S.protobufTypeName(S.schema({
+          kind: S.union([
+            S.schema({ case: "nullValue", value: S.protobufField(NullValueSchema, { number: 1, type: "enum" }) }),
+            S.schema({ case: "numberValue", value: S.protobufField($number, { number: 2, type: "double" }) }),
+            S.schema({ case: "stringValue", value: S.protobufField(S.string, 3) }),
+            S.schema({ case: "boolValue", value: S.protobufField(S.boolean, 4) }),
+            S.schema({ case: "structValue", value: S.protobufField(StructSchema, 5) }),
+            S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, 6) }),
+            /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
+          ]),
+        }), "google.protobuf.Value");
+      });
       return S.protobufTypeName(S.schema({
-        kind: S.union([
-          S.schema({ case: "nullValue", value: S.protobufField(NullValueSchema, { number: 1, type: "enum" }) }),
-          S.schema({ case: "numberValue", value: S.protobufField($number, { number: 2, type: "double" }) }),
-          S.schema({ case: "stringValue", value: S.protobufField(S.string, 3) }),
-          S.schema({ case: "boolValue", value: S.protobufField(S.boolean, 4) }),
-          S.schema({ case: "structValue", value: S.protobufField(StructSchema, 5) }),
-          S.schema({ case: "listValue", value: S.protobufField(ListValueSchema, 6) }),
-          /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
-        ]),
-      }), "google.protobuf.Value");
+        fields: S.protobufField(S.record(ValueSchema), 1),
+      }), "google.protobuf.Struct");
     });
-    return S.protobufTypeName(S.schema({
-      fields: S.protobufField(S.record(ValueSchema), 1),
-    }), "google.protobuf.Struct");
-  });
-  return [StructSchema, ValueSchema, ListValueSchema] as const;
-})();
+    $StructGroup = [StructSchema, ValueSchema, ListValueSchema];
+  }
+  return $StructGroup[member];
+};
+
+export const StructSchema = /* @__PURE__ */ $StructGroupMember(0);
+export const ValueSchema = /* @__PURE__ */ $StructGroupMember(1);
+export const ListValueSchema = /* @__PURE__ */ $StructGroupMember(2);

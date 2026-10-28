@@ -90,7 +90,7 @@ export type Duration = {
   nanos: number;
 };
 
-export const DurationSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Duration>()({
-  seconds: S.protobufField(S.bigint, 1),
-  nanos: S.protobufField(S.int32, 2),
+export const DurationSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Duration>()({
+  seconds: /* @__PURE__ */ S.protobufField(S.bigint, 1),
+  nanos: /* @__PURE__ */ S.protobufField(S.int32, 2),
 }), { name: "Duration" }), "google.protobuf.Duration");

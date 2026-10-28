@@ -82,15 +82,15 @@ export type Method = {
   edition: string;
 };
 
-export const MethodSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
-  name: S.protobufField(S.string, 1),
-  requestTypeUrl: S.protobufField(S.string, 2),
-  requestStreaming: S.protobufField(S.boolean, 3),
-  responseTypeUrl: S.protobufField(S.string, 4),
-  responseStreaming: S.protobufField(S.boolean, 5),
-  options: S.protobufField(S.array(OptionSchema), 6),
-  syntax: S.protobufField(SyntaxSchema, 7),
-  edition: S.protobufField(S.string, 8),
+export const MethodSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  requestTypeUrl: /* @__PURE__ */ S.protobufField(S.string, 2),
+  requestStreaming: /* @__PURE__ */ S.protobufField(S.boolean, 3),
+  responseTypeUrl: /* @__PURE__ */ S.protobufField(S.string, 4),
+  responseStreaming: /* @__PURE__ */ S.protobufField(S.boolean, 5),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 6),
+  syntax: /* @__PURE__ */ S.protobufField(SyntaxSchema, 7),
+  edition: /* @__PURE__ */ S.protobufField(S.string, 8),
 }), { name: "Method" }), "google.protobuf.Method");
 
 /**
@@ -192,9 +192,9 @@ export type Mixin = {
   root: string;
 };
 
-export const MixinSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
-  name: S.protobufField(S.string, 1),
-  root: S.protobufField(S.string, 2),
+export const MixinSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  root: /* @__PURE__ */ S.protobufField(S.string, 2),
 }), { name: "Mixin" }), "google.protobuf.Mixin");
 
 /**
@@ -294,13 +294,13 @@ export type Api = {
   edition: string;
 };
 
-export const ApiSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
-  name: S.protobufField(S.string, 1),
-  methods: S.protobufField(S.array(MethodSchema), 2),
-  options: S.protobufField(S.array(OptionSchema), 3),
-  version: S.protobufField(S.string, 4),
-  sourceContext: S.protobufField(S.optional(SourceContextSchema), 5),
-  mixins: S.protobufField(S.array(MixinSchema), 6),
-  syntax: S.protobufField(SyntaxSchema, 7),
-  edition: S.protobufField(S.string, 8),
+export const ApiSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
+  name: /* @__PURE__ */ S.protobufField(S.string, 1),
+  methods: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(MethodSchema), 2),
+  options: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(OptionSchema), 3),
+  version: /* @__PURE__ */ S.protobufField(S.string, 4),
+  sourceContext: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.optional(SourceContextSchema), 5),
+  mixins: /* @__PURE__ */ S.protobufField(/* @__PURE__ */ S.array(MixinSchema), 6),
+  syntax: /* @__PURE__ */ S.protobufField(SyntaxSchema, 7),
+  edition: /* @__PURE__ */ S.protobufField(S.string, 8),
 }), { name: "Api" }), "google.protobuf.Api");

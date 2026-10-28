@@ -113,6 +113,13 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const comment = (path: number[], tag: string, deprecated = false, indent = ""): string =>
     jsdoc(file.comments.get(path.join(".")), tag, deprecated, indent);
 
+  // A call that runs as the module loads is annotated: esbuild doesn't see from
+  // another module that Sury's factories are `@__NO_SIDE_EFFECTS__`, so it
+  // keeps an unused one, and the calls in its arguments with it. A call in an
+  // S.recursive callback runs only when the one around it does.
+  const pure = (scope: Group | undefined): string => (scope === undefined ? "/* @__PURE__ */ " : "");
+  const call = (scope: Group | undefined, fn: string, args: string): string => `${pure(scope)}${S}.${fn}(${args})`;
+
   // `S.number` refuses NaN, which a double or float holds as readily as any
   // other value; the file declares the schema that admits it once.
   let usesNumber = false;
@@ -151,29 +158,29 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       return scalarSchema(field.longAsString && field.mapKey === undefined && is64(element.scalar) ? "string" : scalarSchemas[element.scalar]);
     }
     if (element.kind === "enum") return sym.ref(element.enum, "schema");
-    if (isStruct(field, element)) return `${S}.record(${S}.json)`;
+    if (isStruct(field, element)) return call(scope, "record", `${S}.json`);
     return messageRef(messageOf(element), scope);
   };
 
-  const numbered = (field: Field, schema: string, type: string | undefined): string => {
+  const numbered = (field: Field, schema: string, type: string | undefined, scope: Group | undefined): string => {
     const opts = [`number: ${field.number}`];
     if (type !== undefined) opts.push(`type: ${JSON.stringify(type)}`);
     if (statedKey(field) !== undefined) opts.push(`key: ${JSON.stringify(field.mapKey)}`);
     if (field.list && !field.packed && packable(field.element)) opts.push("packed: false");
-    return `${S}.protobufField(${schema}, ${opts.length === 1 ? field.number : `{ ${opts.join(", ")} }`})`;
+    return call(scope, "protobufField", `${schema}, ${opts.length === 1 ? field.number : `{ ${opts.join(", ")} }`}`);
   };
 
   const fieldSchema = (field: Field, scope: Group | undefined): string => {
     const wrapped = wrapperScalar(field);
     if (wrapped !== undefined) {
-      return numbered(field, `${S}.optional(${scalarSchema(scalarSchemas[wrapped])})`, (field.element as { message: Message }).message.typeName);
+      return numbered(field, call(scope, "optional", scalarSchema(scalarSchemas[wrapped])), (field.element as { message: Message }).message.typeName, scope);
     }
     const element = elementSchema(field, field.element, scope);
     const type = statedType(field, field.element);
-    if (field.mapKey !== undefined) return numbered(field, `${S}.record(${element})`, type);
-    if (field.list) return numbered(field, `${S}.array(${element})`, type);
+    if (field.mapKey !== undefined) return numbered(field, call(scope, "record", element), type, scope);
+    if (field.list) return numbered(field, call(scope, "array", element), type, scope);
     const present = field.optional || field.element.kind === "message";
-    return numbered(field, present ? `${S}.optional(${element})` : element, type);
+    return numbered(field, present ? call(scope, "optional", element) : element, type, scope);
   };
 
   const oneofType = (oneof: Oneof, indent: string): string =>
@@ -185,10 +192,11 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const oneofSchema = (oneof: Oneof, scope: Group | undefined, indent: string): string => {
     const arms = oneof.fields.map((field) => {
       const element = elementSchema(field, field.element, scope);
-      return `${indent}  ${S}.schema({ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, statedType(field, field.element))} }),`;
+      return `${indent}  ${call(scope, "schema", `{ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, statedType(field, field.element), scope)} }`)},`;
     });
-    arms.push(`${indent}  /* @__PURE__ */ ${S}.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: ${S}.optional(${S}.schema(undefined)) }),`);
-    return `${S}.union([\n${arms.join("\n")}\n${indent}])`;
+    // Annotated wherever it is: S.schemaOf is, the function it returns can't be.
+    arms.push(`${indent}  /* @__PURE__ */ ${S}.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: ${call(scope, "optional", call(scope, "schema", "undefined"))} }),`);
+    return call(scope, "union", `[\n${arms.join("\n")}\n${indent}]`);
   };
 
   const objectBody = (message: Message, scope: Group | undefined, indent: string): string => {
@@ -201,11 +209,12 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   };
 
   function member(message: Message, group: Group): string {
-    const depth = group.open.length + (group.members.size > 1 ? 1 : 0);
+    const alone = group.members.size === 1;
+    const depth = group.open.length + (alone ? 0 : 2);
     const indent = "  ".repeat(depth + 1);
     const shape = names.shape.get(message)!;
-    const { body, statements, readsItself } = inCallback(group, message, () => typed(`${S}.schema(${objectBody(message, group, indent)})`, message));
-    const head = `${S}.recursive<${shape}>(${JSON.stringify(shape)}, (${readsItself ? names.schema.get(message) : ""}) =>`;
+    const { body, statements, readsItself } = inCallback(group, message, () => typed(`${S}.schema(${objectBody(message, group, indent)})`, message, group));
+    const head = `${alone ? pure(undefined) : ""}${S}.recursive<${shape}>(${JSON.stringify(shape)}, (${readsItself ? names.schema.get(message) : ""}) =>`;
     const close = "  ".repeat(depth);
     return statements.length === 0
       ? `${head}\n${indent}${body},\n${close})`
@@ -229,7 +238,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const enums = [...nestedTypes(file)].filter((desc): desc is Enum => desc.kind === "enum");
   const messages = [...nestedTypes(file)].filter((desc): desc is Message => desc.kind === "message");
   // On the definition itself, so every path to a recursive message reaches it.
-  const typed = (schema: string, desc: Message | Enum): string => `${S}.protobufTypeName(${schema}, ${JSON.stringify(desc.typeName)})`;
+  const typed = (schema: string, desc: Message | Enum, scope?: Group): string => call(scope, "protobufTypeName", `${schema}, ${JSON.stringify(desc.typeName)}`);
 
   for (const desc of enums) {
     const name = names.shape.get(desc)!;
@@ -241,7 +250,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     out.push(
       `${doc}export const ${name} = {\n${members.join("\n\n")}\n} as const;\n\n` +
         `${doc}export type ${name} = (typeof ${name})[keyof typeof ${name}];\n\n` +
-        `export const ${names.schema.get(desc)} = ${typed(`${S}.union([${numbers.join(", ")}])`, desc)};\n`,
+        `export const ${names.schema.get(desc)} = ${typed(call(undefined, "union", `[${numbers.join(", ")}]`), desc)};\n`,
     );
   }
 
@@ -254,9 +263,18 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
         out.push(`export const ${root} = ${built};\n`);
         continue;
       }
-      const all = [root, ...rest].join(", ");
-      const variables = component.slice(1).map((message) => `  let ${names.schema.get(message)}!: ${S}.Schema<${names.shape.get(message)}>;\n`);
-      out.push(`export const [${all}] = (() => {\n${variables.join("")}  const ${root} = ${built};\n  return [${all}] as const;\n})();\n`);
+      // Each export an annotated call handing back its member: esbuild keeps a
+      // destructured or property-read result, annotated or not.
+      const group = `$${names.shape.get(component[0]!)}Group`;
+      const types = component.map((message) => `${S}.Schema<${names.shape.get(message)}>`);
+      const variables = component.slice(1).map((message, idx) => `    let ${names.schema.get(message)}!: ${types[idx + 1]};\n`);
+      out.push(
+        `let ${group}: readonly [${types.join(", ")}] | undefined;\n\n` +
+          `const ${group}Member = <M extends ${component.map((_, idx) => idx).join(" | ")}>(member: M) => {\n` +
+          `  if (${group} === undefined) {\n${variables.join("")}    const ${root} = ${built};\n    ${group} = [${[root, ...rest].join(", ")}];\n  }\n` +
+          `  return ${group}[member];\n};\n\n` +
+          [root, ...rest].map((name, idx) => `export const ${name} = /* @__PURE__ */ ${group}Member(${idx});\n`).join(""),
+      );
       continue;
     }
     const message = component[0]!;
@@ -266,13 +284,13 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       out.push(`export const ${root}: ${S}.Schema<${shape}, ${shape}> = ${S}.protobufAny;\n`);
     } else {
       const body = objectBody(message, undefined, "");
-      // `S.schemaOf` is annotated, the function it returns can't be: without
-      // this, a bundler keeps every message of a file once one is imported.
-      out.push(`export const ${root} = ${typed(`${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} })`, message)};\n`);
+      // Rollup too needs this one: `S.schemaOf` is annotated, the function it
+      // returns can't be.
+      out.push(`export const ${root} = ${typed(call(undefined, "meta", `/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} }`), message)};\n`);
     }
   }
 
-  const body = (usesNumber ? `const $number = ${S}.union([${S}.number, ${S}.schema(NaN)]);\n\n` : "") + out.join("\n");
+  const body = (usesNumber ? `const $number = ${call(undefined, "union", `[${S}.number, ${call(undefined, "schema", "NaN")}]`)};\n\n` : "") + out.join("\n");
   return {
     name: `${outputPath(file)}.ts`,
     content: `${header(file, options, version)}/* eslint-disable */\n${options.tsNocheck ? "// @ts-nocheck\n" : ""}\n${sym.importDecls()}\n${body}`,

@@ -493,12 +493,14 @@ const options = (corpus: Corpus) => {
   }
 };
 
-// Rollup 4, which honors `@__NO_SIDE_EFFECTS__` across the package boundary
-// (esbuild does only within a file): importing one message keeps no other.
+// Rollup 4, which honors `@__NO_SIDE_EFFECTS__` across the package boundary,
+// and esbuild, which reads only `/* @__PURE__ */` there: importing one message
+// keeps no other. ReScript writes no annotation, so its modules are held to
+// Rollup alone.
 const treeShaking = async (corpus: Corpus) => {
   const shake = join(root, "test/.shake");
   rmSync(shake, { recursive: true, force: true });
-  const { transform } = await import("esbuild");
+  const { build, transform } = await import("esbuild");
   const { rollup } = await import("rollup");
   const { nodeResolve } = await import("@rollup/plugin-node-resolve");
   for (const proto of corpus.files) {
@@ -507,10 +509,16 @@ const treeShaking = async (corpus: Corpus) => {
     mkdirSync(dirname(join(shake, `${name}.js`)), { recursive: true });
     writeFileSync(join(shake, `${name}.js`), code.replace(/from "(\.\.?\/[^"]+)"/g, 'from "$1.js"'));
   }
-  const bundled = async (entry: string): Promise<string> => {
-    writeFileSync(join(shake, "entry.js"), entry);
+  type Bundler = "Rollup" | "esbuild";
+  const bundled = async (entry: string, bundler: Bundler): Promise<string> => {
+    const input = join(shake, "entry.js");
+    writeFileSync(input, entry);
+    if (bundler === "esbuild") {
+      const { outputFiles } = await build({ entryPoints: [input], bundle: true, write: false, format: "esm", logLevel: "silent" });
+      return outputFiles[0]!.text;
+    }
     const bundle = await rollup({
-      input: join(shake, "entry.js"),
+      input,
       plugins: [nodeResolve({ rootDir: root })],
       onwarn: (warning) => {
         if (warning.code === "UNRESOLVED_IMPORT") throw new Error(warning.message);
@@ -522,64 +530,75 @@ const treeShaking = async (corpus: Corpus) => {
   };
   // Markers are text only the message they name emits: a string it passes, or
   // one of its field labels.
-  const shakes = (label: string, code: string, kept: string[], dropped: string[]) => {
-    for (const marker of kept) if (!code.includes(marker)) fail(`tree-shaking: ${label} lost ${marker}`);
-    for (const marker of dropped) if (code.includes(marker)) fail(`tree-shaking: ${label} kept ${marker}`);
+  const shakes = async (label: string, bundlers: Bundler[], entry: string | ((bundler: Bundler) => Promise<string>), kept: string[], dropped: string[]) => {
+    for (const bundler of bundlers) {
+      const code = typeof entry === "string" ? await bundled(entry, bundler) : await entry(bundler);
+      for (const marker of kept) if (!code.includes(marker)) fail(`tree-shaking: ${bundler}'s ${label} lost ${marker}`);
+      for (const marker of dropped) if (code.includes(marker)) fail(`tree-shaking: ${bundler}'s ${label} kept ${marker}`);
+    }
   };
-  shakes(
+  const both: Bundler[] = ["Rollup", "esbuild"];
+  await shakes(
     "one generated message",
-    await bundled('import { EmptySchema } from "./example/v1/kitchen_sink_pb.js";\nconsole.log(EmptySchema);\n'),
+    both,
+    'import { EmptySchema } from "./example/v1/kitchen_sink_pb.js";\nconsole.log(EmptySchema);\n',
     ['"Empty"'],
     ['"Scalars"', '"User"', '"WellKnown"', '"Node"', '"Branch"', '"GraphA"', '"Address"', '"sfixed64"', "boxedInOneof", "nanos"],
   );
-  shakes(
+  await shakes(
     "one well-known type",
-    await bundled('import { TimestampSchema } from "sury/protobuf/wkt";\nconsole.log(TimestampSchema);\n'),
+    both,
+    'import { TimestampSchema } from "sury/protobuf/wkt";\nconsole.log(TimestampSchema);\n',
     ['name: "Timestamp"', "seconds"],
     ['name: "Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "Int32Value"'],
   );
   const resModule = JSON.stringify(join(root, "test/generated/res/example/v1/Example_v1_kitchen_sink_pb.res.mjs"));
-  shakes(
+  await shakes(
     "one ReScript module",
-    await bundled(`import { Empty } from ${resModule};\nconsole.log(Empty.schema);\n`),
+    ["Rollup"],
+    `import { Empty } from ${resModule};\nconsole.log(Empty.schema);\n`,
     [],
     ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', '"GraphA"', "nanos"],
   );
   // A group member other than the first, bundled alone, still builds: what it
   // reads can't be a variable only a dropped export fills.
   const graph = "{ a: [{ b: [{ pick: { case: \"c\", value: { a: [], b: {} } } }], c: {} }], b: { 1: { pick: { case: \"none\", value: 1 } } } }";
-  const runs = async (label: string, from: string, schema: string, value: string) => {
+  const runs = (label: string, from: string, schema: string) => async (bundler: Bundler) => {
     const code = await bundled(
-      `import * as S from "sury";\nimport ${from};\nconst value = ${value};\n` +
+      `import * as S from "sury";\nimport ${from};\nconst value = ${graph};\n` +
         `const back = S.decodeOrThrow(S.protobuf, ${schema})(S.decodeOrThrow(${schema}, S.protobuf)(value));\n` +
         `if (back.a[0].b[0].pick.case !== "c") throw new Error(JSON.stringify(back));\n`,
+      bundler,
     );
-    const path = join(shake, `${label.replace(/\W+/g, "_")}.mjs`);
+    const path = join(shake, `${bundler}_${label.replace(/\W+/g, "_")}.mjs`);
     writeFileSync(path, code);
     try {
       await import(pathToFileURL(path).href);
     } catch (error) {
-      fail(`tree-shaking: ${label} bundled alone doesn't run: ${(error as Error).message}`);
+      fail(`tree-shaking: ${bundler}'s ${label} bundled alone doesn't run: ${(error as Error).message}`);
     }
     return code;
   };
-  shakes(
+  await shakes(
     "one member of a group",
-    await runs("one member of a group", '{ GraphCSchema } from "./example/v1/kitchen_sink_pb.js"', "GraphCSchema", graph),
+    both,
+    runs("one member of a group", '{ GraphCSchema } from "./example/v1/kitchen_sink_pb.js"', "GraphCSchema"),
     ['"example.v1.GraphA"', '"example.v1.GraphB"'],
     ['"Node"', '"Branch"', '"Scalars"'],
   );
-  shakes(
+  await shakes(
     "one ReScript module of a group",
-    await runs("one ReScript module of a group", `{ GraphC } from ${resModule}`, "GraphC.schema", graph),
+    ["Rollup"],
+    runs("one ReScript module of a group", `{ GraphC } from ${resModule}`, "GraphC.schema"),
     ['"example.v1.GraphA"', '"example.v1.GraphB"'],
     ['"Node"', '"Branch"', "firstName"],
   );
   const timestampOnly = join(root, "test/res/TimestampOnly.res.mjs");
   if (!readFileSync(timestampOnly, "utf8").includes('from "sury/protobuf/wkt"')) fail(`tree-shaking: ${timestampOnly} doesn't import sury/protobuf/wkt`);
-  shakes(
+  await shakes(
     "one S.Protobuf type",
-    await bundled(`import { schema } from ${JSON.stringify(timestampOnly)};\nconsole.log(schema);\n`),
+    both,
+    `import { schema } from ${JSON.stringify(timestampOnly)};\nconsole.log(schema);\n`,
     ['name: "Timestamp"', "seconds"],
     ['name: "Duration"', '"numberValue"', "typeUrl", "fileName", "responseStreaming", 'name: "Int32Value"', '"google.protobuf.Mixin"'],
   );

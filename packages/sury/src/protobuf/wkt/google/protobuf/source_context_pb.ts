@@ -20,6 +20,6 @@ export type SourceContext = {
   fileName: string;
 };
 
-export const SourceContextSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<SourceContext>()({
-  fileName: S.protobufField(S.string, 1),
+export const SourceContextSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<SourceContext>()({
+  fileName: /* @__PURE__ */ S.protobufField(S.string, 1),
 }), { name: "SourceContext" }), "google.protobuf.SourceContext");

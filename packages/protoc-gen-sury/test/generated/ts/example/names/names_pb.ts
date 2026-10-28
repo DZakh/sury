@@ -5,7 +5,7 @@
 import * as S$ from "sury";
 import { type JsonObject } from "sury/protobuf/wkt";
 
-const $number = S$.union([S$.number, S$.schema(NaN)]);
+const $number = /* @__PURE__ */ S$.union([S$.number, /* @__PURE__ */ S$.schema(NaN)]);
 
 /**
  * Named as what the generated code names: Sury, and the standard library's
@@ -20,8 +20,8 @@ export type S = {
   a: string;
 };
 
-export const SSchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<S>()({
-  a: S$.protobufField(S$.string, 1),
+export const SSchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<S>()({
+  a: /* @__PURE__ */ S$.protobufField(S$.string, 1),
 }), { name: "S" }), "example.names.S");
 
 /**
@@ -34,8 +34,8 @@ export type JSON = {
   raw: Uint8Array;
 };
 
-export const JSONSchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<JSON>()({
-  raw: S$.protobufField(S$.uint8Array, 1),
+export const JSONSchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<JSON>()({
+  raw: /* @__PURE__ */ S$.protobufField(S$.uint8Array, 1),
 }), { name: "JSON" }), "example.names.JSON");
 
 /**
@@ -48,8 +48,8 @@ export type Uint8Array$ = {
   n: number;
 };
 
-export const Uint8ArraySchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<Uint8Array$>()({
-  n: S$.protobufField(S$.int32, 1),
+export const Uint8ArraySchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<Uint8Array$>()({
+  n: /* @__PURE__ */ S$.protobufField(S$.int32, 1),
 }), { name: "Uint8Array$" }), "example.names.Uint8Array");
 
 /**
@@ -62,8 +62,8 @@ export type Float = {
   f: number;
 };
 
-export const FloatSchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<Float>()({
-  f: S$.protobufField($number, { number: 1, type: "double" }),
+export const FloatSchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<Float>()({
+  f: /* @__PURE__ */ S$.protobufField($number, { number: 1, type: "double" }),
 }), { name: "Float" }), "example.names.Float");
 
 /**
@@ -76,8 +76,8 @@ export type Stdlib = {
   b: boolean;
 };
 
-export const StdlibSchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<Stdlib>()({
-  b: S$.protobufField(S$.boolean, 1),
+export const StdlibSchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<Stdlib>()({
+  b: /* @__PURE__ */ S$.protobufField(S$.boolean, 1),
 }), { name: "Stdlib" }), "example.names.Stdlib");
 
 /**
@@ -98,7 +98,7 @@ export type String = {
     | { case: undefined; value?: undefined };
 };
 
-export const StringSchema = S$.recursive<String>("String", (StringSchema) =>
+export const StringSchema = /* @__PURE__ */ S$.recursive<String>("String", (StringSchema) =>
   S$.protobufTypeName(S$.schema({
     next: S$.protobufField(S$.optional(StringSchema), 1),
     option: S$.union([
@@ -181,27 +181,27 @@ export type Holder = {
   lib?: Stdlib | undefined;
 };
 
-export const HolderSchema = S$.protobufTypeName(S$.meta(/* @__PURE__ */ S$.schemaOf<Holder>()({
-  s: S$.protobufField(S$.optional(SSchema), 1),
-  json: S$.protobufField(S$.optional(JSONSchema), 2),
-  box: S$.protobufField(S$.optional(Uint8ArraySchema), 3),
-  f: S$.protobufField(S$.optional(FloatSchema), 4),
-  meta: S$.protobufField(S$.optional(S$.record(S$.json)), { number: 5, type: "google.protobuf.Struct" }),
-  data: S$.protobufField(S$.uint8Array, 6),
-  d: S$.protobufField($number, { number: 7, type: "double" }),
-  t: S$.union([
-    S$.schema({ case: "str", value: S$.protobufField(S$.string, 8) }),
-    S$.schema({ case: "ofS", value: S$.protobufField(SSchema, 9) }),
-    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S$.optional(S$.schema(undefined)) }),
+export const HolderSchema = /* @__PURE__ */ S$.protobufTypeName(/* @__PURE__ */ S$.meta(/* @__PURE__ */ S$.schemaOf<Holder>()({
+  s: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(SSchema), 1),
+  json: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(JSONSchema), 2),
+  box: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(Uint8ArraySchema), 3),
+  f: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(FloatSchema), 4),
+  meta: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(/* @__PURE__ */ S$.record(S$.json)), { number: 5, type: "google.protobuf.Struct" }),
+  data: /* @__PURE__ */ S$.protobufField(S$.uint8Array, 6),
+  d: /* @__PURE__ */ S$.protobufField($number, { number: 7, type: "double" }),
+  t: /* @__PURE__ */ S$.union([
+    /* @__PURE__ */ S$.schema({ case: "str", value: /* @__PURE__ */ S$.protobufField(S$.string, 8) }),
+    /* @__PURE__ */ S$.schema({ case: "ofS", value: /* @__PURE__ */ S$.protobufField(SSchema, 9) }),
+    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: /* @__PURE__ */ S$.optional(/* @__PURE__ */ S$.schema(undefined)) }),
   ]),
-  string: S$.union([
-    S$.schema({ case: "num", value: S$.protobufField(S$.int32, 10) }),
-    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S$.optional(S$.schema(undefined)) }),
+  string: /* @__PURE__ */ S$.union([
+    /* @__PURE__ */ S$.schema({ case: "num", value: /* @__PURE__ */ S$.protobufField(S$.int32, 10) }),
+    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: /* @__PURE__ */ S$.optional(/* @__PURE__ */ S$.schema(undefined)) }),
   ]),
-  option: S$.union([
-    S$.schema({ case: "flag", value: S$.protobufField(S$.boolean, 11) }),
-    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S$.optional(S$.schema(undefined)) }),
+  option: /* @__PURE__ */ S$.union([
+    /* @__PURE__ */ S$.schema({ case: "flag", value: /* @__PURE__ */ S$.protobufField(S$.boolean, 11) }),
+    /* @__PURE__ */ S$.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: /* @__PURE__ */ S$.optional(/* @__PURE__ */ S$.schema(undefined)) }),
   ]),
-  text: S$.protobufField(S$.optional(StringSchema), 12),
-  lib: S$.protobufField(S$.optional(StdlibSchema), 13),
+  text: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(StringSchema), 12),
+  lib: /* @__PURE__ */ S$.protobufField(/* @__PURE__ */ S$.optional(StdlibSchema), 13),
 }), { name: "Holder" }), "example.names.Holder");
