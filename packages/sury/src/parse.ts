@@ -527,10 +527,11 @@ export const reverse = (schema: Internal): Internal => schema.r!;
 // it by one parse through `reverse`, which checks it as an Output and hands it
 // back in the Input form it is stored in. A never or async encode makes that
 // uncomputable, which leaves no Output validation to hold the value to, so
-// there is nothing to check: `undefined`.
-export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | undefined => {
+// there is nothing to check: `undefined`. `flag` 4096 asks only whether it
+// holds.
+export const decodeOutput = (output: Internal, flag: Flag = 0): ((v: unknown) => unknown) | undefined => {
   try {
-    return getOp(0, 2, unknown, output) as (v: unknown) => unknown;
+    return getOp(flag, 2, unknown, output) as (v: unknown) => unknown;
   } catch (exn) {
     if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") throw exn;
   }

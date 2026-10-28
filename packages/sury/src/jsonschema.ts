@@ -43,8 +43,7 @@ import {
 import {
  B_contentNode,
  B_isText,
- B_operationArg,
- B_viewSource
+ B_operationArg
 } from "./builder";
 import {
   array,
@@ -63,7 +62,8 @@ import {
   Option_getOr,
   deepStrict,
   option,
-  refineInput
+  refineInput,
+  viewSource
 } from "./modifiers";
 import {
  assertResult
@@ -335,7 +335,7 @@ const applyMetadataOverlay = (
 }
 
 // A ref is published by the definition it carries, a view counted as its
-// source (`B_viewSource`), under its name unless
+// source (`viewSource`), under its name unless
 // another definition already took that key (specs/recursive-same-name.yaml).
 type Defs = [string, Internal][];
 
@@ -347,7 +347,7 @@ const refKey = (defs: Defs, ref: Internal, path: Path): string => {
       path,
       reason: `${ref.name} is used before S.recursive returns its definition`,
     });
-  const def = B_viewSource(found);
+  const def = viewSource(found);
   let entry = defs.find((e) => e[1] === def);
   if (entry === U) {
     const name = ref["$ref"]!.slice(8);

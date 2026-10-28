@@ -32,7 +32,6 @@ import {
   tagFlags,
   U,
   unknown,
-  reversedKey,
   type Val
 } from "./base";
 
@@ -1044,19 +1043,6 @@ export const B_scope = (val: Val): Val => {
   if (shouldLink) B_linkVar(val, nextVal);
   return nextVal;
 }
-
-// The definition each output view (modifiers.ts `outputView`) was built from.
-export const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
-
-// A view claims exactly its source's output, so whoever names definitions
-// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
-// output is described, but only through a reverse already built. A view
-// converts nothing, so it is its own view and never another's source.
-export const B_viewSource = (def: Internal): Internal => {
-  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
-  const source = viewSources.get(reversed ? def.r! : def);
-  return source === U ? def : reversed ? source.r! : source;
-};
 
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in
 // exactly one thing: what the coder's result claims to already be, which is

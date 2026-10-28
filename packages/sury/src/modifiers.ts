@@ -17,6 +17,7 @@ import {
   panic,
   pathEmpty,
   refTag,
+  reversedKey,
   type SchemaErrorMessage,
   setHas,
   U,
@@ -44,14 +45,12 @@ import {
   B_unsupportedDecode,
   B_throw,
   B_conversionFail,
-  viewSources,
 } from "./builder";
 import {
   objectDecoder
 } from "./composites";
 import {
  decodeOutput,
- getOp,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
@@ -389,6 +388,19 @@ const converting = (schema: Internal, seen: Set<Internal>): boolean =>
 // to it.
 const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
 
+// The definition each output view (`outputView`) was built from.
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
 // What a schema's output claims, as a schema of its own: every node at the end
 // of its chain, children likewise, its refinements kept and its conversions
 // dropped. A value already converted is checked against it without converting
@@ -404,16 +416,21 @@ const outputView = (schema: Internal): Internal => {
   };
   const view = copySchema(last);
   delete view.serializer;
-  // No schema describes what a conversion into `unknown` (`S.list`) outputs,
-  // so a value is told apart the way S.isOutput tells it: by the node's own
-  // reverse accepting it, whose failure is the reason.
-  if (last !== schema && last.type === unknownTag) {
+  // No schema describes what a coder into `unknown` (`S.list`) outputs, so a
+  // value is told apart the way S.isOutput tells it: by the node's own reverse
+  // accepting it, whose failure is the reason. A built-in conversion's Output
+  // is the `unknown` it claims, and one whose reverse doesn't compile (a
+  // "never" or decode-only encode) has nothing to hold it to.
+  if (last !== schema && last.type === unknownTag && last.serializer) {
     const own = view.refiner;
     view.refiner = (val) => {
       const reversed = reverse(schema);
-      const is = B_embed(val, getOp(8 | 4096, 1, reversed));
-      return (own ? own(val) : []).concat({
-        c: (v) => `${is}(${v})`,
+      const is = decodeOutput(reversed, 4096);
+      const checks = own ? own(val) : [];
+      if (!is) return checks;
+      const embedded = B_embed(val, is);
+      return checks.concat({
+        c: (v) => `${embedded}(${v})`,
         // Asked again only for the reason: inside a union a failing arm is how
         // a later one is reached, and the boolean costs no error.
         f: (input) => {
@@ -421,7 +438,7 @@ const outputView = (schema: Internal): Internal => {
           return (value, path) => {
             let cause: unknown;
             try {
-              getOp(8, 1, reversed)(value);
+              decodeOutput(reversed)!(value);
             } catch (thrown) {
               cause = thrown;
             }

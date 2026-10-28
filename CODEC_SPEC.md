@@ -445,10 +445,15 @@ claims, so those conversions don't run a second time over the coder's result,
 while its refinements still check it (`codec-custom-output-seam-field-coder`,
 `codec-custom-output-seam-union-field-coder`). A direction left to `"auto"`
 converts through the target itself, while the coder's side still skips the
-field's conversion (`codec-custom-output-seam-mixed-auto`). A conversion into
-`unknown`, as `S.list` is, outputs nothing a check can read, so an Output
-read back through the seam is held to that conversion's own reverse, the way
-`S.isOutput` holds it (`codec-custom-output-seam-list-arm-reversed`).
+field's conversion (`codec-custom-output-seam-mixed-auto`). A coder into
+`unknown`, as `S.list` is, outputs nothing a check can read, so an Output read
+back through the seam is held to that coder's own encode, the way `S.isOutput`
+holds it (`codec-custom-output-seam-list-arm-reversed`). One with no encode to
+run (`"never"`, or the decode-only shorthand) and a built-in conversion into
+`unknown` take what they are handed, as `unknown` does
+(`codec-custom-output-seam-unknown-never`,
+`codec-custom-output-seam-unknown-decode-only`,
+`codec-custom-output-seam-unknown-jsonstring`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped
