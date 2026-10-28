@@ -963,8 +963,17 @@ export class Reader {
     return hi >>> 21 === 0 ? BigInt(hi * 4294967296 + (lo >>> 0)) : (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0);
   }
   // Signed reading of the same varint: a value within 2^53 either way is
-  // built from one BigInt of a float instead of a shift and an or.
+  // built from one BigInt of a float instead of a shift and an or. Past it the
+  // float has rounded, and the varint is read again exactly.
   int64(): bigint {
+    const start = this.pos;
+    const value = this.int53();
+    if (value > -9007199254740992 && value < 9007199254740992) return BigInt(value);
+    this.pos = start;
+    return BigInt.asIntN(64, this.varint64());
+  }
+  // The same varint as a float, exact within 2^53 either way.
+  int53(): number {
     const buf = this.buf;
     const limit = this.limit;
     let pos = this.pos;
@@ -984,9 +993,7 @@ export class Reader {
       shift += 7;
     } while (byte > 127);
     this.pos = pos;
-    if (hi >>> 21 === 0) return BigInt(hi * 4294967296 + (lo >>> 0));
-    if (hi >>> 21 === 2047) return BigInt(hi * 4294967296 + (lo >>> 0));
-    return BigInt.asIntN(64, (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0));
+    return hi * 4294967296 + (lo >>> 0);
   }
   bool(): boolean {
     const buf = this.buf;
@@ -1304,21 +1311,19 @@ export class Writer {
     this.pos = pos;
   }
   varint64(value: bigint): void {
-    if (value >= 0n && value < 2147483648n) return this.varint32(Number(value));
-    let lo: number;
-    let hi: number;
-    // Within 2^53 the halves come from float arithmetic; `>>> 0` on the
-    // negative high word is the two's complement the wire wants.
-    if (value >= -9007199254740992n && value <= 9007199254740992n) {
-      const num = Number(value);
-      hi = Math.floor(num / 4294967296);
-      lo = num - hi * 4294967296;
-      hi >>>= 0;
-    } else {
-      value = BigInt.asUintN(64, value);
-      lo = Number(value & 4294967295n);
-      hi = Number(value >> 32n);
-    }
+    if (value >= -9007199254740992n && value <= 9007199254740992n) return this.int53(Number(value));
+    value = BigInt.asUintN(64, value);
+    this.halves(Number(value & 4294967295n), Number(value >> 32n));
+  }
+  // A safe integer as the 64-bit varint it is, with no bigint in between: the
+  // halves come from float arithmetic, and `>>> 0` on a negative high word is
+  // the two's complement the wire wants.
+  int53(value: number): void {
+    if (value >= 0 && value < 2147483648) return this.varint32(value);
+    const hi = Math.floor(value / 4294967296);
+    this.halves(value - hi * 4294967296, hi >>> 0);
+  }
+  halves(lo: number, hi: number): void {
     this.ensure(10);
     const buf = this.buf;
     let pos = this.pos;
@@ -1588,7 +1593,7 @@ const readDate = (r: Reader, _d: number, prev?: unknown): Date => {
   let nanos = (ms - seconds * 1000) * 1e6;
   while (r.pos < r.limit) {
     const tag = r.tag();
-    if (tag === 8) seconds = Number(r.int64());
+    if (tag === 8) seconds = r.int53();
     else if (tag === 16) nanos = r.varint32() | 0;
     else r.skipTag(tag);
   }
@@ -1604,7 +1609,7 @@ const writeDate = (w: Writer, value: unknown): void => {
   const nanos = (ms - seconds * 1000) * 1e6;
   if (seconds) {
     w.varint32(8);
-    w.varint64(BigInt(seconds));
+    w.int53(seconds);
   }
   if (nanos) {
     w.varint32(16);
