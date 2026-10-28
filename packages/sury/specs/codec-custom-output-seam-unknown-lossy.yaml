@@ -20,6 +20,10 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Missing input for string at a"
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-result:
+        input: "{ f: 5 }"
+        output: "{ f: 5 }"
   decode: eq-to-parse
   encode: eq-to-parse

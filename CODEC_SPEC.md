@@ -445,15 +445,17 @@ claims, so those conversions don't run a second time over the coder's result,
 while its refinements still check it (`codec-custom-output-seam-field-coder`,
 `codec-custom-output-seam-union-field-coder`). A direction left to `"auto"`
 converts through the target itself, while the coder's side still skips the
-field's conversion (`codec-custom-output-seam-mixed-auto`). A coder into
-`unknown`, as `S.list` is, outputs nothing a check can read, so an Output read
-back through the seam is held to that coder's own encode, the way `S.isOutput`
-holds it (`codec-custom-output-seam-list-arm-reversed`). One with no encode to
-run (`"never"`, or the decode-only shorthand) and a built-in conversion into
-`unknown` take what they are handed, as `unknown` does
+field's conversion (`codec-custom-output-seam-mixed-auto`). What the
+target's output claims is all the seam checks: a conversion into `unknown`
+takes whatever it is handed, whatever its encode
 (`codec-custom-output-seam-unknown-never`,
 `codec-custom-output-seam-unknown-decode-only`,
-`codec-custom-output-seam-unknown-jsonstring`).
+`codec-custom-output-seam-unknown-async-inner`,
+`codec-custom-output-seam-unknown-jsonstring`,
+`codec-custom-output-seam-unknown-lossy`). `S.list` claims the shape of a
+ReScript list, `0` or a `{hd, tl}` cell, so an Output read back through the
+seam tells it from another member's object
+(`codec-custom-output-seam-list-arm-reversed`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped

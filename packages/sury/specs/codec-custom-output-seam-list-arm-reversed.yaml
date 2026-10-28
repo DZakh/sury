@@ -13,14 +13,14 @@ jsonSchema:
     input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", enum: ["T7"] }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare:
-  input: "throws: [Sury] Can't compare { f: unknown; } | { TAG: \"T7\"; _0: integer; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: "throws: [Sury] Can't compare { f: list; } | { TAG: \"T7\"; _0: integer; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{try{let v0=i.f;if(!(e[0](v0))){v1=[v1,e[1],v0];break l2}i={f:v0};break}catch(x){v1=[v1,e[3](x)]}}if(i.TAG==="T7"){l4:{let v3=i._0;if(!(typeof v3==="number"&&v3%1==0)){v1=[v1,e[2],v3];break l4}i={TAG:i.TAG,_0:v3};break}}break l5}break}}throw e[4](i,v1)}let v6;try{v6=e[5](i)}catch(x){e[6](x)}return v6}catch(v7){e[7](v7)}}
+    expression: i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.f;if(!((v0===0||typeof v0==="object"&&v0&&"hd" in v0))){v1=[v1,e[0],v0];break l2}i={f:v0};break}if(i.TAG==="T7"){l4:{let v3=i._0;if(!(typeof v3==="number"&&v3%1==0)){v1=[v1,e[1],v3];break l4}i={TAG:i.TAG,_0:v3};break}}break l5}break}}throw e[2](i,v1)}let v6;try{v6=e[3](i)}catch(x){e[4](x)}return v6}catch(v7){e[5](v7)}}
     examples:
       tagged-member:
         input: '{ TAG: "T7", _0: 2 }'
@@ -31,8 +31,8 @@ operations:
       not-a-list:
         input: "{ f: 1 }"
         error: |-
-          Expected { f: unknown; } | { TAG: "T7"; _0: integer; }, received { f: 1; }
-          - At f: TypeError: Cannot read properties of undefined (reading 'hd')
+          Expected { f: list; } | { TAG: "T7"; _0: integer; }, received { f: 1; }
+          - At f: Expected list, received 1
   decode:
     expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:

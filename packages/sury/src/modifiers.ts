@@ -23,7 +23,6 @@ import {
   U,
   undefinedTag,
   unknown,
-  unknownTag,
   updateOutput,
   type Val,
   valKey,
@@ -51,7 +50,6 @@ import {
 } from "./composites";
 import {
  decodeOutput,
- getOp,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
@@ -417,40 +415,6 @@ const outputView = (schema: Internal): Internal => {
   };
   const view = copySchema(last);
   delete view.serializer;
-  // No schema describes what a coder into `unknown` (`S.list`) outputs, so a
-  // value is told apart the way S.isOutput tells it: by the node's own reverse
-  // accepting it, whose failure is the reason. A built-in conversion's Output
-  // is the `unknown` it claims, and a coder whose own encode can't run in a
-  // sync check ("never", the decode-only shorthand, `{async}`) has nothing to
-  // hold it to. That is asked of the encode alone, on a link of its own, so
-  // anything else in the reverse that doesn't compile still says so.
-  const encode = last.serializer;
-  if (last !== schema && last.type === unknownTag && encode) {
-    const own = view.refiner;
-    view.refiner = (val) => {
-      const checks = own ? own(val) : [];
-      if (!decodeOutput(reverse(codecTo(copySchema(unknown), unknown, U, encode)), 4096)) return checks;
-      const reversed = reverse(schema);
-      const embedded = B_embed(val, getOp(8 | 4096, 1, reversed));
-      return checks.concat({
-        c: (v) => `${embedded}(${v})`,
-        // Asked again only for the reason: inside a union a failing arm is how
-        // a later one is reached, and the boolean costs no error.
-        f: (input) => {
-          const fail = B_conversionFail(input, input.s);
-          return (value, path) => {
-            let cause: unknown;
-            try {
-              decodeOutput(reversed)!(value);
-            } catch (thrown) {
-              cause = thrown;
-            }
-            return fail(cause, path);
-          };
-        },
-      });
-    };
-  }
   if (view.properties) {
     const views: Record<string, Internal> = Object.create(null);
     for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
