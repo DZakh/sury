@@ -18,9 +18,11 @@ import {
   pathEmpty,
   refTag,
   type SchemaErrorMessage,
+  setHas,
   U,
   undefinedTag,
   unknown,
+  unknownTag,
   updateOutput,
   type Val,
   valKey,
@@ -38,17 +40,18 @@ import {
   B_next,
   B_nextConst,
   B_pathArg,
-  B_outputView,
   B_refine,
   B_unsupportedDecode,
   B_throw,
   B_conversionFail,
+  viewSources,
 } from "./builder";
 import {
   objectDecoder
 } from "./composites";
 import {
  decodeOutput,
+ getOp,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
@@ -366,6 +369,95 @@ export const linkTo = (
 
 export type Slot = Builder | boolean | undefined;
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
+const converting = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && converting(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+const outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  // No schema describes what a conversion into `unknown` (`S.list`) outputs,
+  // so a value is told apart the way S.isOutput tells it: by the node's own
+  // reverse accepting it, whose failure is the reason.
+  if (last !== schema && last.type === unknownTag) {
+    const own = view.refiner;
+    view.refiner = (val) => {
+      const decode = getOp(8, 1, reverse(schema));
+      const fail = B_conversionFail(val, val.s);
+      const check = B_embed(val, (value: unknown, path?: Path) => {
+        try {
+          decode(value);
+        } catch (cause) {
+          B_throw(fail(cause, path));
+        }
+        return 1;
+      });
+      return (own ? own(val) : []).concat({ c: (v) => `${check}(${v}${B_pathArg(val)})`, f: B_invalidInputBuilder() });
+    };
+  }
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || converting(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
 // An output-seam coder claims the target as its result, so a target that
 // still converts on its own would have that conversion skipped. The junction
 // seam of `to` feeds the target's chain instead, so it stays legal there, as do
@@ -384,7 +476,7 @@ export const seamTarget = (schema: Internal, target: Internal, decode: Slot, enc
     (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
       ? target.to
         ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
-        : B_outputView(target)
+        : outputView(target)
       : target;
   if (view === target) return codecTo(schema, target, decode, encode);
   if (typeof encode === functionTag) {

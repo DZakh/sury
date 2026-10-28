@@ -443,10 +443,12 @@ converts (`The target already converts`); chain `S.to` instead.
 A target whose fields convert on their own is linked through what its output
 claims, so those conversions don't run a second time over the coder's result,
 while its refinements still check it (`codec-custom-output-seam-field-coder`,
-`codec-custom-output-seam-union-field-coder`). That holds when both directions
-are coders; a direction left to `"auto"` converts through the target itself,
-and the coder's side then runs the field's conversion again
-(`codec-custom-output-seam-mixed-auto`).
+`codec-custom-output-seam-union-field-coder`). A direction left to `"auto"`
+converts through the target itself, while the coder's side still skips the
+field's conversion (`codec-custom-output-seam-mixed-auto`). A conversion into
+`unknown`, as `S.list` is, outputs nothing a check can read, so an Output
+read back through the seam is held to that conversion's own reverse, the way
+`S.isOutput` holds it (`codec-custom-output-seam-list-arm-reversed`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped
