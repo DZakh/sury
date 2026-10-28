@@ -410,17 +410,25 @@ const outputView = (schema: Internal): Internal => {
   if (last !== schema && last.type === unknownTag) {
     const own = view.refiner;
     view.refiner = (val) => {
-      const decode = getOp(8, 1, reverse(schema));
-      const fail = B_conversionFail(val, val.s);
-      const check = B_embed(val, (value: unknown, path?: Path) => {
-        try {
-          decode(value);
-        } catch (cause) {
-          B_throw(fail(cause, path));
-        }
-        return 1;
+      const reversed = reverse(schema);
+      const is = B_embed(val, getOp(8 | 4096, 1, reversed));
+      return (own ? own(val) : []).concat({
+        c: (v) => `${is}(${v})`,
+        // Asked again only for the reason: inside a union a failing arm is how
+        // a later one is reached, and the boolean costs no error.
+        f: (input) => {
+          const fail = B_conversionFail(input, input.s);
+          return (value, path) => {
+            let cause: unknown;
+            try {
+              getOp(8, 1, reversed)(value);
+            } catch (thrown) {
+              cause = thrown;
+            }
+            return fail(cause, path);
+          };
+        },
       });
-      return (own ? own(val) : []).concat({ c: (v) => `${check}(${v}${B_pathArg(val)})`, f: B_invalidInputBuilder() });
     };
   }
   if (view.properties) {
