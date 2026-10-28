@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, statedKey, statedType, wrapperScalar, wktImport } from "./shared";
+import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wrapperScalar, wktImport } from "./shared";
 
 const scalarType = (scalar: Scalar, asString: boolean): string =>
   is64(scalar) ? (asString ? "string" : "bigint")
@@ -25,6 +25,24 @@ const scalarSchemas: Record<Scalar, string> = {
   bool: "boolean",
   string: "string",
   bytes: "uint8Array",
+};
+
+const outputPath = (file: File): string => `${file.name}_pb`;
+
+const importPath = (from: File, to: File, options: Options): string => {
+  const fromParts = from.name.split("/").slice(0, -1);
+  const toParts = outputPath(to).split("/");
+  let common = 0;
+  while (common < fromParts.length && common < toParts.length - 1 && fromParts[common] === toParts[common]) common++;
+  const up = fromParts.length - common;
+  const rest = toParts.slice(common).join("/");
+  return `${up === 0 ? "./" : "../".repeat(up)}${rest}${options.importExtension}`;
+};
+
+const jsdoc = (text: string | undefined, tag: string, deprecated: boolean, indent: string): string => {
+  const comment = commentLines(text);
+  const lines = [...(comment ? [...comment, ""] : []), tag, ...(deprecated ? ["@deprecated"] : [])];
+  return `${indent}/**\n${lines.map((line) => `${indent} *${line ? ` ${line}` : ""}`).join("\n")}\n${indent} */\n`;
 };
 
 const property = (name: string): string => (/^[A-Za-z_$][\w$]*$/.test(name) && name !== "__proto__" ? name : JSON.stringify(name));

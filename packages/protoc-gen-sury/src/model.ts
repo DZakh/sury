@@ -116,7 +116,7 @@ export type Field = {
 };
 
 // protoc's default JSON name, which is also what protobuf-es names a property.
-export const protoCamelCase = (snakeCase: string): string => {
+const protoCamelCase = (snakeCase: string): string => {
   let capNext = false;
   let out = "";
   for (const c of snakeCase) {
@@ -129,7 +129,7 @@ export const protoCamelCase = (snakeCase: string): string => {
 
 const reservedObjectProperties = new Set(["constructor", "toString", "toJSON", "valueOf"]);
 
-export const safeObjectProperty = (name: string): string =>
+const safeObjectProperty = (name: string): string =>
   reservedObjectProperties.has(name) ? `${name}$` : name;
 
 const camelToSnakeCase = (camel: string): string =>

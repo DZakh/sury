@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wktImport, wrapperScalar } from "./shared";
+import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -29,7 +29,7 @@ const upperIdent = (name: string): string => {
 
 // A file's module: its path, since a ReScript project's namespace is flat and
 // two `user.proto` files in different directories would otherwise collide.
-export const fileModule = (file: File): string => `${capitalize(file.name.replace(/[^A-Za-z0-9]/g, "_"))}_pb`;
+const fileModule = (file: File): string => `${capitalize(file.name.replace(/[^A-Za-z0-9]/g, "_"))}_pb`;
 
 export const fieldNames = (message: Message): Map<Field | Oneof, string> => {
   const names = new Map<Field | Oneof, string>();
@@ -258,10 +258,8 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   };
 
   const docstring = (path: number[], indent: string): string => {
-    const text = file.comments.get(path.join("."));
-    if (text === undefined || text.trim() === "") return "";
-    const lines = text.replace(/\n$/, "").split("\n").map((line) => (line.startsWith(" ") ? line.slice(1) : line).trimEnd());
-    return `${indent}/**\n${lines.map((line) => (line ? `${indent} ${line.replace(/\*\//g, "*\\/")}` : "")).join("\n")}\n${indent} */\n`;
+    const lines = commentLines(file.comments.get(path.join(".")));
+    return lines ? `${indent}/**\n${lines.map((line) => (line ? `${indent} ${line}` : "")).join("\n")}\n${indent} */\n` : "";
   };
 
   const oneofDecl = (message: Message, oneof: Oneof, keyword: string, indent: string): string => {
