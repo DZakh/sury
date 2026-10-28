@@ -2637,6 +2637,20 @@ const unchecked = (schema: Internal): Internal => {
 
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
+// A one-value enum (`google.protobuf.NullValue`) decodes an unknown number as
+// it is, the open enum proto3 specifies, so a value not checked against the
+// literal is written as it is too: read as the literal, 5 would go back out as
+// 0. Its field's val inlines the literal, so the read is of the property.
+const openLiteral = (field: Field, schema: Internal): boolean => field.type === "enum" && getOutputSchema(schema).const !== U;
+
+// A scalar arm's value as the dispatch hands it over: an open literal as any
+// number when it is the arm itself, which its type tells from its siblings,
+// and read as it is beside the arm's literals.
+const armHeld = (field: Field, at: string | undefined): Internal => {
+  const own = unchecked(getOutputSchema(field.armValue!));
+  return !openLiteral(field, own) ? own : at === U ? unchecked(float) : copySchema(unknown);
+};
+
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
@@ -2669,7 +2683,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       // whole once for every level it nests at. A bare one is told from its
       // siblings by its type alone (`tellApart`), so one held as anything but
       // an object, a Timestamp's Date, keeps its own.
-      const held = field.type !== "message" ? unchecked(getOutputSchema(field.armValue!)) : at === U && bareArmType(arm, true) !== objectTag ? arm : copySchema(opaque);
+      const held = field.type !== "message" ? armHeld(field, at) : at === U && bareArmType(arm, true) !== objectTag ? arm : copySchema(opaque);
       const mut = at === U ? held : arm;
       if (at !== U) {
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
@@ -2695,8 +2709,9 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       const oneof = msg.oneofs?.[key];
       if (oneof !== U) dispatch(read, oneof.union, oneof.members.map(([, field]) => field));
       else {
+        const field = msg.fields.find((field) => field.key === key)!;
         code += B_merge(read);
-        reads.set(msg.fields.find((field) => field.key === key)!, read.i);
+        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? inlinedProperty(value.v(), key) : read.i);
       }
     }
   }
