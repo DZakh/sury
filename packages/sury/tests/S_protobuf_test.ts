@@ -128,6 +128,29 @@ test("protobuf uses last-one-wins and treats a known field with the wrong wire t
   t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Failed at value: Expected wire type 0, received 2");
 });
 
+// The spec format has no global config, so the flag is held here.
+test("protobuf reads NaN into a number when the global config disables the NaN check", (t) => {
+  const nan = [0, 0, 0, 0, 0, 0, 248, 127];
+  const Message = S.schema({
+    n: S.protobufField(S.number, 1),
+    o: S.protobufField(S.nullable(S.number), { number: 2, type: "double" }),
+    l: S.protobufField(S.array(S.number), 3),
+    f: S.protobufField(S.number, { number: 4, type: "float" }),
+  });
+  const bytes = new Uint8Array([9, ...nan, 17, ...nan, 26, 8, ...nan, 37, 0, 0, 192, 127]);
+  try {
+    S.global({ disableNanNumberValidation: true });
+    const read = S.decodeOrThrow(S.protobuf, Message)(bytes);
+    t.expect([read.n, read.o, read.l[0], read.f].every(Number.isNaN)).toBe(true);
+  } finally {
+    S.global({});
+  }
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(bytes)).toThrow("Failed at n: Expected number, received NaN");
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([17, ...nan]))).toThrow(
+    "Failed at o: Expected number | null, received NaN",
+  );
+});
+
 // S.number refuses the NaN a decode reads (codec-protobuf-number-nan), so the
 // float that holds one is the union docs/js-protobuf.md shows.
 test("protobuf preserves IEEE-754 special values and rejects float32 overflow", (t) => {
