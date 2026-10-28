@@ -600,18 +600,25 @@ const literals = (schema: Internal): boolean => schema.type === anyOfTag || sche
 const numbers = (schema: Internal): boolean =>
   schema.type === anyOfTag ? schema.anyOf!.every((member) => typeof member.const === "number") : typeof schema.const === "number";
 
-// A scalar whose value lands as the schema declares it, with no conversion: an
-// enum of literals, unknown numbers included (the open enum proto3 specifies),
-// and a float admitting NaN (`S.union([S.number, S.schema(NaN)])`, where
-// `S.number` alone refuses it). Literals that aren't numbers come from a chain
-// ending on them, and `wire`, the link facing the wire (the first when
-// reading), says whether the number lands on literals too: from a number
-// (`S.literal(null).with(S.to, S.literal(0)).with(S.to, S.number)`) it lands
-// as the number and converts through every link, where the shape alone would
-// skip the one that reads it.
-const keepsShape = (type: ProtobufType, shape: Internal, wire: Internal): boolean =>
-  (type === "enum" && literals(shape) && (numbers(shape) || literals(wire))) ||
-  ((type === "double" || type === "float") && !!shape.anyOf?.some((member) => member.const !== member.const));
+// What a scalar's wire value lands as with no conversion of its own, when it
+// isn't its protobuf type's schema: an enum of number literals, unknown
+// numbers included (the open enum proto3 specifies), and a float admitting NaN
+// (`S.union([S.number, S.schema(NaN)])`, where `S.number` alone refuses it).
+// Literals that aren't numbers come from a chain ending on them, and `wire`,
+// the link facing the wire (the first when reading), says where the number
+// lands: on its literals, and from there through the rest of the chain
+// (`S.literal(null).with(S.to, S.literal(0))` reads 0 or 5 as null, and
+// strings from numbers convert as the core would, ambiguity and all), or as
+// the number itself, through every link.
+const landsAs = (type: ProtobufType, shape: Internal, wire: Internal): Internal | undefined => {
+  if (type === "double" || type === "float") return shape.anyOf?.some((member) => member.const !== member.const) ? shape : U;
+  if (type !== "enum" || !literals(shape)) return U;
+  if (numbers(shape)) return shape;
+  if (!literals(wire)) return U;
+  const link = copySchema(wire);
+  delete link.to;
+  return link;
+};
 
 const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
   const memo = "any" + shape.seq;
@@ -686,7 +693,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   const holding = (m: StoredField, at: Internal, shape: Internal, where: string, whole = shape): [Message | undefined, Internal, Internal] => {
     const known = wellKnownOf(m.type);
     if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) return [anyMessage(whole, ctx, where), at, at];
-    if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape, ctx.reads ? at : shape) ? shape : scalarSchema(m.type as ProtobufType), at];
+    if (m.type !== "message" && known === U) return [U, landsAs(m.type as ProtobufType, shape, ctx.reads ? at : shape) ?? scalarSchema(m.type as ProtobufType), at];
     const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.writes && lastObject(at, ctx)) || at, ctx);
     if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
     const raw = message.unwrap || message.codec ? message.raw : at;
@@ -750,7 +757,10 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     }
     if (numbers.has(metadata.number)) return panic(`S.protobuf: field number ${metadata.number} of "${key}" is already taken`);
     numbers.add(metadata.number);
-    const [propertyValue, optional, absent] = unwrapOptional(property);
+    const [value, optional, absent] = unwrapOptional(property);
+    // A chain ending on a union converts through every link, as one ending on
+    // anything else does: the union alone would skip them.
+    const propertyValue = optional ? value : property;
     let shape = getOutputSchema(propertyValue);
     const container = shape;
     let repeated = false;
