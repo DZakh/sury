@@ -20,8 +20,8 @@ module Address = {
     country: string,
   }
   let schema: S.t<t> = S.schema(s => {
-    street: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-    city: s.matches(S.string->S.protobufField(2, ~type_=#string)),
-    country: s.matches(S.string->S.protobufField(3, ~type_=#string)),
+    street: s.matches(S.string->S.protobufField(1)),
+    city: s.matches(S.string->S.protobufField(2)),
+    country: s.matches(S.string->S.protobufField(3)),
   })->S.protobufTypeName("example.common.Address")
 }

@@ -220,8 +220,8 @@ export type Scalars = {
 export const ScalarsSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Scalars>()({
   double: S.protobufField($number, { number: 1, type: "double" }),
   float: S.protobufField($number, { number: 2, type: "float" }),
-  int32: S.protobufField(S.int32, { number: 3, type: "int32" }),
-  int64: S.protobufField(S.bigint, { number: 4, type: "int64" }),
+  int32: S.protobufField(S.int32, 3),
+  int64: S.protobufField(S.bigint, 4),
   uint32: S.protobufField(S.integer, { number: 5, type: "uint32" }),
   uint64: S.protobufField(S.bigint, { number: 6, type: "uint64" }),
   sint32: S.protobufField(S.int32, { number: 7, type: "sint32" }),
@@ -230,9 +230,9 @@ export const ScalarsSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaO
   fixed64: S.protobufField(S.bigint, { number: 10, type: "fixed64" }),
   sfixed32: S.protobufField(S.int32, { number: 11, type: "sfixed32" }),
   sfixed64: S.protobufField(S.bigint, { number: 12, type: "sfixed64" }),
-  bool: S.protobufField(S.boolean, { number: 13, type: "bool" }),
-  string: S.protobufField(S.string, { number: 14, type: "string" }),
-  bytes: S.protobufField(S.uint8Array, { number: 15, type: "bytes" }),
+  bool: S.protobufField(S.boolean, 13),
+  string: S.protobufField(S.string, 14),
+  bytes: S.protobufField(S.uint8Array, 15),
   asString: S.protobufField(S.string, { number: 16, type: "int64" }),
 }), { name: "Scalars" }), "example.v1.Scalars");
 
@@ -254,8 +254,8 @@ export type User_Mailbox = {
 };
 
 export const User_MailboxSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<User_Mailbox>()({
-  name: S.protobufField(S.string, { number: 1, type: "string" }),
-  address: S.protobufField(S.optional(AddressSchema), { number: 2, type: "message" }),
+  name: S.protobufField(S.string, 1),
+  address: S.protobufField(S.optional(AddressSchema), 2),
 }), { name: "User_Mailbox" }), "example.v1.User.Mailbox");
 
 /**
@@ -347,27 +347,27 @@ export type User = {
 };
 
 export const UserSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<User>()({
-  id: S.protobufField(S.int32, { number: 1, type: "int32" }),
-  firstName: S.protobufField(S.string, { number: 2, type: "string" }),
-  tags: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
-  scores: S.protobufField(S.record(S.int32), { number: 4, type: "int32", key: "string" }),
-  home: S.protobufField(S.optional(AddressSchema), { number: 5, type: "message" }),
-  nickname: S.protobufField(S.optional(S.string), { number: 6, type: "string" }),
-  kind: S.protobufField(User_KindSchema, { number: 7, type: "enum" }),
+  id: S.protobufField(S.int32, 1),
+  firstName: S.protobufField(S.string, 2),
+  tags: S.protobufField(S.array(S.string), 3),
+  scores: S.protobufField(S.record(S.int32), 4),
+  home: S.protobufField(S.optional(AddressSchema), 5),
+  nickname: S.protobufField(S.optional(S.string), 6),
+  kind: S.protobufField(User_KindSchema, 7),
   contact: S.union([
-    S.schema({ case: "email", value: S.protobufField(S.string, { number: 8, type: "string" }) }),
-    S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 9, type: "int64" }) }),
-    S.schema({ case: "mailbox", value: S.protobufField(User_MailboxSchema, { number: 10, type: "message" }) }),
-    S.schema({ case: "boxedInOneof", value: S.protobufField(Int32ValueSchema, { number: 11, type: "message" }) }),
+    S.schema({ case: "email", value: S.protobufField(S.string, 8) }),
+    S.schema({ case: "phone", value: S.protobufField(S.bigint, 9) }),
+    S.schema({ case: "mailbox", value: S.protobufField(User_MailboxSchema, 10) }),
+    S.schema({ case: "boxedInOneof", value: S.protobufField(Int32ValueSchema, 11) }),
     /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
-  unpacked: S.protobufField(S.array(S.int32), { number: 12, type: "int32", packed: false }),
-  mailboxes: S.protobufField(S.record(User_MailboxSchema), { number: 13, type: "message", key: "int32" }),
-  currency: S.protobufField(CurrencySchema, { number: 14, type: "enum" }),
-  maybeKind: S.protobufField(S.optional(User_KindSchema), { number: 15, type: "enum" }),
-  deprecatedField: S.protobufField(S.string, { number: 16, type: "string" }),
-  kinds: S.protobufField(S.array(User_KindSchema), { number: 17, type: "enum" }),
-  byId: S.protobufField(S.record(S.string), { number: 18, type: "string", key: "uint64" }),
+  unpacked: S.protobufField(S.array(S.int32), { number: 12, packed: false }),
+  mailboxes: S.protobufField(S.record(User_MailboxSchema), { number: 13, key: "int32" }),
+  currency: S.protobufField(CurrencySchema, 14),
+  maybeKind: S.protobufField(S.optional(User_KindSchema), 15),
+  deprecatedField: S.protobufField(S.string, 16),
+  kinds: S.protobufField(S.array(User_KindSchema), 17),
+  byId: S.protobufField(S.record(S.string), { number: 18, key: "uint64" }),
 }), { name: "User" }), "example.v1.User");
 
 /**
@@ -451,26 +451,26 @@ export type WellKnown = {
 };
 
 export const WellKnownSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<WellKnown>()({
-  at: S.protobufField(S.optional(TimestampSchema), { number: 1, type: "message" }),
-  took: S.protobufField(S.optional(DurationSchema), { number: 2, type: "message" }),
+  at: S.protobufField(S.optional(TimestampSchema), 1),
+  took: S.protobufField(S.optional(DurationSchema), 2),
   label: S.protobufField(S.optional(S.string), { number: 3, type: "google.protobuf.StringValue" }),
   count: S.protobufField(S.optional(S.bigint), { number: 4, type: "google.protobuf.Int64Value" }),
   meta: S.protobufField(S.optional(S.record(S.json)), { number: 5, type: "google.protobuf.Struct" }),
   metas: S.protobufField(S.array(S.record(S.json)), { number: 6, type: "google.protobuf.Struct" }),
-  byName: S.protobufField(S.record(S.record(S.json)), { number: 7, type: "google.protobuf.Struct", key: "string" }),
-  value: S.protobufField(S.optional(ValueSchema), { number: 8, type: "message" }),
-  boxedList: S.protobufField(S.array(Int32ValueSchema), { number: 9, type: "message" }),
-  log: S.protobufField(S.array(TimestampSchema), { number: 10, type: "message" }),
-  timeouts: S.protobufField(S.record(DurationSchema), { number: 11, type: "message", key: "string" }),
-  seen: S.protobufField(S.optional(TimestampSchema), { number: 12, type: "message" }),
+  byName: S.protobufField(S.record(S.record(S.json)), { number: 7, type: "google.protobuf.Struct" }),
+  value: S.protobufField(S.optional(ValueSchema), 8),
+  boxedList: S.protobufField(S.array(Int32ValueSchema), 9),
+  log: S.protobufField(S.array(TimestampSchema), 10),
+  timeouts: S.protobufField(S.record(DurationSchema), 11),
+  seen: S.protobufField(S.optional(TimestampSchema), 12),
   when: S.union([
-    S.schema({ case: "atTime", value: S.protobufField(TimestampSchema, { number: 13, type: "message" }) }),
-    S.schema({ case: "after", value: S.protobufField(DurationSchema, { number: 14, type: "message" }) }),
+    S.schema({ case: "atTime", value: S.protobufField(TimestampSchema, 13) }),
+    S.schema({ case: "after", value: S.protobufField(DurationSchema, 14) }),
     S.schema({ case: "object", value: S.protobufField(S.record(S.json), { number: 15, type: "google.protobuf.Struct" }) }),
-    S.schema({ case: "list", value: S.protobufField(ListValueSchema, { number: 16, type: "message" }) }),
+    S.schema({ case: "list", value: S.protobufField(ListValueSchema, 16) }),
     /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
-  boxedByName: S.protobufField(S.record(Int32ValueSchema), { number: 17, type: "message", key: "string" }),
+  boxedByName: S.protobufField(S.record(Int32ValueSchema), 17),
 }), { name: "WellKnown" }), "example.v1.WellKnown");
 
 /**
@@ -505,12 +505,12 @@ export type Node = {
 
 export const NodeSchema = S.recursive<Node>("Node", (NodeSchema) =>
   S.protobufTypeName(S.schema({
-    name: S.protobufField(S.string, { number: 1, type: "string" }),
-    children: S.protobufField(S.array(NodeSchema), { number: 2, type: "message" }),
-    parent: S.protobufField(S.optional(NodeSchema), { number: 3, type: "message" }),
+    name: S.protobufField(S.string, 1),
+    children: S.protobufField(S.array(NodeSchema), 2),
+    parent: S.protobufField(S.optional(NodeSchema), 3),
     payload: S.union([
-      S.schema({ case: "leaf", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-      S.schema({ case: "link", value: S.protobufField(NodeSchema, { number: 5, type: "message" }) }),
+      S.schema({ case: "leaf", value: S.protobufField(S.int32, 4) }),
+      S.schema({ case: "link", value: S.protobufField(NodeSchema, 5) }),
       /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
     ]),
   }), "example.v1.Node"),
@@ -548,12 +548,12 @@ export const [BranchSchema, LeafSchema] = /* @__PURE__ */ (() => {
   const BranchSchema = S.recursive<Branch>("Branch", (BranchSchema) => {
     LeafSchema = S.recursive<Leaf>("Leaf", () =>
       S.protobufTypeName(S.schema({
-        branches: S.protobufField(S.array(BranchSchema), { number: 1, type: "message" }),
+        branches: S.protobufField(S.array(BranchSchema), 1),
       }), "example.v1.Leaf"),
     );
     return S.protobufTypeName(S.schema({
-      n: S.protobufField(S.int32, { number: 1, type: "int32" }),
-      leaf: S.protobufField(S.optional(LeafSchema), { number: 2, type: "message" }),
+      n: S.protobufField(S.int32, 1),
+      leaf: S.protobufField(S.optional(LeafSchema), 2),
     }), "example.v1.Branch");
   });
   return [BranchSchema, LeafSchema] as const;
@@ -572,7 +572,7 @@ export type Option = {
 };
 
 export const OptionSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Option>()({
-  o: S.protobufField(S.int32, { number: 1, type: "int32" }),
+  o: S.protobufField(S.int32, 1),
 }), { name: "Option" }), "example.v1.Option");
 
 /**
@@ -647,25 +647,25 @@ export const [GraphASchema, GraphBSchema, GraphCSchema] = /* @__PURE__ */ (() =>
     GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) => {
       GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) =>
         S.protobufTypeName(S.schema({
-          a: S.protobufField(S.array(GraphASchema), { number: 1, type: "message" }),
-          b: S.protobufField(S.record(GraphBSchema), { number: 2, type: "message", key: "int32" }),
-          c: S.protobufField(S.optional(GraphCSchema), { number: 3, type: "message" }),
+          a: S.protobufField(S.array(GraphASchema), 1),
+          b: S.protobufField(S.record(GraphBSchema), { number: 2, key: "int32" }),
+          c: S.protobufField(S.optional(GraphCSchema), 3),
         }), "example.v1.GraphC"),
       );
       return S.protobufTypeName(S.schema({
-        a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-        b: S.protobufField(S.optional(GraphBSchema), { number: 2, type: "message" }),
+        a: S.protobufField(S.optional(GraphASchema), 1),
+        b: S.protobufField(S.optional(GraphBSchema), 2),
         pick: S.union([
-          S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
-          S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
+          S.schema({ case: "c", value: S.protobufField(GraphCSchema, 3) }),
+          S.schema({ case: "none", value: S.protobufField(S.int32, 4) }),
           /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
         ]),
       }), "example.v1.GraphB");
     });
     return S.protobufTypeName(S.schema({
-      a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-      b: S.protobufField(S.array(GraphBSchema), { number: 2, type: "message" }),
-      c: S.protobufField(S.record(GraphCSchema), { number: 3, type: "message", key: "string" }),
+      a: S.protobufField(S.optional(GraphASchema), 1),
+      b: S.protobufField(S.array(GraphBSchema), 2),
+      c: S.protobufField(S.record(GraphCSchema), 3),
     }), "example.v1.GraphA");
   });
   return [GraphASchema, GraphBSchema, GraphCSchema] as const;
@@ -699,9 +699,9 @@ export type Reserved = {
 };
 
 export const ReservedSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Reserved>()({
-  constructor$: S.protobufField(S.string, { number: 1, type: "string" }),
-  toString$: S.protobufField(S.string, { number: 2, type: "string" }),
-  valueOf$: S.protobufField(S.int32, { number: 3, type: "int32" }),
+  constructor$: S.protobufField(S.string, 1),
+  toString$: S.protobufField(S.string, 2),
+  valueOf$: S.protobufField(S.int32, 3),
   enum: S.protobufField(Reserved_EnumSchema, { number: 4, type: "enum" }),
 }), { name: "Reserved" }), "example.v1.Reserved");
 
@@ -758,15 +758,15 @@ export type Uses = {
 };
 
 export const UsesSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
-  mixed: S.protobufField(MixedSchema, { number: 1, type: "enum" }),
-  aliased: S.protobufField(AliasedSchema, { number: 2, type: "enum" }),
+  mixed: S.protobufField(MixedSchema, 1),
+  aliased: S.protobufField(AliasedSchema, 2),
   lonely: S.protobufField(LonelySchema, { number: 3, type: "enum" }),
-  mixes: S.protobufField(S.array(MixedSchema), { number: 4, type: "enum" }),
-  aliases: S.protobufField(S.record(AliasedSchema), { number: 5, type: "enum", key: "string" }),
-  empty: S.protobufField(S.optional(EmptySchema), { number: 6, type: "message" }),
+  mixes: S.protobufField(S.array(MixedSchema), 4),
+  aliases: S.protobufField(S.record(AliasedSchema), 5),
+  empty: S.protobufField(S.optional(EmptySchema), 6),
   choice: S.union([
-    S.schema({ case: "none", value: S.protobufField(EmptySchema, { number: 7, type: "message" }) }),
-    S.schema({ case: "some", value: S.protobufField(S.int32, { number: 8, type: "int32" }) }),
+    S.schema({ case: "none", value: S.protobufField(EmptySchema, 7) }),
+    S.schema({ case: "some", value: S.protobufField(S.int32, 8) }),
     /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
   ]),
 }), { name: "Uses" }), "example.v1.Uses");

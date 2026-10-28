@@ -65,8 +65,12 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
 - Every schema is built with the functional forms (`S.protobufField(schema,
   …)`), never `.with(…)`: a method call on a schema can't be dropped by a
   bundler, and one message imported must not keep the file.
-- Every `S.protobufField` states its `type`, and `key` on a map. Inference is
-  for schemas written by hand.
+- An `S.protobufField` states `type` only where it differs from what the
+  field's schema infers, and `key` only where it isn't `string`:
+  `S.protobufField(S.int32, 3)`, `S.protobufField(S.int32, { number: 7, type:
+  "sint32" })`. Generated code ships per message, and the inference is the
+  table `docs/js-protobuf.md` documents, so stating what it infers only
+  repeats it.
 - A singular message field is always `S.optional`: that is proto3 presence,
   and it is what keeps a recursive message finite.
 - A recursive group of messages is built once, by a function that returns

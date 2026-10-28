@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, wrapperScalar, wktImport } from "./shared";
+import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, statedKey, statedType, wrapperScalar, wktImport } from "./shared";
 
 const scalarType = (scalar: Scalar, asString: boolean): string =>
   is64(scalar) ? (asString ? "string" : "bigint")
@@ -137,17 +137,12 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return messageRef(messageOf(element), scope);
   };
 
-  const wireType = (field: Field, element: Element): string =>
-    element.kind === "scalar" ? element.scalar
-    : element.kind === "enum" ? "enum"
-    : isStruct(field, element) ? "google.protobuf.Struct"
-    : "message";
-
-  const numbered = (field: Field, schema: string, type: string): string => {
-    let opts = `number: ${field.number}, type: ${JSON.stringify(type)}`;
-    if (field.mapKey !== undefined) opts += `, key: ${JSON.stringify(field.mapKey)}`;
-    if (field.list && !field.packed && packable(field.element)) opts += ", packed: false";
-    return `${S}.protobufField(${schema}, { ${opts} })`;
+  const numbered = (field: Field, schema: string, type: string | undefined): string => {
+    const opts = [`number: ${field.number}`];
+    if (type !== undefined) opts.push(`type: ${JSON.stringify(type)}`);
+    if (statedKey(field) !== undefined) opts.push(`key: ${JSON.stringify(field.mapKey)}`);
+    if (field.list && !field.packed && packable(field.element)) opts.push("packed: false");
+    return `${S}.protobufField(${schema}, ${opts.length === 1 ? field.number : `{ ${opts.join(", ")} }`})`;
   };
 
   const fieldSchema = (field: Field, scope: Group | undefined): string => {
@@ -156,7 +151,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       return numbered(field, `${S}.optional(${scalarSchema(scalarSchemas[wrapped])})`, (field.element as { message: Message }).message.typeName);
     }
     const element = elementSchema(field, field.element, scope);
-    const type = wireType(field, field.element);
+    const type = statedType(field, field.element);
     if (field.mapKey !== undefined) return numbered(field, `${S}.record(${element})`, type);
     if (field.list) return numbered(field, `${S}.array(${element})`, type);
     const present = field.optional || field.element.kind === "message";
@@ -172,7 +167,7 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   const oneofSchema = (oneof: Oneof, scope: Group | undefined, indent: string): string => {
     const arms = oneof.fields.map((field) => {
       const element = elementSchema(field, field.element, scope);
-      return `${indent}  ${S}.schema({ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, wireType(field, field.element))} }),`;
+      return `${indent}  ${S}.schema({ case: ${JSON.stringify(field.localName)}, value: ${numbered(field, element, statedType(field, field.element))} }),`;
     });
     arms.push(`${indent}  /* @__PURE__ */ ${S}.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: ${S}.optional(${S}.schema(undefined)) }),`);
     return `${S}.union([\n${arms.join("\n")}\n${indent}])`;

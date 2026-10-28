@@ -13,7 +13,7 @@ module S_ = {
     a: string,
   }
   let schema: S.t<t> = S.schema(s => {
-    a: s.matches(S.string->S.protobufField(1, ~type_=#string)),
+    a: s.matches(S.string->S.protobufField(1)),
   })->S.protobufTypeName("example.names.S")
 }
 
@@ -22,7 +22,7 @@ module Json = {
     raw: Uint8Array.t,
   }
   let schema: S.t<t> = S.schema(s => {
-    raw: s.matches(S.uint8Array->S.protobufField(1, ~type_=#bytes)),
+    raw: s.matches(S.uint8Array->S.protobufField(1)),
   })->S.protobufTypeName("example.names.JSON")
 }
 
@@ -31,7 +31,7 @@ module Uint8Array_ = {
     n: int,
   }
   let schema: S.t<t> = S.schema(s => {
-    n: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
+    n: s.matches(S.int->S.protobufField(1)),
   })->S.protobufTypeName("example.names.Uint8Array")
 }
 
@@ -49,7 +49,7 @@ module Stdlib_ = {
     b: bool,
   }
   let schema: S.t<t> = S.schema(s => {
-    b: s.matches(S.bool->S.protobufField(1, ~type_=#bool)),
+    b: s.matches(S.bool->S.protobufField(1)),
   })->S.protobufTypeName("example.names.Stdlib")
 }
 
@@ -66,11 +66,11 @@ module String = {
   type t = string_
   let schema: S.t<t> = S.recursive("String", stringSchema =>
     S.schema((s): string_ => {
-      next: s.matches(S.option(stringSchema)->S.protobufField(1, ~type_=#message)),
+      next: s.matches(S.option(stringSchema)->S.protobufField(1)),
       option: s.matches(S.option(
         S.union([
-          S.schema((s): string__option => N({value: s.matches(S.int->S.protobufField(2, ~type_=#int32))})),
-          S.schema((s): string__option => Other({value: s.matches(stringSchema->S.protobufField(3, ~type_=#message))})),
+          S.schema((s): string__option => N({value: s.matches(S.int->S.protobufField(2))})),
+          S.schema((s): string__option => Other({value: s.matches(stringSchema->S.protobufField(3))})),
         ]),
       )),
     })->S.protobufTypeName("example.names.String")
@@ -103,30 +103,30 @@ module Holder = {
     lib: option<Stdlib_.t>,
   }
   let schema: S.t<t> = S.schema(s => {
-    s: s.matches(S.option(S_.schema)->S.protobufField(1, ~type_=#message)),
-    json: s.matches(S.option(Json.schema)->S.protobufField(2, ~type_=#message)),
-    box: s.matches(S.option(Uint8Array_.schema)->S.protobufField(3, ~type_=#message)),
-    f: s.matches(S.option(Float_.schema)->S.protobufField(4, ~type_=#message)),
+    s: s.matches(S.option(S_.schema)->S.protobufField(1)),
+    json: s.matches(S.option(Json.schema)->S.protobufField(2)),
+    box: s.matches(S.option(Uint8Array_.schema)->S.protobufField(3)),
+    f: s.matches(S.option(Float_.schema)->S.protobufField(4)),
     meta: s.matches(S.option(S.dict(S.json))->S.protobufField(5, ~type_=#"google.protobuf.Struct")),
-    data: s.matches(S.uint8Array->S.protobufField(6, ~type_=#bytes)),
+    data: s.matches(S.uint8Array->S.protobufField(6)),
     d: s.matches(number->S.protobufField(7, ~type_=#double)),
     t: s.matches(S.option(
       S.union([
-        S.schema(s => Str({value: s.matches(S.string->S.protobufField(8, ~type_=#string))})),
-        S.schema(s => OfS({value: s.matches(S_.schema->S.protobufField(9, ~type_=#message))})),
+        S.schema(s => Str({value: s.matches(S.string->S.protobufField(8))})),
+        S.schema(s => OfS({value: s.matches(S_.schema->S.protobufField(9))})),
       ]),
     )),
     string: s.matches(S.option(
       S.union([
-        S.schema(s => Num({value: s.matches(S.int->S.protobufField(10, ~type_=#int32))})),
+        S.schema(s => Num({value: s.matches(S.int->S.protobufField(10))})),
       ]),
     )),
     option: s.matches(S.option(
       S.union([
-        S.schema(s => Flag({value: s.matches(S.bool->S.protobufField(11, ~type_=#bool))})),
+        S.schema(s => Flag({value: s.matches(S.bool->S.protobufField(11))})),
       ]),
     )),
-    text: s.matches(S.option(String.schema)->S.protobufField(12, ~type_=#message)),
-    lib: s.matches(S.option(Stdlib_.schema)->S.protobufField(13, ~type_=#message)),
+    text: s.matches(S.option(String.schema)->S.protobufField(12)),
+    lib: s.matches(S.option(Stdlib_.schema)->S.protobufField(13)),
   })->S.protobufTypeName("example.names.Holder")
 }

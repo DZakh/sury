@@ -63,8 +63,8 @@ module Scalars = {
   let schema: S.t<t> = S.schema(s => {
     double: s.matches(number->S.protobufField(1, ~type_=#double)),
     float: s.matches(number->S.protobufField(2, ~type_=#float)),
-    int32: s.matches(S.int->S.protobufField(3, ~type_=#int32)),
-    int64: s.matches(S.bigint->S.protobufField(4, ~type_=#int64)),
+    int32: s.matches(S.int->S.protobufField(3)),
+    int64: s.matches(S.bigint->S.protobufField(4)),
     uint32: s.matches(S.integer->S.protobufField(5, ~type_=#uint32)),
     uint64: s.matches(S.bigint->S.protobufField(6, ~type_=#uint64)),
     sint32: s.matches(S.int->S.protobufField(7, ~type_=#sint32)),
@@ -73,9 +73,9 @@ module Scalars = {
     fixed64: s.matches(S.bigint->S.protobufField(10, ~type_=#fixed64)),
     sfixed32: s.matches(S.int->S.protobufField(11, ~type_=#sfixed32)),
     sfixed64: s.matches(S.bigint->S.protobufField(12, ~type_=#sfixed64)),
-    bool: s.matches(S.bool->S.protobufField(13, ~type_=#bool)),
-    string: s.matches(S.string->S.protobufField(14, ~type_=#string)),
-    bytes: s.matches(S.uint8Array->S.protobufField(15, ~type_=#bytes)),
+    bool: s.matches(S.bool->S.protobufField(13)),
+    string: s.matches(S.string->S.protobufField(14)),
+    bytes: s.matches(S.uint8Array->S.protobufField(15)),
     asString: s.matches(S.string->S.protobufField(16, ~type_=#int64)),
   })->S.protobufTypeName("example.v1.Scalars")
 }
@@ -89,8 +89,8 @@ module User_Mailbox = {
     address: option<Example_common_address_pb.Address.t>,
   }
   let schema: S.t<t> = S.schema(s => {
-    name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-    address: s.matches(S.option(Example_common_address_pb.Address.schema)->S.protobufField(2, ~type_=#message)),
+    name: s.matches(S.string->S.protobufField(1)),
+    address: s.matches(S.option(Example_common_address_pb.Address.schema)->S.protobufField(2)),
   })->S.protobufTypeName("example.v1.User.Mailbox")
 }
 
@@ -122,28 +122,28 @@ module User = {
     byId: dict<string>,
   }
   let schema: S.t<t> = S.schema(s => {
-    id: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
-    firstName: s.matches(S.string->S.protobufField(2, ~type_=#string)),
-    tags: s.matches(S.array(S.string)->S.protobufField(3, ~type_=#string)),
-    scores: s.matches(S.dict(S.int)->S.protobufField(4, ~type_=#int32, ~key=#string)),
-    home: s.matches(S.option(Example_common_address_pb.Address.schema)->S.protobufField(5, ~type_=#message)),
-    nickname: s.matches(S.option(S.string)->S.protobufField(6, ~type_=#string)),
-    kind: s.matches(User_Kind.schema->S.protobufField(7, ~type_=#enum)),
+    id: s.matches(S.int->S.protobufField(1)),
+    firstName: s.matches(S.string->S.protobufField(2)),
+    tags: s.matches(S.array(S.string)->S.protobufField(3)),
+    scores: s.matches(S.dict(S.int)->S.protobufField(4)),
+    home: s.matches(S.option(Example_common_address_pb.Address.schema)->S.protobufField(5)),
+    nickname: s.matches(S.option(S.string)->S.protobufField(6)),
+    kind: s.matches(User_Kind.schema->S.protobufField(7)),
     contact: s.matches(S.option(
       S.union([
-        S.schema(s => Email({value: s.matches(S.string->S.protobufField(8, ~type_=#string))})),
-        S.schema(s => Phone({value: s.matches(S.bigint->S.protobufField(9, ~type_=#int64))})),
-        S.schema(s => Mailbox({value: s.matches(User_Mailbox.schema->S.protobufField(10, ~type_=#message))})),
-        S.schema(s => BoxedInOneof({value: s.matches(S.Protobuf.Int32Value.schema->S.protobufField(11, ~type_=#message))})),
+        S.schema(s => Email({value: s.matches(S.string->S.protobufField(8))})),
+        S.schema(s => Phone({value: s.matches(S.bigint->S.protobufField(9))})),
+        S.schema(s => Mailbox({value: s.matches(User_Mailbox.schema->S.protobufField(10))})),
+        S.schema(s => BoxedInOneof({value: s.matches(S.Protobuf.Int32Value.schema->S.protobufField(11))})),
       ]),
     )),
-    unpacked: s.matches(S.array(S.int)->S.protobufField(12, ~type_=#int32, ~packed=false)),
-    mailboxes: s.matches(S.dict(User_Mailbox.schema)->S.protobufField(13, ~type_=#message, ~key=#int32)),
-    currency: s.matches(Example_common_address_pb.Currency.schema->S.protobufField(14, ~type_=#enum)),
-    maybeKind: s.matches(S.option(User_Kind.schema)->S.protobufField(15, ~type_=#enum)),
-    deprecatedField: s.matches(S.string->S.protobufField(16, ~type_=#string)),
-    kinds: s.matches(S.array(User_Kind.schema)->S.protobufField(17, ~type_=#enum)),
-    byId: s.matches(S.dict(S.string)->S.protobufField(18, ~type_=#string, ~key=#uint64)),
+    unpacked: s.matches(S.array(S.int)->S.protobufField(12, ~packed=false)),
+    mailboxes: s.matches(S.dict(User_Mailbox.schema)->S.protobufField(13, ~key=#int32)),
+    currency: s.matches(Example_common_address_pb.Currency.schema->S.protobufField(14)),
+    maybeKind: s.matches(S.option(User_Kind.schema)->S.protobufField(15)),
+    deprecatedField: s.matches(S.string->S.protobufField(16)),
+    kinds: s.matches(S.array(User_Kind.schema)->S.protobufField(17)),
+    byId: s.matches(S.dict(S.string)->S.protobufField(18, ~key=#uint64)),
   })->S.protobufTypeName("example.v1.User")
 }
 
@@ -171,27 +171,27 @@ module WellKnown = {
     boxedByName: dict<S.Protobuf.Int32Value.t>,
   }
   let schema: S.t<t> = S.schema(s => {
-    at: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(1, ~type_=#message)),
-    took: s.matches(S.option(S.Protobuf.Duration.schema)->S.protobufField(2, ~type_=#message)),
+    at: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(1)),
+    took: s.matches(S.option(S.Protobuf.Duration.schema)->S.protobufField(2)),
     label: s.matches(S.option(S.string)->S.protobufField(3, ~type_=#"google.protobuf.StringValue")),
     count: s.matches(S.option(S.bigint)->S.protobufField(4, ~type_=#"google.protobuf.Int64Value")),
     meta: s.matches(S.option(S.dict(S.json))->S.protobufField(5, ~type_=#"google.protobuf.Struct")),
     metas: s.matches(S.array(S.dict(S.json))->S.protobufField(6, ~type_=#"google.protobuf.Struct")),
-    byName: s.matches(S.dict(S.dict(S.json))->S.protobufField(7, ~type_=#"google.protobuf.Struct", ~key=#string)),
-    value: s.matches(S.option(S.Protobuf.Value.schema)->S.protobufField(8, ~type_=#message)),
-    boxedList: s.matches(S.array(S.Protobuf.Int32Value.schema)->S.protobufField(9, ~type_=#message)),
-    log: s.matches(S.array(S.Protobuf.Timestamp.schema)->S.protobufField(10, ~type_=#message)),
-    timeouts: s.matches(S.dict(S.Protobuf.Duration.schema)->S.protobufField(11, ~type_=#message, ~key=#string)),
-    seen: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(12, ~type_=#message)),
+    byName: s.matches(S.dict(S.dict(S.json))->S.protobufField(7, ~type_=#"google.protobuf.Struct")),
+    value: s.matches(S.option(S.Protobuf.Value.schema)->S.protobufField(8)),
+    boxedList: s.matches(S.array(S.Protobuf.Int32Value.schema)->S.protobufField(9)),
+    log: s.matches(S.array(S.Protobuf.Timestamp.schema)->S.protobufField(10)),
+    timeouts: s.matches(S.dict(S.Protobuf.Duration.schema)->S.protobufField(11)),
+    seen: s.matches(S.option(S.Protobuf.Timestamp.schema)->S.protobufField(12)),
     when_: s.matches(S.option(
       S.union([
-        S.schema(s => AtTime({value: s.matches(S.Protobuf.Timestamp.schema->S.protobufField(13, ~type_=#message))})),
-        S.schema(s => After({value: s.matches(S.Protobuf.Duration.schema->S.protobufField(14, ~type_=#message))})),
+        S.schema(s => AtTime({value: s.matches(S.Protobuf.Timestamp.schema->S.protobufField(13))})),
+        S.schema(s => After({value: s.matches(S.Protobuf.Duration.schema->S.protobufField(14))})),
         S.schema(s => Object({value: s.matches(S.dict(S.json)->S.protobufField(15, ~type_=#"google.protobuf.Struct"))})),
-        S.schema(s => List({value: s.matches(S.Protobuf.ListValue.schema->S.protobufField(16, ~type_=#message))})),
+        S.schema(s => List({value: s.matches(S.Protobuf.ListValue.schema->S.protobufField(16))})),
       ]),
     )),
-    boxedByName: s.matches(S.dict(S.Protobuf.Int32Value.schema)->S.protobufField(17, ~type_=#message, ~key=#string)),
+    boxedByName: s.matches(S.dict(S.Protobuf.Int32Value.schema)->S.protobufField(17)),
   })->S.protobufTypeName("example.v1.WellKnown")
 }
 
@@ -213,13 +213,13 @@ module Node = {
   type t = node
   let schema: S.t<t> = S.recursive("Node", nodeSchema =>
     S.schema((s): node => {
-      name: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-      children: s.matches(S.array(nodeSchema)->S.protobufField(2, ~type_=#message)),
-      parent: s.matches(S.option(nodeSchema)->S.protobufField(3, ~type_=#message)),
+      name: s.matches(S.string->S.protobufField(1)),
+      children: s.matches(S.array(nodeSchema)->S.protobufField(2)),
+      parent: s.matches(S.option(nodeSchema)->S.protobufField(3)),
       payload: s.matches(S.option(
         S.union([
-          S.schema((s): node_payload => Leaf({value: s.matches(S.int->S.protobufField(4, ~type_=#int32))})),
-          S.schema((s): node_payload => Link({value: s.matches(nodeSchema->S.protobufField(5, ~type_=#message))})),
+          S.schema((s): node_payload => Leaf({value: s.matches(S.int->S.protobufField(4))})),
+          S.schema((s): node_payload => Link({value: s.matches(nodeSchema->S.protobufField(5))})),
         ]),
       )),
     })->S.protobufTypeName("example.v1.Node")
@@ -239,13 +239,13 @@ and leaf = {
   let branchSchema = S.recursive("Branch", branchSchema => {
     let leafSchema = S.recursive("Leaf", _ =>
       S.schema((s): leaf => {
-        branches: s.matches(S.array(branchSchema)->S.protobufField(1, ~type_=#message)),
+        branches: s.matches(S.array(branchSchema)->S.protobufField(1)),
       })->S.protobufTypeName("example.v1.Leaf")
     )
     leafSchemaRef.contents = Some(leafSchema)
     S.schema((s): branch => {
-      n: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
-      leaf: s.matches(S.option(leafSchema)->S.protobufField(2, ~type_=#message)),
+      n: s.matches(S.int->S.protobufField(1)),
+      leaf: s.matches(S.option(leafSchema)->S.protobufField(2)),
     })->S.protobufTypeName("example.v1.Branch")
   })
   (branchSchema, leafSchemaRef.contents->Stdlib.Option.getUnsafe)
@@ -273,7 +273,7 @@ module Option = {
     o: int,
   }
   let schema: S.t<t> = S.schema(s => {
-    o: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
+    o: s.matches(S.int->S.protobufField(1)),
   })->S.protobufTypeName("example.v1.Option")
 }
 
@@ -304,28 +304,28 @@ and graphC = {
     let graphBSchema = S.recursive("GraphB", graphBSchema => {
       let graphCSchema = S.recursive("GraphC", graphCSchema =>
         S.schema((s): graphC => {
-          a: s.matches(S.array(graphASchema)->S.protobufField(1, ~type_=#message)),
-          b: s.matches(S.dict(graphBSchema)->S.protobufField(2, ~type_=#message, ~key=#int32)),
-          c: s.matches(S.option(graphCSchema)->S.protobufField(3, ~type_=#message)),
+          a: s.matches(S.array(graphASchema)->S.protobufField(1)),
+          b: s.matches(S.dict(graphBSchema)->S.protobufField(2, ~key=#int32)),
+          c: s.matches(S.option(graphCSchema)->S.protobufField(3)),
         })->S.protobufTypeName("example.v1.GraphC")
       )
       graphCSchemaRef.contents = Some(graphCSchema)
       S.schema((s): graphB => {
-        a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-        b: s.matches(S.option(graphBSchema)->S.protobufField(2, ~type_=#message)),
+        a: s.matches(S.option(graphASchema)->S.protobufField(1)),
+        b: s.matches(S.option(graphBSchema)->S.protobufField(2)),
         pick: s.matches(S.option(
           S.union([
-            S.schema((s): graphB_pick => C({value: s.matches(graphCSchema->S.protobufField(3, ~type_=#message))})),
-            S.schema((s): graphB_pick => None({value: s.matches(S.int->S.protobufField(4, ~type_=#int32))})),
+            S.schema((s): graphB_pick => C({value: s.matches(graphCSchema->S.protobufField(3))})),
+            S.schema((s): graphB_pick => None({value: s.matches(S.int->S.protobufField(4))})),
           ]),
         )),
       })->S.protobufTypeName("example.v1.GraphB")
     })
     graphBSchemaRef.contents = Some(graphBSchema)
     S.schema((s): graphA => {
-      a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-      b: s.matches(S.array(graphBSchema)->S.protobufField(2, ~type_=#message)),
-      c: s.matches(S.dict(graphCSchemaRef.contents->Stdlib.Option.getUnsafe)->S.protobufField(3, ~type_=#message, ~key=#string)),
+      a: s.matches(S.option(graphASchema)->S.protobufField(1)),
+      b: s.matches(S.array(graphBSchema)->S.protobufField(2)),
+      c: s.matches(S.dict(graphCSchemaRef.contents->Stdlib.Option.getUnsafe)->S.protobufField(3)),
     })->S.protobufTypeName("example.v1.GraphA")
   })
   (graphASchema, graphBSchemaRef.contents->Stdlib.Option.getUnsafe, graphCSchemaRef.contents->Stdlib.Option.getUnsafe)
@@ -361,9 +361,9 @@ module Reserved = {
     enum: Reserved_Enum.t,
   }
   let schema: S.t<t> = S.schema(s => {
-    constructor_: s.matches(S.string->S.protobufField(1, ~type_=#string)),
-    toString_: s.matches(S.string->S.protobufField(2, ~type_=#string)),
-    valueOf_: s.matches(S.int->S.protobufField(3, ~type_=#int32)),
+    constructor_: s.matches(S.string->S.protobufField(1)),
+    toString_: s.matches(S.string->S.protobufField(2)),
+    valueOf_: s.matches(S.int->S.protobufField(3)),
     enum: s.matches(Reserved_Enum.schema->S.protobufField(4, ~type_=#enum)),
   })->S.protobufTypeName("example.v1.Reserved")
 }
@@ -388,16 +388,16 @@ module Uses = {
     choice: option<choice>,
   }
   let schema: S.t<t> = S.schema(s => {
-    mixed: s.matches(Mixed.schema->S.protobufField(1, ~type_=#enum)),
-    aliased: s.matches(Aliased.schema->S.protobufField(2, ~type_=#enum)),
+    mixed: s.matches(Mixed.schema->S.protobufField(1)),
+    aliased: s.matches(Aliased.schema->S.protobufField(2)),
     lonely: s.matches(Lonely.schema->S.protobufField(3, ~type_=#enum)),
-    mixes: s.matches(S.array(Mixed.schema)->S.protobufField(4, ~type_=#enum)),
-    aliases: s.matches(S.dict(Aliased.schema)->S.protobufField(5, ~type_=#enum, ~key=#string)),
-    empty: s.matches(S.option(Empty.schema)->S.protobufField(6, ~type_=#message)),
+    mixes: s.matches(S.array(Mixed.schema)->S.protobufField(4)),
+    aliases: s.matches(S.dict(Aliased.schema)->S.protobufField(5)),
+    empty: s.matches(S.option(Empty.schema)->S.protobufField(6)),
     choice: s.matches(S.option(
       S.union([
-        S.schema(s => None({value: s.matches(Empty.schema->S.protobufField(7, ~type_=#message))})),
-        S.schema(s => Some({value: s.matches(S.int->S.protobufField(8, ~type_=#int32))})),
+        S.schema(s => None({value: s.matches(Empty.schema->S.protobufField(7))})),
+        S.schema(s => Some({value: s.matches(S.int->S.protobufField(8))})),
       ]),
     )),
   })->S.protobufTypeName("example.v1.Uses")

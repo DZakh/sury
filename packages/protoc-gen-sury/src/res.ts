@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
+import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -163,15 +163,12 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     return field.optional || field.element.kind === "message" ? `option<${element}>` : element;
   };
 
-  const wireType = (field: Field, element: Element): string =>
-    element.kind === "scalar" ? `#${element.scalar}`
-    : element.kind === "enum" ? "#enum"
-    : isStruct(field, element) ? `#"google.protobuf.Struct"`
-    : "#message";
+  const variant = (name: string): string => (name.includes(".") ? `#${JSON.stringify(name)}` : `#${name}`);
 
-  const numbered = (field: Field, schema: string, type: string): string => {
-    let args = `${field.number}, ~type_=${type}`;
-    if (field.mapKey !== undefined) args += `, ~key=#${field.mapKey}`;
+  const numbered = (field: Field, schema: string, type: string | undefined): string => {
+    let args = `${field.number}`;
+    if (type !== undefined) args += `, ~type_=${variant(type)}`;
+    if (statedKey(field) !== undefined) args += `, ~key=#${field.mapKey}`;
     if (field.list && !field.packed && packable(field.element)) args += ", ~packed=false";
     return `${schema}->${S}protobufField(${args})`;
   };
@@ -195,10 +192,10 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const fieldSchema = (field: Field, scope: Group | undefined): string => {
     const wrapped = wrapperScalar(field);
     if (wrapped !== undefined) {
-      return numbered(field, `${S}option(${scalarSchema(wrapped, false)})`, `#"${(field.element as { message: Message }).message.typeName}"`);
+      return numbered(field, `${S}option(${scalarSchema(wrapped, false)})`, (field.element as { message: Message }).message.typeName);
     }
     const element = elementSchema(field, field.element, scope);
-    const type = wireType(field, field.element);
+    const type = statedType(field, field.element);
     if (field.mapKey !== undefined) return numbered(field, `${S}dict(${element})`, type);
     if (field.list) return numbered(field, `${S}array(${element})`, type);
     return numbered(field, field.optional || field.element.kind === "message" ? `${S}option(${element})` : element, type);
@@ -209,7 +206,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
       const element = elementSchema(field, field.element, scope);
       // Named in a group, whose oneofs share one scope and may share a constructor.
       const s = scope === undefined ? "s" : `(s): ${oneofTypeName(field.parent, oneof)}`;
-      return `${indent}    ${S}schema(${s} => ${upperIdent(field.localName)}({value: s.matches(${numbered(field, element, wireType(field, field.element))})})),`;
+      return `${indent}    ${S}schema(${s} => ${upperIdent(field.localName)}({value: s.matches(${numbered(field, element, statedType(field, field.element))})})),`;
     });
     return `${S}option(\n${indent}  ${S}union([\n${arms.join("\n")}\n${indent}  ]),\n${indent})`;
   };

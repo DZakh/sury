@@ -83,14 +83,14 @@ export type Method = {
 };
 
 export const MethodSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Method>()({
-  name: S.protobufField(S.string, { number: 1, type: "string" }),
-  requestTypeUrl: S.protobufField(S.string, { number: 2, type: "string" }),
-  requestStreaming: S.protobufField(S.boolean, { number: 3, type: "bool" }),
-  responseTypeUrl: S.protobufField(S.string, { number: 4, type: "string" }),
-  responseStreaming: S.protobufField(S.boolean, { number: 5, type: "bool" }),
-  options: S.protobufField(S.array(OptionSchema), { number: 6, type: "message" }),
-  syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
-  edition: S.protobufField(S.string, { number: 8, type: "string" }),
+  name: S.protobufField(S.string, 1),
+  requestTypeUrl: S.protobufField(S.string, 2),
+  requestStreaming: S.protobufField(S.boolean, 3),
+  responseTypeUrl: S.protobufField(S.string, 4),
+  responseStreaming: S.protobufField(S.boolean, 5),
+  options: S.protobufField(S.array(OptionSchema), 6),
+  syntax: S.protobufField(SyntaxSchema, 7),
+  edition: S.protobufField(S.string, 8),
 }), { name: "Method" }), "google.protobuf.Method");
 
 /**
@@ -193,8 +193,8 @@ export type Mixin = {
 };
 
 export const MixinSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Mixin>()({
-  name: S.protobufField(S.string, { number: 1, type: "string" }),
-  root: S.protobufField(S.string, { number: 2, type: "string" }),
+  name: S.protobufField(S.string, 1),
+  root: S.protobufField(S.string, 2),
 }), { name: "Mixin" }), "google.protobuf.Mixin");
 
 /**
@@ -295,12 +295,12 @@ export type Api = {
 };
 
 export const ApiSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Api>()({
-  name: S.protobufField(S.string, { number: 1, type: "string" }),
-  methods: S.protobufField(S.array(MethodSchema), { number: 2, type: "message" }),
-  options: S.protobufField(S.array(OptionSchema), { number: 3, type: "message" }),
-  version: S.protobufField(S.string, { number: 4, type: "string" }),
-  sourceContext: S.protobufField(S.optional(SourceContextSchema), { number: 5, type: "message" }),
-  mixins: S.protobufField(S.array(MixinSchema), { number: 6, type: "message" }),
-  syntax: S.protobufField(SyntaxSchema, { number: 7, type: "enum" }),
-  edition: S.protobufField(S.string, { number: 8, type: "string" }),
+  name: S.protobufField(S.string, 1),
+  methods: S.protobufField(S.array(MethodSchema), 2),
+  options: S.protobufField(S.array(OptionSchema), 3),
+  version: S.protobufField(S.string, 4),
+  sourceContext: S.protobufField(S.optional(SourceContextSchema), 5),
+  mixins: S.protobufField(S.array(MixinSchema), 6),
+  syntax: S.protobufField(SyntaxSchema, 7),
+  edition: S.protobufField(S.string, 8),
 }), { name: "Api" }), "google.protobuf.Api");

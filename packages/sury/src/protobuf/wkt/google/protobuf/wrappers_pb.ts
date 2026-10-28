@@ -72,7 +72,7 @@ export type Int64Value = {
 };
 
 export const Int64ValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Int64Value>()({
-  value: S.protobufField(S.bigint, { number: 1, type: "int64" }),
+  value: S.protobufField(S.bigint, 1),
 }), { name: "Int64Value" }), "google.protobuf.Int64Value");
 
 /**
@@ -118,7 +118,7 @@ export type Int32Value = {
 };
 
 export const Int32ValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Int32Value>()({
-  value: S.protobufField(S.int32, { number: 1, type: "int32" }),
+  value: S.protobufField(S.int32, 1),
 }), { name: "Int32Value" }), "google.protobuf.Int32Value");
 
 /**
@@ -164,7 +164,7 @@ export type BoolValue = {
 };
 
 export const BoolValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<BoolValue>()({
-  value: S.protobufField(S.boolean, { number: 1, type: "bool" }),
+  value: S.protobufField(S.boolean, 1),
 }), { name: "BoolValue" }), "google.protobuf.BoolValue");
 
 /**
@@ -187,7 +187,7 @@ export type StringValue = {
 };
 
 export const StringValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<StringValue>()({
-  value: S.protobufField(S.string, { number: 1, type: "string" }),
+  value: S.protobufField(S.string, 1),
 }), { name: "StringValue" }), "google.protobuf.StringValue");
 
 /**
@@ -210,5 +210,5 @@ export type BytesValue = {
 };
 
 export const BytesValueSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<BytesValue>()({
-  value: S.protobufField(S.uint8Array, { number: 1, type: "bytes" }),
+  value: S.protobufField(S.uint8Array, 1),
 }), { name: "BytesValue" }), "google.protobuf.BytesValue");

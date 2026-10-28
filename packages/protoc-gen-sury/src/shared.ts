@@ -97,6 +97,26 @@ export const isStruct = (field: Field, element: Element): boolean =>
   element.message.typeName === "google.protobuf.Struct" &&
   field.parent.typeName !== "google.protobuf.Value";
 
+const inferredScalars = new Set<Scalar>(["string", "bool", "bytes", "int32", "int64"]);
+
+// The wire type a field's S.protobufField states: none where it infers that
+// type from the schema the generator writes (S.int32 for an int32, S.bigint
+// for an int64), as docs/js-protobuf.md's table has it.
+export const statedType = (field: Field, element: Element): string | undefined => {
+  if (element.kind === "scalar") {
+    const asString = field.longAsString && field.mapKey === undefined && is64(element.scalar);
+    return !asString && inferredScalars.has(element.scalar) ? undefined : element.scalar;
+  }
+  // A lone literal infers a number.
+  if (element.kind === "enum") return new Set(element.enum.values.map((value) => value.number)).size > 1 ? undefined : "enum";
+  if (isStruct(field, element)) return "google.protobuf.Struct";
+  // S.protobufAny infers its own well-known type.
+  return messageOf(element).typeName === "google.protobuf.Any" ? "message" : undefined;
+};
+
+// A map's key type, which defaults to string.
+export const statedKey = (field: Field): Scalar | undefined => (field.mapKey === "string" ? undefined : field.mapKey);
+
 // Messages grouped so that each group only refers to earlier ones or itself: a
 // group of more than one, or of one that refers to itself, is recursive.
 // Tarjan's algorithm emits each strongly connected component after every

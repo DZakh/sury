@@ -56,7 +56,7 @@ export type Address = {
 };
 
 export const AddressSchema = S.protobufTypeName(S.meta(/* @__PURE__ */ S.schemaOf<Address>()({
-  street: S.protobufField(S.string, { number: 1, type: "string" }),
-  city: S.protobufField(S.string, { number: 2, type: "string" }),
-  country: S.protobufField(S.string, { number: 3, type: "string" }),
+  street: S.protobufField(S.string, 1),
+  city: S.protobufField(S.string, 2),
+  country: S.protobufField(S.string, 3),
 }), { name: "Address" }), "example.common.Address");
