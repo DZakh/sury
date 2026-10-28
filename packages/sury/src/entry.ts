@@ -46,9 +46,7 @@ import {
   B_isText,
   B_conversion,
   B_invalidOperation,
-  B_neverSlot,
-  B_outputView,
-  B_refine
+  B_neverSlot
 } from "./builder";
 import {
  definitionToSchema,
@@ -61,10 +59,11 @@ import {
   Option_getOr,
   Option_getOrWith,
   refine as refineCore,
+  seamTarget,
+  type Slot,
 } from "./modifiers";
 import {
  getOutputSchema,
- parse,
  reverse
 } from "./parse";
 import {
@@ -303,8 +302,6 @@ const conversionBuilder = (
   }
 };
 
-type Slot = Builder | boolean | undefined;
-
 // `seam` is passed in rather than called here so a bundle reaching only `to`
 // carries none of it.
 const link = (
@@ -404,50 +401,6 @@ const link = (
 
 // @__NO_SIDE_EFFECTS__
 export const to = (schema: Internal, target: Internal, custom?: unknown) => link(schema, target, custom);
-
-// An output-seam coder claims the target as its result, so a target that
-// still converts on its own would have that conversion skipped. The junction
-// seam of `to` feeds the target's chain instead, so it stays legal there, as do
-// the slots that place no coder. A reading is exempt with `B_neverSlot`:
-// neither places a coder, so neither claims the target's result - the very case
-// a reading exists for is a target that converts on its own.
-// A coder's result is what the target's output claims (its view): the
-// target's own conversions, a field's coder among them, would run again over a
-// value already past them. An encode coder is handed the target's output, so
-// the link is to the view, and a decode with no coder runs the plain link's own
-// step into the target from where the seam's stands. A decode coder beside an
-// encode with none keeps the link to the target, which that encode converts
-// through, and checks its result against the view.
-const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Slot): Internal => {
-  const view =
-    (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
-      ? target.to
-        ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
-        : B_outputView(target)
-      : target;
-  if (view === target) return codecTo(schema, target, decode, encode);
-  if (typeof encode === functionTag) {
-    return codecTo(schema, view, typeof decode === functionTag ? decode : seamStep(seamPlain(schema, target, decode as boolean | undefined)), encode);
-  }
-  return codecTo(schema, target, seamStep((input) => B_refine((decode as Builder)(input), view, U, view)), encode);
-};
-
-// The plain link's step into the target, from where the seam's link stands.
-const seamPlain = (schema: Internal, target: Internal, reading: boolean | undefined) => (input: Val): Val => {
-  let into = codecTo(schema, target, reading);
-  while (into.to!.to) into = into.to!;
-  const from = B_refine(input, into, U, into);
-  from.io = true;
-  return from;
-};
-
-// Runs `step` to its end, and hands the value on as the seam link's next node's
-// output, which it now is.
-const seamStep = (step: (input: Val) => Val): Builder => (input: Val) => {
-  const through = B_refine(parse(step(input)), U, U, input.e.to);
-  through.io = true;
-  return through;
-};
 
 // The ReScript `~custom` adapter's seam: its coders are typed against the
 // target's output, so there is no public-JS spelling of it.
