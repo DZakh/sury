@@ -341,7 +341,7 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // updateOutput copied every link, so marking them touches nothing shared.
   if (type === "enum") {
     for (let link: Internal | undefined = numbered; link !== U; link = link.to) {
-      if (link.const !== U) link.openLiteral = true;
+      if (typeof link.const === "number") link.openLiteral = true;
     }
   }
   return numbered;

@@ -417,7 +417,7 @@ const internalToJSONSchema = (
       const parsed = parse(B_operationArg(unknown, reverse(schema), 0)).s;
       // A literal converting into the same literal parses to the chain itself,
       // which would come back here forever: it is the literal's own schema.
-      if (!(isLiteral(parsed) && parsed.to !== U && Object.is(parsed.const, parsed.to.const))) {
+      if (!(isLiteral(parsed) && parsed.to !== U && parsed.const === parsed.to.const)) {
         encoded = internalToJSONSchema(parsed, path, defs, parent, target);
       }
     } catch (exn) {
