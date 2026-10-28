@@ -41,6 +41,12 @@ operations:
       before-year-one:
         input: '{ at: new Date("0000-12-31T23:59:59.999Z"), log: [] }'
         output: new Uint8Array([10, 17, 8, 255, 145, 184, 195, 152, 254, 255, 255, 255, 1, 16, 192, 143, 174, 220, 3])
+      latest-date:
+        input: '{ at: new Date("+275760-09-13T00:00:00.000Z"), log: [] }'
+        output: new Uint8Array([10, 8, 8, 128, 128, 134, 193, 186, 251, 1])
+      earliest-date:
+        input: '{ at: new Date("-271821-04-20T00:00:00.000Z"), log: [] }'
+        output: new Uint8Array([10, 11, 8, 128, 128, 250, 190, 197, 132, 254, 255, 255, 1])
       invalid-date-trusted:
         input: "{ at: new Date(NaN), log: [] }"
         error: "Failed at at: Expected Date, received invalid Date"
@@ -65,6 +71,15 @@ operations:
       unknown-field-skipped:
         input: new Uint8Array([10, 4, 24, 5, 8, 1])
         output: '{ at: new Date("1970-01-01T00:00:01.000Z"), log: [] }'
+      latest-date:
+        input: new Uint8Array([10, 8, 8, 128, 128, 134, 193, 186, 251, 1])
+        output: '{ at: new Date("+275760-09-13T00:00:00.000Z"), log: [] }'
+      earliest-date:
+        input: new Uint8Array([10, 11, 8, 128, 128, 250, 190, 197, 132, 254, 255, 255, 1])
+        output: '{ at: new Date("-271821-04-20T00:00:00.000Z"), log: [] }'
+      a-second-past-the-latest-date:
+        input: new Uint8Array([10, 8, 8, 129, 128, 134, 193, 186, 251, 1])
+        error: "Failed at at: Protobuf Timestamp is outside the range of a Date"
       beyond-a-date:
         input: new Uint8Array([10, 9, 8, 128, 128, 128, 128, 128, 128, 128, 1])
         error: "Failed at at: Protobuf Timestamp is outside the range of a Date"

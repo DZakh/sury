@@ -38,6 +38,12 @@ operations:
       digits:
         input: '{ id: "150", big: "1", s: "-1", n: 0n }'
         output: new Uint8Array([8, 150, 1, 16, 1, 24, 1])
+      past-2-to-the-53:
+        input: '{ id: "9007199254740993", big: "9007199254740993", s: "-9007199254740993", n: 0n }'
+        output: new Uint8Array([8, 129, 128, 128, 128, 128, 128, 128, 16, 16, 129, 128, 128, 128, 128, 128, 128, 16, 24, 129, 128, 128, 128, 128, 128, 128, 32])
+      below-minus-2-to-the-53:
+        input: '{ id: "-9007199254740993", big: "0", s: "0", n: 0n }'
+        output: new Uint8Array([8, 255, 255, 255, 255, 255, 255, 255, 239, 255, 1])
       digits-only-where-declared:
         input: '{ id: "0", big: "0", s: "0", n: "1" }'
         error: 'Failed at n: Expected fixed64, received "1"'
@@ -47,3 +53,12 @@ operations:
       digits:
         input: new Uint8Array([8, 150, 1, 16, 1, 24, 1])
         output: '{ id: "150", big: "1", s: "-1", n: 0n }'
+      past-2-to-the-53:
+        input: new Uint8Array([8, 129, 128, 128, 128, 128, 128, 128, 16, 16, 129, 128, 128, 128, 128, 128, 128, 16, 24, 129, 128, 128, 128, 128, 128, 128, 32])
+        output: '{ id: "9007199254740993", big: "9007199254740993", s: "-9007199254740993", n: 0n }'
+      at-2-to-the-53:
+        input: new Uint8Array([8, 128, 128, 128, 128, 128, 128, 128, 16])
+        output: '{ id: "9007199254740992", big: "0", s: "0", n: 0n }'
+      below-minus-2-to-the-53:
+        input: new Uint8Array([8, 255, 255, 255, 255, 255, 255, 255, 239, 255, 1])
+        output: '{ id: "-9007199254740993", big: "0", s: "0", n: 0n }'

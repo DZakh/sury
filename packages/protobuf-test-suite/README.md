@@ -88,9 +88,10 @@ numbers move enough to mislead.
 
 `bench` runs Sury against every codec a JS project would reach for:
 protobufjs reflection and `pbjs` static codegen, protobuf-es
-(`@bufbuild/protobuf`) and pbf, on five workloads (tiny, typical, large,
-protobuf.js's `bench/cases/common` message, and a vector-tile shaped message
-dominated by packed geometry), best of 7 samples, on the same bytes and values, each
+(`@bufbuild/protobuf`) and pbf, on six workloads (tiny, typical, large,
+protobuf.js's `bench/cases/common` message, a vector-tile shaped message
+dominated by packed geometry, and `oneof-any`: a Timestamp, an Any and a list of
+oneof items, which pbf sits out for want of an Any), best of 7 samples, on the same bytes and values, each
 library driven the way its README shows. `hillclimb` is the frozen Sury-vs-
 protobufjs ruler the perf commits on this branch quote. Neither snapshots a
 number. Sury-vs-Sury encode/decode regressions are `spec check --perf`

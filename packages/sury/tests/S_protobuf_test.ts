@@ -128,9 +128,11 @@ test("protobuf uses last-one-wins and treats a known field with the wrong wire t
   t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Failed at value: Expected wire type 0, received 2");
 });
 
+// S.number refuses the NaN a decode reads (codec-protobuf-number-nan), so the
+// float that holds one is the union docs/js-protobuf.md shows.
 test("protobuf preserves IEEE-754 special values and rejects float32 overflow", (t) => {
   const Message = S.schema({
-    float: field(S.number, 1, "float"),
+    float: field(S.union([S.number, S.schema(NaN)]), 1, "float"),
     double: field(S.number, 2, "double"),
   });
   const encode = S.decodeOrThrow(Message, S.protobuf);

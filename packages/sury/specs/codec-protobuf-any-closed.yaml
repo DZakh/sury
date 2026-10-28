@@ -35,6 +35,18 @@ operations:
       unknown-type:
         input: new Uint8Array([10, 41, 10, 35, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 77, 105, 115, 115, 105, 110, 103, 18, 2, 8, 1])
         error: "Failed at payload: Protobuf Any holds acme.v1.Missing, expected acme.v1.User or acme.v1.Order"
+      non-ascii-prefix:
+        input: new Uint8Array([10, 29, 10, 23, 195, 169, 46, 101, 120, 97, 109, 112, 108, 101, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+        output: '{ payload: { type: "user", value: { id: 1, name: "" } } }'
+      invalid-utf8-prefix:
+        input: new Uint8Array([10, 20, 10, 14, 255, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+        error: "Failed at payload: Protobuf string is not valid UTF-8"
+      a-name-of-the-same-length:
+        input: new Uint8Array([10, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 115, 18, 2, 8, 1])
+        error: "Failed at payload: Protobuf Any holds acme.v1.Uses, expected acme.v1.User or acme.v1.Order"
+      invalid-utf8-name:
+        input: new Uint8Array([10, 37, 10, 31, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 255, 18, 2, 8, 1])
+        error: "Failed at payload: Protobuf string is not valid UTF-8"
       no-type-url:
         input: new Uint8Array([10, 4, 18, 2, 8, 1])
         error: "Failed at payload: Protobuf Any has no type URL, expected acme.v1.User or acme.v1.Order"

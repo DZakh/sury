@@ -95,6 +95,8 @@ type Field = {
   path: string[];
   omit?: boolean;
   fromWireIsHeld?: boolean;
+  // Read with a check that it isn't NaN (`finiteRead`).
+  finite?: boolean;
 };
 
 // A union oneof's members in the order the union lists them, each with the
@@ -728,6 +730,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           held: read,
           path: arm.key === U ? [key] : [key, arm.key],
           fromWireIsHeld: raw === read,
+          finite: finiteRead(m.type, raw, read),
         };
         fields.push(field);
         armFields.push(field);
@@ -758,6 +761,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const item = repeated || map !== U ? (container.additionalItems as Internal) : U;
     let [message, raw, read] = holding(metadata, item ?? propertyValue, shape, `field "${key}"`, getOutputSchema(item ?? property));
     const done = raw === read;
+    const finite = finiteRead(metadata.type, raw, read);
     // A repeated or map field reads into the user's container, its length
     // checks included.
     if (repeated || map !== U) {
@@ -795,6 +799,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       path: [key],
       omit: optional && absent === U,
       fromWireIsHeld: done,
+      finite,
     };
     fields.push(field);
   }
@@ -841,6 +846,14 @@ const fail = (reason: string): never => {
 };
 
 const truncated = (): never => fail("Truncated protobuf message");
+
+const utf8 = (bytes: Uint8Array): string => {
+  try {
+    return textDecoder.decode(bytes);
+  } catch {
+    return fail("Protobuf string is not valid UTF-8");
+  }
+};
 
 // Every varint reader accepts the full 10-byte form and keeps the bits it
 // has room for: that is what makes `int32` -1 (10 bytes on the wire) and a
@@ -963,8 +976,17 @@ export class Reader {
     return hi >>> 21 === 0 ? BigInt(hi * 4294967296 + (lo >>> 0)) : (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0);
   }
   // Signed reading of the same varint: a value within 2^53 either way is
-  // built from one BigInt of a float instead of a shift and an or.
+  // built from one BigInt of a float instead of a shift and an or. Past it the
+  // float has rounded, and the varint is read again exactly.
   int64(): bigint {
+    const start = this.pos;
+    const value = this.int53();
+    if (value > -9007199254740992 && value < 9007199254740992) return BigInt(value);
+    this.pos = start;
+    return BigInt.asIntN(64, this.varint64());
+  }
+  // The same varint as a float, exact within 2^53 either way.
+  int53(): number {
     const buf = this.buf;
     const limit = this.limit;
     let pos = this.pos;
@@ -984,9 +1006,7 @@ export class Reader {
       shift += 7;
     } while (byte > 127);
     this.pos = pos;
-    if (hi >>> 21 === 0) return BigInt(hi * 4294967296 + (lo >>> 0));
-    if (hi >>> 21 === 2047) return BigInt(hi * 4294967296 + (lo >>> 0));
-    return BigInt.asIntN(64, (BigInt(hi >>> 0) << 32n) | BigInt(lo >>> 0));
+    return hi * 4294967296 + (lo >>> 0);
   }
   bool(): boolean {
     const buf = this.buf;
@@ -1039,6 +1059,15 @@ export class Reader {
   f64(): number {
     this.load64();
     return scratchView.getFloat64(0, true);
+  }
+  // A double or float that is to be a number, which NaN is not (`finiteRead`).
+  num64(): number {
+    const value = this.f64();
+    return value === value ? value : fail(nanReason);
+  }
+  num32(): number {
+    const value = this.f32();
+    return value === value ? value : fail(nanReason);
   }
   u64(): bigint {
     this.load64();
@@ -1136,8 +1165,8 @@ export class Reader {
   // Packed fixed-width fields: an aligned span is read through a typed array
   // over the input, anything else through a DataView, both created once per
   // field instead of a scratch copy per element. `kind` is 0 double, 1 float,
-  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64.
-  fixeds(out: unknown[], kind: number): void {
+  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64. `finite` refuses a NaN.
+  fixeds(out: unknown[], kind: number, finite?: number): void {
     const buf = this.buf;
     const start = this.pos;
     const end = this.limit;
@@ -1157,18 +1186,23 @@ export class Reader {
         : kind === 3 ? new Int32Array(buf.buffer, offset, n)
         : kind === 4 ? new BigUint64Array(buf.buffer, offset, n)
         : new BigInt64Array(buf.buffer, offset, n);
-      for (let i = 0; i < n; i++) out.push(view[i]);
+      for (let i = 0; i < n; i++) {
+        const value = view[i];
+        if (value !== value && finite) fail(nanReason);
+        out.push(value);
+      }
     } else {
       const view = new DataView(buf.buffer, offset, len);
       for (let i = 0; i < len; i += size) {
-        out.push(
+        const value =
           kind === 0 ? view.getFloat64(i, true)
           : kind === 1 ? view.getFloat32(i, true)
           : kind === 2 ? view.getUint32(i, true)
           : kind === 3 ? view.getInt32(i, true)
           : kind === 4 ? view.getBigUint64(i, true)
-          : view.getBigInt64(i, true),
-        );
+          : view.getBigInt64(i, true);
+        if (value !== value && finite) fail(nanReason);
+        out.push(value);
       }
     }
     if (torn) truncated();
@@ -1238,11 +1272,32 @@ export class Reader {
         if (i === end) return s;
       }
     }
-    try {
-      return textDecoder.decode(buf.subarray(start, end));
-    } catch {
-      return fail("Protobuf string is not valid UTF-8");
+    return utf8(buf.subarray(start, end));
+  }
+  // An Any's type URL, as the index among `names` of the name after its last
+  // `/`. Compared as bytes, a listed type builds no string; any other comes
+  // back as the name itself, for the failure to show. A `/` is never inside a
+  // multi-byte UTF-8 char, so the scan is by byte, and a prefix that isn't
+  // ASCII is decoded only to be checked.
+  typeOf(names: Uint8Array[]): number | string {
+    const len = this.len();
+    const start = this.pos;
+    const end = start + len;
+    if (end > this.limit) truncated();
+    this.pos = end;
+    const buf = this.buf;
+    let from = end;
+    while (from > start && buf[from - 1] !== 47) from--;
+    let high = 0;
+    for (let i = start; i < from; i++) high |= buf[i]!;
+    if (high > 127) utf8(buf.subarray(start, from));
+    next: for (let k = 0; k < names.length; k++) {
+      const name = names[k]!;
+      if (name.length !== end - from) continue;
+      for (let i = 0; i < name.length; i++) if (name[i] !== buf[from + i]) continue next;
+      return k;
     }
+    return utf8(buf.subarray(from, end));
   }
   bytes(): Uint8Array {
     const len = this.len();
@@ -1304,21 +1359,19 @@ export class Writer {
     this.pos = pos;
   }
   varint64(value: bigint): void {
-    if (value >= 0n && value < 2147483648n) return this.varint32(Number(value));
-    let lo: number;
-    let hi: number;
-    // Within 2^53 the halves come from float arithmetic; `>>> 0` on the
-    // negative high word is the two's complement the wire wants.
-    if (value >= -9007199254740992n && value <= 9007199254740992n) {
-      const num = Number(value);
-      hi = Math.floor(num / 4294967296);
-      lo = num - hi * 4294967296;
-      hi >>>= 0;
-    } else {
-      value = BigInt.asUintN(64, value);
-      lo = Number(value & 4294967295n);
-      hi = Number(value >> 32n);
-    }
+    if (value >= -9007199254740992n && value <= 9007199254740992n) return this.int53(Number(value));
+    value = BigInt.asUintN(64, value);
+    this.halves(Number(value & 4294967295n), Number(value >> 32n));
+  }
+  // A safe integer as the 64-bit varint it is, with no bigint in between: the
+  // halves come from float arithmetic, and `>>> 0` on a negative high word is
+  // the two's complement the wire wants.
+  int53(value: number): void {
+    if (value >= 0 && value < 2147483648) return this.varint32(value);
+    const hi = Math.floor(value / 4294967296);
+    this.halves(value - hi * 4294967296, hi >>> 0);
+  }
+  halves(lo: number, hi: number): void {
     this.ensure(10);
     const buf = this.buf;
     let pos = this.pos;
@@ -1420,6 +1473,12 @@ export class Writer {
     this.buf.set(value, this.pos);
     this.pos += n;
   }
+  raw(value: Uint8Array): void {
+    const n = value.length;
+    this.ensure(n);
+    this.buf.set(value, this.pos);
+    this.pos += n;
+  }
   string(v: string): void {
     // Otherwise a non-string fails deep in the length arithmetic, as a
     // `RangeError` that names nothing.
@@ -1428,17 +1487,20 @@ export class Writer {
   }
   text(v: string): void {
     const len = v.length;
+    // ASCII is copied as it is checked, in one pass; a char over 127 leaves
+    // what was copied for the encoder to write over.
     if (len < 32) {
+      this.ensure(1 + len);
+      const buf = this.buf;
+      let pos = this.pos + 1;
       let i = 0;
       for (; i < len; i++) {
-        if (v.charCodeAt(i) > 127) break;
+        const c = v.charCodeAt(i);
+        if (c > 127) break;
+        buf[pos++] = c;
       }
       if (i === len) {
-        this.ensure(1 + len);
-        const buf = this.buf;
-        let pos = this.pos;
-        buf[pos++] = len;
-        for (i = 0; i < len; i++) buf[pos++] = v.charCodeAt(i);
+        buf[this.pos] = len;
         this.pos = pos;
         return;
       }
@@ -1506,23 +1568,25 @@ export class Writer {
     this.busy = false;
     return out;
   }
-  // Opens a length-delimited field with a 5-byte hole for the prefix;
-  // `end` writes the real prefix and slides the payload back over the slack.
+  // Opens a length-delimited field with a 1-byte hole for the prefix: most
+  // payloads are under 128 bytes, and `end` fills the hole with no copy. A
+  // longer one slides forward to make room, which moves no more bytes than
+  // sliding back over a wider hole did.
   begin(): number {
-    this.ensure(5);
-    const hole = this.pos;
-    this.pos += 5;
-    return hole;
+    this.ensure(1);
+    return this.pos++;
   }
   end(hole: number): void {
-    const start = hole + 5;
+    const start = hole + 1;
     const len = this.pos - start;
-    let used = 1;
-    for (let rest = len >>> 7; rest; rest >>>= 7) used++;
-    if (used !== 5) {
-      this.buf.copyWithin(hole + used, start, this.pos);
-      this.pos -= 5 - used;
+    if (len < 128) {
+      this.buf[hole] = len;
+      return;
     }
+    let used = 2;
+    for (let rest = len >>> 14; rest; rest >>>= 7) used++;
+    this.ensure(used - 1);
+    this.buf.copyWithin(hole + used, start, this.pos);
     this.pos = hole;
     this.varint32(len);
     this.pos += len;
@@ -1586,7 +1650,7 @@ const readDate = (r: Reader, _d: number, prev?: unknown): Date => {
   let nanos = (ms - seconds * 1000) * 1e6;
   while (r.pos < r.limit) {
     const tag = r.tag();
-    if (tag === 8) seconds = Number(r.int64());
+    if (tag === 8) seconds = r.int53();
     else if (tag === 16) nanos = r.varint32() | 0;
     else r.skipTag(tag);
   }
@@ -1602,7 +1666,7 @@ const writeDate = (w: Writer, value: unknown): void => {
   const nanos = (ms - seconds * 1000) * 1e6;
   if (seconds) {
     w.varint32(8);
-    w.varint64(BigInt(seconds));
+    w.int53(seconds);
   }
   if (nanos) {
     w.varint32(16);
@@ -1780,6 +1844,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
       fromWire: raw,
       held: raw,
       path: [],
+      finite: scalar !== U && finiteRead(scalar, raw, shape),
     };
     msg = { fields: [field], object: shape, raw, wellKnown: type, unwrap: true };
   } else {
@@ -1906,14 +1971,28 @@ const ownerOf = (told: Told | undefined, idx: number): string => {
 // The member set, written as the Any holding it: its type URL, then its
 // message, left out when empty as protobuf-es leaves it. A type another member
 // names belongs to that member, which a decode would read it back as.
-const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read): string => {
+// An Any's type URL field, tag and length included, as the bytes every write of
+// it copies.
+const typeUrl = (name: string): Uint8Array => {
+  const url = textEncoder.encode(`type.googleapis.com/${name}`);
+  const head = [10];
+  let n = url.length;
+  for (; n > 127; n >>>= 7) head.push((n & 127) | 128);
+  head.push(n);
+  const out = new Uint8Array(head.length + url.length);
+  out.set(head);
+  out.set(url, head.length);
+  return out;
+};
+
+const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read, embed: (value: unknown) => string): string => {
   const { fields, listed, other, told } = msg.any!;
   let body = "";
   fields.forEach((field, idx) => {
     const write = fns.get(field.message!)!;
     body += `f=${idx + 2};v=${read(field).expr};if(v!==void 0){${
       field !== other
-        ? `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${field.name}`)});q=w.pos;${writeTag(18)};g=w.begin();${write}(w,v);w.end(g);if(w.pos===q+2)w.pos=q`
+        ? `w.raw(${embed(typeUrl(field.name!))});q=w.pos;${writeTag(18)};g=w.begin();${write}(w,v);w.end(g);if(w.pos===q+2)w.pos=q`
         : `${listed.length ? `g=v.typeUrl;switch(g.slice(g.lastIndexOf("/")+1)){${listed.map((owned, idx) => `case ${JSON.stringify(owned.name)}:fail(${JSON.stringify(`Protobuf Any holds ${owned.name}, which ${ownerOf(told, idx)} is for`)});`).join("")}}` : ""}${write}(w,v)`
     }}`;
   });
@@ -1989,6 +2068,18 @@ const readCall = (type: ProtobufType): string => {
   if (type === "string") return "r.string()";
   return "r.bytes()";
 };
+
+const readOf = (field: Field): string =>
+  field.finite ? (field.type === "double" ? "r.num64()" : "r.num32()") : readCall(field.type);
+
+const nanReason = "Expected number, received NaN";
+
+// A double or float read into a number schema refuses NaN, as parsing one
+// does. The conversion from what the wire read to the field's schema checks
+// only what the two types differ in, and both are numbers, so the read checks.
+// A format (int32) or a NaN-admitting union converts with checks of its own.
+const finiteRead = (type: FieldType, raw: Internal, read: Internal): boolean =>
+  (type === "double" || type === "float") && raw === float && read.type === numberTag && read.format === U;
 
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
@@ -2115,6 +2206,11 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
   const g = B_operationArg(unknown, unknown, flag).g;
   const params: string[] = [...Object.keys(encodeHelpers), "at", "M", "fail", "e"];
   const args: unknown[] = [...Object.values(encodeHelpers), encodeFrame, messages, fail, g.e];
+  const embed = (value: unknown): string => {
+    const name = `K${args.push(value)}`;
+    params.push(name);
+    return name;
+  };
   const names: string[] = [];
   // The root's fields are read from the vals the operation already has, so its
   // body is inlined there rather than called; it needs a function of its own
@@ -2136,7 +2232,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
         head = code;
         read = (field) => ({ expr: reads.get(field)!, numeric: false });
       }
-      const body = msg.any !== U ? anyEncodeBody(msg, fns, read) : encodeBody(msg, fns, read, (helper) => helper);
+      const body = msg.any !== U ? anyEncodeBody(msg, fns, read, embed) : encodeBody(msg, fns, read, (helper) => helper);
       src += `function ${name}(w,value){${head}var v,j,n,s,h,a,k,g,c,o${msg.fields.length ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
     }
   });
@@ -2188,7 +2284,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         // A member seen again merges only while it still is the one set.
         cases.push(`case ${tag}:p=r.sub();if(${set}!==${field.number}){${set}=${field.number};${a}=-1;${x}=void 0}${note(a, b, x)}r.limit=p;continue;`);
         after += `if(${set}===${field.number}){t=${tag};${read(a, b, x, value, field.message!)}}`;
-      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readCall(field.type)};continue;`);
+      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readOf(field)};continue;`);
       continue;
     }
     locals.push([value, emitDefault(field)]);
@@ -2220,7 +2316,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         if (!temps.includes("ma")) temps.push("ma", "mb", "mx");
         entry = `ma=-1;mx=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();${note("ma", "mb", "mx")}r.limit=g}`)}${keyDefault}${read("ma", "mb", "mx", "c", field.message!)}`;
       } else {
-        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readCall(field.type)};`)}${keyDefault}`;
+        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readOf(field)};`)}${keyDefault}`;
       }
       // A map field is length-delimited whatever its value's wire type.
       cases.push(`case ${field.number * 8 + 2}:k=void 0;p=r.sub();${entry};r.limit=p;${store};continue;`);
@@ -2236,13 +2332,13 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       const kind = varintKind(field.type);
       const fixed = fixedKind(field.type);
       const packedLoop = kind !== U ? `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${value})`
-        : fixed !== U ? `r.fixeds(${value},${fixed})`
-        : `while(r.pos<r.limit)${value}.push(${readCall(field.type)})`;
-      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readCall(field.type)});continue;`);
+        : fixed !== U ? `r.fixeds(${value},${fixed}${field.finite ? ",1" : ""})`
+        : `while(r.pos<r.limit)${value}.push(${readOf(field)})`;
+      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readOf(field)});continue;`);
     } else if (field.repeated) {
-      cases.push(`case ${tag}:${value}.push(${readCall(field.type)});continue;`);
+      cases.push(`case ${tag}:${value}.push(${readOf(field)});continue;`);
     } else {
-      cases.push(`case ${tag}:${clear}${value}=${readCall(field.type)};continue;`);
+      cases.push(`case ${tag}:${clear}${value}=${readOf(field)};continue;`);
     }
   }
   const lists = fields.flatMap((field, idx) => (field.repeated ? [`,${local("f", idx)}`] : [])).join("");
@@ -2262,7 +2358,7 @@ const tagLoop = (cases: string, miss: string, ranges?: boolean): string => {
 // the type names, read from that range - or from the whole Any again, for the
 // catch-all. `o` and `l` are where the Any is, `z` the copies after it, which
 // the loop's own walk through them uses up.
-const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeof readParts> => {
+const anyReadParts = (msg: Message, fns: Map<Message, string>, names: string): ReturnType<typeof readParts> => {
   const { fields, listed, other } = msg.any!;
   const expected = listed.map((field) => field.name).join(" or ");
   const read = (field: Field): string => {
@@ -2272,15 +2368,15 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
     }`;
   };
   const pick =
-    listed.map((field) => `if(n===${JSON.stringify(field.name)}){${read(field)}}else `).join("") +
+    listed.map((field, idx) => `if(n===${idx}){${read(field)}}else `).join("") +
     (other !== U ? `{${read(other)}}` : `fail(n?${JSON.stringify("Protobuf Any holds ")}+n+${JSON.stringify(`, expected ${expected}`)}:${JSON.stringify(`Protobuf Any has no type URL, expected ${expected}`)})`);
-  const cases = `case 10:n=r.string();continue;case 18:p=r.sub();a=r.pos;b=r.limit;r.pos=r.limit;r.limit=p;continue;`;
+  const cases = `${listed.length ? `case 10:n=r.typeOf(${names});continue;` : ""}case 18:p=r.sub();a=r.pos;b=r.limit;r.pos=r.limit;r.limit=p;continue;`;
   return {
     locals: [["c2", "0"], ...fields.map((_, idx) => [`f${idx + 2}`, "void 0"] as [string, string])],
     temps: ["o=r.pos", "l=r.limit", ...(other !== U ? ["z=x"] : []), 'n=""', "a=-1", "b=0"],
     frame: "",
     // The type URL read, a failure picking the member is no field's.
-    loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`,
+    loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;${pick};r.pos=r.limit=l`,
   };
 };
 
@@ -2434,7 +2530,11 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
       args.push(ranged(codecs[msg.wellKnown!]![0]));
     } else {
       const slot = messages.push(msg) - 1;
-      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns) : readParts(msg, local, (m) => fns.get(m)!);
+      if (msg.any !== U) {
+        params.push(`N${slot}`);
+        args.push(msg.any.listed.map((field) => textEncoder.encode(field.name)));
+      }
+      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns, `N${slot}`) : readParts(msg, local, (m) => fns.get(m)!);
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
       src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars};try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
@@ -2569,6 +2669,20 @@ const unchecked = (schema: Internal): Internal => {
 
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
+// A one-value enum (`google.protobuf.NullValue`) decodes an unknown number as
+// it is, the open enum proto3 specifies, so a value not checked against the
+// literal is written as it is too: read as the literal, 5 would go back out as
+// 0. Its field's val inlines the literal, so the read is of the property.
+const openLiteral = (field: Field, schema: Internal): boolean => field.type === "enum" && getOutputSchema(schema).const !== U;
+
+// A scalar arm's value as the dispatch hands it over: an open literal as any
+// number when it is the arm itself, which its type tells from its siblings,
+// and read as it is beside the arm's literals.
+const armHeld = (field: Field, at: string | undefined): Internal => {
+  const own = unchecked(getOutputSchema(field.armValue!));
+  return !openLiteral(field, own) ? own : at === U ? unchecked(float) : copySchema(unknown);
+};
+
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
@@ -2601,7 +2715,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       // whole once for every level it nests at. A bare one is told from its
       // siblings by its type alone (`tellApart`), so one held as anything but
       // an object, a Timestamp's Date, keeps its own.
-      const held = field.type !== "message" ? unchecked(getOutputSchema(field.armValue!)) : at === U && bareArmType(arm, true) !== objectTag ? arm : copySchema(opaque);
+      const held = field.type !== "message" ? armHeld(field, at) : at === U && bareArmType(arm, true) !== objectTag ? arm : copySchema(opaque);
       const mut = at === U ? held : arm;
       if (at !== U) {
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
@@ -2627,8 +2741,9 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       const oneof = msg.oneofs?.[key];
       if (oneof !== U) dispatch(read, oneof.union, oneof.members.map(([, field]) => field));
       else {
+        const field = msg.fields.find((field) => field.key === key)!;
         code += B_merge(read);
-        reads.set(msg.fields.find((field) => field.key === key)!, read.i);
+        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? inlinedProperty(value.v(), key) : read.i);
       }
     }
   }
