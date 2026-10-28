@@ -595,12 +595,22 @@ const armSource = (member: Internal, key: string | undefined, value: string): st
     : `{${entries.map((entry, idx) => `${entry === "__proto__" ? '["__proto__"]' : JSON.stringify(entry)}:${sources[idx]}`)}}`;
 };
 
+const literals = (schema: Internal): boolean => schema.type === anyOfTag || schema.const !== U;
+
+const numbers = (schema: Internal): boolean =>
+  schema.type === anyOfTag ? schema.anyOf!.every((member) => typeof member.const === "number") : typeof schema.const === "number";
+
 // A scalar whose value lands as the schema declares it, with no conversion: an
 // enum of literals, unknown numbers included (the open enum proto3 specifies),
 // and a float admitting NaN (`S.union([S.number, S.schema(NaN)])`, where
-// `S.number` alone refuses it).
-const keepsShape = (type: ProtobufType, shape: Internal): boolean =>
-  (type === "enum" && (shape.type === anyOfTag || shape.const !== U)) ||
+// `S.number` alone refuses it). Literals that aren't numbers come from a chain
+// ending on them, and `wire`, the link facing the wire (the first when
+// reading), says whether the number lands on literals too: from a number
+// (`S.literal(null).with(S.to, S.literal(0)).with(S.to, S.number)`) it lands
+// as the number and converts through every link, where the shape alone would
+// skip the one that reads it.
+const keepsShape = (type: ProtobufType, shape: Internal, wire: Internal): boolean =>
+  (type === "enum" && literals(shape) && (numbers(shape) || literals(wire))) ||
   ((type === "double" || type === "float") && !!shape.anyOf?.some((member) => member.const !== member.const));
 
 const anyMessage = (shape: Internal, ctx: Ctx, where: string): Message => {
@@ -676,7 +686,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   const holding = (m: StoredField, at: Internal, shape: Internal, where: string, whole = shape): [Message | undefined, Internal, Internal] => {
     const known = wellKnownOf(m.type);
     if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) return [anyMessage(whole, ctx, where), at, at];
-    if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape) ? shape : scalarSchema(m.type as ProtobufType), at];
+    if (m.type !== "message" && known === U) return [U, keepsShape(m.type as ProtobufType, shape, ctx.reads ? at : shape) ? shape : scalarSchema(m.type as ProtobufType), at];
     const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.writes && lastObject(at, ctx)) || at, ctx);
     if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
     const raw = message.unwrap || message.codec ? message.raw : at;
