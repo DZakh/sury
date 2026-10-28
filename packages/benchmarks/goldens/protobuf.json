@@ -22,7 +22,7 @@
       {
         "label": "Encode and decode",
         "cells": [
-          38160,
+          38280,
           34928,
           13578,
           17946,
@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          38142,
+          38267,
           null,
           13566,
           15469,
@@ -149,8 +149,8 @@
         "label": "This repo's corpus, against protobufjs and protobuf-es",
         "note": "every round trip checked against two independent implementations",
         "cells": [
-          651,
-          651,
+          655,
+          655,
           "100.0%"
         ],
         "format": "count"
