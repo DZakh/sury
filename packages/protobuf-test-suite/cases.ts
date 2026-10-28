@@ -1460,7 +1460,9 @@ const scalarSchema = (type: S.ProtobufType): S.Schema<unknown, unknown> => {
   ) {
     return S.bigint;
   }
-  if (type === "float" || type === "double") return S.number;
+  // A double holds NaN, which S.number refuses, so the suite spells it the way
+  // protoc-gen-sury does.
+  if (type === "float" || type === "double") return S.union([S.number, S.schema(NaN)]);
   if (type === "int32" || type === "sint32" || type === "sfixed32" || type === "enum") {
     return S.int32;
   }

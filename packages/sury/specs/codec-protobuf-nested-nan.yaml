@@ -38,4 +38,4 @@ operations:
     examples:
       nan-from-the-wire:
         input: new Uint8Array([10, 18, 10, 16, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])
-        output: "{ inner: { xs: [1, NaN] } }"
+        error: "Failed at inner.xs[1]: Expected number, received NaN"

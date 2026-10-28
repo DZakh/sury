@@ -525,8 +525,9 @@ const wellKnownCases: WellKnownCase[] = [
     toEs: () => ({}),
     fromEs: () => ({}),
   },
-  wrapper("DoubleValue", S.number as never, (r) => genScalar(r, "double")),
-  wrapper("FloatValue", S.number as never, (r) => genScalar(r, "float")),
+  // NaN is a double like any other, which S.number refuses.
+  wrapper("DoubleValue", S.union([S.number, S.schema(NaN)]) as never, (r) => genScalar(r, "double")),
+  wrapper("FloatValue", S.union([S.number, S.schema(NaN)]) as never, (r) => genScalar(r, "float")),
   wrapper("Int64Value", S.bigint as never, (r) => genScalar(r, "int64")),
   wrapper("UInt64Value", S.bigint as never, (r) => genScalar(r, "uint64")),
   wrapper("Int32Value", S.int32 as never, (r) => genScalar(r, "int32")),

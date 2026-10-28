@@ -95,6 +95,8 @@ type Field = {
   path: string[];
   omit?: boolean;
   fromWireIsHeld?: boolean;
+  // Read with a check that it isn't NaN (`finiteRead`).
+  finite?: boolean;
 };
 
 // A union oneof's members in the order the union lists them, each with the
@@ -728,6 +730,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           held: read,
           path: arm.key === U ? [key] : [key, arm.key],
           fromWireIsHeld: raw === read,
+          finite: finiteRead(m.type, raw, read),
         };
         fields.push(field);
         armFields.push(field);
@@ -758,6 +761,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const item = repeated || map !== U ? (container.additionalItems as Internal) : U;
     let [message, raw, read] = holding(metadata, item ?? propertyValue, shape, `field "${key}"`, getOutputSchema(item ?? property));
     const done = raw === read;
+    const finite = finiteRead(metadata.type, raw, read);
     // A repeated or map field reads into the user's container, its length
     // checks included.
     if (repeated || map !== U) {
@@ -795,6 +799,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       path: [key],
       omit: optional && absent === U,
       fromWireIsHeld: done,
+      finite,
     };
     fields.push(field);
   }
@@ -1055,6 +1060,15 @@ export class Reader {
     this.load64();
     return scratchView.getFloat64(0, true);
   }
+  // A double or float that is to be a number, which NaN is not (`finiteRead`).
+  num64(): number {
+    const value = this.f64();
+    return value === value ? value : fail(nanReason);
+  }
+  num32(): number {
+    const value = this.f32();
+    return value === value ? value : fail(nanReason);
+  }
   u64(): bigint {
     this.load64();
     return scratchView.getBigUint64(0, true);
@@ -1151,8 +1165,8 @@ export class Reader {
   // Packed fixed-width fields: an aligned span is read through a typed array
   // over the input, anything else through a DataView, both created once per
   // field instead of a scratch copy per element. `kind` is 0 double, 1 float,
-  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64.
-  fixeds(out: unknown[], kind: number): void {
+  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64. `finite` refuses a NaN.
+  fixeds(out: unknown[], kind: number, finite?: number): void {
     const buf = this.buf;
     const start = this.pos;
     const end = this.limit;
@@ -1172,18 +1186,23 @@ export class Reader {
         : kind === 3 ? new Int32Array(buf.buffer, offset, n)
         : kind === 4 ? new BigUint64Array(buf.buffer, offset, n)
         : new BigInt64Array(buf.buffer, offset, n);
-      for (let i = 0; i < n; i++) out.push(view[i]);
+      for (let i = 0; i < n; i++) {
+        const value = view[i];
+        if (value !== value && finite) fail(nanReason);
+        out.push(value);
+      }
     } else {
       const view = new DataView(buf.buffer, offset, len);
       for (let i = 0; i < len; i += size) {
-        out.push(
+        const value =
           kind === 0 ? view.getFloat64(i, true)
           : kind === 1 ? view.getFloat32(i, true)
           : kind === 2 ? view.getUint32(i, true)
           : kind === 3 ? view.getInt32(i, true)
           : kind === 4 ? view.getBigUint64(i, true)
-          : view.getBigInt64(i, true),
-        );
+          : view.getBigInt64(i, true);
+        if (value !== value && finite) fail(nanReason);
+        out.push(value);
       }
     }
     if (torn) truncated();
@@ -1825,6 +1844,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
       fromWire: raw,
       held: raw,
       path: [],
+      finite: scalar !== U && finiteRead(scalar, raw, shape),
     };
     msg = { fields: [field], object: shape, raw, wellKnown: type, unwrap: true };
   } else {
@@ -2049,6 +2069,18 @@ const readCall = (type: ProtobufType): string => {
   return "r.bytes()";
 };
 
+const readOf = (field: Field): string =>
+  field.finite ? (field.type === "double" ? "r.num64()" : "r.num32()") : readCall(field.type);
+
+const nanReason = "Expected number, received NaN";
+
+// A double or float read into a number schema refuses NaN, as parsing one
+// does. The conversion from what the wire read to the field's schema checks
+// only what the two types differ in, and both are numbers, so the read checks.
+// A format (int32) or a NaN-admitting union converts with checks of its own.
+const finiteRead = (type: FieldType, raw: Internal, read: Internal): boolean =>
+  (type === "double" || type === "float") && raw === float && read.type === numberTag && read.format === U;
+
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
   : type === "bytes" ? "new Uint8Array"
@@ -2252,7 +2284,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         // A member seen again merges only while it still is the one set.
         cases.push(`case ${tag}:p=r.sub();if(${set}!==${field.number}){${set}=${field.number};${a}=-1;${x}=void 0}${note(a, b, x)}r.limit=p;continue;`);
         after += `if(${set}===${field.number}){t=${tag};${read(a, b, x, value, field.message!)}}`;
-      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readCall(field.type)};continue;`);
+      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readOf(field)};continue;`);
       continue;
     }
     locals.push([value, emitDefault(field)]);
@@ -2284,7 +2316,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         if (!temps.includes("ma")) temps.push("ma", "mb", "mx");
         entry = `ma=-1;mx=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();${note("ma", "mb", "mx")}r.limit=g}`)}${keyDefault}${read("ma", "mb", "mx", "c", field.message!)}`;
       } else {
-        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readCall(field.type)};`)}${keyDefault}`;
+        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readOf(field)};`)}${keyDefault}`;
       }
       // A map field is length-delimited whatever its value's wire type.
       cases.push(`case ${field.number * 8 + 2}:k=void 0;p=r.sub();${entry};r.limit=p;${store};continue;`);
@@ -2300,13 +2332,13 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       const kind = varintKind(field.type);
       const fixed = fixedKind(field.type);
       const packedLoop = kind !== U ? `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${value})`
-        : fixed !== U ? `r.fixeds(${value},${fixed})`
-        : `while(r.pos<r.limit)${value}.push(${readCall(field.type)})`;
-      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readCall(field.type)});continue;`);
+        : fixed !== U ? `r.fixeds(${value},${fixed}${field.finite ? ",1" : ""})`
+        : `while(r.pos<r.limit)${value}.push(${readOf(field)})`;
+      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readOf(field)});continue;`);
     } else if (field.repeated) {
-      cases.push(`case ${tag}:${value}.push(${readCall(field.type)});continue;`);
+      cases.push(`case ${tag}:${value}.push(${readOf(field)});continue;`);
     } else {
-      cases.push(`case ${tag}:${clear}${value}=${readCall(field.type)};continue;`);
+      cases.push(`case ${tag}:${clear}${value}=${readOf(field)};continue;`);
     }
   }
   const lists = fields.flatMap((field, idx) => (field.repeated ? [`,${local("f", idx)}`] : [])).join("");

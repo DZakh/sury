@@ -41,3 +41,6 @@ operations:
       nan:
         input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127, 25, 0, 0, 0, 0, 0, 0, 248, 127])
         output: '{ d: NaN, f: [], o: { case: "n", value: NaN } }'
+      nan-float-list:
+        input: new Uint8Array([18, 8, 0, 0, 192, 127, 0, 0, 192, 63])
+        output: "{ d: 0, f: [NaN, 1.5], o: { case: undefined } }"

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ d: S.protobufField(S.number, 1), f: S.protobufField(S.number, { number: 2, type: "float" }), l: S.protobufField(S.array(S.number), 3), w: S.protobufField(S.optional(S.number), { number: 4, type: "google.protobuf.DoubleValue" }), m: S.protobufField(S.record(S.number), 5) }).with(S.to, S.protobuf)'
+  input: "{ d: number; f: number; l: number[]; m: Record<string, number>; w?: number | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7479
+jsonSchema:
+  input: '{ type: "object", properties: { d: { type: "number" }, f: { type: "number" }, l: { items: { type: "number" }, type: "array" }, w: { type: "number" }, m: { type: "object", additionalProperties: { type: "number" } } }, required: ["d", "f", "l", "m"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.d===b.d&&a.f===b.f&&e[0](a.l,b.l)&&a.w===b.w&&e[1](a.m,b.m)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { d: number; f: number; l: number[]; w: number | undefined; m: { [key: string]: number; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.d,v1=i.f,v2=i.l,v5=i.w,v6=i.m;typeof v0==="number"&&v0==v0||e[0](v0);typeof v1==="number"&&v1==v1||e[1](v1);Array.isArray(v2)||e[3](v2);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];typeof v4==="number"&&v4==v4||e[2](v4,["l",v3]);}(typeof v5==="number"&&v5==v5||v5===void 0)||e[4](v5);typeof v6==="object"&&v6&&!Array.isArray(v6)||e[6](v6);for(let v7 in v6){let v8=v6[v7];typeof v8==="number"&&v8==v8||e[5](v8,["m",v7]);}let v9;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[10].acquire();f=0;v=v0;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};f=1;v=v1;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=21:w.varint32(21);w.float32(v)};f=2;v=v2;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.fixeds(v,0);w.end(h)};f=3;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[7](w,v);w.end(h)};f=4;v=v6;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=17:w.varint32(17);w.float64(c);w.end(h)};v9=w.finish()}catch(x){w&&(w.busy=false);x=e[8](x,e[9],f,j,a);e[11](x)}}return v9}catch(v10){e[13](v10)}}
+    examples:
+      nan-refused:
+        input: "{ d: NaN, f: 0, l: [], m: {} }"
+        error: "Failed at d: Expected number, received NaN"
+      infinity:
+        input: "{ d: Infinity, f: 0, l: [], m: {} }"
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 127])
+  decode:
+    expression: i=>{try{let v0=i.l,v2=i.m;let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=i.d;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=9:w.varint32(9);w.float64(v)};f=1;v=i.f;if(v||v!==v||Object.is(v,-0)){w.pos<w.buf.length?w.buf[w.pos++]=21:w.varint32(21);w.float32(v)};f=2;v=v0;n=v.length;if(n){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();w.fixeds(v,0);w.end(h)};f=3;v=i.w;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=34:w.varint32(34);h=w.begin();e[0](w,v);w.end(h)};f=4;v=v2;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=42:w.varint32(42);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=17:w.varint32(17);w.float64(c);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}return v4}catch(v5){e[5](v5)}}
+    examples:
+      nan-written-unchecked:
+        input: "{ d: NaN, f: 0, l: [], m: {} }"
+        output: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127])
+  encode:
+    expression: i=>{try{let v0=0,v1=0,v2=[],v3=void 0,v4={};{let r,a3=-1,b3=0,x3,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 9:v0=r.num64();continue;case 21:v1=r.num32();continue;case 26:p=r.sub();r.fixeds(v2,0,1);r.limit=p;continue;case 25:v2.push(r.num64());continue;case 34:p=r.sub();if(a3<0){a3=r.pos;b3=r.limit}else x3=r.more(x3);r.pos=r.limit;r.limit=p;continue;case 42:k=void 0;p=r.sub();c=0;while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)fail("Invalid protobuf field number 0");if(y===10)k=r.string();else if(y===17)c=r.num64();else skip(r,y&7,y>>>3,0)}if(k===void 0)k="";;r.limit=p;k==="__proto__"?Object.defineProperty(v4,k,{value:c,enumerable:!0,writable:!0,configurable:!0}):v4[k]=c;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a3>=0){t=34;g=r.limit;a3<0?r.pos=g:(r.pos=a3,r.limit=b3);v3=m1(r,d+1,x3);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k,v2);e[6](x)}}let v5={d:v0,f:v1,l:v2,m:v4};if(v3!==void 0){v5.w=v3}return v5}catch(v6){e[7](v6)}}
+    examples:
+      nan-double:
+        input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at d: Expected number, received NaN"
+      nan-float:
+        input: new Uint8Array([21, 0, 0, 192, 127])
+        error: "Failed at f: Expected number, received NaN"
+      nan-in-a-packed-list:
+        input: new Uint8Array([26, 16, 0, 0, 0, 0, 0, 0, 248, 63, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at l[1]: Expected number, received NaN"
+      nan-in-a-wrapper:
+        input: new Uint8Array([34, 9, 9, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at w: Expected number, received NaN"
+      nan-in-a-map:
+        input: new Uint8Array([42, 12, 10, 1, 97, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at m.a: Expected number, received NaN"
+      infinities:
+        input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 127, 21, 0, 0, 128, 255, 26, 8, 0, 0, 0, 0, 0, 0, 240, 255])
+        output: "{ d: Infinity, f: -Infinity, l: [-Infinity], m: {} }"
