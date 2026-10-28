@@ -1470,8 +1470,7 @@ export class Writer {
     this.ensure(5 + n);
     if (n < 128) this.buf[this.pos++] = n;
     else this.varint32(n);
-    this.buf.set(value, this.pos);
-    this.pos += n;
+    this.raw(value);
   }
   raw(value: Uint8Array): void {
     const n = value.length;
@@ -1724,7 +1723,8 @@ const readList = (r: Reader, d: number, prev?: unknown): unknown[] => {
 // A Value is the JSON it holds, a Struct its objects and a ListValue its
 // arrays. One with no kind set reads as `null`, the kind `null_value` names.
 // Seen again, it merges the way a oneof member does: a Struct into a Struct and
-// a list onto a list, anything else replaced.
+// a list onto a list, anything else replaced. A double is JSON only when it is
+// finite, as `S.json` holds it to when parsing one.
 const readValue = (r: Reader, d: number, prev: unknown = null): unknown => {
   if (d >= 100) fail("Protobuf message nesting limit exceeded");
   let value = prev;
@@ -1733,8 +1733,10 @@ const readValue = (r: Reader, d: number, prev: unknown = null): unknown => {
     if (tag === 8) {
       r.varint64();
       value = null;
-    } else if (tag === 17) value = r.f64();
-    else if (tag === 26) value = r.string();
+    } else if (tag === 17) {
+      value = r.f64();
+      if (!Number.isFinite(value)) fail(`Expected JSON, received ${value}`);
+    } else if (tag === 26) value = r.string();
     else if (tag === 32) value = r.bool();
     else if (tag === 42 || tag === 50) {
       const end = r.sub();
@@ -2076,10 +2078,15 @@ const nanReason = "Expected number, received NaN";
 
 // A double or float read into a number schema refuses NaN, as parsing one
 // does. The conversion from what the wire read to the field's schema checks
-// only what the two types differ in, and both are numbers, so the read checks.
-// A format (int32) or a NaN-admitting union converts with checks of its own.
+// only what the two types differ in, and both are numbers, so the read checks:
+// for `S.number`, and for a union holding one (`S.nullable(S.number)`) unless a
+// member is NaN itself. A format (int32) converts with a check of its own.
 const finiteRead = (type: FieldType, raw: Internal, read: Internal): boolean =>
-  (type === "double" || type === "float") && raw === float && read.type === numberTag && read.format === U;
+  (type === "double" || type === "float") && raw === float && refusesNaN(read);
+
+const refusesNaN = (schema: Internal): boolean =>
+  schema.type === numberTag ? schema.format === U
+  : schema.type === anyOfTag && schema.anyOf!.some(refusesNaN) && !schema.anyOf!.some((member) => member.const !== member.const);
 
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
@@ -2596,7 +2603,7 @@ const protobufDecoder = (input: Val): Val => {
   const value = B_scope(input);
   value.s = message.object;
   value.d = validated;
-  const [head, reads] = writesOf(value, message);
+  const [head, reads] = writesOf(value, message, input);
   const readRoot: Read = (field) => {
     const fv = validated?.[field.path[0]!];
     return { expr: reads.get(field)!, numeric: field.path.length === 1 && fv !== U && fv.s.type === numberTag && fv.s.format !== U };
@@ -2675,6 +2682,21 @@ const opaque = /* @__PURE__ */ dictFactory(unknown);
 // 0. Its field's val inlines the literal, so the read is of the property.
 const openLiteral = (field: Field, schema: Internal): boolean => field.type === "enum" && getOutputSchema(schema).const !== U;
 
+// The property a field's value was read from, on the nearest object up the
+// chain that a var holds: an `S.object` renames its keys and builds the object
+// the message reads, with the literal inlined in it. Read there, nothing is
+// built for it; past a conversion that isn't a plain property read, the
+// literal is all there is.
+const sourceRead = (value: Val, read: Val): string | undefined => {
+  for (let at: Val | undefined = value; at !== U; at = at.prev) {
+    if (at.v !== _var) continue;
+    const rel = read.path.slice(at.path.length);
+    const key = rel[0];
+    return rel.length === 1 && typeof key === "string" && at.s.properties?.[key] === read.s ? inlinedProperty(at.i, key) : U;
+  }
+  return U;
+};
+
 // A scalar arm's value as the dispatch hands it over: an open literal as any
 // number when it is the arm itself, which its type tells from its siblings,
 // and read as it is beside the arm's literals.
@@ -2686,7 +2708,7 @@ const armHeld = (field: Field, at: string | undefined): Internal => {
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
-const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
+const writesOf = (value: Val, msg: Message, source: Val = value): [code: string, reads: Map<Field, string>] => {
   const g = value.g;
   const reads = new Map<Field, string>();
   let code = "";
@@ -2743,7 +2765,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       else {
         const field = msg.fields.find((field) => field.key === key)!;
         code += B_merge(read);
-        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? inlinedProperty(value.v(), key) : read.i);
+        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? sourceRead(source, read) ?? read.i : read.i);
       }
     }
   }

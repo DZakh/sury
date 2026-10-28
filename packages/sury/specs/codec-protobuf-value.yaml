@@ -50,6 +50,15 @@ operations:
       number:
         input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
         output: "{ data: 1, items: [] }"
+      infinity-is-no-json:
+        input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 127])
+        error: "Failed at data: Expected JSON, received Infinity"
+      nan-in-a-list-in-a-struct:
+        input: new Uint8Array([10, 22, 42, 20, 10, 18, 10, 1, 97, 18, 13, 50, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at data: Expected JSON, received NaN"
+      nan-in-a-repeated-value:
+        input: new Uint8Array([26, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 26, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at items[1]: Expected JSON, received NaN"
       kind-unset:
         input: new Uint8Array([10, 0])
         output: "{ data: null, items: [] }"
@@ -79,7 +88,7 @@ operations:
         output: '{ data: null, items: ["a", null] }'
       nan:
         input: new Uint8Array([10, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
-        output: "{ data: NaN, items: [] }"
+        error: "Failed at data: Expected JSON, received NaN"
       bool-null:
         input: new Uint8Array([10, 2, 32, 1, 18, 2, 8, 0])
         output: "{ data: true, items: [], extra: null }"

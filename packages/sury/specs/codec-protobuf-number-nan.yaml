@@ -44,6 +44,12 @@ operations:
       nan-in-a-packed-list:
         input: new Uint8Array([26, 16, 0, 0, 0, 0, 0, 0, 248, 63, 0, 0, 0, 0, 0, 0, 248, 127])
         error: "Failed at l[1]: Expected number, received NaN"
+      nan-in-an-aligned-packed-list:
+        input: new Uint8Array([9, 0, 0, 0, 0, 0, 0, 240, 63, 21, 0, 0, 128, 63, 26, 16, 0, 0, 0, 0, 0, 0, 248, 63, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at l[1]: Expected number, received NaN"
+      nan-in-an-unpacked-list:
+        input: new Uint8Array([25, 0, 0, 0, 0, 0, 0, 248, 63, 25, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at l[1]: Expected number, received NaN"
       nan-in-a-wrapper:
         input: new Uint8Array([34, 9, 9, 0, 0, 0, 0, 0, 0, 248, 127])
         error: "Failed at w: Expected number, received NaN"
