@@ -369,7 +369,9 @@ A message or enum named as a module the generated code reads, `S`, `Float`,
 `Stdlib` or `Uint8Array`, gets a trailing `_` (`S_`), and so does a oneof's
 type named as one it reads, such as `t`, `string` or `option`.
 The generated files silence warning 30, which a recursive group of messages
-sharing a field name raises.
+sharing a field name raises, and 41, which a constructor another type in scope
+also has raises: `STATUS_UNKNOWN` is `Unknown`, which ReScript's `unknown`
+has too, and `STATUS_OK` is `result`'s `Ok`.
 
 See [Performance and compatibility in the JS guide](./js-protobuf.md#performance-and-compatibility) for
 conformance, and

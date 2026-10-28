@@ -47,7 +47,7 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
 5. **compile** - `tsc` over the TypeScript (where `S.schemaOf` holds every
    schema equal to its type), with every message and enum type equal to
    protoc-gen-es's after normalizing the differences the JS guide lists, and
-   `rescript` over the ReScript, warnings as errors.
+   `rescript` over the ReScript, every warning an error.
 6. **values** - values drawn from each descriptor, encoded by protobuf-es and
    decoded by the generated TypeScript and ReScript schemas, and the reverse,
    compared by value and by byte.

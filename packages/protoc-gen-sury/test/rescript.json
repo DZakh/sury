@@ -4,5 +4,5 @@
   "dependencies": ["sury"],
   "package-specs": { "module": "esmodule", "in-source": true },
   "suffix": ".res.mjs",
-  "warnings": { "number": "+a-4-9-20-41", "error": "+a" }
+  "warnings": { "number": "+a", "error": "+a" }
 }

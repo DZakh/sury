@@ -131,6 +131,32 @@ export type Lonely = (typeof Lonely)[keyof typeof Lonely];
 export const LonelySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0]), "example.v1.Lonely");
 
 /**
+ * Its zero strips to UNKNOWN, a constructor ReScript's own types have too.
+ *
+ * @generated from enum example.v1.Status
+ */
+export const Status = {
+  /**
+   * @generated from enum value: STATUS_UNKNOWN = 0;
+   */
+  UNKNOWN: 0,
+
+  /**
+   * @generated from enum value: STATUS_OK = 1;
+   */
+  OK: 1,
+} as const;
+
+/**
+ * Its zero strips to UNKNOWN, a constructor ReScript's own types have too.
+ *
+ * @generated from enum example.v1.Status
+ */
+export type Status = (typeof Status)[keyof typeof Status];
+
+export const StatusSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1]), "example.v1.Status");
+
+/**
  * Every scalar protobuf has, once each.
  *
  * @generated from message example.v1.Scalars
@@ -772,6 +798,11 @@ export type Uses = {
     | { case: "none"; value: Empty }
     | { case: "some"; value: number }
     | { case: undefined; value?: undefined };
+
+  /**
+   * @generated from field: example.v1.Status status = 9;
+   */
+  status: Status;
 };
 
 export const UsesSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Uses>()({
@@ -786,6 +817,7 @@ export const UsesSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.m
     /* @__PURE__ */ S.schema({ case: "some", value: /* @__PURE__ */ S.protobufField(S.int32, 8) }),
     /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: /* @__PURE__ */ S.optional(/* @__PURE__ */ S.schema(undefined)) }),
   ]),
+  status: /* @__PURE__ */ S.protobufField(StatusSchema, 9),
 }), { name: "Uses" }), "example.v1.Uses");
 
 /**

@@ -167,6 +167,12 @@ enum Lonely {
   LONELY_UNSPECIFIED = 0;
 }
 
+// Its zero strips to UNKNOWN, a constructor ReScript's own types have too.
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_OK = 1;
+}
+
 message Uses {
   Mixed mixed = 1;
   Aliased aliased = 2;
@@ -179,6 +185,7 @@ message Uses {
     Empty none = 7;
     int32 some = 8;
   }
+  Status status = 9;
 }
 
 // Anys, opaque as protobuf-es holds them; the harness also reads them as a

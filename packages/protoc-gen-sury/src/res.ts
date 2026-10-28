@@ -352,5 +352,5 @@ export const emitRes = (file: File, options: Options, generating: Set<string>, v
   const { body, usesNumber } = resModules(file, consumerContext(generating));
   // `S.float` refuses NaN, which a double or float holds as readily as any value.
   const number = usesNumber ? "let number = S.union([S.float, S.literal(Float.Constants.nan)])\n\n" : "";
-  return { name: `${resPath(file)}.res`, content: `${header(file, options, version)}@@warning("-30")\n\n${number}${body}` };
+  return { name: `${resPath(file)}.res`, content: `${header(file, options, version)}@@warning("-30-41")\n\n${number}${body}` };
 };
