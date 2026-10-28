@@ -842,6 +842,14 @@ const fail = (reason: string): never => {
 
 const truncated = (): never => fail("Truncated protobuf message");
 
+const utf8 = (bytes: Uint8Array): string => {
+  try {
+    return textDecoder.decode(bytes);
+  } catch {
+    return fail("Protobuf string is not valid UTF-8");
+  }
+};
+
 // Every varint reader accepts the full 10-byte form and keeps the bits it
 // has room for: that is what makes `int32` -1 (10 bytes on the wire) and a
 // `uint32` written from a 64-bit value decode the way C++ does.
@@ -1245,11 +1253,32 @@ export class Reader {
         if (i === end) return s;
       }
     }
-    try {
-      return textDecoder.decode(buf.subarray(start, end));
-    } catch {
-      return fail("Protobuf string is not valid UTF-8");
+    return utf8(buf.subarray(start, end));
+  }
+  // An Any's type URL, as the index among `names` of the name after its last
+  // `/`. Compared as bytes, a listed type builds no string; any other comes
+  // back as the name itself, for the failure to show. A `/` is never inside a
+  // multi-byte UTF-8 char, so the scan is by byte, and a prefix that isn't
+  // ASCII is decoded only to be checked.
+  typeOf(names: Uint8Array[]): number | string {
+    const len = this.len();
+    const start = this.pos;
+    const end = start + len;
+    if (end > this.limit) truncated();
+    this.pos = end;
+    const buf = this.buf;
+    let from = end;
+    while (from > start && buf[from - 1] !== 47) from--;
+    let high = 0;
+    for (let i = start; i < from; i++) high |= buf[i]!;
+    if (high > 127) utf8(buf.subarray(start, from));
+    next: for (let k = 0; k < names.length; k++) {
+      const name = names[k]!;
+      if (name.length !== end - from) continue;
+      for (let i = 0; i < name.length; i++) if (name[i] !== buf[from + i]) continue next;
+      return k;
     }
+    return utf8(buf.subarray(from, end));
   }
   bytes(): Uint8Array {
     const len = this.len();
@@ -1422,6 +1451,12 @@ export class Writer {
     this.ensure(5 + n);
     if (n < 128) this.buf[this.pos++] = n;
     else this.varint32(n);
+    this.buf.set(value, this.pos);
+    this.pos += n;
+  }
+  raw(value: Uint8Array): void {
+    const n = value.length;
+    this.ensure(n);
     this.buf.set(value, this.pos);
     this.pos += n;
   }
@@ -1916,14 +1951,28 @@ const ownerOf = (told: Told | undefined, idx: number): string => {
 // The member set, written as the Any holding it: its type URL, then its
 // message, left out when empty as protobuf-es leaves it. A type another member
 // names belongs to that member, which a decode would read it back as.
-const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read): string => {
+// An Any's type URL field, tag and length included, as the bytes every write of
+// it copies.
+const typeUrl = (name: string): Uint8Array => {
+  const url = textEncoder.encode(`type.googleapis.com/${name}`);
+  const head = [10];
+  let n = url.length;
+  for (; n > 127; n >>>= 7) head.push((n & 127) | 128);
+  head.push(n);
+  const out = new Uint8Array(head.length + url.length);
+  out.set(head);
+  out.set(url, head.length);
+  return out;
+};
+
+const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read, embed: (value: unknown) => string): string => {
   const { fields, listed, other, told } = msg.any!;
   let body = "";
   fields.forEach((field, idx) => {
     const write = fns.get(field.message!)!;
     body += `f=${idx + 2};v=${read(field).expr};if(v!==void 0){${
       field !== other
-        ? `${writeTag(10)};w.string(${JSON.stringify(`type.googleapis.com/${field.name}`)});q=w.pos;${writeTag(18)};g=w.begin();${write}(w,v);w.end(g);if(w.pos===q+2)w.pos=q`
+        ? `w.raw(${embed(typeUrl(field.name!))});q=w.pos;${writeTag(18)};g=w.begin();${write}(w,v);w.end(g);if(w.pos===q+2)w.pos=q`
         : `${listed.length ? `g=v.typeUrl;switch(g.slice(g.lastIndexOf("/")+1)){${listed.map((owned, idx) => `case ${JSON.stringify(owned.name)}:fail(${JSON.stringify(`Protobuf Any holds ${owned.name}, which ${ownerOf(told, idx)} is for`)});`).join("")}}` : ""}${write}(w,v)`
     }}`;
   });
@@ -2125,6 +2174,11 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
   const g = B_operationArg(unknown, unknown, flag).g;
   const params: string[] = [...Object.keys(encodeHelpers), "at", "M", "fail", "e"];
   const args: unknown[] = [...Object.values(encodeHelpers), encodeFrame, messages, fail, g.e];
+  const embed = (value: unknown): string => {
+    const name = `K${args.push(value)}`;
+    params.push(name);
+    return name;
+  };
   const names: string[] = [];
   // The root's fields are read from the vals the operation already has, so its
   // body is inlined there rather than called; it needs a function of its own
@@ -2146,7 +2200,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
         head = code;
         read = (field) => ({ expr: reads.get(field)!, numeric: false });
       }
-      const body = msg.any !== U ? anyEncodeBody(msg, fns, read) : encodeBody(msg, fns, read, (helper) => helper);
+      const body = msg.any !== U ? anyEncodeBody(msg, fns, read, embed) : encodeBody(msg, fns, read, (helper) => helper);
       src += `function ${name}(w,value){${head}var v,j,n,s,h,a,k,g,c,o${msg.fields.length ? `,f;try{${body}}catch(x){throw at(x,M[${messages.push(msg) - 1}],f,j,a)}` : `;${body}`}}`;
     }
   });
@@ -2272,7 +2326,7 @@ const tagLoop = (cases: string, miss: string, ranges?: boolean): string => {
 // the type names, read from that range - or from the whole Any again, for the
 // catch-all. `o` and `l` are where the Any is, `z` the copies after it, which
 // the loop's own walk through them uses up.
-const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeof readParts> => {
+const anyReadParts = (msg: Message, fns: Map<Message, string>, names: string): ReturnType<typeof readParts> => {
   const { fields, listed, other } = msg.any!;
   const expected = listed.map((field) => field.name).join(" or ");
   const read = (field: Field): string => {
@@ -2282,15 +2336,15 @@ const anyReadParts = (msg: Message, fns: Map<Message, string>): ReturnType<typeo
     }`;
   };
   const pick =
-    listed.map((field) => `if(n===${JSON.stringify(field.name)}){${read(field)}}else `).join("") +
+    listed.map((field, idx) => `if(n===${idx}){${read(field)}}else `).join("") +
     (other !== U ? `{${read(other)}}` : `fail(n?${JSON.stringify("Protobuf Any holds ")}+n+${JSON.stringify(`, expected ${expected}`)}:${JSON.stringify(`Protobuf Any has no type URL, expected ${expected}`)})`);
-  const cases = `case 10:n=r.string();continue;case 18:p=r.sub();a=r.pos;b=r.limit;r.pos=r.limit;r.limit=p;continue;`;
+  const cases = `${listed.length ? `case 10:n=r.typeOf(${names});continue;` : ""}case 18:p=r.sub();a=r.pos;b=r.limit;r.pos=r.limit;r.limit=p;continue;`;
   return {
     locals: [["c2", "0"], ...fields.map((_, idx) => [`f${idx + 2}`, "void 0"] as [string, string])],
     temps: ["o=r.pos", "l=r.limit", ...(other !== U ? ["z=x"] : []), 'n=""', "a=-1", "b=0"],
     frame: "",
     // The type URL read, a failure picking the member is no field's.
-    loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;n=n.slice(n.lastIndexOf("/")+1);${pick};r.pos=r.limit=l`,
+    loop: (miss, ranges) => `${tagLoop(cases, miss, ranges)}t=-1;${pick};r.pos=r.limit=l`,
   };
 };
 
@@ -2444,7 +2498,11 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
       args.push(ranged(codecs[msg.wellKnown!]![0]));
     } else {
       const slot = messages.push(msg) - 1;
-      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns) : readParts(msg, local, (m) => fns.get(m)!);
+      if (msg.any !== U) {
+        params.push(`N${slot}`);
+        args.push(msg.any.listed.map((field) => textEncoder.encode(field.name)));
+      }
+      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns, `N${slot}`) : readParts(msg, local, (m) => fns.get(m)!);
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
       src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars};try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
