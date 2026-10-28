@@ -2079,10 +2079,15 @@ const nanReason = "Expected number, received NaN";
 
 // A double or float read into a number schema refuses NaN, as parsing one
 // does. The conversion from what the wire read to the field's schema checks
-// only what the two types differ in, and both are numbers, so the read checks.
-// A format (int32) or a NaN-admitting union converts with checks of its own.
+// only what the two types differ in, and both are numbers, so the read checks:
+// for `S.number`, and for a union holding one (`S.nullable(S.number)`) unless a
+// member is NaN itself. A format (int32) converts with a check of its own.
 const finiteRead = (type: FieldType, raw: Internal, read: Internal): boolean =>
-  (type === "double" || type === "float") && raw === float && read.type === numberTag && read.format === U;
+  (type === "double" || type === "float") && raw === float && refusesNaN(read);
+
+const refusesNaN = (schema: Internal): boolean =>
+  schema.type === numberTag ? schema.format === U
+  : schema.type === anyOfTag && schema.anyOf!.some(refusesNaN) && !schema.anyOf!.some((member) => member.const !== member.const);
 
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
