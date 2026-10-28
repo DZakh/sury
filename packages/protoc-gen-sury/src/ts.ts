@@ -219,14 +219,11 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
       `${comment(value.path, `@generated from enum value: ${value.name} = ${value.number};`, value.deprecated, "  ")}  ${property(value.localName)}: ${value.number},`,
     );
     const numbers = [...new Set(desc.values.map((value) => value.number))];
-    const firstNamed = new Map<number, string>();
-    for (const value of desc.values) if (!firstNamed.has(value.number)) firstNamed.set(value.number, value.localName);
-    const literals = numbers.map((number) => `${name}.${firstNamed.get(number)}`);
     const doc = comment(desc.path, `@generated from enum ${desc.typeName}`, desc.deprecated);
     out.push(
       `${doc}export const ${name} = {\n${members.join("\n\n")}\n} as const;\n\n` +
         `${doc}export type ${name} = (typeof ${name})[keyof typeof ${name}];\n\n` +
-        `export const ${names.schema.get(desc)} = ${typed(`${S}.union([${literals.join(", ")}])`, desc)};\n`,
+        `export const ${names.schema.get(desc)} = ${typed(`${S}.union([${numbers.join(", ")}])`, desc)};\n`,
     );
   }
 

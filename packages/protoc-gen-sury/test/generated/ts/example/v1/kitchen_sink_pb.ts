@@ -37,7 +37,7 @@ export const User_Kind = {
  */
 export type User_Kind = (typeof User_Kind)[keyof typeof User_Kind];
 
-export const User_KindSchema = S.protobufTypeName(S.union([User_Kind.UNSPECIFIED, User_Kind.PERSON, User_Kind.ROBOT]), "example.v1.User.Kind");
+export const User_KindSchema = S.protobufTypeName(S.union([0, 1, 2]), "example.v1.User.Kind");
 
 /**
  * @generated from enum example.v1.Reserved.Enum
@@ -54,7 +54,7 @@ export const Reserved_Enum = {
  */
 export type Reserved_Enum = (typeof Reserved_Enum)[keyof typeof Reserved_Enum];
 
-export const Reserved_EnumSchema = S.protobufTypeName(S.union([Reserved_Enum.UNSPECIFIED]), "example.v1.Reserved.Enum");
+export const Reserved_EnumSchema = S.protobufTypeName(S.union([0]), "example.v1.Reserved.Enum");
 
 /**
  * An enum whose values keep their prefix: not every value shares it.
@@ -80,7 +80,7 @@ export const Mixed = {
  */
 export type Mixed = (typeof Mixed)[keyof typeof Mixed];
 
-export const MixedSchema = S.protobufTypeName(S.union([Mixed.MIXED_UNSPECIFIED, Mixed.OTHER]), "example.v1.Mixed");
+export const MixedSchema = S.protobufTypeName(S.union([0, 1]), "example.v1.Mixed");
 
 /**
  * @generated from enum example.v1.Aliased
@@ -107,7 +107,7 @@ export const Aliased = {
  */
 export type Aliased = (typeof Aliased)[keyof typeof Aliased];
 
-export const AliasedSchema = S.protobufTypeName(S.union([Aliased.UNSPECIFIED, Aliased.ONE]), "example.v1.Aliased");
+export const AliasedSchema = S.protobufTypeName(S.union([0, 1]), "example.v1.Aliased");
 
 /**
  * Only one value.
@@ -128,7 +128,7 @@ export const Lonely = {
  */
 export type Lonely = (typeof Lonely)[keyof typeof Lonely];
 
-export const LonelySchema = S.protobufTypeName(S.union([Lonely.UNSPECIFIED]), "example.v1.Lonely");
+export const LonelySchema = S.protobufTypeName(S.union([0]), "example.v1.Lonely");
 
 /**
  * Every scalar protobuf has, once each.

@@ -153,7 +153,7 @@ export const Field_Kind = {
  */
 export type Field_Kind = (typeof Field_Kind)[keyof typeof Field_Kind];
 
-export const Field_KindSchema = S.protobufTypeName(S.union([Field_Kind.TYPE_UNKNOWN, Field_Kind.TYPE_DOUBLE, Field_Kind.TYPE_FLOAT, Field_Kind.TYPE_INT64, Field_Kind.TYPE_UINT64, Field_Kind.TYPE_INT32, Field_Kind.TYPE_FIXED64, Field_Kind.TYPE_FIXED32, Field_Kind.TYPE_BOOL, Field_Kind.TYPE_STRING, Field_Kind.TYPE_GROUP, Field_Kind.TYPE_MESSAGE, Field_Kind.TYPE_BYTES, Field_Kind.TYPE_UINT32, Field_Kind.TYPE_ENUM, Field_Kind.TYPE_SFIXED32, Field_Kind.TYPE_SFIXED64, Field_Kind.TYPE_SINT32, Field_Kind.TYPE_SINT64]), "google.protobuf.Field.Kind");
+export const Field_KindSchema = S.protobufTypeName(S.union([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]), "google.protobuf.Field.Kind");
 
 /**
  * Whether a field is optional, required, or repeated.
@@ -197,7 +197,7 @@ export const Field_Cardinality = {
  */
 export type Field_Cardinality = (typeof Field_Cardinality)[keyof typeof Field_Cardinality];
 
-export const Field_CardinalitySchema = S.protobufTypeName(S.union([Field_Cardinality.UNKNOWN, Field_Cardinality.OPTIONAL, Field_Cardinality.REQUIRED, Field_Cardinality.REPEATED]), "google.protobuf.Field.Cardinality");
+export const Field_CardinalitySchema = S.protobufTypeName(S.union([0, 1, 2, 3]), "google.protobuf.Field.Cardinality");
 
 /**
  * The syntax in which a protocol buffer element is defined.
@@ -234,7 +234,7 @@ export const Syntax = {
  */
 export type Syntax = (typeof Syntax)[keyof typeof Syntax];
 
-export const SyntaxSchema = S.protobufTypeName(S.union([Syntax.PROTO2, Syntax.PROTO3, Syntax.EDITIONS]), "google.protobuf.Syntax");
+export const SyntaxSchema = S.protobufTypeName(S.union([0, 1, 2]), "google.protobuf.Syntax");
 
 /**
  * A protocol buffer option, which can be attached to a message, field,
