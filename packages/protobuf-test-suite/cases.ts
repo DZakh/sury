@@ -758,6 +758,14 @@ export const nestedCases: RoundTripCase[] = [
     },
   },
   {
+    id: "nested/three-byte-length",
+    fields: [
+      field("inner", 1, "message", { fields: [field("data", 1, "bytes")] }),
+      field("tail", 2, "string"),
+    ],
+    value: { inner: { data: new Uint8Array(20000).fill(7) }, tail: "end" },
+  },
+  {
     id: "nested/larger-than-a-slab",
     fields: [
       field("items", 1, "message", { repeated: true, fields: [field("blob", 1, "bytes"), field("n", 2, "int32")] }),

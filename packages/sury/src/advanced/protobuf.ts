@@ -1506,23 +1506,25 @@ export class Writer {
     this.busy = false;
     return out;
   }
-  // Opens a length-delimited field with a 5-byte hole for the prefix;
-  // `end` writes the real prefix and slides the payload back over the slack.
+  // Opens a length-delimited field with a 1-byte hole for the prefix: most
+  // payloads are under 128 bytes, and `end` fills the hole with no copy. A
+  // longer one slides forward to make room, which moves no more bytes than
+  // sliding back over a wider hole did.
   begin(): number {
-    this.ensure(5);
-    const hole = this.pos;
-    this.pos += 5;
-    return hole;
+    this.ensure(1);
+    return this.pos++;
   }
   end(hole: number): void {
-    const start = hole + 5;
+    const start = hole + 1;
     const len = this.pos - start;
-    let used = 1;
-    for (let rest = len >>> 7; rest; rest >>>= 7) used++;
-    if (used !== 5) {
-      this.buf.copyWithin(hole + used, start, this.pos);
-      this.pos -= 5 - used;
+    if (len < 128) {
+      this.buf[hole] = len;
+      return;
     }
+    let used = 2;
+    for (let rest = len >>> 14; rest; rest >>>= 7) used++;
+    this.ensure(used - 1);
+    this.buf.copyWithin(hole + used, start, this.pos);
     this.pos = hole;
     this.varint32(len);
     this.pos += len;
