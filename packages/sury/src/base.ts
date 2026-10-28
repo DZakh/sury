@@ -508,6 +508,11 @@ export type Internal = {
   space?: number;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
+  // A literal a property read never inlines (`valGet`), because its value can
+  // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
+  // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
+  // `S.protobufField` sets it on every literal link of the field's chain.
+  openLiteral?: true;
   protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with

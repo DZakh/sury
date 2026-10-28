@@ -335,7 +335,14 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
     current = current.to;
   }
   const packed = typeof field === "number" || field.packed !== false;
-  return updateOutput(schema, (mut) => {
+  const numbered: Internal = updateOutput(schema, (mut) => {
     mut.protobufField = { number, type, packed, key, oneof, numberedAs: schema } satisfies StoredField;
   });
+  // updateOutput copied every link, so marking them touches nothing shared.
+  if (type === "enum") {
+    for (let link: Internal | undefined = numbered; link !== U; link = link.to) {
+      if (link.const !== U) link.openLiteral = true;
+    }
+  }
+  return numbered;
 };

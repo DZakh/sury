@@ -62,7 +62,7 @@ import {
   failInvalidType,
   rethrowWithPath,
 } from "../builder";
-import { arrayFactory, B_record, dictFactory, isOpenLiteral, objectDecoder, valAt, valGet } from "../composites";
+import { arrayFactory, B_record, dictFactory, objectDecoder, valAt, valGet } from "../composites";
 import { schemaShape } from "../factory";
 import { getOp, getOutputSchema, instanceDecoder, optionalMembers, parse } from "../parse";
 import { bigint, bool, float, int, integer, string, unit } from "../primitives";
@@ -2686,12 +2686,12 @@ const unchecked = (schema: Internal): Internal => {
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
 // A scalar arm's value as the dispatch hands it over. A one-value enum is open
-// (`isOpenLiteral`), so held as itself the dispatch would test the arm for the
+// (`openLiteral`), so held as itself the dispatch would test the arm for the
 // literal and send 5 nowhere: it is any number when it is the arm itself, which
 // its type tells from its siblings, and read as it is beside the arm's literals.
 const armHeld = (field: Field, at: string | undefined): Internal => {
   const own = unchecked(getOutputSchema(field.armValue!));
-  return !isOpenLiteral(field.armValue!) ? own : at === U ? unchecked(float) : copySchema(unknown);
+  return !field.armValue!.openLiteral ? own : at === U ? unchecked(float) : copySchema(unknown);
 };
 
 // The arm a union holds is the union's own to tell, each arm continuing into
