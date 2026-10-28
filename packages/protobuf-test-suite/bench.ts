@@ -7,8 +7,18 @@ import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFileRegistry, fromBinary, toBinary, type DescMessage } from "@bufbuild/protobuf";
-import { FileDescriptorSetSchema } from "@bufbuild/protobuf/wkt";
+import { create, createFileRegistry, fromBinary, toBinary, type DescMessage } from "@bufbuild/protobuf";
+import {
+  anyPack,
+  anyUnpack,
+  FieldDescriptorProto_Label,
+  FieldDescriptorProto_Type,
+  FileDescriptorProtoSchema,
+  FileDescriptorSetSchema,
+  file_google_protobuf_any,
+  file_google_protobuf_timestamp,
+  timestampFromDate,
+} from "@bufbuild/protobuf/wkt";
 import { PbfReader, PbfWriter } from "pbf";
 import { compile as compilePbf } from "pbf/compile";
 import schemaParse from "protocol-buffers-schema";
@@ -239,6 +249,198 @@ export const libraries: Library[] = [
   },
 ];
 
+// What a field table can't spell: a union oneof in every item, a Timestamp and
+// an Any, where Sury's codec does work the others hand to the caller. Each
+// library holds the value its own way, its encode packs the Any and its decode
+// unpacks it, as its README shows, so every decode hands back the same message.
+// pbf has no Any.
+export type Custom = {
+  id: string;
+  schema: () => S.Schema<unknown, unknown>;
+  value: unknown;
+  codecs: Record<string, (bytes: Uint8Array) => Promise<Codec> | Codec>;
+};
+
+const richProto = `syntax = "proto3";
+import "google/protobuf/any.proto";
+import "google/protobuf/timestamp.proto";
+message User { int32 id = 1; string name = 2; }
+message Point { int32 x = 1; int32 y = 2; }
+message Item {
+  oneof kind {
+    string text = 1;
+    Point point = 2;
+    int64 count = 3;
+  }
+}
+message M {
+  uint32 id = 1;
+  google.protobuf.Timestamp at = 2;
+  google.protobuf.Any detail = 3;
+  repeated Item items = 4;
+}
+`;
+
+const richSchema = (): S.Schema<unknown, unknown> => {
+  const field = S.protobufField;
+  const User = S.schema({ id: S.int32.with(field, 1), name: S.string.with(field, 2) }).with(S.protobufTypeName, "User");
+  const Point = S.schema({ x: S.int32.with(field, 1), y: S.int32.with(field, 2) }).with(S.protobufTypeName, "Point");
+  const Item = S.schema({
+    kind: S.union([
+      S.schema({ case: "text" as const, value: S.string.with(field, 1) }),
+      S.schema({ case: "point" as const, value: Point.with(field, 2) }),
+      S.schema({ case: "count" as const, value: S.bigint.with(field, { number: 3, type: "int64" }) }),
+      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+    ]),
+  });
+  return S.schema({
+    id: S.integer.with(field, { number: 1, type: "uint32" }),
+    at: S.date.with(field, 2),
+    detail: S.union([S.schema({ type: "user" as const, value: User }), S.schema({ type: "point" as const, value: Point })]).with(field, 3),
+    items: S.array(Item).with(field, 4),
+  }) as never;
+};
+
+const richItems = Array.from({ length: 12 }, (_, i) =>
+  i % 3 === 0 ? { case: "text" as const, value: `item ${i}` }
+  : i % 3 === 1 ? { case: "point" as const, value: { x: i, y: -i } }
+  : { case: "count" as const, value: 1234567890123n + BigInt(i) },
+);
+const richAt = new Date(1700000000123);
+const richUser = { id: 1, name: "Ada" };
+
+type PbjsType = { encode: (v: unknown) => { finish: () => Uint8Array }; decode: (b: Uint8Array) => unknown };
+
+const pbjsRichRoot = (): protobuf.Root => {
+  type Common = { nested: { google: { nested: { protobuf: { nested: object } } } } };
+  const common = (file: string) =>
+    (protobuf.common as unknown as { get: (file: string) => Common }).get(file).nested.google.nested.protobuf.nested;
+  const root = protobuf.Root.fromJSON({
+    nested: { google: { nested: { protobuf: { nested: { ...common("google/protobuf/any.proto"), ...common("google/protobuf/timestamp.proto") } } } } },
+  });
+  protobuf.parse(richProto, root);
+  root.resolveAll();
+  return root;
+};
+
+const pbjsRichCodec = (types: { M: PbjsType; User: PbjsType; Point: PbjsType }, bytes: Uint8Array): Codec => {
+  const ms = richAt.getTime();
+  const value = {
+    id: 7,
+    at: { seconds: Math.floor(ms / 1000), nanos: (ms % 1000) * 1e6 },
+    items: richItems.map((item) => ({ [item.case]: item.case === "count" ? Number(item.value) : item.value })),
+  };
+  const byName: Record<string, PbjsType> = { User: types.User, Point: types.Point };
+  return {
+    encode: () =>
+      types.M.encode({ ...value, detail: { type_url: "type.googleapis.com/User", value: types.User.encode(richUser).finish() } }).finish(),
+    decode: () => {
+      const m = types.M.decode(bytes) as { detail: { type_url: string; value: Uint8Array } };
+      const url = m.detail.type_url;
+      return [m, byName[url.slice(url.lastIndexOf("/") + 1)]!.decode(m.detail.value)];
+    },
+  };
+};
+
+const esRichRegistry = () => {
+  const { MESSAGE, INT32, UINT32, INT64, STRING } = FieldDescriptorProto_Type;
+  const { OPTIONAL, REPEATED } = FieldDescriptorProto_Label;
+  const f = (name: string, number: number, type: FieldDescriptorProto_Type, typeName?: string, extra: object = {}) => ({
+    name,
+    number,
+    type,
+    typeName,
+    label: OPTIONAL,
+    jsonName: name,
+    ...extra,
+  });
+  const file = create(FileDescriptorProtoSchema, {
+    name: "rich.proto",
+    syntax: "proto3",
+    dependency: ["google/protobuf/any.proto", "google/protobuf/timestamp.proto"],
+    messageType: [
+      { name: "User", field: [f("id", 1, INT32), f("name", 2, STRING)] },
+      { name: "Point", field: [f("x", 1, INT32), f("y", 2, INT32)] },
+      {
+        name: "Item",
+        oneofDecl: [{ name: "kind" }],
+        field: [
+          f("text", 1, STRING, undefined, { oneofIndex: 0 }),
+          f("point", 2, MESSAGE, ".Point", { oneofIndex: 0 }),
+          f("count", 3, INT64, undefined, { oneofIndex: 0 }),
+        ],
+      },
+      {
+        name: "M",
+        field: [
+          f("id", 1, UINT32),
+          f("at", 2, MESSAGE, ".google.protobuf.Timestamp"),
+          f("detail", 3, MESSAGE, ".google.protobuf.Any"),
+          f("items", 4, MESSAGE, ".Item", { label: REPEATED }),
+        ],
+      },
+    ],
+  } as never);
+  return createFileRegistry(file, (name) =>
+    name === "google/protobuf/any.proto" ? file_google_protobuf_any.proto
+    : name === "google/protobuf/timestamp.proto" ? file_google_protobuf_timestamp.proto
+    : undefined,
+  );
+};
+
+export const CUSTOM: Custom[] = [
+  {
+    id: "oneof-any",
+    schema: richSchema,
+    value: { id: 7, at: richAt, detail: { type: "user", value: richUser }, items: richItems.map((kind) => ({ kind })) },
+    codecs: {
+      "protobufjs reflect": (bytes) => {
+        const root = pbjsRichRoot();
+        const type = (name: string) => root.lookupType(name) as unknown as PbjsType;
+        return pbjsRichCodec({ M: type("M"), User: type("User"), Point: type("Point") }, bytes);
+      },
+      "protobufjs static": async (bytes) => {
+        const dir = fileURLToPath(new URL("./.generated/", import.meta.url));
+        mkdirSync(dir, { recursive: true });
+        const proto = `${dir}oneof-any.proto`;
+        const out = `${dir}oneof-any.mjs`;
+        writeFileSync(proto, richProto);
+        await new Promise<void>((resolve, reject) =>
+          pbjsMain(
+            ["-t", "static-module", "-w", "es6", "--no-comments", "--no-verify", "--no-convert", "--no-delimited", "--no-service", "-o", out, proto],
+            (err) => (err ? reject(err) : resolve()),
+          ),
+        );
+        return pbjsRichCodec((await import(out)) as { M: PbjsType; User: PbjsType; Point: PbjsType }, bytes);
+      },
+      "protobuf-es": (bytes) => {
+        const registry = esRichRegistry();
+        const M = registry.getMessage("M")!;
+        const User = registry.getMessage("User")!;
+        const Point = registry.getMessage("Point")!;
+        const user = create(User, richUser as never);
+        const value = create(M, {
+          id: 7,
+          at: timestampFromDate(richAt),
+          items: richItems.map((item) => ({
+            kind: item.case === "point" ? { case: "point", value: create(Point, item.value as never) } : item,
+          })),
+        } as never) as unknown as { detail?: unknown };
+        return {
+          encode: () => {
+            value.detail = anyPack(User, user as never);
+            return toBinary(M, value as never);
+          },
+          decode: () => {
+            const m = fromBinary(M, bytes) as unknown as { detail: never };
+            return [m, anyUnpack(m.detail, registry)];
+          },
+        };
+      },
+    },
+  },
+];
+
 export type Cell = { library: string; encodeNs: number; decodeNs: number };
 export type BenchRow = { id: string; bytes: number; cells: Cell[] };
 
@@ -254,26 +456,48 @@ const timeNs = (fn: () => unknown, n: number): number => {
   return Number(process.hrtime.bigint() - start) / n;
 };
 
-export const runBench = async (samples = 7): Promise<BenchRow[]> => {
+const benchRow = async (
+  id: string,
+  bytes: Uint8Array,
+  samples: number,
+  codecOf: (library: Library) => Promise<Codec> | Codec | undefined,
+): Promise<BenchRow> => {
+  // Bigger messages get fewer iterations so every workload takes roughly
+  // the same wall time per sample.
+  const n = Math.max(3000, Math.round(600000 / (bytes.length + 20)));
+  const cells: Cell[] = [];
+  for (const library of libraries) {
+    const codec = await codecOf(library);
+    if (codec === undefined) continue;
+    const encodeNs: number[] = [];
+    const decodeNs: number[] = [];
+    for (let i = 0; i < samples; i++) {
+      encodeNs.push(timeNs(codec.encode, n));
+      decodeNs.push(timeNs(codec.decode, n));
+    }
+    cells.push({ library: library.id, encodeNs: best(encodeNs), decodeNs: best(decodeNs) });
+  }
+  return { id, bytes: bytes.length, cells };
+};
+
+export const runBench = async (samples = 7, only?: string[]): Promise<BenchRow[]> => {
   const rows: BenchRow[] = [];
   for (const work of WORKLOADS) {
-    const schema = suryMessage(work.fields);
-    const bytes = S.decodeOrThrow(schema, S.protobuf)(work.value);
-    // Bigger messages get fewer iterations so every workload takes roughly
-    // the same wall time per sample.
-    const n = Math.max(3000, Math.round(600000 / (bytes.length + 20)));
-    const cells: Cell[] = [];
-    for (const library of libraries) {
-      const codec = await library.codec(work, bytes);
-      const encodeNs: number[] = [];
-      const decodeNs: number[] = [];
-      for (let i = 0; i < samples; i++) {
-        encodeNs.push(timeNs(codec.encode, n));
-        decodeNs.push(timeNs(codec.decode, n));
-      }
-      cells.push({ library: library.id, encodeNs: best(encodeNs), decodeNs: best(decodeNs) });
-    }
-    rows.push({ id: work.id, bytes: bytes.length, cells });
+    if (only?.length && !only.includes(work.id)) continue;
+    const bytes = S.decodeOrThrow(suryMessage(work.fields), S.protobuf)(work.value);
+    rows.push(await benchRow(work.id, bytes, samples, (library) => library.codec(work, bytes)));
+  }
+  for (const work of CUSTOM) {
+    if (only?.length && !only.includes(work.id)) continue;
+    const schema = work.schema();
+    const encode = S.decodeOrThrow(schema, S.protobuf);
+    const decode = S.decodeOrThrow(S.protobuf, schema);
+    const bytes = encode(work.value);
+    rows.push(
+      await benchRow(work.id, bytes, samples, (library) =>
+        library.id === "sury" ? { encode: () => encode(work.value), decode: () => decode(bytes) } : work.codecs[library.id]?.(bytes),
+      ),
+    );
   }
   return rows;
 };

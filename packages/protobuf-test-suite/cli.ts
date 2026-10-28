@@ -39,7 +39,7 @@ Commands:
   update     Rewrite goldens/coverage.json from the current run.
   report     Print every case id and its status.
   bench      Best of 7 samples against protobufjs (reflect and static), protobuf-es
-             and pbf on five workloads.
+             and pbf on every workload, or on the ids that follow it.
   compare    CPU µs, collector ns and retained bytes per op for every library
              and workload. Needs node --expose-gc (the package compare script).
   bundle     Minified+gzip size of one message's codec per library, and of a
@@ -68,7 +68,7 @@ const loadGolden = (): Golden => {
 };
 
 if (cmd === "bench") {
-  console.log(formatBench(await runBench()));
+  console.log(formatBench(await runBench(7, args.slice(1))));
   process.exit(0);
 }
 
