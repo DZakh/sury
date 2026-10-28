@@ -357,7 +357,8 @@ describeArtifact("artifact", () => {
     }
   });
 
-  test("sury/protobuf/wkt type-checks from an ESM and a CommonJS consumer", () => {
+  // A cold tsc on a loaded machine outlasts vitest's 5s default, as in declarations_test.ts.
+  test("sury/protobuf/wkt type-checks from an ESM and a CommonJS consumer", { timeout: 60_000 }, () => {
     const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
     const dir = mkdtempSync(path.join(tmpdir(), "sury-wkt-"));
     mkdirSync(path.join(dir, "node_modules"));
