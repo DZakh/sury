@@ -38,13 +38,9 @@ const listToArray = (list: RescriptList): unknown[] => {
   return array;
 }
 
-// A ReScript list has no schema of its own to land on, so its Output is an
-// `unknown` checked for the shape of its head, `0` or a cell: enough to tell
-// it from another member's object (an output seam's view of a union keeps this
-// node, modifiers.ts `outputView`), and what fails a non-list with a reason
-// rather than the TypeError the walk above would hit. It narrows the type, so
-// like a primitive's own check it reads only a value not already typed as the
-// list, which leaves decode's freshly built one alone.
+// What a ReScript list outputs, `0` or a `{hd, tl}` cell, so it fails with a
+// reason rather than the walk's TypeError and an output seam tells it from an
+// object. A narrow, so it skips a value already typed as the list.
 const rescriptList: Internal = /* @__PURE__ */ (() => {
   const mut = copySchema(unknown);
   mut.name = "list";
@@ -53,7 +49,7 @@ const rescriptList: Internal = /* @__PURE__ */ (() => {
       ? []
       : [
           {
-            c: (v) => `(${v}===0||typeof ${v}==="object"&&${v}&&"hd" in ${v})`,
+            c: (v) => `(${v}===0||typeof ${v}==="object"&&${v}&&"hd" in ${v}&&"tl" in ${v})`,
             f: B_invalidInputBuilder(),
           },
         ];

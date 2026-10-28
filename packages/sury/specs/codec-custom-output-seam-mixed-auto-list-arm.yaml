@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v1=i.f;if(!((v1===0||typeof v1==="object"&&v1&&"hd" in v1))){v2=[v2,e[2],v1];break l3}let v0;try{v0=e[0](v1)}catch(x){v2=[v2,e[1],x];break l3}i={f:v0};break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l6:{let v5=i._0;if(!(typeof v5==="number"&&v5%1==0)){v2=[v2,e[3],v5];break l6}i={TAG:i.TAG,_0:v5};break}}throw e[4](i,v2)}return i}catch(v7){e[5](v7)}}
+    expression: i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v1=i.f;if(!((v1===0||typeof v1==="object"&&v1&&"hd" in v1&&"tl" in v1))){v2=[v2,e[2],v1];break l3}let v0;try{v0=e[0](v1)}catch(x){v2=[v2,e[1],x];break l3}i={f:v0};break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l6:{let v5=i._0;if(!(typeof v5==="number"&&v5%1==0)){v2=[v2,e[3],v5];break l6}i={TAG:i.TAG,_0:v5};break}}throw e[4](i,v2)}return i}catch(v7){e[5](v7)}}
     examples:
       tagged-member:
         input: '{ TAG: "T7", _0: 2 }'
@@ -33,7 +33,7 @@ operations:
         input: '{ TAG: "T7", _0: 2 }'
         output: '{ TAG: "T7", _0: 2 }'
   assert:
-    expression: i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v1=i.f;if(!((v1===0||typeof v1==="object"&&v1&&"hd" in v1))){v2=[v2,e[2],v1];break l3}let v0;try{v0=e[0](v1)}catch(x){v2=[v2,e[1],x];break l3}i=void 0;break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l6:{let v5=i._0;if(!(typeof v5==="number"&&v5%1==0)){v2=[v2,e[3],v5];break l6}i=void 0;break}}throw e[4](i,v2)}return i}catch(v7){e[5](v7)}}
+    expression: i=>{try{let v2;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l3:{let v1=i.f;if(!((v1===0||typeof v1==="object"&&v1&&"hd" in v1&&"tl" in v1))){v2=[v2,e[2],v1];break l3}let v0;try{v0=e[0](v1)}catch(x){v2=[v2,e[1],x];break l3}i=void 0;break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.TAG==="T7"){l6:{let v5=i._0;if(!(typeof v5==="number"&&v5%1==0)){v2=[v2,e[3],v5];break l6}i=void 0;break}}throw e[4](i,v2)}return i}catch(v7){e[5](v7)}}
     examples:
       tagged-member:
         input: '{ TAG: "T7", _0: 2 }'
