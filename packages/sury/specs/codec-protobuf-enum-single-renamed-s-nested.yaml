@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ kind: s.nested("o").field("k", S.protobufField(S.union([0]), { number: 1, type: "enum" })) })).with(S.to, S.protobuf)'
+  input: "{ [x: string]: unknown; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5125
+jsonSchema:
+  input: '{ type: "object", properties: { o: { type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] } }, required: ["o"] }'
+  fromInputType: "{ o: { k: 0; }; }"
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { o: { type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] } }, required: ["o"] }'
+isEqual:
+  input: alwaysEqual
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { o: { k: 0; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.o;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.k;v1===0||e[0](v1);let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v1;if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v2}catch(v3){e[8](v3)}}
+    examples:
+      unknown-number-refused:
+        input: "{ o: { k: 5 } }"
+        error: "Failed at o.k: Expected 0, received 5"
+  decode:
+    expression: i=>{try{let v0=i.o;let v1;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=v0.k;if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[0](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v1=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}return v1}catch(v2){e[5](v2)}}
+    examples:
+      unknown-number-written-as-read:
+        input: "{ o: { k: 5 } }"
+        output: new Uint8Array([8, 5])
+  encode:
+    expression: i=>{try{let v0=0;{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1];try{r=e[3].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[4](x,e[2],t);e[5](x)}}return {o:{k:v0}}}catch(v1){e[6](v1)}}
+    examples:
+      unknown-number-read-as-is:
+        input: new Uint8Array([8, 5])
+        output: "{ o: { k: 5 } }"

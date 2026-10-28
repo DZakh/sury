@@ -95,8 +95,8 @@ type Field = {
   path: string[];
   omit?: boolean;
   fromWireIsHeld?: boolean;
-  // Read with a check that it isn't NaN (`finiteRead`).
-  finite?: boolean;
+  // The failure a NaN read is, when it is one (`finiteRead`).
+  finite?: string;
 };
 
 // A union oneof's members in the order the union lists them, each with the
@@ -1061,13 +1061,13 @@ export class Reader {
     return scratchView.getFloat64(0, true);
   }
   // A double or float that is to be a number, which NaN is not (`finiteRead`).
-  num64(): number {
+  num64(reason = nanReason): number {
     const value = this.f64();
-    return value === value ? value : fail(nanReason);
+    return value === value ? value : fail(reason);
   }
-  num32(): number {
+  num32(reason = nanReason): number {
     const value = this.f32();
-    return value === value ? value : fail(nanReason);
+    return value === value ? value : fail(reason);
   }
   u64(): bigint {
     this.load64();
@@ -1165,8 +1165,9 @@ export class Reader {
   // Packed fixed-width fields: an aligned span is read through a typed array
   // over the input, anything else through a DataView, both created once per
   // field instead of a scratch copy per element. `kind` is 0 double, 1 float,
-  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64. `finite` refuses a NaN.
-  fixeds(out: unknown[], kind: number, finite?: number): void {
+  // 2 fixed32, 3 sfixed32, 4 fixed64, 5 sfixed64. `finite` refuses a NaN, as
+  // its own reason or `nanReason` (1).
+  fixeds(out: unknown[], kind: number, finite?: number | string): void {
     const buf = this.buf;
     const start = this.pos;
     const end = this.limit;
@@ -1188,7 +1189,7 @@ export class Reader {
         : new BigInt64Array(buf.buffer, offset, n);
       for (let i = 0; i < n; i++) {
         const value = view[i];
-        if (value !== value && finite) fail(nanReason);
+        if (value !== value && finite) fail(finite === 1 ? nanReason : (finite as string));
         out.push(value);
       }
     } else {
@@ -1201,7 +1202,7 @@ export class Reader {
           : kind === 3 ? view.getInt32(i, true)
           : kind === 4 ? view.getBigUint64(i, true)
           : view.getBigInt64(i, true);
-        if (value !== value && finite) fail(nanReason);
+        if (value !== value && finite) fail(finite === 1 ? nanReason : (finite as string));
         out.push(value);
       }
     }
@@ -1846,7 +1847,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
       fromWire: raw,
       held: raw,
       path: [],
-      finite: scalar !== U && finiteRead(scalar, raw, shape),
+      finite: scalar !== U ? finiteRead(scalar, raw, shape) : U,
     };
     msg = { fields: [field], object: shape, raw, wellKnown: type, unwrap: true };
   } else {
@@ -2071,22 +2072,28 @@ const readCall = (type: ProtobufType): string => {
   return "r.bytes()";
 };
 
-const readOf = (field: Field): string =>
-  field.finite ? (field.type === "double" ? "r.num64()" : "r.num32()") : readCall(field.type);
+// `nan` is off under `S.global({ disableNanNumberValidation: true })`, where a
+// parse admits NaN too.
+const readOf = (field: Field, nan: boolean): string =>
+  nan && field.finite !== U ? `r.num${field.type === "double" ? 64 : 32}(${reasonArg(field.finite)})` : readCall(field.type);
+
+const reasonArg = (reason: string): string => (reason === nanReason ? "" : JSON.stringify(reason));
 
 const nanReason = "Expected number, received NaN";
 
 // A double or float read into a number schema refuses NaN, as parsing one
-// does. The conversion from what the wire read to the field's schema checks
-// only what the two types differ in, and both are numbers, so the read checks:
-// for `S.number`, and for a union holding one (`S.nullable(S.number)`) unless a
-// member is NaN itself. A format (int32) converts with a check of its own.
-const finiteRead = (type: FieldType, raw: Internal, read: Internal): boolean =>
-  (type === "double" || type === "float") && raw === float && refusesNaN(read);
+// does, and with the same words. The conversion from what the wire read to the
+// field's schema checks only what the two types differ in, and both are
+// numbers, so the read checks: for `S.number`, and for a union holding one
+// (`S.nullable(S.number)`) unless a member is NaN itself. A format (int32) or a
+// literal converts with a check of its own.
+const finiteRead = (type: FieldType, raw: Internal, read: Internal): string | undefined =>
+  (type === "double" || type === "float") && raw === float && refusesNaN(read) ? `Expected ${inputExpression(read)}, received NaN` : U;
 
 const refusesNaN = (schema: Internal): boolean =>
-  schema.type === numberTag ? schema.format === U
-  : schema.type === anyOfTag && schema.anyOf!.some(refusesNaN) && !schema.anyOf!.some((member) => member.const !== member.const);
+  schema.type === anyOfTag ? schema.anyOf!.some(anyNumber) && !schema.anyOf!.some((member) => member.const !== member.const) : anyNumber(schema);
+
+const anyNumber = (schema: Internal): boolean => schema.type === numberTag && schema.format === U && schema.const === U;
 
 const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
@@ -2256,7 +2263,7 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
 // `b`, the rest in the reader's `x` from the index in `x`, and the message is
 // read once after the loop, its reader continuing from one payload into the
 // next. A message's own reader takes that index as `x`.
-const readParts = (msg: Message, local: (kind: string, idx: number) => string, fn: (msg: Message) => string) => {
+const readParts = (msg: Message, local: (kind: string, idx: number) => string, fn: (msg: Message) => string, nan: boolean) => {
   const fields = msg.fields;
   const locals: [name: string, init: string][] = [];
   const temps: string[] = [];
@@ -2291,7 +2298,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         // A member seen again merges only while it still is the one set.
         cases.push(`case ${tag}:p=r.sub();if(${set}!==${field.number}){${set}=${field.number};${a}=-1;${x}=void 0}${note(a, b, x)}r.limit=p;continue;`);
         after += `if(${set}===${field.number}){t=${tag};${read(a, b, x, value, field.message!)}}`;
-      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readOf(field)};continue;`);
+      } else cases.push(`case ${tag}:${set}=${field.number};${value}=${readOf(field, nan)};continue;`);
       continue;
     }
     locals.push([value, emitDefault(field)]);
@@ -2323,7 +2330,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         if (!temps.includes("ma")) temps.push("ma", "mb", "mx");
         entry = `ma=-1;mx=void 0;${entryLoop(`${readKey}else if(y===18){g=r.sub();${note("ma", "mb", "mx")}r.limit=g}`)}${keyDefault}${read("ma", "mb", "mx", "c", field.message!)}`;
       } else {
-        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readOf(field)};`)}${keyDefault}`;
+        entry = `c=${scalarDefault(field.type)};${entryLoop(`${readKey}else if(y===${16 + field.wire})c=${readOf(field, nan)};`)}${keyDefault}`;
       }
       // A map field is length-delimited whatever its value's wire type.
       cases.push(`case ${field.number * 8 + 2}:k=void 0;p=r.sub();${entry};r.limit=p;${store};continue;`);
@@ -2339,13 +2346,13 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       const kind = varintKind(field.type);
       const fixed = fixedKind(field.type);
       const packedLoop = kind !== U ? `r.${["u32s", "i32s", "s32s", "bools"][kind]}(${value})`
-        : fixed !== U ? `r.fixeds(${value},${fixed}${field.finite ? ",1" : ""})`
-        : `while(r.pos<r.limit)${value}.push(${readOf(field)})`;
-      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readOf(field)});continue;`);
+        : fixed !== U ? `r.fixeds(${value},${fixed}${nan && field.finite !== U ? `,${reasonArg(field.finite) || 1}` : ""})`
+        : `while(r.pos<r.limit)${value}.push(${readOf(field, nan)})`;
+      cases.push(`case ${field.number * 8 + 2}:p=r.sub();${packedLoop};r.limit=p;continue;case ${tag}:${value}.push(${readOf(field, nan)});continue;`);
     } else if (field.repeated) {
-      cases.push(`case ${tag}:${value}.push(${readOf(field)});continue;`);
+      cases.push(`case ${tag}:${value}.push(${readOf(field, nan)});continue;`);
     } else {
-      cases.push(`case ${tag}:${clear}${value}=${readOf(field)};continue;`);
+      cases.push(`case ${tag}:${clear}${value}=${readOf(field, nan)};continue;`);
     }
   }
   const lists = fields.flatMap((field, idx) => (field.repeated ? [`,${local("f", idx)}`] : [])).join("");
@@ -2541,7 +2548,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
         params.push(`N${slot}`);
         args.push(msg.any.listed.map((field) => textEncoder.encode(field.name)));
       }
-      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns, `N${slot}`) : readParts(msg, local, (m) => fns.get(m)!);
+      const { locals, temps, frame, loop } = msg.any !== U ? anyReadParts(msg, fns, `N${slot}`) : readParts(msg, local, (m) => fns.get(m)!, !(flag & 2));
       const vars = [...locals.map(([local, init]) => `${local}=${init}`), ...temps, "t=-1,p,k,c,g,q,y"];
       const miss = msg.object.additionalItems === "strict" ? `unknown(M[${slot}],t)` : "skip(r,t&7,t>>>3,0)";
       src += `function ${name}(r,d,x){if(d>=100)fail("Protobuf message nesting limit exceeded");var ${vars};try{${loop(miss, true)}}catch(x){throw at(x,M[${slot}],t${frame})}${readers.get(msg) ?? "return f0"}}`;
@@ -2603,7 +2610,7 @@ const protobufDecoder = (input: Val): Val => {
   const value = B_scope(input);
   value.s = message.object;
   value.d = validated;
-  const [head, reads] = writesOf(value, message, input);
+  const [head, reads] = writesOf(value, message);
   const readRoot: Read = (field) => {
     const fv = validated?.[field.path[0]!];
     return { expr: reads.get(field)!, numeric: field.path.length === 1 && fv !== U && fv.s.type === numberTag && fv.s.format !== U };
@@ -2676,39 +2683,19 @@ const unchecked = (schema: Internal): Internal => {
 
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
-// A one-value enum (`google.protobuf.NullValue`) decodes an unknown number as
-// it is, the open enum proto3 specifies, so a value not checked against the
-// literal is written as it is too: read as the literal, 5 would go back out as
-// 0. Its field's val inlines the literal, so the read is of the property.
-const openLiteral = (field: Field, schema: Internal): boolean => field.type === "enum" && getOutputSchema(schema).const !== U;
-
-// The property a field's value was read from, on the nearest object up the
-// chain that a var holds: an `S.object` renames its keys and builds the object
-// the message reads, with the literal inlined in it. Read there, nothing is
-// built for it; past a conversion that isn't a plain property read, the
-// literal is all there is.
-const sourceRead = (value: Val, read: Val): string | undefined => {
-  for (let at: Val | undefined = value; at !== U; at = at.prev) {
-    if (at.v !== _var) continue;
-    const rel = read.path.slice(at.path.length);
-    const key = rel[0];
-    return rel.length === 1 && typeof key === "string" && at.s.properties?.[key] === read.s ? inlinedProperty(at.i, key) : U;
-  }
-  return U;
-};
-
-// A scalar arm's value as the dispatch hands it over: an open literal as any
-// number when it is the arm itself, which its type tells from its siblings,
-// and read as it is beside the arm's literals.
+// A scalar arm's value as the dispatch hands it over. A one-value enum is open
+// (`isOpenLiteral`), so held as itself the dispatch would test the arm for the
+// literal and send 5 nowhere: it is any number when it is the arm itself, which
+// its type tells from its siblings, and read as it is beside the arm's literals.
 const armHeld = (field: Field, at: string | undefined): Internal => {
   const own = unchecked(getOutputSchema(field.armValue!));
-  return !openLiteral(field, own) ? own : at === U ? unchecked(float) : copySchema(unknown);
+  return field.type !== "enum" || own.const === U ? own : at === U ? unchecked(float) : copySchema(unknown);
 };
 
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
-const writesOf = (value: Val, msg: Message, source: Val = value): [code: string, reads: Map<Field, string>] => {
+const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
   const g = value.g;
   const reads = new Map<Field, string>();
   let code = "";
@@ -2765,7 +2752,7 @@ const writesOf = (value: Val, msg: Message, source: Val = value): [code: string,
       else {
         const field = msg.fields.find((field) => field.key === key)!;
         code += B_merge(read);
-        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? sourceRead(source, read) ?? read.i : read.i);
+        reads.set(field, read.i);
       }
     }
   }
@@ -2797,7 +2784,7 @@ const protobufEncoder = (input: Val, target: Internal): Val => {
       names += `,${name}=${B_embedPure(input, readers[name])}`;
     }
     return name;
-  });
+  }, !(input.g.o & 2));
   const at = B_embedPure(input, message);
   for (const [name, init] of inits) B_hoistDecl(input, name, init);
   const read = B_next(input, "", target, target);
