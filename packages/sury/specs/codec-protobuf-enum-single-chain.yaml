@@ -8,7 +8,7 @@ jsonSchema:
   input: Maximum call stack size exceeded
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: alwaysEqual
+  input: (a,b)=>a===b||a.k===b.k
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { k: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

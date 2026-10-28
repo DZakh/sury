@@ -10,7 +10,9 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] }'
     output: '{ type: "object", properties: { v: { type: "number", enum: [0] } }, required: ["v"] }'
-isEqual: alwaysEqual
+isEqual:
+  input: (a,b)=>a===b||a.k===b.k
+  output: (a,b)=>a===b||a.v===b.v
 compare:
   input: "throws: [Sury] Can't compare { k: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { v: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
