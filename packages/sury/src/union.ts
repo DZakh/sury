@@ -139,12 +139,19 @@ const unionNeverLink = (schema: Internal): boolean => {
 // provenance instead - and a non-enumerable one (the only kind that would not
 // itself change the count) is dropped by `copySchema`, which would make every
 // reversed union opaque.
-const unionIsTransparent = (schema: Internal): boolean => {
+//
+// `converts` asks instead whether a conversion target matches member to member,
+// which nothing that only describes the union changes: a description, or the
+// field number S.protobufField gives an enum. Flattening keeps such a union
+// whole all the same, as its members alone would lose what it carries.
+const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
-  for (const _key in schema) fields++;
+  for (const key in schema) if (!converts || !(key in unionDescribing)) fields++;
   return fields === 6;
 };
+
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -1815,7 +1822,7 @@ const unionResolve = (
   if (source.flags & 64) {
     return variants.map(() => target);
   }
-  if (unionIsTransparent(target)) {
+  if (unionIsTransparent(target, true)) {
     return unionResolveToUnion(input, source, variants, target);
   }
   // Rule 3 - every source variant gets its own built-in decoder to the target.

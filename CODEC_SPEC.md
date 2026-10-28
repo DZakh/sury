@@ -251,6 +251,14 @@ S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string]
 S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
 ```
 
+A target union described with `S.meta` or numbered with `S.protobufField` is
+still a union here:
+
+```ts
+S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
+S.union(["a", "b"]).with(S.to, S.meta(S.union([0, 1]), { description: "x" })); // ❌ "a" has no same-type target variant
+```
+
 A transformed source variant matches by its output type, and a transformed
 target variant by its input type - so per-variant conversion is always available
 explicitly:
