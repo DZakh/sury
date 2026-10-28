@@ -11,7 +11,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] }'
     output: '{ type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] }'
-isEqual: alwaysEqual
+isEqual: (a,b)=>a===b||a.k===b.k
 compare: "throws: [Sury] Can't compare { k: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:

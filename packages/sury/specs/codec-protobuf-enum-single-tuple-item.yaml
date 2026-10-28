@@ -13,10 +13,10 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "array", minItems: 1, maxItems: 1, items: { anyOf: [{ type: "number", enum: [0] }] } }'
 isEqual:
-  input: alwaysEqual
+  input: (a,b)=>a===b||a[0]===b[0]
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
-  input: alwaysCompare
+  input: (a,b)=>a===b?0:a[0]<b[0]?-1:a[0]>b[0]?1:0
   output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:

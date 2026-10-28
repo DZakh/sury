@@ -2691,7 +2691,7 @@ const opaque = /* @__PURE__ */ dictFactory(unknown);
 // its type tells from its siblings, and read as it is beside the arm's literals.
 const armHeld = (field: Field, at: string | undefined): Internal => {
   const own = unchecked(getOutputSchema(field.armValue!));
-  return !field.armValue!.openLiteral ? own : at === U ? unchecked(float) : copySchema(unknown);
+  return !own.openLiteral ? own : at === U ? unchecked(float) : copySchema(unknown);
 };
 
 // The arm a union holds is the union's own to tell, each arm continuing into

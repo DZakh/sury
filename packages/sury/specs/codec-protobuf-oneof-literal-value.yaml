@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at kind.case: Expected JSON, received undefined"
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||(a.kind.case==="nullValue"?b.kind.case==="nullValue":a.kind.case==="numberValue"?b.kind.case==="numberValue"&&a.kind.value===b.kind.value:b.kind.case===void 0)
+  input: (a,b)=>a===b||(a.kind.case==="nullValue"?b.kind.case==="nullValue"&&a.kind.value===b.kind.value:a.kind.case==="numberValue"?b.kind.case==="numberValue"&&a.kind.value===b.kind.value:b.kind.case===void 0)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { kind: { case: \"nullValue\"; value: 0; } | { case: \"numberValue\"; value: number; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
