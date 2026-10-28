@@ -111,7 +111,7 @@ export type ListValue = {
   values: Value[];
 };
 
-export const [StructSchema, ValueSchema, ListValueSchema] = /* @__PURE__ */ (() => {
+export const [StructSchema, ValueSchema, ListValueSchema] = (() => {
   let ValueSchema!: S.Schema<Value>;
   let ListValueSchema!: S.Schema<ListValue>;
   const StructSchema = S.recursive<Struct>("Struct", (StructSchema) => {

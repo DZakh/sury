@@ -236,11 +236,9 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
         out.push(`export const ${root} = ${built};\n`);
         continue;
       }
-      // Annotated for esbuild, which doesn't see that S.recursive is pure from
-      // another module, and so would keep a group nothing imports.
       const all = [root, ...rest].join(", ");
       const variables = component.slice(1).map((message) => `  let ${names.schema.get(message)}!: ${S}.Schema<${names.shape.get(message)}>;\n`);
-      out.push(`export const [${all}] = /* @__PURE__ */ (() => {\n${variables.join("")}  const ${root} = ${built};\n  return [${all}] as const;\n})();\n`);
+      out.push(`export const [${all}] = (() => {\n${variables.join("")}  const ${root} = ${built};\n  return [${all}] as const;\n})();\n`);
       continue;
     }
     const message = component[0]!;

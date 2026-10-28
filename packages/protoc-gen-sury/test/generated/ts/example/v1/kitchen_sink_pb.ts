@@ -543,7 +543,7 @@ export type Leaf = {
   branches: Branch[];
 };
 
-export const [BranchSchema, LeafSchema] = /* @__PURE__ */ (() => {
+export const [BranchSchema, LeafSchema] = (() => {
   let LeafSchema!: S.Schema<Leaf>;
   const BranchSchema = S.recursive<Branch>("Branch", (BranchSchema) => {
     LeafSchema = S.recursive<Leaf>("Leaf", () =>
@@ -640,7 +640,7 @@ export type GraphC = {
   c?: GraphC | undefined;
 };
 
-export const [GraphASchema, GraphBSchema, GraphCSchema] = /* @__PURE__ */ (() => {
+export const [GraphASchema, GraphBSchema, GraphCSchema] = (() => {
   let GraphBSchema!: S.Schema<GraphB>;
   let GraphCSchema!: S.Schema<GraphC>;
   const GraphASchema = S.recursive<GraphA>("GraphA", (GraphASchema) => {
