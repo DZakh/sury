@@ -172,6 +172,9 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
 
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
+  // The link into it from the node before is not part of the shape, and a
+  // reverse would make it a parser that skips whatever `.to` is put after it.
+  delete mut.serializer;
   mut.from = from;
   if (fromFlattened !== U) {
     mut.fromFlattened = fromFlattened;
