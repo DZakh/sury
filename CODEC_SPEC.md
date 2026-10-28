@@ -376,17 +376,22 @@ S.union([email, phone]);                                // no member set: fails 
 
 An enum is open on the wire. A number its schema doesn't list decodes as that
 number and is written back as it was read, a one-value enum
-(`google.protobuf.NullValue`) included; a parse still refuses it:
+(`google.protobuf.NullValue`) included; a parse still refuses it. The value
+side has to be what holds the number. Read with
+`S.decodeOrThrow(S.protobuf, S.schema({ k: field }))`, where `enum` is
+`{ number: 1, type: "enum" }`:
 
 ```ts
-S.protobufField(S.literal(0), { number: 1, type: "enum" });                      // reads [8, 5] as 5, writes it back as [8, 5]
-S.protobufField(S.number.with(S.to, S.literal(0)), { number: 1, type: "enum" }); // refuses 5 both ways
+S.protobufField(S.literal(0), enum);                             // reads [8, 5] as 5, writes it back as [8, 5]
+S.protobufField(S.number.with(S.to, S.literal(0)), enum);        // the same
+S.protobufField(S.literal(0).with(S.to, S.number), enum);        // refuses 5 both ways: the wire side is 0
+S.protobufField(S.literal(null).with(S.to, S.literal(0)), enum); // reads [8, 5] as 0: the wire side is null
 ```
 
-- **Only the literal the wire meets is open** (`codec-protobuf-enum-single`,
-  `codec-protobuf-enum-single-renamed`, `codec-protobuf-oneof-open-literal-chains`).
-- **A conversion into a literal still checks it**: it says the value is that
-  constant (`codec-protobuf-enum-single-number-to-literal`).
+Specs: `codec-protobuf-enum-single`, `codec-protobuf-oneof-open-literal-chains`,
+`codec-protobuf-enum-single-number-to-literal`,
+`codec-protobuf-enum-number-to-literal-from-unknown`,
+`codec-protobuf-enum-null-to-zero-wire`.
 
 ## Protobuf Any
 

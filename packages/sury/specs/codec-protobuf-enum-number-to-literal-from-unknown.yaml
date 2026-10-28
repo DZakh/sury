@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.unknown.with(S.to, S.protobufField(S.number.with(S.to, S.literal(0)), { number: 1, type: "enum" }))'
+  input: unknown
+  output: "0"
+  instantiations: 5190
+jsonSchema:
+  input: '{ type: "number", const: 0 }'
+  fromInputType: "0"
+  output: '{ type: "number", const: 0 }'
+  openapi-3.0:
+    input: '{ type: "number", enum: [0] }'
+    output: '{ type: "number", enum: [0] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="number"&&i==i||e[1](i);i===0||e[0](i);return i}catch(v0){e[2](v0)}}
+    examples:
+      zero:
+        input: "0"
+        output: "0"
+      unknown-number-refused:
+        input: "5"
+        error: Expected 0, received 5
+      a-string:
+        input: '"0"'
+        error: Expected number, received "0"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{i===0||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      zero:
+        input: "0"
+        output: "0"
