@@ -777,12 +777,12 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // its input checks read it where the output checks do, an async one once it
 // resolves, and a record not as the carrier it was read from.
 export const B_markOutput = (val: Val, valInput?: Val): Val => {
-  let outC: Check[] = [];
-  const ir = (valInput || val).e.inputRefiner;
-  if (ir) {
-    const c = ir(valInput || val);
-    if (!valInput) outC = c;
-    else if (c.length) (valInput.vc ??= []).push(...c);
+  const from = valInput || val;
+  const ir = from.e.inputRefiner;
+  let outC: Check[] = ir ? ir(from) : [];
+  if (valInput) {
+    if (outC.length) (valInput.vc ??= []).push(...outC);
+    outC = [];
   }
   const rf = val.e.refiner;
   if (rf) outC = outC.concat(rf(val));
