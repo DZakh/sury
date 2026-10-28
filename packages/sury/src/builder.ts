@@ -1,7 +1,5 @@
 import {
   arrayTag,
-  copySchema,
-  setHas,
   type BGlobal,
   type Check,
   type Continuation,
@@ -779,12 +777,12 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // its input checks read it where the output checks do, an async one once it
 // resolves, and a record not as the carrier it was read from.
 export const B_markOutput = (val: Val, valInput?: Val): Val => {
-  let outC: Check[] = [];
-  const ir = (valInput || val).e.inputRefiner;
-  if (ir) {
-    const c = ir(valInput || val);
-    if (!valInput) outC = c;
-    else if (c.length) (valInput.vc ??= []).push(...c);
+  const from = valInput || val;
+  const ir = from.e.inputRefiner;
+  let outC: Check[] = ir ? ir(from) : [];
+  if (valInput) {
+    if (outC.length) (valInput.vc ??= []).push(...outC);
+    outC = [];
   }
   const rf = val.e.refiner;
   if (rf) outC = outC.concat(rf(val));
@@ -1047,26 +1045,8 @@ export const B_scope = (val: Val): Val => {
   return nextVal;
 }
 
-// A ref met while its own definer still runs has no definition to ask yet, and
-// is viewed on demand like one that converts. A parser always sits beside a
-// `.to`, so `to` stands for both.
-const B_converts = (schema: Internal, seen: Set<Internal>): boolean =>
-  !seen.has(schema) &&
-  (seen.add(schema),
-  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
-    [
-      schema.definition?.(),
-      schema.additionalItems,
-      ...Object.values(schema.properties || {}),
-      ...(schema.items || []),
-      ...(schema.anyOf || []),
-    ].some((child) => typeof child === "object" && B_converts(child, seen)));
-
-// One view per definition: compiled operations are cached on the object a ref's
-// `definition` answers, and the view of a recursive definition holds refs back
-// to it.
-const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
-const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+// The definition each output view (modifiers.ts `outputView`) was built from.
+export const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
 
 // A view claims exactly its source's output, so whoever names definitions
 // (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
@@ -1076,56 +1056,6 @@ export const B_viewSource = (def: Internal): Internal => {
   const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
   const source = viewSources.get(reversed ? def.r! : def);
   return source === U ? def : reversed ? source.r! : source;
-};
-
-// What a schema's output claims, as a schema of its own: every node at the end
-// of its chain, children likewise, its refinements kept and its conversions
-// dropped. A value already converted is checked against it without converting
-// it again.
-export const B_outputView = (schema: Internal): Internal => {
-  let last = schema;
-  while (last.to) last = last.to;
-  let converts = last !== schema || !!last.serializer;
-  const viewOf = (child: Internal): Internal => {
-    const view = B_outputView(child);
-    if (view !== child) converts = true;
-    return view;
-  };
-  const view = copySchema(last);
-  delete view.serializer;
-  if (view.properties) {
-    const views: Record<string, Internal> = Object.create(null);
-    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
-    view.properties = views;
-  }
-  if (view.items) view.items = view.items.map(viewOf);
-  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
-  if (view.anyOf) {
-    view.anyOf = view.anyOf.map(viewOf);
-    view.has = {};
-    for (const member of view.anyOf) setHas(view.has, member);
-  }
-  const definition = last.definition;
-  if (definition) {
-    const def = definition();
-    if (def === U || B_converts(def, new Set())) converts = true;
-    // Answered on demand: viewing the definition now would view the refs
-    // inside it, and through them the definition again.
-    view.definition = () => {
-      const def = definition();
-      if (def === U) return def;
-      let defView = outputViews.get(def);
-      // While it is built, a ref inside it asking is told the definition itself:
-      // only whether it converts is read then, never compiled.
-      if (defView === U) {
-        outputViews.set(def, def);
-        outputViews.set(def, (defView = B_outputView(def)));
-        if (defView !== def) viewSources.set(defView, def);
-      }
-      return defView;
-    };
-  }
-  return converts ? view : schema;
 };
 
 // Compiles one custom coder of `S.to` into the chain. The two seams differ in

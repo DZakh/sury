@@ -80,6 +80,32 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
   ).toThrow("Expected at most 3 schemas");
 });
 
+test("a schema of a second Sury instance is named, not read as data", async () => {
+  // An ESM app whose CJS dependency loads Sury gets two copies, and a spec has
+  // only one.
+  const path: string = "../index.mjs?instance=2";
+  const other = (await import(path)) as typeof S;
+  const foreign = other.schema({ id: other.string });
+  expect(foreign).not.toBe(user);
+  const ops = [
+    S.parseOrThrow, S.parseAsResult, S.decodeOrThrow, S.decodeAsPromiseOrReject, S.encodeOrThrow,
+    S.encodeAsResult, S.assertInputOrThrow, S.assertOutputOrThrow, S.isInput, S.isOutput,
+    S.makeInputOrThrow, S.makeOutputOrThrow,
+    // The ReScript surface's own operations.
+    ...["$parseAsResult", "$encodeAsResult", "$makeAsResult"].map((name) => (S as unknown as Record<string, unknown>)[name]),
+  ] as ((...a: unknown[]) => unknown)[];
+  for (const op of ops) {
+    for (const args of [[foreign], [foreign, S.unknown], [S.unknown, foreign], [foreign, { id: "x" }], [{ id: "x" }, foreign]]) {
+      expect(() => op(...args), `${op.name}(${args.length})`).toThrow("[Sury] Expected a Sury schema");
+    }
+  }
+  // Nor is data: a prototype-less dict, a class instance, or an array, whose
+  // prototype has a `with` of its own.
+  expect(S.parseOrThrow(Object.assign(Object.create(null), { with: () => 0 }), S.unknown)).toBeTypeOf("object");
+  expect(S.parseOrThrow(new Date(0), S.unknown)).toEqual(new Date(0));
+  expect(S.parseOrThrow([1], S.unknown)).toEqual([1]);
+});
+
 // ── Result tail ──────────────────────────────────────────────────────────────
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {

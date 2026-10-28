@@ -1,31 +1,43 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: 'S.literal(S.parseOrThrow({ f: "x" }, S.reverse(S.union([S.schema({ kind: "k3", b: S.boolean }), S.object((s) => ({ f: s.fieldOr("f", S.string, "d") }))])).with(S.to, S.unknown.with(S.noValidation, true)).with(S.to, S.jsonString)))'
-  input: string
+  schema: 'S.reverse(S.union([S.schema({ kind: "k3", b: S.boolean }), S.object((s) => ({ f: s.fieldOr("f", S.string, "d") }))])).with(S.to, S.unknown.with(S.noValidation, true)).with(S.to, S.jsonString)'
+  input: '{ kind: "k3"; b: boolean; } | { f: string; }'
   output: string
-  instantiations: 7915
+  instantiations: 8016
 jsonSchema:
-  input: '{ type: "string", const: "{\"f\":x}" }'
-  fromInputType: '"{\"f\":x}"'
-  output: '{ type: "string", const: "{\"f\":x}" }'
-  fromOutputType: '"{\"f\":x}"'
+  input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "k3" }, b: { type: "boolean" } }, additionalProperties: false, required: ["kind", "b"] }, { type: "object", properties: { f: { type: "string" } }, additionalProperties: false, required: ["f"] }] }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "k3" }, b: { type: "boolean" } }, additionalProperties: false, required: ["kind", "b"] }, { type: "object", properties: { f: { type: "string" } }, additionalProperties: false, required: ["f"] }] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
   openapi-3.0:
-    input: '{ type: "string", enum: ["{\"f\":x}"] }'
-    output: '{ type: "string", enum: ["{\"f\":x}"] }'
-isEqual: alwaysEqual
-compare: alwaysCompare
+    input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["k3"] }, b: { type: "boolean" } }, additionalProperties: false, required: ["kind", "b"] }, { type: "object", properties: { f: { type: "string" } }, additionalProperties: false, required: ["f"] }] }'
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { kind: \"k3\"; b: boolean; } | { f: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i==="{\"f\":x}"||e[0](i);return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k3"){l2:{let v0=i.b;if(!(typeof v0==="boolean")){v1=[v1,e[0],v0];break l2}i={kind:i.kind,b:v0};break}}if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v3=i.f;if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l4}i={f:v3};break}}throw e[2](i,v1)}let v6;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k3"){l7:{let v5=i.b;if(!(typeof v5==="boolean")){v6=[v6,e[3],v5];break l7}for(let v8 in i)if(v8!=="kind"&&v8!=="b"){v6=[v6,e[4],v8];break l7};i="{\"kind\":\"k3\",\"b\":"+v5+"}";break}}if(typeof i==="object"&&i&&!Array.isArray(i)){l10:{let v9=i.f;if(!(typeof v9==="string")){v6=[v6,e[6],v9];break l10}for(let v11 in i)if(v11!=="f"){v6=[v6,e[7],v11];break l10};i="{\"f\":"+e[5](v9)+"}";break}}throw e[8](i,v6)}return i}catch(v12){e[9](v12)}}
     examples:
-      # FIXME: the literal is what a sync parse of the reversed union into
-      # S.jsonString answers for { f: "x" }: the fieldOr member's string written
-      # bare, which is not JSON. parseAsPromiseOrReject answers "{\"f\":\"x\"}".
-      sync-parse-answer:
-        input: '"{\"f\":x}"'
-        output: '"{\"f\":x}"'
+      fieldor-member:
+        input: '{ f: "x" }'
+        output: '"{\"f\":\"x\"}"'
+      kind-member:
+        input: '{ kind: "k3", b: true }'
+        output: '"{\"kind\":\"k3\",\"b\":true}"'
   decode: eq-to-parse
-  encode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}let v2;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.kind==="k3"){l3:{let v1=v0.b;if(!(typeof v1==="boolean")){v2=[v2,e[1],v1];break l3}v0={kind:v0.kind,b:v1};break}}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){l5:{let v4=v0.f;if(v4!==void 0){if(!(typeof v4==="string")){v2=[v2,e[2],v4];break l5}}else{v4="d";}v0={f:v4};break}}throw e[3](v0,v2)}return v0}catch(v6){e[4](v6)}}
+    examples:
+      fieldor-member:
+        input: '"{\"f\":\"x\"}"'
+        output: '{ f: "x" }'
+      fieldor-default:
+        input: '"{}"'
+        output: '{ f: "d" }'
