@@ -99,11 +99,28 @@ test("a schema of a second Sury instance is named, not read as data", async () =
       expect(() => op(...args), `${op.name}(${args.length})`).toThrow("[Sury] Expected a Sury schema");
     }
   }
-  // Nor is data: a prototype-less dict, a class instance, or an array, whose
-  // prototype has a `with` of its own.
+  // Nor is data: a prototype-less dict, a class instance, an array, whose
+  // prototype has a `with` of its own, one whose `with` is a Temporal-like
+  // method or a getter that throws, and a class rooted in null.
   expect(S.parseOrThrow(Object.assign(Object.create(null), { with: () => 0 }), S.unknown)).toBeTypeOf("object");
   expect(S.parseOrThrow(new Date(0), S.unknown)).toEqual(new Date(0));
   expect(S.parseOrThrow([1], S.unknown)).toEqual([1]);
+  class PlainDate {
+    with() {
+      return this;
+    }
+  }
+  class Throwing {
+    get with(): never {
+      throw new Error("read");
+    }
+  }
+  const NullRooted = class extends (null as unknown as ObjectConstructor) {
+    with() {}
+  };
+  for (const data of [new PlainDate(), new Throwing(), Object.create(NullRooted.prototype)]) {
+    expect(S.parseOrThrow(data, S.unknown)).toBe(data);
+  }
 });
 
 // ── Result tail ──────────────────────────────────────────────────────────────

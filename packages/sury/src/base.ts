@@ -966,15 +966,16 @@ export const isOwnSchema = (value: unknown): boolean => {
 };
 
 // A schema of another copy of Sury (an ESM app beside a CJS dependency loads
-// two): rooted in its own copy of the two prototypes, which no data can be,
-// since only these prototypes are `Object.create(null)`-rooted and carry
-// `with`. Asked only of the data, which otherwise would be read as the value.
-// `with` first: a plain object's prototype has none, so data leaves after one
-// read. An array's has, from Object.prototype's side of the chain.
+// two): rooted in its own copy of the schema prototype, an
+// `Object.create(null)` object holding `with` and `flags`, which no JSON value,
+// dict or class instance is. Asked only of the data, which otherwise would be
+// read as the value, and through `hasOwn` alone, so no getter of the caller's
+// runs. Plain data leaves at its prototype.
 export const isForeignSchema = (value: unknown): boolean => {
   const proto = typeof value === objectTag && value && Object.getPrototypeOf(value);
-  const root = proto && typeof proto.with === functionTag && (Object.getPrototypeOf(proto) || proto);
-  return !!root && !Object.getPrototypeOf(root) && Object.hasOwn(root, "with");
+  if (!proto || proto === Object.prototype) return false;
+  const root = Object.getPrototypeOf(proto) || proto;
+  return !Object.getPrototypeOf(root) && Object.hasOwn(root, "with") && Object.hasOwn(root, "flags");
 };
 
 // What every operation says when no argument in a schema slot is one. Shared so
