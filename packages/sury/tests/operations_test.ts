@@ -99,6 +99,17 @@ test("a schema of a second Sury instance is named, not read as data", async () =
       expect(() => op(...args), `${op.name}(${args.length})`).toThrow("[Sury] Expected a Sury schema");
     }
   }
+  // The second copy can be another version: v11.0.0's schema prototype holds
+  // `with` and the reverse getter, and none of what later versions added.
+  const v11Prototype = Object.create(null);
+  Object.defineProperty(v11Prototype, "with", { value: (fn: (s: unknown) => unknown) => fn });
+  Object.defineProperty(v11Prototype, "r", { get: () => v11Schema });
+  const v11Schema = Object.assign(Object.create(v11Prototype), { type: "string", seq: 1 });
+  const v11SelfReverse = Object.assign(Object.create(Object.create(v11Prototype)), { type: "string", seq: 2 });
+  for (const old of [v11Schema, v11SelfReverse]) {
+    expect(() => S.parseOrThrow(old, S.unknown)).toThrow("[Sury] Expected a Sury schema");
+    expect(() => S.parseOrThrow(S.unknown, old)).toThrow("[Sury] Expected a Sury schema");
+  }
   // Nor is data: a prototype-less dict, a class instance, an array, whose
   // prototype has a `with` of its own, one whose `with` is a Temporal-like
   // method or a getter that throws, and a class rooted in null.
