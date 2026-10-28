@@ -376,21 +376,24 @@ S.union([email, phone]);                                // no member set: fails 
 
 An enum is open on the wire. A number its schema doesn't list decodes as that
 number and is written back as it was read, a one-value enum
-(`google.protobuf.NullValue`) included; a parse still refuses it. The value
-side has to be what holds the number. Read with
-`S.decodeOrThrow(S.protobuf, S.schema({ k: field }))`, where `enum` is
-`{ number: 1, type: "enum" }`:
+(`google.protobuf.NullValue`) included; a parse still refuses it.
+
+With `M = S.schema({ k: field }).with(S.to, S.protobuf)`, `S.decodeOrThrow(M)`
+writes your value and `S.encodeOrThrow(M)` reads bytes back: the field's input
+is your value and its output faces the wire. A literal on the input side keeps
+an unknown number. A literal on the output side checks it, and a non-number
+input replaces it with its own constant (`en` is `{ number: 1, type: "enum" }`):
 
 ```ts
-S.protobufField(S.literal(0), enum);                             // reads [8, 5] as 5, writes it back as [8, 5]
-S.protobufField(S.number.with(S.to, S.literal(0)), enum);        // the same
-S.protobufField(S.literal(0).with(S.to, S.number), enum);        // refuses 5 both ways: the wire side is 0
-S.protobufField(S.literal(null).with(S.to, S.literal(0)), enum); // reads [8, 5] as 0: the wire side is null
+S.protobufField(S.literal(0), en);                             // reads [8, 5] as 5, writes 5 as [8, 5]
+S.protobufField(S.literal(0).with(S.to, S.number), en);        // the same
+S.protobufField(S.number.with(S.to, S.literal(0)), en);        // refuses 5 both ways
+S.protobufField(S.literal(null).with(S.to, S.literal(0)), en); // reads [8, 5] as null, writes null as nothing
 ```
 
-Specs: `codec-protobuf-enum-single`, `codec-protobuf-oneof-open-literal-chains`,
+One spec per line, in order: `codec-protobuf-enum-single`,
+`codec-protobuf-enum-single-to-number`,
 `codec-protobuf-enum-single-number-to-literal`,
-`codec-protobuf-enum-number-to-literal-from-unknown`,
 `codec-protobuf-enum-null-to-zero-wire`.
 
 ## Protobuf Any
