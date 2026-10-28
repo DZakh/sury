@@ -136,16 +136,34 @@ test("protobuf reads NaN into a number when the global config disables the NaN c
     o: S.protobufField(S.nullable(S.number), { number: 2, type: "double" }),
     l: S.protobufField(S.array(S.number), 3),
     f: S.protobufField(S.number, { number: 4, type: "float" }),
+    // A nested message compiles its own reader, map values and oneofs included.
+    m: S.protobufField(
+      S.schema({
+        x: S.protobufField(S.number, 1),
+        d: S.protobufField(S.record(S.number), 2),
+        c: S.union([S.schema({ case: "v" as const, value: S.protobufField(S.number, 3) }), S.schema({ case: undefined })]),
+      }),
+      5,
+    ),
   });
-  const bytes = new Uint8Array([9, ...nan, 17, ...nan, 26, 8, ...nan, 37, 0, 0, 192, 127]);
+  const nested = [9, ...nan, 18, 12, 10, 1, 97, 17, ...nan, 25, ...nan];
+  const bytes = new Uint8Array([9, ...nan, 17, ...nan, 26, 8, ...nan, 37, 0, 0, 192, 127, 42, nested.length, ...nested]);
+  let flagged: (bytes: Uint8Array) => S.Output<typeof Message>;
   try {
     S.global({ disableNanNumberValidation: true });
-    const read = S.decodeOrThrow(S.protobuf, Message)(bytes);
-    t.expect([read.n, read.o, read.l[0], read.f].every(Number.isNaN)).toBe(true);
+    flagged = S.decodeOrThrow(S.protobuf, Message);
+    const read = flagged(bytes);
+    const c = read.m.c as { value: number };
+    t.expect([read.n, read.o, read.l[0], read.f, read.m.x, read.m.d["a"], c.value].every(Number.isNaN)).toBe(true);
   } finally {
     S.global({});
   }
+  // An operation keeps the config it was compiled under.
+  t.expect(Number.isNaN(flagged(bytes).n)).toBe(true);
   t.expect(() => S.decodeOrThrow(S.protobuf, Message)(bytes)).toThrow("Failed at n: Expected number, received NaN");
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([42, nested.length, ...nested]))).toThrow(
+    "Failed at m.x: Expected number, received NaN",
+  );
   t.expect(() => S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([17, ...nan]))).toThrow(
     "Failed at o: Expected number | null, received NaN",
   );

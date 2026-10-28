@@ -508,6 +508,11 @@ export type Internal = {
   space?: number;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
+  // A literal a property read never inlines (`valGet`), because its value can
+  // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
+  // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
+  // `S.protobufField` sets it on every literal link of the field's chain.
+  openLiteral?: true;
   protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
@@ -741,13 +746,6 @@ export const isSchemaObject = (obj: unknown): boolean =>
   typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
 
 export const isLiteral = (schema: Internal): boolean => "const" in schema;
-
-// A one-value protobuf enum (`google.protobuf.NullValue`) is open: proto3 reads
-// an unknown number as it is, so a property read of one is of the value and
-// never the literal inlined in its place, or a trusted decode writes 5 back as
-// 0. `S.protobufField` stores `type`.
-export const isOpenLiteral = (schema: Internal): boolean =>
-  (schema.protobufField as { type?: string } | undefined)?.type === "enum";
 
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);

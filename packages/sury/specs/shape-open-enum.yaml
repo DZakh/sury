@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ k: S.protobufField(S.union([0]), { number: 1, type: "enum" }) }).with(S.shape, (o) => ({ v: o.k }))'
+  input: "{ k: 0; }"
+  output: "{ v: 0; }"
+  instantiations: 5595
+jsonSchema:
+  input: '{ type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] }'
+  output: '{ type: "object", properties: { v: { type: "number", const: 0 } }, required: ["v"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] }'
+    output: '{ type: "object", properties: { v: { type: "number", enum: [0] } }, required: ["v"] }'
+isEqual: alwaysEqual
+compare:
+  input: "throws: [Sury] Can't compare { k: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { v: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.k;v0===0||e[0](v0);return {v:v0}}catch(v1){e[2](v1)}}
+    examples:
+      unknown-number-refused:
+        input: "{ k: 5 }"
+        error: "Failed at k: Expected 0, received 5"
+  decode:
+    expression: i=>{return {v:i.k}}
+    examples:
+      unknown-number-kept:
+        input: "{ k: 5 }"
+        output: "{ v: 5 }"
+  encode:
+    expression: i=>{return {k:i.v}}
+    examples:
+      unknown-number-kept:
+        input: "{ v: 5 }"
+        output: "{ k: 5 }"

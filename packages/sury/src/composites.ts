@@ -21,7 +21,6 @@ import {
   instanceTag,
   type Internal,
   isLiteral,
-  isOpenLiteral,
   isOptional,
   isSchemaObject,
   noopDecoder,
@@ -975,7 +974,7 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema) && !isOpenLiteral(schema)
+      i: isLiteral(schema) && !schema.openLiteral
         ? B_inlineConst(parent, schema)
         : parent.s.type === objectTag && location in Object.prototype
           ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${accessor}:void 0)`

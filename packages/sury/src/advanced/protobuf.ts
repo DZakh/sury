@@ -761,7 +761,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
     const item = repeated || map !== U ? (container.additionalItems as Internal) : U;
     let [message, raw, read] = holding(metadata, item ?? propertyValue, shape, `field "${key}"`, getOutputSchema(item ?? property));
     const done = raw === read;
-    const finite = finiteRead(metadata.type, raw, read);
+    const finite = finiteRead(metadata.type, raw, read, item ?? property);
     // A repeated or map field reads into the user's container, its length
     // checks included.
     if (repeated || map !== U) {
@@ -2082,13 +2082,15 @@ const reasonArg = (reason: string): string => (reason === nanReason ? "" : JSON.
 const nanReason = "Expected number, received NaN";
 
 // A double or float read into a number schema refuses NaN, as parsing one
-// does, and with the same words. The conversion from what the wire read to the
-// field's schema checks only what the two types differ in, and both are
-// numbers, so the read checks: for `S.number`, and for a union holding one
-// (`S.nullable(S.number)`) unless a member is NaN itself. A format (int32) or a
-// literal converts with a check of its own.
-const finiteRead = (type: FieldType, raw: Internal, read: Internal): string | undefined =>
-  (type === "double" || type === "float") && raw === float && refusesNaN(read) ? `Expected ${inputExpression(read)}, received NaN` : U;
+// does, in the words a parse of `named` uses: the field's schema, optional
+// included, or a list's item. A wrapper's message is shared by every field
+// that holds its value, so it names the value it unwraps. The conversion from
+// what the wire read to the field's schema checks only what the two types
+// differ in, and both are numbers, so the read checks: for `S.number`, and for
+// a union holding one (`S.nullable(S.number)`) unless a member is NaN itself. A
+// format (int32) or a literal converts with a check of its own.
+const finiteRead = (type: FieldType, raw: Internal, read: Internal, named = read): string | undefined =>
+  (type === "double" || type === "float") && raw === float && refusesNaN(read) ? `Expected ${inputExpression(named)}, received NaN` : U;
 
 const refusesNaN = (schema: Internal): boolean =>
   schema.type === anyOfTag ? schema.anyOf!.some(anyNumber) && !schema.anyOf!.some((member) => member.const !== member.const) : anyNumber(schema);
@@ -2684,12 +2686,12 @@ const unchecked = (schema: Internal): Internal => {
 const opaque = /* @__PURE__ */ dictFactory(unknown);
 
 // A scalar arm's value as the dispatch hands it over. A one-value enum is open
-// (`isOpenLiteral`), so held as itself the dispatch would test the arm for the
+// (`openLiteral`), so held as itself the dispatch would test the arm for the
 // literal and send 5 nowhere: it is any number when it is the arm itself, which
 // its type tells from its siblings, and read as it is beside the arm's literals.
 const armHeld = (field: Field, at: string | undefined): Internal => {
   const own = unchecked(getOutputSchema(field.armValue!));
-  return field.type !== "enum" || own.const === U ? own : at === U ? unchecked(float) : copySchema(unknown);
+  return !field.armValue!.openLiteral ? own : at === U ? unchecked(float) : copySchema(unknown);
 };
 
 // The arm a union holds is the union's own to tell, each arm continuing into
