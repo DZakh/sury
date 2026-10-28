@@ -512,9 +512,8 @@ export type Internal = {
   // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
   // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
   // `S.protobufField` sets it on every number-valued literal link of an enum
-  // field's chain. Only the end holding the user's value keeps an unknown
-  // number: a number literal at the wire's end checks it, and a non-number
-  // constant at the user's end replaces it (CODEC_SPEC.md, "Protobuf enum").
+  // field's chain. Which spellings keep an unknown number is shown in
+  // CODEC_SPEC.md, "Protobuf enum".
   openLiteral?: true;
   protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
