@@ -1,6 +1,4 @@
 import { getOutputSchema, optionalMembers } from "../parse";
-import { B_refine } from "../builder";
-import { literalDecoder } from "../primitives";
 import {
   anyOfTag,
   arrayTag,
@@ -8,9 +6,7 @@ import {
   booleanTag,
   copySchema,
   instanceTag,
-  type Builder,
   type Internal,
-  isLiteral,
   numberTag,
   objectTag,
   panic,
@@ -260,12 +256,6 @@ export const protobufTypeName = (schema: Internal, typeName: string): Internal =
   return mut;
 };
 
-// A number converting into an open literal (`openLiteral`) is passed on as it
-// is: the literal holds whatever number reached it. Only a parse (8) holds it
-// to the constant, as it does a plain open literal.
-const openLiteralDecoder: Builder = (input) =>
-  input.g.o & 8 || isLiteral(input.s) || input.s.type !== numberTag || input.e.noValidation ? literalDecoder(input) : B_refine(input, input.e);
-
 // @__NO_SIDE_EFFECTS__
 export const protobufField = (schema: Internal, field: number | ProtobufField): Internal => {
   const number = typeof field === "number" ? field : field?.number;
@@ -351,10 +341,7 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // updateOutput copied every link, so marking them touches nothing shared.
   if (type === "enum") {
     for (let link: Internal | undefined = numbered; link !== U; link = link.to) {
-      if (typeof link.const === "number") {
-        link.openLiteral = true;
-        link.decoder = openLiteralDecoder;
-      }
+      if (typeof link.const === "number") link.openLiteral = true;
     }
   }
   return numbered;

@@ -512,8 +512,8 @@ export type Internal = {
   // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
   // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
   // `S.protobufField` sets it on every number-valued literal link of an enum
-  // field's chain, with a decoder that passes a number into it unchecked
-  // outside a parse.
+  // field's chain. A conversion into one (`S.number.with(S.to, S.literal(0))`)
+  // still checks its constant: that is the schema saying the value is 0.
   openLiteral?: true;
   protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by

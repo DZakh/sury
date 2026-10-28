@@ -372,6 +372,22 @@ S.union([email, phone]);                                // no member set: fails 
   (`codec-protobuf-oneof-required`, `codec-protobuf-oneof-required-nested`).
   Encode writes the member the union dispatches to, whichever spelling.
 
+## Protobuf enum
+
+An enum is open on the wire. A number its schema doesn't list decodes as that
+number and is written back as it was read, a one-value enum
+(`google.protobuf.NullValue`) included; a parse still refuses it:
+
+```ts
+S.protobufField(S.literal(0), { number: 1, type: "enum" });                      // reads [8, 5] as 5, writes it back as [8, 5]
+S.protobufField(S.number.with(S.to, S.literal(0)), { number: 1, type: "enum" }); // refuses 5 both ways
+```
+
+- **Only the literal the wire meets is open** (`codec-protobuf-enum-single`,
+  `codec-protobuf-enum-single-renamed`, `codec-protobuf-oneof-open-literal-chains`).
+- **A conversion into a literal still checks it**: it says the value is that
+  constant (`codec-protobuf-enum-single-number-to-literal`).
+
 ## Protobuf Any
 
 `S.protobufAny` (`{ typeUrl, value }`) converts to a message `S.protobufTypeName`
