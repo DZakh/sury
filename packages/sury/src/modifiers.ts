@@ -51,6 +51,7 @@ import {
 } from "./composites";
 import {
  decodeOutput,
+ getOp,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
@@ -419,16 +420,18 @@ const outputView = (schema: Internal): Internal => {
   // No schema describes what a coder into `unknown` (`S.list`) outputs, so a
   // value is told apart the way S.isOutput tells it: by the node's own reverse
   // accepting it, whose failure is the reason. A built-in conversion's Output
-  // is the `unknown` it claims, and one whose reverse doesn't compile (a
-  // "never" or decode-only encode) has nothing to hold it to.
-  if (last !== schema && last.type === unknownTag && last.serializer) {
+  // is the `unknown` it claims, and a coder whose own encode can't run in a
+  // sync check ("never", the decode-only shorthand, `{async}`) has nothing to
+  // hold it to. That is asked of the encode alone, on a link of its own, so
+  // anything else in the reverse that doesn't compile still says so.
+  const encode = last.serializer;
+  if (last !== schema && last.type === unknownTag && encode) {
     const own = view.refiner;
     view.refiner = (val) => {
-      const reversed = reverse(schema);
-      const is = decodeOutput(reversed, 4096);
       const checks = own ? own(val) : [];
-      if (!is) return checks;
-      const embedded = B_embed(val, is);
+      if (!decodeOutput(reverse(codecTo(copySchema(unknown), unknown, U, encode)), 4096)) return checks;
+      const reversed = reverse(schema);
+      const embedded = B_embed(val, getOp(8 | 4096, 1, reversed));
       return checks.concat({
         c: (v) => `${embedded}(${v})`,
         // Asked again only for the reason: inside a union a failing arm is how

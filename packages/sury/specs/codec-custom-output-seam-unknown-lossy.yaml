@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.schema({ f: S.object((s) => { s.field("a", S.string); return { b: s.field("b", S.string) }; }).with(S.to, S.unknown, { decode: (v: unknown) => v, encode: (v: unknown) => v }) }), { decode: (v: unknown) => v, encode: (v: unknown) => v } as any)'
+  input: unknown
+  output: "{ f?: unknown; }"
+  instantiations: 3037
+jsonSchema:
+  input: '{ description: "seam" }'
+  fromInputType: JSON
+  output: '{ type: "object", properties: { f: {} }, required: ["f"] }'
+  fromOutputType: "{ f: JSON; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.f,b.f)
+compare:
+  input: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Missing input for string at a"
+  decode: eq-to-parse
+  encode: eq-to-parse
