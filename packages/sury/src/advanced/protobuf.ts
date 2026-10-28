@@ -2599,7 +2599,7 @@ const protobufDecoder = (input: Val): Val => {
   const value = B_scope(input);
   value.s = message.object;
   value.d = validated;
-  const [head, reads] = writesOf(value, message);
+  const [head, reads] = writesOf(value, message, input);
   const readRoot: Read = (field) => {
     const fv = validated?.[field.path[0]!];
     return { expr: reads.get(field)!, numeric: field.path.length === 1 && fv !== U && fv.s.type === numberTag && fv.s.format !== U };
@@ -2678,6 +2678,21 @@ const opaque = /* @__PURE__ */ dictFactory(unknown);
 // 0. Its field's val inlines the literal, so the read is of the property.
 const openLiteral = (field: Field, schema: Internal): boolean => field.type === "enum" && getOutputSchema(schema).const !== U;
 
+// The property a field's value was read from, on the nearest object up the
+// chain that a var holds: an `S.object` renames its keys and builds the object
+// the message reads, with the literal inlined in it. Read there, nothing is
+// built for it; past a conversion that isn't a plain property read, the
+// literal is all there is.
+const sourceRead = (value: Val, read: Val): string | undefined => {
+  for (let at: Val | undefined = value; at !== U; at = at.prev) {
+    if (at.v !== _var) continue;
+    const rel = read.path.slice(at.path.length);
+    const key = rel[0];
+    return rel.length === 1 && typeof key === "string" && at.s.properties?.[key] === read.s ? inlinedProperty(at.i, key) : U;
+  }
+  return U;
+};
+
 // A scalar arm's value as the dispatch hands it over: an open literal as any
 // number when it is the arm itself, which its type tells from its siblings,
 // and read as it is beside the arm's literals.
@@ -2689,7 +2704,7 @@ const armHeld = (field: Field, at: string | undefined): Internal => {
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
-const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
+const writesOf = (value: Val, msg: Message, source: Val = value): [code: string, reads: Map<Field, string>] => {
   const g = value.g;
   const reads = new Map<Field, string>();
   let code = "";
@@ -2746,7 +2761,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
       else {
         const field = msg.fields.find((field) => field.key === key)!;
         code += B_merge(read);
-        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? inlinedProperty(value.v(), key) : read.i);
+        reads.set(field, openLiteral(field, read.s) && (read.i as unknown) === read.s.const ? sourceRead(source, read) ?? read.i : read.i);
       }
     }
   }
