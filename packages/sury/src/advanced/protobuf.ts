@@ -1470,8 +1470,7 @@ export class Writer {
     this.ensure(5 + n);
     if (n < 128) this.buf[this.pos++] = n;
     else this.varint32(n);
-    this.buf.set(value, this.pos);
-    this.pos += n;
+    this.raw(value);
   }
   raw(value: Uint8Array): void {
     const n = value.length;
