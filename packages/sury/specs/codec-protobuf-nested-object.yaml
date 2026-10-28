@@ -36,6 +36,9 @@ operations:
       writes-the-record-the-value-holds:
         input: '{ home: { s: "Main" } }'
         output: new Uint8Array([10, 6, 10, 4, 77, 97, 105, 110])
+      text-turning-non-ascii-midway:
+        input: '{ home: { s: "Ma€n" } }'
+        output: new Uint8Array([10, 8, 10, 6, 77, 97, 226, 130, 172, 110])
       a-128-byte-message-takes-a-two-byte-length:
         input: '{ home: { s: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } }'
         output: new Uint8Array([10, 128, 1, 10, 126, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120])

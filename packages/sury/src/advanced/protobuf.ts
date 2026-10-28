@@ -1433,17 +1433,20 @@ export class Writer {
   }
   text(v: string): void {
     const len = v.length;
+    // ASCII is copied as it is checked, in one pass; a char over 127 leaves
+    // what was copied for the encoder to write over.
     if (len < 32) {
+      this.ensure(1 + len);
+      const buf = this.buf;
+      let pos = this.pos + 1;
       let i = 0;
       for (; i < len; i++) {
-        if (v.charCodeAt(i) > 127) break;
+        const c = v.charCodeAt(i);
+        if (c > 127) break;
+        buf[pos++] = c;
       }
       if (i === len) {
-        this.ensure(1 + len);
-        const buf = this.buf;
-        let pos = this.pos;
-        buf[pos++] = len;
-        for (i = 0; i < len; i++) buf[pos++] = v.charCodeAt(i);
+        buf[this.pos] = len;
         this.pos = pos;
         return;
       }
