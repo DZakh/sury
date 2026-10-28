@@ -38,6 +38,12 @@ operations:
       nested:
         input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63])
         output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: 1 } }"
+      nan-in-a-repeated-struct:
+        input: new Uint8Array([18, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at metas[0]: Expected JSON, received NaN"
+      nan-in-a-oneof-struct:
+        input: new Uint8Array([34, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at pick.value: Expected JSON, received NaN"
       value-without-kind-is-null:
         input: new Uint8Array([10, 7, 10, 5, 10, 1, 97, 18, 0])
         output: "{ metas: [], byKey: {}, pick: { case: undefined }, meta: { a: null } }"

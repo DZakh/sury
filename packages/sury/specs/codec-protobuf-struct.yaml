@@ -47,6 +47,12 @@ operations:
       empty:
         input: new Uint8Array([])
         output: "{ meta: {}, tags: [], mask: [], masks: [] }"
+      nan-in-a-struct:
+        input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 248, 127])
+        error: "Failed at meta: Expected JSON, received NaN"
+      minus-infinity-in-a-list-value:
+        input: new Uint8Array([18, 11, 10, 9, 17, 0, 0, 0, 0, 0, 0, 240, 255])
+        error: "Failed at tags: Expected JSON, received -Infinity"
       values:
         input: new Uint8Array([10, 16, 10, 14, 10, 1, 97, 18, 9, 17, 0, 0, 0, 0, 0, 0, 240, 63, 18, 9, 10, 3, 26, 1, 120, 10, 2, 32, 1, 26, 8, 10, 3, 97, 46, 98, 10, 1, 99, 34, 3, 10, 1, 120, 34, 0, 42, 0])
         output: '{ meta: { a: 1 }, tags: ["x", true], mask: ["a.b", "c"], masks: [["x"], []], none: {} }'

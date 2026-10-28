@@ -1724,7 +1724,8 @@ const readList = (r: Reader, d: number, prev?: unknown): unknown[] => {
 // A Value is the JSON it holds, a Struct its objects and a ListValue its
 // arrays. One with no kind set reads as `null`, the kind `null_value` names.
 // Seen again, it merges the way a oneof member does: a Struct into a Struct and
-// a list onto a list, anything else replaced.
+// a list onto a list, anything else replaced. A double is JSON only when it is
+// finite, as `S.json` holds it to when parsing one.
 const readValue = (r: Reader, d: number, prev: unknown = null): unknown => {
   if (d >= 100) fail("Protobuf message nesting limit exceeded");
   let value = prev;
@@ -1733,8 +1734,10 @@ const readValue = (r: Reader, d: number, prev: unknown = null): unknown => {
     if (tag === 8) {
       r.varint64();
       value = null;
-    } else if (tag === 17) value = r.f64();
-    else if (tag === 26) value = r.string();
+    } else if (tag === 17) {
+      value = r.f64();
+      if (!Number.isFinite(value)) fail(`Expected JSON, received ${value}`);
+    } else if (tag === 26) value = r.string();
     else if (tag === 32) value = r.bool();
     else if (tag === 42 || tag === 50) {
       const end = r.sub();
