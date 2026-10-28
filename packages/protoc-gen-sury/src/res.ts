@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupExport, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
+import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -181,11 +181,8 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const messageRef = (message: Message, group: Group | undefined): string => {
     if (!group?.members.has(message)) return `${ref(message)}.schema`;
     const name = local(message);
-    const at = groupRef(group, message, () => [
-      `let ${name} = ${member(message, group)}`,
-      ...(group.slots.has(message) ? [`${name}Ref.contents = Some(${name})`] : []),
-    ]);
-    return at === "slot" ? `${name}Ref.contents->Stdlib.Option.getUnsafe` : name;
+    const at = groupRef(group, message, () => [`let ${name} = ${member(message, group)}`, `${name}Ref.contents = Some(${name})`]);
+    return at === "outer" ? `${name}Ref.contents->Stdlib.Option.getUnsafe` : name;
   };
 
   const elementSchema = (field: Field, element: Element, scope: Group | undefined): string => {
@@ -234,21 +231,34 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
   const named = (schema: string, desc: Message | Enum): string => `${schema}->${S}protobufTypeName(${JSON.stringify(desc.typeName)})`;
 
   // The record is named for the same reason a oneof arm is: a group's records
-  // share one scope and may share labels. A slot is spelled with its type, as a
-  // oneof's `None` or `Some` would shadow option's.
+  // share one scope and may share labels.
   function member(message: Message, group: Group): string {
     const depth = group.open.length;
     const indent = "  ".repeat(depth + 2);
     const { body, statements, readsItself } = inCallback(group, message, () =>
       named(`${S}schema((s): ${groupNames.get(message)} => ${recordBody(message, group, indent)})`, message),
     );
-    if (depth === 0) statements.unshift(...[...group.slots].map((slot) => `let ${local(slot)}Ref: ref<option<${S}t<${groupNames.get(slot)}>>> = {contents: None}`));
     const head = `${S}recursive(${JSON.stringify(namesOf(file).shape.get(message))}, ${readsItself ? local(message) : "_"} =>`;
     const close = "  ".repeat(depth + 1);
     return statements.length === 0
       ? `${head}\n${indent}${body}\n${close})`
       : `${head} {\n${statements.map((statement) => `${indent}${statement}\n`).join("")}${indent}${body}\n${close}})`;
   }
+
+  // A named function's: ReScript flattens a block, and a function called where
+  // it is written, into the module's own statements, where filling a ref is a
+  // side effect of the export that does it. A ref is spelled with its type, as
+  // a oneof's `None` or `Some` would shadow option's.
+  const groupDecl = (root: Message, rest: Message[]): string => {
+    const name = `${uncapitalize(moduleOf(root))}Group`;
+    const refs = rest.map((message) => `  let ${local(message)}Ref: ref<option<${S}t<${groupNames.get(message)}>>> = {contents: None}\n`);
+    const built = member(root, groupOf([root, ...rest]));
+    const read = rest.map((message) => `${local(message)}Ref.contents->Stdlib.Option.getUnsafe`);
+    return (
+      `%%private(let ${name} = () => {\n${refs.join("")}  let ${local(root)} = ${built}\n  (${[local(root), ...read].join(", ")})\n})\n` +
+      `%%private(let (${[root, ...rest].map(local).join(", ")}) = ${name}())\n`
+    );
+  };
 
   const docstring = (path: number[], indent: string): string => {
     const text = file.comments.get(path.join("."));
@@ -315,11 +325,12 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
       }
       declaring = new Set();
       out.push(decls.join(""));
-      const members = new Set(component);
+      const [root, ...rest] = component as [Message, ...Message[]];
+      if (rest.length > 0 && ctx.bind === undefined) out.push(groupDecl(root, rest));
       for (const message of component) {
         out.push(
           `${docstring(message.path, "")}module ${moduleOf(message)} = {\n  type t = ${groupNames.get(message)}\n` +
-            `${schemaDecl(message, () => groupExport(members, (group) => member(message, group)))}}\n`,
+            `${schemaDecl(message, () => (rest.length === 0 ? member(root, groupOf(component)) : local(message)))}}\n`,
         );
       }
       continue;

@@ -57,7 +57,8 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
    by buf, declares the fields the source did.
 9. **treeShaking** - Rollup 4 bundles of one message, one `sury/protobuf/wkt`
    type, one ReScript module and one `S.Protobuf` type (`test/res`) keep none
-   of their siblings.
+   of their siblings, and one member of a recursive group, bundled alone in
+   either language, encodes and decodes.
 
 ## Rules the output follows
 
@@ -68,12 +69,13 @@ pnpm protobuf:conformance:generated     # Google's suite over the generated sche
   for schemas written by hand.
 - A singular message field is always `S.optional`: that is proto3 presence,
   and it is what keeps a recursive message finite.
-- Each export of a recursive group builds the whole group in its own
-  `S.recursive`, every member once, and reads nothing another export built:
-  `S.recursive` is `@__NO_SIDE_EFFECTS__`, so a bundler drops an export nothing
-  imports along with whatever it filled in. A callback that doesn't read its
-  own schema takes no parameter, for `noUnusedParameters` and ReScript's
-  warning 27.
+- A recursive group of messages is built once, by a function that returns
+  every member and whose result each export reads. No export reads a variable
+  another one fills in: `S.recursive` is `@__NO_SIDE_EFFECTS__`, so a bundler
+  drops an export nothing imports along with whatever it filled in. The
+  ReScript function is a named one, as ReScript inlines a function called
+  where it is written. A callback that doesn't read its own schema takes no
+  parameter, for `noUnusedParameters` and ReScript's warning 27.
 
 ## Not generated
 

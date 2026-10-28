@@ -234,41 +234,39 @@ and leaf = {
   branches: array<branch>,
 }
 
-/**
- Two messages that hold each other.
- */
-module Branch = {
-  type t = branch
-  let schema: S.t<t> = S.recursive("Branch", branchSchema => {
+%%private(let branchGroup = () => {
+  let leafSchemaRef: ref<option<S.t<leaf>>> = {contents: None}
+  let branchSchema = S.recursive("Branch", branchSchema => {
     let leafSchema = S.recursive("Leaf", _ =>
       S.schema((s): leaf => {
         branches: s.matches(S.array(branchSchema)->S.protobufField(1, ~type_=#message)),
       })->S.protobufTypeName("example.v1.Leaf")
     )
+    leafSchemaRef.contents = Some(leafSchema)
     S.schema((s): branch => {
       n: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
       leaf: s.matches(S.option(leafSchema)->S.protobufField(2, ~type_=#message)),
     })->S.protobufTypeName("example.v1.Branch")
   })
+  (branchSchema, leafSchemaRef.contents->Stdlib.Option.getUnsafe)
+})
+%%private(let (branchSchema, leafSchema) = branchGroup())
+
+/**
+ Two messages that hold each other.
+ */
+module Branch = {
+  type t = branch
+  let schema: S.t<t> = branchSchema
 }
 
 module Leaf = {
   type t = leaf
-  let schema: S.t<t> = S.recursive("Leaf", leafSchema => {
-    let branchSchema = S.recursive("Branch", _ =>
-      S.schema((s): branch => {
-        n: s.matches(S.int->S.protobufField(1, ~type_=#int32)),
-        leaf: s.matches(S.option(leafSchema)->S.protobufField(2, ~type_=#message)),
-      })->S.protobufTypeName("example.v1.Branch")
-    )
-    S.schema((s): leaf => {
-      branches: s.matches(S.array(branchSchema)->S.protobufField(1, ~type_=#message)),
-    })->S.protobufTypeName("example.v1.Leaf")
-  })
+  let schema: S.t<t> = leafSchema
 }
 
 /**
- Named as ReScript's Option module, which a group below reads a slot through.
+ Named as ReScript's Option module, which a group below reads its refs through.
  */
 module Option = {
   type t = {
@@ -299,13 +297,10 @@ and graphC = {
   c: option<graphC>,
 }
 
-/**
- Three messages that each hold all three, one way or another.
- */
-module GraphA = {
-  type t = graphA
-  let schema: S.t<t> = S.recursive("GraphA", graphASchema => {
-    let graphCSchemaRef: ref<option<S.t<graphC>>> = {contents: None}
+%%private(let graphAGroup = () => {
+  let graphBSchemaRef: ref<option<S.t<graphB>>> = {contents: None}
+  let graphCSchemaRef: ref<option<S.t<graphC>>> = {contents: None}
+  let graphASchema = S.recursive("GraphA", graphASchema => {
     let graphBSchema = S.recursive("GraphB", graphBSchema => {
       let graphCSchema = S.recursive("GraphC", graphCSchema =>
         S.schema((s): graphC => {
@@ -326,76 +321,33 @@ module GraphA = {
         )),
       })->S.protobufTypeName("example.v1.GraphB")
     })
+    graphBSchemaRef.contents = Some(graphBSchema)
     S.schema((s): graphA => {
       a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
       b: s.matches(S.array(graphBSchema)->S.protobufField(2, ~type_=#message)),
       c: s.matches(S.dict(graphCSchemaRef.contents->Stdlib.Option.getUnsafe)->S.protobufField(3, ~type_=#message, ~key=#string)),
     })->S.protobufTypeName("example.v1.GraphA")
   })
+  (graphASchema, graphBSchemaRef.contents->Stdlib.Option.getUnsafe, graphCSchemaRef.contents->Stdlib.Option.getUnsafe)
+})
+%%private(let (graphASchema, graphBSchema, graphCSchema) = graphAGroup())
+
+/**
+ Three messages that each hold all three, one way or another.
+ */
+module GraphA = {
+  type t = graphA
+  let schema: S.t<t> = graphASchema
 }
 
 module GraphB = {
   type t = graphB
-  let schema: S.t<t> = S.recursive("GraphB", graphBSchema => {
-    let graphCSchemaRef: ref<option<S.t<graphC>>> = {contents: None}
-    let graphASchema = S.recursive("GraphA", graphASchema => {
-      let graphCSchema = S.recursive("GraphC", graphCSchema =>
-        S.schema((s): graphC => {
-          a: s.matches(S.array(graphASchema)->S.protobufField(1, ~type_=#message)),
-          b: s.matches(S.dict(graphBSchema)->S.protobufField(2, ~type_=#message, ~key=#int32)),
-          c: s.matches(S.option(graphCSchema)->S.protobufField(3, ~type_=#message)),
-        })->S.protobufTypeName("example.v1.GraphC")
-      )
-      graphCSchemaRef.contents = Some(graphCSchema)
-      S.schema((s): graphA => {
-        a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-        b: s.matches(S.array(graphBSchema)->S.protobufField(2, ~type_=#message)),
-        c: s.matches(S.dict(graphCSchema)->S.protobufField(3, ~type_=#message, ~key=#string)),
-      })->S.protobufTypeName("example.v1.GraphA")
-    })
-    S.schema((s): graphB => {
-      a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-      b: s.matches(S.option(graphBSchema)->S.protobufField(2, ~type_=#message)),
-      pick: s.matches(S.option(
-        S.union([
-          S.schema((s): graphB_pick => C({value: s.matches(graphCSchemaRef.contents->Stdlib.Option.getUnsafe->S.protobufField(3, ~type_=#message))})),
-          S.schema((s): graphB_pick => None({value: s.matches(S.int->S.protobufField(4, ~type_=#int32))})),
-        ]),
-      )),
-    })->S.protobufTypeName("example.v1.GraphB")
-  })
+  let schema: S.t<t> = graphBSchema
 }
 
 module GraphC = {
   type t = graphC
-  let schema: S.t<t> = S.recursive("GraphC", graphCSchema => {
-    let graphBSchemaRef: ref<option<S.t<graphB>>> = {contents: None}
-    let graphASchema = S.recursive("GraphA", graphASchema => {
-      let graphBSchema = S.recursive("GraphB", graphBSchema =>
-        S.schema((s): graphB => {
-          a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-          b: s.matches(S.option(graphBSchema)->S.protobufField(2, ~type_=#message)),
-          pick: s.matches(S.option(
-            S.union([
-              S.schema((s): graphB_pick => C({value: s.matches(graphCSchema->S.protobufField(3, ~type_=#message))})),
-              S.schema((s): graphB_pick => None({value: s.matches(S.int->S.protobufField(4, ~type_=#int32))})),
-            ]),
-          )),
-        })->S.protobufTypeName("example.v1.GraphB")
-      )
-      graphBSchemaRef.contents = Some(graphBSchema)
-      S.schema((s): graphA => {
-        a: s.matches(S.option(graphASchema)->S.protobufField(1, ~type_=#message)),
-        b: s.matches(S.array(graphBSchema)->S.protobufField(2, ~type_=#message)),
-        c: s.matches(S.dict(graphCSchema)->S.protobufField(3, ~type_=#message, ~key=#string)),
-      })->S.protobufTypeName("example.v1.GraphA")
-    })
-    S.schema((s): graphC => {
-      a: s.matches(S.array(graphASchema)->S.protobufField(1, ~type_=#message)),
-      b: s.matches(S.dict(graphBSchemaRef.contents->Stdlib.Option.getUnsafe)->S.protobufField(2, ~type_=#message, ~key=#int32)),
-      c: s.matches(S.option(graphCSchema)->S.protobufField(3, ~type_=#message)),
-    })->S.protobufTypeName("example.v1.GraphC")
-  })
+  let schema: S.t<t> = graphCSchema
 }
 
 /**

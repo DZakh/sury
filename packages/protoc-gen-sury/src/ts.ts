@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, componentsOf, groupExport, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, wrapperScalar, wktImport } from "./shared";
+import { type Group, type Options, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, importPath, isStruct, jsdoc, outputPath, packable, wrapperScalar, wktImport } from "./shared";
 
 const scalarType = (scalar: Scalar, asString: boolean): string =>
   is64(scalar) ? (asString ? "string" : "bigint")
@@ -119,12 +119,12 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     return field.list ? `${element}[]` : element;
   };
 
-  // A group member is read by the name of its export, which the callback
-  // parameter or statement holding it shadows.
+  // A group member is read by the name of its export, which the group's
+  // variable and the callback parameter holding it shadow.
   const messageRef = (message: Message, group: Group | undefined): string => {
     if (!group?.members.has(message)) return sym.ref(message, "schema");
     const name = names.schema.get(message)!;
-    groupRef(group, message, () => [`${group.slots.has(message) ? "" : "const "}${name} = ${member(message, group)};`]);
+    groupRef(group, message, () => [`${name} = ${member(message, group)};`]);
     return name;
   };
 
@@ -188,11 +188,10 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   };
 
   function member(message: Message, group: Group): string {
-    const depth = group.open.length;
+    const depth = group.open.length + (group.members.size > 1 ? 1 : 0);
     const indent = "  ".repeat(depth + 1);
     const shape = names.shape.get(message)!;
     const { body, statements, readsItself } = inCallback(group, message, () => typed(`${S}.schema(${objectBody(message, group, indent)})`, message));
-    if (depth === 0) statements.unshift(...[...group.slots].map((slot) => `let ${names.schema.get(slot)}!: ${S}.Schema<${names.shape.get(slot)}>;`));
     const head = `${S}.recursive<${shape}>(${JSON.stringify(shape)}, (${readsItself ? names.schema.get(message) : ""}) =>`;
     const close = "  ".repeat(depth);
     return statements.length === 0
@@ -237,23 +236,31 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
   }
 
   for (const component of componentsOf(messages)) {
-    const recursive = isRecursive(component);
     for (const message of component) out.push(typeDecl(message));
-    const members = new Set(component);
-    for (const message of component) {
-      const schema = names.schema.get(message)!;
-      const shape = names.shape.get(message)!;
-      if (recursive) {
-        out.push(`export const ${schema} = ${groupExport(members, (group) => member(message, group))};\n`);
-      } else if (message.typeName === "google.protobuf.Any") {
-        // Built from its fields, Any would lack the pack and unpack `S.protobufAny` carries.
-        out.push(`export const ${schema}: ${S}.Schema<${shape}, ${shape}> = ${S}.protobufAny;\n`);
-      } else {
-        const body = objectBody(message, undefined, "");
-        // `S.schemaOf` is annotated, the function it returns can't be: without
-        // this, a bundler keeps every message of a file once one is imported.
-        out.push(`export const ${schema} = ${typed(`${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} })`, message)};\n`);
+    const [root, ...rest] = component.map((message) => names.schema.get(message)!) as [string, ...string[]];
+    if (isRecursive(component)) {
+      const built = member(component[0]!, groupOf(component));
+      if (rest.length === 0) {
+        out.push(`export const ${root} = ${built};\n`);
+        continue;
       }
+      // Annotated for esbuild, which doesn't see that S.recursive is pure from
+      // another module, and so would keep a group nothing imports.
+      const all = [root, ...rest].join(", ");
+      const variables = component.slice(1).map((message) => `  let ${names.schema.get(message)}!: ${S}.Schema<${names.shape.get(message)}>;\n`);
+      out.push(`export const [${all}] = /* @__PURE__ */ (() => {\n${variables.join("")}  const ${root} = ${built};\n  return [${all}] as const;\n})();\n`);
+      continue;
+    }
+    const message = component[0]!;
+    const shape = names.shape.get(message)!;
+    if (message.typeName === "google.protobuf.Any") {
+      // Built from its fields, Any would lack the pack and unpack `S.protobufAny` carries.
+      out.push(`export const ${root}: ${S}.Schema<${shape}, ${shape}> = ${S}.protobufAny;\n`);
+    } else {
+      const body = objectBody(message, undefined, "");
+      // `S.schemaOf` is annotated, the function it returns can't be: without
+      // this, a bundler keeps every message of a file once one is imported.
+      out.push(`export const ${root} = ${typed(`${S}.meta(/* @__PURE__ */ ${S}.schemaOf<${shape}>()(${body}), { name: ${JSON.stringify(shape)} })`, message)};\n`);
     }
   }
 

@@ -545,6 +545,36 @@ const treeShaking = async (corpus: Corpus) => {
     [],
     ["firstName", "boxedInOneof", '"sfixed64"', '"Node"', '"Branch"', '"GraphA"', "nanos"],
   );
+  // A group member other than the first, bundled alone, still builds: what it
+  // reads can't be a variable only a dropped export fills.
+  const graph = "{ a: [{ b: [{ pick: { case: \"c\", value: { a: [], b: {} } } }], c: {} }], b: { 1: { pick: { case: \"none\", value: 1 } } } }";
+  const runs = async (label: string, from: string, schema: string, value: string) => {
+    const code = await bundled(
+      `import * as S from "sury";\nimport ${from};\nconst value = ${value};\n` +
+        `const back = S.decodeOrThrow(S.protobuf, ${schema})(S.decodeOrThrow(${schema}, S.protobuf)(value));\n` +
+        `if (back.a[0].b[0].pick.case !== "c") throw new Error(JSON.stringify(back));\n`,
+    );
+    const path = join(shake, `${label.replace(/\W+/g, "_")}.mjs`);
+    writeFileSync(path, code);
+    try {
+      await import(pathToFileURL(path).href);
+    } catch (error) {
+      fail(`tree-shaking: ${label} bundled alone doesn't run: ${(error as Error).message}`);
+    }
+    return code;
+  };
+  shakes(
+    "one member of a group",
+    await runs("one member of a group", '{ GraphCSchema } from "./example/v1/kitchen_sink_pb.js"', "GraphCSchema", graph),
+    ['"example.v1.GraphA"', '"example.v1.GraphB"'],
+    ['"Node"', '"Branch"', '"Scalars"'],
+  );
+  shakes(
+    "one ReScript module of a group",
+    await runs("one ReScript module of a group", `{ GraphC } from ${resModule}`, "GraphC.schema", graph),
+    ['"example.v1.GraphA"', '"example.v1.GraphB"'],
+    ['"Node"', '"Branch"', "firstName"],
+  );
   const timestampOnly = join(root, "test/res/TimestampOnly.res.mjs");
   if (!readFileSync(timestampOnly, "utf8").includes('from "sury/protobuf/wkt"')) fail(`tree-shaking: ${timestampOnly} doesn't import sury/protobuf/wkt`);
   shakes(

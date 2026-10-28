@@ -109,7 +109,7 @@ message Leaf {
   repeated Branch branches = 1;
 }
 
-// Named as ReScript's Option module, which a group below reads a slot through.
+// Named as ReScript's Option module, which a group below reads its refs through.
 message Option {
   int32 o = 1;
 }

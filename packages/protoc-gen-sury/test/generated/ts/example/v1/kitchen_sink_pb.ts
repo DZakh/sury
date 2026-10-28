@@ -543,32 +543,24 @@ export type Leaf = {
   branches: Branch[];
 };
 
-export const BranchSchema = S.recursive<Branch>("Branch", (BranchSchema) => {
-  const LeafSchema = S.recursive<Leaf>("Leaf", () =>
-    S.protobufTypeName(S.schema({
-      branches: S.protobufField(S.array(BranchSchema), { number: 1, type: "message" }),
-    }), "example.v1.Leaf"),
-  );
-  return S.protobufTypeName(S.schema({
-    n: S.protobufField(S.int32, { number: 1, type: "int32" }),
-    leaf: S.protobufField(S.optional(LeafSchema), { number: 2, type: "message" }),
-  }), "example.v1.Branch");
-});
-
-export const LeafSchema = S.recursive<Leaf>("Leaf", (LeafSchema) => {
-  const BranchSchema = S.recursive<Branch>("Branch", () =>
-    S.protobufTypeName(S.schema({
+export const [BranchSchema, LeafSchema] = /* @__PURE__ */ (() => {
+  let LeafSchema!: S.Schema<Leaf>;
+  const BranchSchema = S.recursive<Branch>("Branch", (BranchSchema) => {
+    LeafSchema = S.recursive<Leaf>("Leaf", () =>
+      S.protobufTypeName(S.schema({
+        branches: S.protobufField(S.array(BranchSchema), { number: 1, type: "message" }),
+      }), "example.v1.Leaf"),
+    );
+    return S.protobufTypeName(S.schema({
       n: S.protobufField(S.int32, { number: 1, type: "int32" }),
       leaf: S.protobufField(S.optional(LeafSchema), { number: 2, type: "message" }),
-    }), "example.v1.Branch"),
-  );
-  return S.protobufTypeName(S.schema({
-    branches: S.protobufField(S.array(BranchSchema), { number: 1, type: "message" }),
-  }), "example.v1.Leaf");
-});
+    }), "example.v1.Branch");
+  });
+  return [BranchSchema, LeafSchema] as const;
+})();
 
 /**
- * Named as ReScript's Option module, which a group below reads a slot through.
+ * Named as ReScript's Option module, which a group below reads its refs through.
  *
  * @generated from message example.v1.Option
  */
@@ -648,65 +640,19 @@ export type GraphC = {
   c?: GraphC | undefined;
 };
 
-export const GraphASchema = S.recursive<GraphA>("GraphA", (GraphASchema) => {
-  let GraphCSchema!: S.Schema<GraphC>;
-  const GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) => {
-    GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) =>
-      S.protobufTypeName(S.schema({
-        a: S.protobufField(S.array(GraphASchema), { number: 1, type: "message" }),
-        b: S.protobufField(S.record(GraphBSchema), { number: 2, type: "message", key: "int32" }),
-        c: S.protobufField(S.optional(GraphCSchema), { number: 3, type: "message" }),
-      }), "example.v1.GraphC"),
-    );
-    return S.protobufTypeName(S.schema({
-      a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-      b: S.protobufField(S.optional(GraphBSchema), { number: 2, type: "message" }),
-      pick: S.union([
-        S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
-        S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-        /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
-      ]),
-    }), "example.v1.GraphB");
-  });
-  return S.protobufTypeName(S.schema({
-    a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-    b: S.protobufField(S.array(GraphBSchema), { number: 2, type: "message" }),
-    c: S.protobufField(S.record(GraphCSchema), { number: 3, type: "message", key: "string" }),
-  }), "example.v1.GraphA");
-});
-
-export const GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) => {
-  let GraphCSchema!: S.Schema<GraphC>;
-  const GraphASchema = S.recursive<GraphA>("GraphA", (GraphASchema) => {
-    GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) =>
-      S.protobufTypeName(S.schema({
-        a: S.protobufField(S.array(GraphASchema), { number: 1, type: "message" }),
-        b: S.protobufField(S.record(GraphBSchema), { number: 2, type: "message", key: "int32" }),
-        c: S.protobufField(S.optional(GraphCSchema), { number: 3, type: "message" }),
-      }), "example.v1.GraphC"),
-    );
-    return S.protobufTypeName(S.schema({
-      a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-      b: S.protobufField(S.array(GraphBSchema), { number: 2, type: "message" }),
-      c: S.protobufField(S.record(GraphCSchema), { number: 3, type: "message", key: "string" }),
-    }), "example.v1.GraphA");
-  });
-  return S.protobufTypeName(S.schema({
-    a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
-    b: S.protobufField(S.optional(GraphBSchema), { number: 2, type: "message" }),
-    pick: S.union([
-      S.schema({ case: "c", value: S.protobufField(GraphCSchema, { number: 3, type: "message" }) }),
-      S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
-      /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
-    ]),
-  }), "example.v1.GraphB");
-});
-
-export const GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) => {
+export const [GraphASchema, GraphBSchema, GraphCSchema] = /* @__PURE__ */ (() => {
   let GraphBSchema!: S.Schema<GraphB>;
+  let GraphCSchema!: S.Schema<GraphC>;
   const GraphASchema = S.recursive<GraphA>("GraphA", (GraphASchema) => {
-    GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) =>
-      S.protobufTypeName(S.schema({
+    GraphBSchema = S.recursive<GraphB>("GraphB", (GraphBSchema) => {
+      GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) =>
+        S.protobufTypeName(S.schema({
+          a: S.protobufField(S.array(GraphASchema), { number: 1, type: "message" }),
+          b: S.protobufField(S.record(GraphBSchema), { number: 2, type: "message", key: "int32" }),
+          c: S.protobufField(S.optional(GraphCSchema), { number: 3, type: "message" }),
+        }), "example.v1.GraphC"),
+      );
+      return S.protobufTypeName(S.schema({
         a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
         b: S.protobufField(S.optional(GraphBSchema), { number: 2, type: "message" }),
         pick: S.union([
@@ -714,20 +660,16 @@ export const GraphCSchema = S.recursive<GraphC>("GraphC", (GraphCSchema) => {
           S.schema({ case: "none", value: S.protobufField(S.int32, { number: 4, type: "int32" }) }),
           /* @__PURE__ */ S.schemaOf<{ case: undefined; value?: undefined }>()({ case: undefined, value: S.optional(S.schema(undefined)) }),
         ]),
-      }), "example.v1.GraphB"),
-    );
+      }), "example.v1.GraphB");
+    });
     return S.protobufTypeName(S.schema({
       a: S.protobufField(S.optional(GraphASchema), { number: 1, type: "message" }),
       b: S.protobufField(S.array(GraphBSchema), { number: 2, type: "message" }),
       c: S.protobufField(S.record(GraphCSchema), { number: 3, type: "message", key: "string" }),
     }), "example.v1.GraphA");
   });
-  return S.protobufTypeName(S.schema({
-    a: S.protobufField(S.array(GraphASchema), { number: 1, type: "message" }),
-    b: S.protobufField(S.record(GraphBSchema), { number: 2, type: "message", key: "int32" }),
-    c: S.protobufField(S.optional(GraphCSchema), { number: 3, type: "message" }),
-  }), "example.v1.GraphC");
-});
+  return [GraphASchema, GraphBSchema, GraphCSchema] as const;
+})();
 
 /**
  * Names protobuf-es escapes.
