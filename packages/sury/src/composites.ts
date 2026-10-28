@@ -21,7 +21,6 @@ import {
   instanceTag,
   type Internal,
   isLiteral,
-  isOpenLiteral,
   isOptional,
   isSchemaObject,
   noopDecoder,
@@ -923,6 +922,19 @@ const wrapDictMissingKeyLight = (s: Internal): Internal => {
   mut.encoder = missingKeyEncoder;
   mut.flags = 64;
   return mut;
+};
+
+// A one-value protobuf enum (`google.protobuf.NullValue`) is open: proto3 reads
+// an unknown number as it is, so a property read of one is of the value and
+// never the literal inlined in its place, or a trusted decode writes 5 back as
+// 0. `S.protobufField` stores `type` down the `.to` chain, on its tail when the
+// literal heads one.
+export const isOpenLiteral = (schema: Internal): boolean => {
+  if (!isLiteral(schema)) return false;
+  for (let current: Internal | undefined = schema; current !== U; current = current.to) {
+    if (current.protobufField !== U) return (current.protobufField as { type?: string }).type === "enum";
+  }
+  return false;
 };
 
 export const valGet = (parent: Val, location: string): Val => {
