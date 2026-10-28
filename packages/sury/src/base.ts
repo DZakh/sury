@@ -742,6 +742,13 @@ export const isSchemaObject = (obj: unknown): boolean =>
 
 export const isLiteral = (schema: Internal): boolean => "const" in schema;
 
+// A one-value protobuf enum (`google.protobuf.NullValue`) is open: proto3 reads
+// an unknown number as it is, so a property read of one is of the value and
+// never the literal inlined in its place, or a trusted decode writes 5 back as
+// 0. `S.protobufField` stores `type`.
+export const isOpenLiteral = (schema: Internal): boolean =>
+  (schema.protobufField as { type?: string } | undefined)?.type === "enum";
+
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
