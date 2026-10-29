@@ -227,6 +227,16 @@ const resolveAsyncFields = (val: Val): void => {
   }
 };
 
+// The val holding a literal field's check, where the union's dispatch can test
+// it: the field's output, or, once a conversion left the output with none
+// (`S.literal("a").with(S.to, S.literal(0))`), the link that read the field.
+// Without it the first member took every tag.
+const literalRead = (output: Val, input: Val): Val => {
+  let val = output;
+  if (!val.vc) while (val.prev !== U && val.prev !== input) val = val.prev;
+  return val.prev === input ? val : output;
+};
+
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
@@ -475,7 +485,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;
@@ -697,7 +707,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;

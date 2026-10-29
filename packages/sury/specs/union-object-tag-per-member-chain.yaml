@@ -21,18 +21,14 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){let v0=i.t,v1=i.v;v0==="a"||e[0](v0);typeof v1==="string"||e[1](v1);i={t:0,v:v1};break}}else{throw e[4](i)}return i}catch(v4){e[5](v4)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.v;typeof v0==="string"||e[0](v0);i={t:0,v:v0};break}if(i.t==="b"){let v1=i.n;typeof v1==="number"&&v1==v1||e[1](v1);i={t:1,n:v1};break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
     examples:
       first-member:
         input: '{ t: "a", v: "x" }'
         output: '{ t: 0, v: "x" }'
-      # FIXME: should read { t: 1, n: 1 }; the first member's tag check refuses the second member's tag, as on main
       second-member:
         input: '{ t: "b", n: 1 }'
-        error: 'Failed at t: Expected "a", received "b"'
-        issues:
-          - 'Failed at t: Expected "a", received "b"'
-          - "Failed at v: Expected string, received undefined"
+        output: "{ t: 1, n: 1 }"
   decode:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:0,v:i.v};break}if(i.t==="b"){i={t:1,n:i.n};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
