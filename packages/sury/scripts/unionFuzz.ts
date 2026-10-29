@@ -174,17 +174,20 @@ const main = async (): Promise<void> => {
   }
 
   // Its own stream: the union cases above replay as they did.
-  const narrowing = narrowingFindings(S, rngFromSeed(seed ^ 0x2545f491), Math.max(50, Math.floor(cases / 4)));
-  for (const finding of narrowing.slice(0, 20)) console.log(`\n[narrowing] ${finding}`);
+  let knownNarrowing = 0;
+  const narrowing = narrowingFindings(S, rngFromSeed(seed ^ 0x2545f491), Math.max(50, Math.floor(cases / 4))).filter(
+    (finding) => !(knownFor("narrowing", finding.shape, finding.property, finding.detail) && ++knownNarrowing),
+  );
+  for (const finding of narrowing.slice(0, 20)) console.log(`\n[narrowing] ${finding.detail}`);
   if (narrowing.length) process.exitCode = 1;
 
   console.log(
     `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s), ${stats.skipped} skipped (seed ${seed}, ${cases} unions)`,
   );
   if (known) console.log(`  known: ${known} diff(s) covered by scripts/knownBugs.ts`);
-  console.log(`  narrowing: ${narrowing.length} finding(s)`);
+  console.log(`  narrowing: ${narrowing.length} finding(s)${knownNarrowing ? `, ${knownNarrowing} covered by scripts/knownBugs.ts` : ""}`);
   const gate = !process.argv.some((a) => /^--(seed|cases|max-members)=/.test(a) && a !== "--seed=1");
-  const stale = gate ? staleFor(["union"]) : [];
+  const stale = gate ? staleFor(["union", "narrowing"]) : [];
   for (const line of stale) console.log(`  ${line}`);
   if (stale.length) process.exitCode = 1;
   if (creationFailures.length) {
