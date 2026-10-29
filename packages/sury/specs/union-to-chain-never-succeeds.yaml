@@ -18,7 +18,7 @@ operations:
   parse:
     expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a"){let v0="x";for(;;){throw e[0](v0)}i=v0;break}if(i==="b"){let v1="x";for(;;){throw e[1](v1)}i=v1;break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
     examples:
-      # FIXME: should be refused when the operation is created, as the last link is met alone: no value passes, as on main
+      # FIXME: should be refused when the operation is created, as the last link is when met alone: no value passes, as on main
       a:
         input: '"a"'
         error: Expected "y" | "z", received "x"

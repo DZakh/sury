@@ -21,7 +21,7 @@ operations:
   parse:
     expression: i=>{try{for(;;){if(typeof i==="string"&&i==="x"){for(;;){throw e[0](i)}break}if(typeof i==="number"&&i==i)break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
-      # FIXME: should be refused when the operation is created, as the last link is met alone: no value passes, as on main
+      # FIXME: should be refused when the operation is created, as the last link is when met alone: no value passes, as on main
       x:
         input: '"x"'
         error: Expected "y" | "z", received "x"

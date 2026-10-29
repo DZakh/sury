@@ -5,6 +5,7 @@ ts:
   output: '{ t: "a" | "b"; }'
   instantiations: 8954
 jsonSchema:
+  # FIXME: should describe the schema, not overflow the stack, as on main
   input: Maximum call stack size exceeded
   output: '{ type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] }'
 isEqual:

@@ -23,7 +23,7 @@ operations:
   parse:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0={t:"x"};for(;;){throw e[0](v0)}i=v0;break}if(i.t==="b"){let v1={t:"x"};for(;;){throw e[1](v1)}i=v1;break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
     examples:
-      # FIXME: should be refused when the operation is created, as the last link is met alone: no value passes, as on main
+      # FIXME: should be refused when the operation is created, as the last link is when met alone: no value passes, as on main
       a:
         input: '{ t: "a" }'
         error: 'Expected { t: "y"; } | { t: "z"; }, received { t: "x"; }'
@@ -31,6 +31,7 @@ operations:
   encode:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="y"){let v0={t:"x"};for(;;){v0={t:"a"};break}i=v0;break}if(i.t==="z"){let v1={t:"x"};for(;;){v1={t:"a"};break}i=v1;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
     examples:
+      # FIXME: should fail: { t: "y" } is written as { t: "a" }, as on main
       y:
         input: '{ t: "y" }'
         output: '{ t: "a" }'
