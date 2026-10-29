@@ -124,6 +124,15 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 // the refinement rejects, then the literal fallback accepts "x"
 ```
 
+With no identical `const`, a const source facing two or more consts would be
+replaced by whichever comes first as well as by any other, so the operation is
+rejected when it's created. `null` and `undefined` keep their bridge:
+
+```ts
+S.schema(0).with(S.to, S.union(["a", "b"])); // ❌ 0 -> "a" or 0 -> "b"?
+S.schema(0).with(S.to, S.schema("a")); // ✅ 0 -> "a", rule 1
+```
+
 **Exception - partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
 can't tell whether you want a pass-through for the matching variant, decoding
@@ -202,6 +211,15 @@ cases:
 ```ts
 S.union([S.number, S.string]).with(S.to, S.string);
 // Invalid operation: for 123 - decode to "123" or fail as a non-matching case?
+```
+
+A const target has the same type only as the identical const, so another
+const of its kind is a non-matching variant, not one to replace:
+
+```ts
+S.union([1, 2]).with(S.to, S.literal(1)); // ❌ 2 -> 1 or fail?
+S.schema({ o: S.union([1, 2]) }).with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })]));
+// ❌ the same pair, met at o by the first member
 ```
 
 Say what you mean with an explicit target union:

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.literal(1), S.literal(2)]).with(S.to, S.literal(1))
+  input: 1 | 2
+  output: "1"
+  instantiations: 5440
+jsonSchema:
+  input: '{ type: "number", const: 1 }'
+  fromInputType: "1"
+  output: '{ type: "number", const: 1 }'
+  openapi-3.0:
+    input: '{ type: "number", enum: [1] }'
+    output: '{ type: "number", enum: [1] }'
+isEqual:
+  input: strictEqual
+  output: alwaysEqual
+compare:
+  input: strictCompare
+  output: alwaysCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Ambiguous 1 | 2 -> 1. Should 2 be decoded or ignored? Choose with S.to for 2 -> 1, or S.never -> 2"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{i===1||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      one:
+        input: "1"
+        output: "1"

@@ -14,12 +14,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===0){for(;;){l2:{let v1="undefined";if(v1==="a"){let v0=0;i=v0;}else{break l2}break}let v4="undefined";if(v4==="b"){let v3=1;i=v3;}else{throw e[0](i)}break}break}if(i===1){for(;;){l7:{let v6="undefined";if(v6==="a"){let v5=0;i=v5;}else{break l7}break}let v9="undefined";if(v9==="b"){let v8=1;i=v8;}else{throw e[1](i)}break}break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v10){e[3](v10)}}
-    examples:
-      # FIXME: should refuse at creation as Ambiguous 0 | 1 -> "a" | "b", as the target without its last link does: each number converts to the strings through a constant "undefined", so every value fails
-      one:
-        input: "1"
-        error: Expected "a" | "b", received 1
+    creationError: 'SuryError: Ambiguous 0 -> "a" | "b". Should "b" be decoded or ignored? Choose with S.to for 0 -> "b", or S.never -> "b"'
   decode: eq-to-parse
   encode:
     creationError: 'SuryError: Ambiguous 0 | 1 -> 0 | 1. Should "a" be decoded or ignored? Choose with S.to for "a" -> 0, or S.never -> "a"'

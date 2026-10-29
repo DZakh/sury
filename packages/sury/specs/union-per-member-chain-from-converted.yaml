@@ -22,10 +22,10 @@ operations:
       second-members:
         input: '{ k: 2, a: ["false", "true"], r: { x: 1, y: 2 } }'
         output: "{ k: 20, a: [0, 1], r: { x: 10, y: 20 } }"
-      unnamed-number-refused:
+      number-outside-union:
         input: "{ k: 3, a: [], r: {} }"
         error: 'Failed at k: Expected "1" | "2", received "3"'
-      unnamed-boolean-text-refused:
+      non-boolean-text:
         input: '{ k: 1, a: ["maybe"], r: {} }'
         error: 'Failed at a[0]: Expected boolean, received "maybe"'
   decode:

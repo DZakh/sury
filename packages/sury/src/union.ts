@@ -546,7 +546,9 @@ const unionCheckPartial = (
     if (variant.type === neverTag || (outputSide ? match.type === neverTag : unionNeverLink(variant))) {
       continue;
     }
-    if (unionSameType(other, match)) matched ||= variant;
+    // Under rule 3 a const target is the same type only as the identical
+    // const: another of its kind would be replaced by it, which is a decoding.
+    if (unionSameType(other, match) && !(outputSide && isLiteral(other) && isLiteral(match) && !unionLiteralEqual(other.const, match.const))) matched ||= variant;
     else unmatched ||= variant;
   }
   if (matched !== U && unmatched !== U) {
@@ -1652,6 +1654,11 @@ export const unionDecoder: Builder = (input: Val) => {
   // variant can produce it.
   if (!(sourceTag & 1) && !(flags & 1)) {
     unionCheckPartial(input, source, self, variants, false);
+    // A const none of the target's consts spells out would be replaced by
+    // whichever comes first, as well by any other: two of them leave it
+    // ambiguous. Not `null` or `undefined`, which bridge to their opposite.
+    const consts = sourceLiteral && !(sourceTag & (16 | 32)) ? variants.filter((variant) => isLiteral(variant) && !unionNeverLink(variant)) : [];
+    if (consts.length > 1) unionInvalid(input, source, self, consts[1]!, false);
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have

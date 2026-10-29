@@ -6,9 +6,9 @@ ts:
   instantiations: 12187
 jsonSchema:
   input: '{ type: "object", properties: { o: { enum: [1, 2] } }, required: ["o"] }'
-  output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", const: 1 }, a: { type: "string" } }, additionalProperties: false, required: ["o"] }, { type: "object", properties: { o: { type: "number", const: 2 }, a: { type: "string" } }, additionalProperties: false, required: ["o"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", const: 1 }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", const: 2 }, a: { type: "string" } }, required: ["o"] }] }'
   openapi-3.0:
-    output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", enum: [1] }, a: { type: "string" } }, additionalProperties: false, required: ["o"] }, { type: "object", properties: { o: { type: "number", enum: [2] }, a: { type: "string" } }, additionalProperties: false, required: ["o"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", enum: [1] }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", enum: [2] }, a: { type: "string" } }, required: ["o"] }] }'
 isEqual:
   input: (a,b)=>a===b||a.o===b.o
   output: (a,b)=>a===b||(a.o===1?b.o===1&&a.a===b.a:b.o===2&&a.a===b.a)
@@ -20,22 +20,8 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.o;typeof v0==="number"&&v0==v0&&(v0===1||v0===2)||e[0](v0);let v1={o:v0};for(;;){let v2=v1.a;if(typeof v0==="number"&&v0==v0){for(;;){if(v0===1)break;if(v0===2){v0=1;break}throw e[1](v0)}}else{throw e[1](v0)}(typeof v2==="string"||v2===void 0)||e[2](v2);v1={o:v0,a:v2};break}return v1}catch(v3){e[6](v3)}}
-    examples:
-      one:
-        input: "{ o: 1 }"
-        output: "{ o: 1, a: undefined }"
-      # FIXME: should keep { o: 2 }; the conversion maps 2 onto the first member's literal, as on main
-      two:
-        input: "{ o: 2 }"
-        output: "{ o: 1, a: undefined }"
-  decode:
-    expression: i=>{try{let v0=i.o;for(;;){let v1=i.a;if(typeof v0==="number"&&v0==v0){for(;;){if(v0===1)break;if(v0===2){v0=1;break}throw e[0](v0)}}else{throw e[0](v0)}(typeof v1==="string"||v1===void 0)||e[1](v1);i={o:v0,a:v1};break}return i}catch(v2){e[4](v2)}}
-    examples:
-      # FIXME: should keep { o: 2 }; the conversion maps 2 onto the first member's literal, as on main
-      two:
-        input: "{ o: 2 }"
-        output: "{ o: 1, a: undefined }"
+    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. Should 2 be decoded or ignored? Choose with S.to for 2 -> 1, or S.never -> 2"
+  decode: eq-to-parse
   encode:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.o===1){i={o:1};break}if(i.o===2){i={o:2};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
