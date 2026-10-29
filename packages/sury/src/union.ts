@@ -142,8 +142,8 @@ const unionNeverLink = (schema: Internal): boolean => {
 //
 // `converts` asks instead whether a conversion target matches member to member,
 // which nothing that only describes the union changes: a description, or the
-// field number S.protobufField gives an enum. Flattening keeps such a union
-// whole all the same, as its members alone would lose what it carries.
+// field number and type name protobuf gives an enum. Flattening keeps such a
+// union whole all the same, as its members alone would lose what it carries.
 const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
@@ -151,7 +151,7 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   return fields === 6;
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
