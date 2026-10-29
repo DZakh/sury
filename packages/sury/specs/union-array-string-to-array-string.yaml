@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.array(S.literal(1)), S.string]).with(S.to, S.union([S.array(S.literal(2)), S.string]))
+  input: string | 1[]
+  output: string | 2[]
+  instantiations: 6366
+jsonSchema:
+  input: '{ anyOf: [{ items: { type: "number", const: 1 }, type: "array" }, { type: "string" }] }'
+  output: '{ anyOf: [{ items: { type: "number", const: 2 }, type: "array" }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ items: { type: "number", enum: [1] }, type: "array" }, { type: "string" }] }'
+    output: '{ anyOf: [{ items: { type: "number", enum: [2] }, type: "array" }, { type: "string" }] }'
+isEqual: (a,b)=>a===b||(Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare 1[] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare 2[] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v1=i[v0];v1===1||e[0](v1,[v0]);}for(let v2=0;v2<i.length;++v2){let v3=i[v2];v3===2||e[1](v3,[v2]);}break}if(typeof i==="string")break;throw e[2](i)}return i}catch(v4){e[3](v4)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      one:
+        input: "[1]"
+        error: "Failed at [0]: Expected 2, received 1"
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){let v2=i[v1];v2===2||e[0](v2,[v1]);}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v3){e[2](v3)}}
+    examples:
+      two:
+        input: "[2]"
+        output: "[2]"
+  encode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){let v2=i[v1];v2===1||e[0](v2,[v1]);}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v3){e[2](v3)}}
+    examples:
+      two:
+        input: "[2]"
+        error: "Failed at [0]: Expected 1, received 2"

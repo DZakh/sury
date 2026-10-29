@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable(S.schema(0).with(S.to, S.union([1, 2])))
+  input: 0 | null
+  output: 1 | 2 | null
+  instantiations: 5327
+jsonSchema:
+  input: "{ enum: [0, null] }"
+  output: '{ anyOf: [{ enum: [1, 2] }, { type: "null" }] }'
+  openapi-3.0:
+    output: "{ enum: [1, 2], nullable: true }"
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:0)
+  output: "throws: [Sury] Can't compare 1 | 2 | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode 0 -> 1 | 2: it is none of them. Choose one with S.to, such as S.union([S.literal(0).with(S.to, S.literal(1)), S.never.with(S.to, S.literal(2))])"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(i===null)break;l1:{if(typeof i==="number"&&i==i){for(;;){if(i===1){i=0;break}if(i===2){i=0;break}v0=[v0,e[0](i)];break l1}}else{v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      one:
+        input: "1"
+        output: "0"
+      null-value:
+        input: "null"
+        output: "null"

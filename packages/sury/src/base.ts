@@ -621,6 +621,13 @@ export type BGlobal = {
   // children open around the code being emitted.
   l?: string[];
   c?: number;
+  // @as("hs") - the links a source union's members are handed on from to
+  // convert into the target (union.ts, rules 3 and 4), and @as("hd") how many
+  // hand-offs the code being compiled sits inside: there a const or shape none
+  // of a target's members take fails as a value, the other members still
+  // converting, where met on its own it is refused.
+  hs?: Set<Internal>;
+  hd?: number;
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,

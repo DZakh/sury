@@ -5,11 +5,10 @@ ts:
   output: 1[]
   instantiations: 5814
 jsonSchema:
-  input: '{ items: { type: "number", const: 1 }, type: "array" }'
-  fromInputType: 1[]
+  input: '{ anyOf: [{ items: { type: "number", const: 1 }, type: "array" }, { items: { type: "number", const: 2 }, type: "array" }] }'
   output: '{ items: { type: "number", const: 1 }, type: "array" }'
   openapi-3.0:
-    input: '{ items: { type: "number", enum: [1] }, type: "array" }'
+    input: '{ anyOf: [{ items: { type: "number", enum: [1] }, type: "array" }, { items: { type: "number", enum: [2] }, type: "array" }] }'
     output: '{ items: { type: "number", enum: [1] }, type: "array" }'
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
@@ -24,4 +23,9 @@ operations:
   parse:
     creationError: "SuryError: Ambiguous 1[] | 2[] -> 1[]. 2[] isn't 1[]. Choose with S.to for 2[] -> 1[], or S.never -> 2[]"
   decode: eq-to-parse
-  encode: identity
+  encode:
+    expression: i=>{try{let v3;for(;;){l8:{for(;;){l4:{for(let v1=0;v1<i.length;++v1){let v2=i[v1];if(!(v2===1)){v3=[v3,e[0],v2,[v1]];break l4}}break}l7:{for(let v5=0;v5<i.length;++v5){let v6=i[v5];if(!(v6===2)){v3=[v3,e[1],v6,[v5]];break l7}}break}break l8}break}throw e[2](i,v3)}return i}catch(v9){e[3](v9)}}
+    examples:
+      one:
+        input: "[1]"
+        output: "[1]"
