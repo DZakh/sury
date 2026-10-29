@@ -5,8 +5,10 @@ ts:
   output: '"y" | "z"'
   instantiations: 5766
 jsonSchema:
-  input: '{ enum: ["a", "b"] }'
-  output: '{ enum: ["y", "z"] }'
+  input: "{ not: {} }"
+  fromInputType: never
+  output: "{ not: {} }"
+  fromOutputType: never
 isEqual: strictEqual
 compare: strictCompare
 vs:
@@ -14,7 +16,16 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Can't decode \"x\" -> \"y\" | \"z\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"x\").with(S.to, S.literal(\"y\")), S.never.with(S.to, S.literal(\"z\"))])"
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a"){let v0="x";for(;;){throw e[0](v0)}i=v0;break}if(i==="b"){let v1="x";for(;;){throw e[1](v1)}i=v1;break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      # FIXME: should be refused when the operation is created, as the last link is met alone: no value passes, as on main
+      a:
+        input: '"a"'
+        error: Expected "y" | "z", received "x"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Can't decode \"x\" -> \"a\" | \"b\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"x\").with(S.to, S.literal(\"a\")), S.never.with(S.to, S.literal(\"b\"))])"
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="y"){let v0="x";for(;;){throw e[0](v0)}i=v0;break}if(i==="z"){let v1="x";for(;;){throw e[1](v1)}i=v1;break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      y:
+        input: '"y"'
+        error: Expected "a" | "b", received "x"

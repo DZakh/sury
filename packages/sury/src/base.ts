@@ -21,7 +21,7 @@ export type Flag = number;
 // read inside a union case lets its failure escape raw rather than count as
 // the case not matching; a coder's or a protobuf wire failure never does), 32
 // handed (the target a source union's member is converted into, set past its
-// hand-off link, schema flag 32768, until the next link: a const or shape none
+// hand-off link, schema flag 32768, until the case ends: a const or shape none
 // of a target union's members take fails as a value there, the other members
 // still converting, where met on its own it is refused), 64 flatten. 4 covers
 // every case of every union, the member's own pipeline included, 32 only the

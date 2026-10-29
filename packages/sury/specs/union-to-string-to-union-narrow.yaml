@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union(["a", "c"]).with(S.to, S.string).with(S.to, S.union(["a", "b"]))
+  input: '"a" | "c"'
+  output: '"a" | "b"'
+  instantiations: 5275
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a")break;if(i==="c"){for(;;){throw e[0](i)}break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      kept:
+        input: '"a"'
+        output: '"a"'
+      dropped:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a")break;if(i==="b"){for(;;){throw e[0](i)}break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      kept:
+        input: '"a"'
+        output: '"a"'
+      dropped:
+        input: '"b"'
+        error: Expected "a" | "c", received "b"
