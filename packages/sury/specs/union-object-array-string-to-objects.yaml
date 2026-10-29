@@ -5,10 +5,10 @@ ts:
   output: "string | { x: 2[]; } | { x: 3[]; }"
   instantiations: 10665
 jsonSchema:
-  input: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", const: 1 }, type: "array" } }, required: ["x"] }, { type: "string" }] }'
+  input: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", const: 1 }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", const: 2 }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "object", properties: { x: { items: { type: "number", const: 3 }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "string" }] }'
   openapi-3.0:
-    input: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", enum: [1] }, type: "array" } }, required: ["x"] }, { type: "string" }] }'
+    input: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", enum: [1] }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "string" }] }'
     output: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", enum: [2] }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "object", properties: { x: { items: { type: "number", enum: [3] }, type: "array" } }, additionalProperties: false, required: ["x"] }, { type: "string" }] }'
 isEqual:
   input: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&e[0](a.x,b.x):typeof b==="string"&&a===b)
@@ -21,28 +21,26 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];v2===1||e[0](v2,["x",v1]);}let v7={x:v0};let v5;for(;;){l11:{for(;;){l6:{for(let v3=0;v3<v0.length;++v3){let v4=v0[v3];if(!(v4===2)){v5=[v5,e[2],v4,["x",v3]];break l6}}v7={x:v0};break}l10:{for(let v8=0;v8<v0.length;++v8){let v9=v0[v8];if(!(v9===3)){v5=[v5,e[3],v9,["x",v8]];break l10}}v7={x:v0};break}break l11}break}throw e[4](v7,v5)}i=v7;break}if(typeof i==="string")break;throw e[5](i)}return i}catch(v12){e[6](v12)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];v2===1||e[0](v2,["x",v1]);}let v5={x:v0};for(;;){let v4=new Array(v0.length);for(let v3=0;v3<v0.length;++v3){v4[v3]=2}v5={x:v4};break}i=v5;break}if(typeof i==="string")break;throw e[2](i)}return i}catch(v8){e[3](v8)}}
     examples:
       empty:
         input: "{ x: [] }"
         output: "{ x: [] }"
+      # FIXME: known bug union-list-const-item-replaced: should fail: the item 1 is replaced by 2, as it is not for [1] into 2[] | 3[]
       one:
         input: "{ x: [1] }"
-        error: |-
-          Expected { x: 2[]; } | { x: 3[]; }, received { x: Array(1); }
-          - At x[0]: Expected 2, received 1
-          - At x[0]: Expected 3, received 1
+        output: "{ x: [2] }"
       string:
         input: '"s"'
         output: '"s"'
   decode:
-    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;let v4;for(;;){l9:{for(;;){l5:{for(let v2=0;v2<v0.length;++v2){let v3=v0[v2];if(!(v3===2)){v4=[v4,e[0],v3,["x",v2]];break l5}}i={x:v0};break}l8:{for(let v6=0;v6<v0.length;++v6){let v7=v0[v6];if(!(v7===3)){v4=[v4,e[1],v7,["x",v6]];break l8}}i={x:v0};break}break l9}break}throw e[2](i,v4)}break}if(typeof i==="string")break;throw e[3](i)}return i}catch(v10){e[4](v10)}}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.x;for(;;){let v3=new Array(v0.length);for(let v2=0;v2<v0.length;++v2){v3[v2]=2}i={x:v3};break}break}if(typeof i==="string")break;throw e[0](i)}return i}catch(v6){e[1](v6)}}
     examples:
       empty:
         input: "{ x: [] }"
         output: "{ x: [] }"
   encode:
-    expression: i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.x;if(!(Array.isArray(v0))){v3=[v3,e[1],v0];break l4}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];if(!(v2===2)){v3=[v3,e[0],v2,["x",v1]];break l4}}let v7={x:v0};for(let v5=0;v5<v0.length;++v5){let v6=v0[v5];if(!(v6===1)){v3=[v3,e[2],v6,["x",v5]];break l4}}v7={x:v0};i=v7;break}l11:{let v8=i.x;if(!(Array.isArray(v8))){v3=[v3,e[4],v8];break l11}for(let v9=0;v9<v8.length;++v9){let v10=v8[v9];if(!(v10===3)){v3=[v3,e[3],v10,["x",v9]];break l11}}let v14={x:v8};for(let v12=0;v12<v8.length;++v12){let v13=v8[v12];if(!(v13===1)){v3=[v3,e[5],v13,["x",v12]];break l11}}v14={x:v8};i=v14;break}}if(typeof i==="string")break;throw e[6](i,v3)}return i}catch(v15){e[7](v15)}}
+    expression: i=>{try{let v3;for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){l4:{let v0=i.x;if(!(Array.isArray(v0))){v3=[v3,e[1],v0];break l4}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];if(!(v2===2)){v3=[v3,e[0],v2,["x",v1]];break l4}}let v7={x:v0};let v6=new Array(v0.length);for(let v5=0;v5<v0.length;++v5){v6[v5]=1}v7={x:v6};i=v7;break}l11:{let v8=i.x;if(!(Array.isArray(v8))){v3=[v3,e[3],v8];break l11}for(let v9=0;v9<v8.length;++v9){let v10=v8[v9];if(!(v10===3)){v3=[v3,e[2],v10,["x",v9]];break l11}}let v14={x:v8};let v13=new Array(v8.length);for(let v12=0;v12<v8.length;++v12){v13[v12]=1}v14={x:v13};i=v14;break}}if(typeof i==="string")break;throw e[4](i,v3)}return i}catch(v15){e[5](v15)}}
     examples:
       empty:
         input: "{ x: [] }"

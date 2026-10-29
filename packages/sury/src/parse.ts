@@ -69,9 +69,6 @@ import {
 export const parse = (input: Val): Val => {
   let result: Val = input;
   let appliedEncoderRef: Encoder | undefined = U;
-  // The target a source union's member was just handed on to, held while the
-  // loop works on it.
-  let handed: Internal | undefined;
   let loopCount = 0;
   while (!result.io || result.e.to) {
     const appliedEncoder: Encoder | undefined = appliedEncoderRef;
@@ -101,13 +98,11 @@ export const parse = (input: Val): Val => {
       result.io = true;
     } else if (loopInput.io) {
       const to = loopInput.e.to!;
-      handed = loopInput.g.hs?.has(loopInput.e) ? to : U;
+      // Past a hand-off link only the target is left to compile, and the
+      // union case holding the link puts `g.o` back when it ends.
+      if (loopInput.e.flags & 32768) loopInput.g.o |= 32;
       result = loopInput.e.parser ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
-      const g = loopInput.g;
-      const inside = handed === loopInput.e;
-      if (inside) g.hd = (g.hd || 0) + 1;
-      try {
       const maybeEncoder = loopInput.s.encoder;
       if (
         maybeEncoder &&
@@ -132,9 +127,6 @@ export const parse = (input: Val): Val => {
         // Primitive decoder (no internal transforms): apply refiners here.
         // Advanced decoders set isOutput themselves and own refiner application.
         if (!result.io) result = B_markOutput(result, result);
-      }
-      } finally {
-        if (inside) g.hd!--;
       }
     }
   }

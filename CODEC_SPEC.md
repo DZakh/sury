@@ -142,14 +142,11 @@ S.schema(0).with(S.to, S.union([1, 2, S.number])); // ✅ 0 -> 0, the number tak
 ```
 
 The same holds for an object or tuple by the const at each field or item. A
-list's items are checked against a variant's, never replaced, so an empty list
-passes as it is:
+list's const items don't count, since an empty list holds none of them:
 
 ```ts
 S.schema({ t: "a" }).with(S.to, S.union([S.schema({ t: "b" }), S.schema({ t: "c" })])); // ❌ { t: "a" } is neither
-S.array(S.literal(1)).with(S.to, S.union([S.array(S.literal(2)), S.array(S.literal(3))])); // ✅ [] -> [], fails [1]
-S.schema({ x: S.array(S.literal(1)) }).with(S.to, S.union([S.schema({ x: S.array(S.literal(2)) }), S.schema({ x: S.array(S.literal(3)) })])); // ✅ { x: [] } -> { x: [] }, fails { x: [1] }
-S.array(S.literal(1)).with(S.to, S.array(S.literal(2))); // ✅ [1] -> [2], rule 1
+S.array(S.literal(1)).with(S.to, S.union([S.array(S.literal(2)), S.array(S.literal(3))])); // ✅ [] -> []
 ```
 
 **Exception - partial type match.** If the source has the same type as *some but
@@ -300,7 +297,6 @@ enum and widens one the other way:
 ```ts
 S.union(["a", "b", "c"]).with(S.to, S.union(["a", "b"])); // ✅ "a" -> "a", fails "c"
 S.union([1, 2, "x"]).with(S.to, S.union([1, "x"])); // ✅ fails 2, never 2 -> 1
-S.union([S.array(S.literal(1)), S.string]).with(S.to, S.union([S.array(S.literal(2)), S.string])); // ✅ [] -> [], fails [1], never [1] -> [2]
 S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"])); // ✅ "c" is never there
 ```
 

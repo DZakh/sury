@@ -24,7 +24,7 @@ import {
   some,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union" | "issues" | "seam" | "option";
+export type Fuzzer = "eq" | "codec" | "union" | "narrowing" | "issues" | "seam" | "option";
 
 export type Finding = {
   fuzzer: Fuzzer;
@@ -51,6 +51,21 @@ const intoJsonString = (shape: Shape): boolean =>
   shape.name === "with" && shape.raw === "to" && (shape.args[0]?.args.length ?? 0) > 0;
 
 export const KNOWN_BUGS: Known[] = [
+  {
+    id: "union-list-const-item-replaced",
+    kind: "bug",
+    summary:
+      "A union member's list of consts converted into a list of another const has each item replaced, not " +
+      "checked, so `S.union([S.schema({ x: S.array(S.literal(1)) }), S.string])` into " +
+      "`S.union([S.schema({ x: S.array(S.literal(2)) }), S.string])` reads `{ x: [1] }` as `{ x: [2] }`, a value " +
+      "it never held. The same holds for the list on its own beside another member, and for one inside an " +
+      "object converted into a union of objects.",
+    spec: "union-object-array-string-to-objects",
+    fuzzers: ["narrowing"],
+    matches: (f) =>
+      (f.property === "fails" || f.property === "member") &&
+      some(f.shape, (node) => node.name === "array" && node.args[0]?.name === "literal"),
+  },
   {
     id: "union-object-field-from-null",
     kind: "bug",

@@ -19,8 +19,13 @@ export type Flag = number;
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
 // itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
 // read inside a union case lets its failure escape raw rather than count as
-// the case not matching; a coder's or a protobuf wire failure never does), 64
-// flatten.
+// the case not matching; a coder's or a protobuf wire failure never does), 32
+// handed (the target a source union's member is converted into, set past its
+// hand-off link, schema flag 32768, until the case ends: a const or shape none
+// of a target union's members take fails as a value there, the other members
+// still converting, where met on its own it is refused), 64 flatten. 4 covers
+// every case of every union, the member's own pipeline included, 32 only the
+// target it is handed to, so neither stands for the other.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation's outcome (parse.ts `outcomeOf`): 128 JS Result
@@ -456,6 +461,9 @@ export type Internal = {
   //     caller's bound from a format's; only the bound constructors set these.
   //     A schema bounds one of its value, length or size, so one set covers
   //     minimum/minLength/minItems/minSize alike.
+  //   32768 a hand-off link: a source union member's output link, copied for
+  //     that union alone, whose `.to` is the target it converts into
+  //     (union.ts `unionHand`). The parse loop sets `g.o` 32 on following it.
   // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
   // a schema a union could hold: `unionIsTransparent` counts own fields, and
   // the key alone would stop every union from flattening. The two container
@@ -621,13 +629,6 @@ export type BGlobal = {
   // children open around the code being emitted.
   l?: string[];
   c?: number;
-  // @as("hs") - the links a source union's members are handed on from to
-  // convert into the target (union.ts, rules 3 and 4), and @as("hd") how many
-  // hand-offs the code being compiled sits inside: there a const or shape none
-  // of a target's members take fails as a value, the other members still
-  // converting, where met on its own it is refused.
-  hs?: Set<Internal>;
-  hd?: number;
 }
 
 // A failure's record, as the expression that builds it - or, asked `unbuilt`,

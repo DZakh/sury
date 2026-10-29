@@ -111,37 +111,6 @@ const unionShapeMismatch = (target: Internal, source: Internal, held?: boolean):
   return !held && typeof target.additionalItems === objectTag && typeof source.additionalItems === objectTag && unionShapeMismatch(target.additionalItems as Internal, unionOutput(source.additionalItems as Internal));
 };
 
-// The shape with each list's or dict's const items read as unknown, so a
-// conversion checks them instead of replacing them. Unchanged where it holds
-// none.
-const unionLooseItems = (schema: Internal): Internal => {
-  const items = schema.additionalItems;
-  const loose = typeof items === objectTag ? (isLiteral(items as Internal) ? unknown : unionLooseItems(items as Internal)) : items;
-  let changed = loose !== items;
-  const tuple = schema.items?.map((item, idx) => {
-    const next = unionLooseItems(item);
-    if (next !== schema.items![idx]) changed = true;
-    return next;
-  });
-  let properties: Record<string, Internal> | undefined;
-  if (schema.properties) {
-    properties = Object.create(null);
-    for (const key in schema.properties) if ((properties![key] = unionLooseItems(schema.properties[key]!)) !== schema.properties[key]) changed = true;
-  }
-  if (!changed) return schema;
-  const mut = copySchema(schema);
-  mut.additionalItems = loose;
-  if (tuple) mut.items = tuple;
-  if (properties) mut.properties = properties;
-  return mut;
-};
-
-// A field's value is compiled from its own val, so each one is loosened too.
-const unionLooseVal = (val: Val): void => {
-  val.s = unionLooseItems(val.s);
-  if (val.d) for (const key in val.d) unionLooseVal(val.d[key]!);
-};
-
 const unionShaped = (schema: Internal): boolean =>
   !!(schema.properties || schema.items) || typeof schema.additionalItems === objectTag;
 
@@ -1391,6 +1360,8 @@ const unionEmit = (
         : U;
     if (trustedD !== U) caseInput.s = member.s;
     let caseOut: Val;
+    // Restoring also ends the hand-off (32) the parse loop sets past a member's
+    // link, which it leaves to this.
     const options = input.g.o;
     input.g.o |= 4;
     try {
@@ -1688,7 +1659,7 @@ export const unionDecoder: Builder = (input: Val) => {
     );
   }
 
-  let source = input.s;
+  const source = input.s;
   variants = unionDropNullish(unionDropNullish(variants, source, false), toPerCase, true);
   // A dropped arm leaves the error naming what is left: `S.optional(S.string)`
   // rejecting `undefined` says "Expected string". A copy, so a name or message
@@ -1700,19 +1671,14 @@ export const unionDecoder: Builder = (input: Val) => {
   }
   // A shape holding a const where a variant holds another is not that variant.
   // With none left it can never succeed, and is refused, unless a source
-  // union's member handed it here (`g.hd`), where it fails as a value.
+  // union's member handed it here (`g.o` 32), where it fails as a value. A
+  // list's const items don't count: an empty list holds none of them.
   if (!(tagFlags[source.type]! & 1) && unionShaped(source)) {
     const fit = variants.filter((variant) => !unionShapeMismatch(variant, source, true));
-    if (!fit.length && !input.g.hd) {
+    if (!fit.length && !(input.g.o & 32)) {
       B_invalidOperation(input, `Can't decode ${inputExpression(source)} -> ${inputExpression(self)}: it holds a value none of them does. Choose one with S.to, such as ${inputExpression(source)} -> ${inputExpression(variants[0]!)}`);
     }
     if (fit.length < variants.length) variants = fit;
-    // A list's items are checked against a variant's rather than replaced by
-    // them, an empty list passing, at any depth as at the top.
-    if (variants.some((variant) => unionShapeMismatch(variant, source))) {
-      unionLooseVal(input);
-      source = input.s;
-    }
   }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
@@ -1742,13 +1708,13 @@ export const unionDecoder: Builder = (input: Val) => {
     // whichever comes first, as well by any other: two of them leave it
     // ambiguous. Not `null` or `undefined`, which bridge to their opposite.
     // A const of its kind that is none of them can never succeed, unless a
-    // source union's member handed it here (`g.hd`), where it fails as a
+    // source union's member handed it here (`g.o` 32), where it fails as a
     // value.
     const live = sourceLiteral && !(sourceTag & (16 | 32)) ? variants.filter((variant) => variant.type !== neverTag && !unionNeverLink(variant)) : [];
     const consts = live.filter(isLiteral);
     const own = consts.filter((variant) => unionSameType(source, variant));
     if (consts.length > 1 && !own.length) unionAmbiguous(input, source, self, `${inputExpression(source)} could become any of them. ${unionChoose(source, consts)}`);
-    if (live.length && own.length === live.length && !input.g.hd) {
+    if (live.length && own.length === live.length && !(input.g.o & 32)) {
       B_invalidOperation(input, `Can't decode ${inputExpression(source)} -> ${inputExpression(self)}: it is none of them. ${unionChoose(source, own)}`);
     }
   }
@@ -1778,7 +1744,7 @@ export const unionDecoder: Builder = (input: Val) => {
               attach(mut);
             }
             if (to !== U) {
-              unionHand(input, mut, to);
+              unionHand(mut, to);
             }
           });
     });
@@ -1803,13 +1769,13 @@ export const unionDecoder: Builder = (input: Val) => {
   }
 };
 
-// Hands a member's output link on to `to`, recording the link (`g.hs`) so the
-// code compiled past it knows it converts one member of a union. The link, a
-// copy made for this union alone, rather than the target, which the operation
-// may meet on its own elsewhere.
-const unionHand = (input: Val, link: Internal, to: Internal): void => {
+// Hands a member's output link on to `to`, marking the link (flag 32768) so
+// the code compiled past it knows it converts one member of a union. The link,
+// a copy made for this union alone, rather than the target, which the
+// operation may meet on its own elsewhere.
+const unionHand = (link: Internal, to: Internal): void => {
   link.to = to;
-  (input.g.hs ??= new Set()).add(link);
+  link.flags |= 32768;
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
@@ -1909,7 +1875,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
     const to = resolved[idx];
     return to === U
       ? variant
-      : updateOutput<Internal>(variant, (mut) => unionHand(input, mut, to));
+      : updateOutput<Internal>(variant, (mut) => unionHand(mut, to));
   });
 };
 
