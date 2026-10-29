@@ -595,11 +595,6 @@ const armSource = (member: Internal, key: string | undefined, value: string): st
     : `{${entries.map((entry, idx) => `${entry === "__proto__" ? '["__proto__"]' : JSON.stringify(entry)}:${sources[idx]}`)}}`;
 };
 
-const literals = (schema: Internal): boolean => schema.type === anyOfTag || schema.const !== U;
-
-const numbers = (schema: Internal): boolean =>
-  schema.type === anyOfTag ? schema.anyOf!.every((member) => typeof member.const === "number") : typeof schema.const === "number";
-
 // What a scalar's wire value lands as with no conversion of its own, when it
 // isn't its protobuf type's schema: an enum of number literals, unknown
 // numbers included (the open enum proto3 specifies), and a float admitting NaN
@@ -609,12 +604,15 @@ const numbers = (schema: Internal): boolean =>
 // lands: on its literals, and from there through the rest of the chain
 // (`S.literal(null).with(S.to, S.literal(0))` reads 0 or 5 as null, and
 // strings from numbers convert as the core would, ambiguity and all), or as
-// the number itself, through every link.
+// the number itself, through every link. Members converting each
+// (`S.literal("a").with(S.to, S.literal(0))`) have no number of their own to
+// keep, so the number lands as the protobuf type and converts member by member.
 const landsAs = (type: ProtobufType, shape: Internal, wire: Internal): Internal | undefined => {
   if (type === "double" || type === "float") return shape.anyOf?.some((member) => member.const !== member.const) ? shape : U;
-  if (type !== "enum" || !literals(shape)) return U;
-  if (numbers(shape)) return shape;
-  if (!literals(wire)) return U;
+  const members = shape.anyOf ?? (shape.const !== U ? [shape] : U);
+  if (type !== "enum" || members === U || members.some((member) => member.to !== U)) return U;
+  if (members.every((member) => typeof member.const === "number")) return shape;
+  if (wire.type !== anyOfTag && wire.const === U) return U;
   const link = copySchema(wire);
   delete link.to;
   return link;
@@ -693,6 +691,17 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
   const holding = (m: StoredField, at: Internal, shape: Internal, where: string, whole = shape): [Message | undefined, Internal, Internal] => {
     const known = wellKnownOf(m.type);
     if (known === "google.protobuf.Any" && typeNameOf(shape, ctx) !== known) return [anyMessage(whole, ctx, where), at, at];
+    if (m.type === "enum") {
+      // The end facing the wire: a member's input when reading, its output
+      // when writing. A string there has no number to go on the wire as, and
+      // the writer would drop it.
+      const face = ctx.reads ? at : shape;
+      const value = (face.anyOf ?? [face]).map((member) => (ctx.reads ? member : getOutputSchema(member)).const).find((end) => end !== U && typeof end !== "number");
+      if (value !== U) {
+        const literal = typeof value === "string" ? JSON.stringify(value) : String(value);
+        return panic(`S.protobuf: ${where} is an enum holding ${literal}, which isn't a number. Map it to one with S.to, such as S.literal(${literal}).with(S.to, S.literal(0))`);
+      }
+    }
     if (m.type !== "message" && known === U) return [U, landsAs(m.type as ProtobufType, shape, ctx.reads ? at : shape) ?? scalarSchema(m.type as ProtobufType), at];
     const message = known !== U ? wellKnownMessage(known, shape, ctx, where) : compileMessage((ctx.writes && lastObject(at, ctx)) || at, ctx);
     if (message === U) return panic(`S.protobuf: ${where} is a message but its schema is not an object`);
@@ -799,7 +808,13 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       if (done) read = raw = property;
       // A literal or refined scalar has a check to run, which only a present
       // value can pass.
-      else if (raw !== getOutputSchema(propertyValue)) raw = optionalMessage(raw);
+      else {
+        if (raw !== getOutputSchema(propertyValue)) raw = optionalMessage(raw);
+        // Members converting each (`S.literal("a").with(S.to, S.literal(0))`)
+        // read through the user's union: the type descriptor `unwrapOptional`
+        // spells several with converts nothing.
+        if (ctx.reads && read.anyOf?.some((member) => member.to !== U)) read = property;
+      }
     }
     const type = message !== U ? "message" : (metadata.type as ProtobufType);
     const field: Field = {

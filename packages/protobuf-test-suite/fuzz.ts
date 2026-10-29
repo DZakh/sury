@@ -20,7 +20,8 @@
 // flat, and its message refined where a schema can hold it (the root, a field,
 // a list item, a map value, a oneof arm): a refinement that passes leaves every
 // read as it was, one that refuses fails at the path it sits on. Each seed also
-// draws values for every well-known type, against protobuf-es's own.
+// draws values for every well-known type, against protobuf-es's own, and an
+// enum spelled as a union of members each mapped to its number.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
@@ -852,6 +853,89 @@ const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], val
   return values * 3;
 };
 
+// An enum spelled the way one is by hand, a union of members each mapping its
+// own value (a string, null, or the number itself) to its number, held to the
+// same field spelled as the numbers: the same bytes for every member, read back
+// as the member, and a number no member names refused where it sits, unless
+// the member is the only one. Plain, optional, packed and unpacked repeated,
+// and as a map value. Its own stream.
+const ENUM_NUMBERS = [0, 1, 2, 5, 127, 128, 300, -1, 2147483647, -2147483648];
+const ENUM_LABELS = ["a", "B", "", "é", "😀", "0", "constructor", null];
+type EnumPlace = { name: string; field: (value: S.Schema<unknown, unknown>, packed: boolean) => S.Schema<unknown, unknown>; value: (one: () => unknown, r: Random) => unknown; at: string[] };
+const enumPlaces: EnumPlace[] = [
+  { name: "plain", field: (value) => value, value: (one) => one(), at: ["k"] },
+  { name: "optional", field: (value) => S.optional(value), value: (one, r) => (chance(r, 0.2) ? undefined : one()), at: ["k"] },
+  { name: "repeated", field: (value) => S.array(value), value: (one, r) => Array.from({ length: int(r, 4) }, one), at: ["k", "0"] },
+  { name: "map", field: (value) => S.record(value), value: (one, r) => Object.fromEntries(Array.from({ length: int(r, 3) }, (_, idx) => [`m${idx}`, one()])), at: ["k", "m0"] },
+];
+
+const enumChecks = (findings: Finding[], seed: number, values: number): number => {
+  const r = rng(seed ^ 0x2545f491);
+  let numbers = [...new Set(Array.from({ length: 1 + int(r, 4) }, () => pick(r, ENUM_NUMBERS)))];
+  // A one-member enum is its zero, which it reads every number as.
+  if (numbers.length === 1) numbers = [0];
+  const labels = new Set<unknown>();
+  const members = numbers.map((number) => {
+    const label = chance(r, 0.25) ? number : pick(r, ENUM_LABELS);
+    if (labels.has(label) || ENUM_NUMBERS.includes(label as number)) return [number, number] as const;
+    labels.add(label);
+    return [label, number] as const;
+  });
+  if (!members.some(([label, number]) => label !== number)) return 0;
+  const place = pick(r, enumPlaces);
+  const packed = chance(r, 0.5);
+  const spelled = members.map(([label, number]) => `${label === number ? "" : `${JSON.stringify(label)} -> `}${number}`).join(", ");
+  const kind = `enum: per-member chains, ${place.name}`;
+  const message = (value: S.Schema<unknown, unknown>) =>
+    S.schema({ k: S.protobufField(place.field(value, packed), { number: 1, type: "enum", packed, key: "string" } as never) }).with(S.to, S.protobuf);
+  let write: (value: unknown) => Uint8Array, read: (bytes: Uint8Array) => unknown, plain: (value: unknown) => Uint8Array;
+  try {
+    const schema = message(S.union(members.map(([label, number]) => (label === number ? S.literal(number) : S.literal(label).with(S.to, S.literal(number))))) as never);
+    write = S.decodeOrThrow(schema) as never;
+    read = S.encodeOrThrow(schema) as never;
+    plain = S.decodeOrThrow(message(S.union(numbers.map((number) => S.literal(number))) as never)) as never;
+  } catch (e) {
+    findings.push({ kind: `${kind}: compile (${thrown(e)})`, seed, detail: spelled });
+    return 1;
+  }
+  const toNumber = new Map<unknown, number>(members.map(([label, number]) => [label, number]));
+  const numbered = (value: unknown): unknown =>
+    Array.isArray(value) ? value.map(numbered)
+    : typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toNumber.get(item)]))
+    : value === undefined ? undefined : toNumber.get(value);
+  for (let i = 0; i < values; i++) {
+    const value = { k: place.value(() => pick(r, members)[0], r) };
+    try {
+      const bytes = write(value).slice();
+      const want = plain({ k: numbered(value.k) }).slice();
+      if (!equalValue(bytes, want)) {
+        findings.push({ kind: `${kind}: writes other bytes than the numbers do`, seed, detail: `${spelled} value=${show(value)}` });
+        continue;
+      }
+      const back = read(bytes) as { k?: unknown };
+      const expected = place.name === "optional" && value.k === undefined ? {} : value;
+      if (!equalValue(back, expected)) {
+        findings.push({ kind: `${kind}: reads a member back as another value`, seed, detail: `${spelled} value=${show(value)} got ${show(back)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `${kind}: throws (${thrown(e)})`, seed, detail: `${spelled} value=${show(value)}` });
+    }
+  }
+  if (numbers.length === 1) return values;
+  const unnamed = [3, 4, 6, 1000, -2].find((number) => !numbers.includes(number))!;
+  const one = { k: place.name === "repeated" ? [unnamed] : place.name === "map" ? { m0: unnamed } : unnamed };
+  let error: unknown;
+  try {
+    read((S.decodeOrThrow(message(S.int32 as never)) as (value: unknown) => Uint8Array)(one).slice());
+  } catch (e) {
+    error = e;
+  }
+  if (!(error instanceof S.Error) || error.path.join("\0") !== place.at.join("\0")) {
+    findings.push({ kind: `${kind}: reads a number no member names`, seed, detail: `${spelled} number=${unnamed} got ${error instanceof S.Error ? `${JSON.stringify(error.path)} ${error.reason}` : show(error)}` });
+  }
+  return values + 1;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -878,6 +962,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
     checks += anyChecks(findings, seed, fields, values);
     checks += oneofChecks(findings, seed, fields, values);
     checks += refineChecks(findings, seed, fields, values);
+    checks += enumChecks(findings, seed, values);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;

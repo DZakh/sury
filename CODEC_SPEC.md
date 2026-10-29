@@ -251,8 +251,8 @@ S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string]
 S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
 ```
 
-A target union described with `S.meta` or numbered with `S.protobufField` is
-still a union here:
+A target union described with `S.meta`, numbered with `S.protobufField` or
+named with `S.protobufTypeName` is still a union here:
 
 ```ts
 S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
@@ -395,12 +395,18 @@ S.protobufField(S.union([0]), en);                             // reads [8, 3] a
 S.protobufField(S.union([0]), en).with(S.to, S.number);        // reads [8, 5] as 5, writes 5 as [8, 5]
 S.protobufField(S.number.with(S.to, S.literal(0)), en);        // refuses 5 both ways
 S.protobufField(S.literal(null).with(S.to, S.literal(0)), en); // reads [8, 5] as null, writes null as nothing
+S.protobufField(S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]), en);
+// reads [8, 1] as "b", writes "b" as [8, 1], refuses [8, 5]
+S.protobufField(S.union([0, 1]), en).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.literal(1).with(S.to, S.literal("b"))]));
+// refused: "a" faces the wire, and has no number to go as
 ```
 
 One spec per line, in order: `codec-protobuf-enum-single`,
 `codec-protobuf-enum-single-to-number`,
 `codec-protobuf-enum-single-number-to-literal`,
-`codec-protobuf-enum-null-to-zero-wire`.
+`codec-protobuf-enum-null-to-zero-wire`,
+`codec-protobuf-enum-per-member-chain`,
+`codec-protobuf-enum-to-string-members`.
 
 ## Protobuf Any
 
