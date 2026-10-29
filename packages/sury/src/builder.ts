@@ -633,13 +633,10 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       // check reads: a transforming val is safe iff prev is non-transforming
       // (stable input var) and this val has no codeFromPrev of its own -
       // else the lifted check runs before that producer (the
-      // str->to(option(int)) "v0 is not defined" bug class). A union case read
-      // straight off a codec's slot (`B_slot`: an owner, no prev, no code) is
-      // as stable, since the codec assigned it before the union runs: left
-      // inline, a literal member's check took every value for the first one.
-      // A checked val with no prev at all is left inline.
-      const prev = val.prev, bond = prev?.b;
-      if (out && (!val.t || val.cp === "" && prev !== U && (!prev.t || bond !== U && bond.p !== U && bond.prev === U && bond.cp === ""))) {
+      // str->to(option(int)) "v0 is not defined" bug class). A union case's
+      // input marked `w` is as stable, and a checked val with no prev at all
+      // stays inline.
+      if (out && (!val.t || val.cp === "" && val.prev !== U && (!val.prev.t || val.prev.w))) {
         const inputVar = (current || val).v();
         const checks = val.vc;
         let hoisted = "";

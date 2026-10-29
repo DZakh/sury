@@ -722,6 +722,12 @@ export type Val = {
   // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
   // sink.
   ha?: string;
+  // @as("w") - a union case's input for a literal member, whose check is the
+  // case's dispatch condition. It reads the value the union was handed, which
+  // was assigned before the union runs, so the check lifts off it even where
+  // that value counts as converted, such as a codec's slot (`B_slot`). Left
+  // inline, the first literal member took every value.
+  w?: boolean;
 }
 
 // Shared `undefined` for every value-position use across the implementation:

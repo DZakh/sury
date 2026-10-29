@@ -1281,6 +1281,7 @@ const unionEmit = (
     const caseInput = B_scope(source);
     caseInput.u = true;
     caseInput.t = source.t;
+    if (isLiteral(member.s)) caseInput.w = true;
     caseInput.io = false;
     caseInput.e = member.s;
     // A value proven to be the group's runtime tag is re-labelled with this
