@@ -2754,13 +2754,33 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
     // The value was decoded already: each arm is what it holds as output, so
     // the union tells it by its literals and converts and checks nothing again.
     const target = copySchema(union);
-    // The arms as the value stands, where one holds what its members
-    // converted to: read as the union's own, the conversion would run again.
+    // The arms as the value stands, where one holds what a link of its own
+    // converted to, a literal beside the value (`case: S.literal("a").with(S.to,
+    // S.literal("A"))`) or the value's members: read as the union's own, the
+    // conversion would run again.
     let source = union;
+    const stands = (idx: number, mut: Internal): void => {
+      if (source === union) (source = copySchema(union)).anyOf = [...union.anyOf!];
+      source.anyOf![idx] = copySchema(mut);
+    };
     target.anyOf = union.anyOf!.map((variant, idx) => {
       const arm = unchecked(getOutputSchema(variant));
+      const entries = (arm.items ?? arm.properties) as Record<string, Internal> | undefined;
+      let linked = false;
+      for (const key in entries) if (entries[key]!.to !== U) linked = true;
+      if (linked) {
+        if (arm.items !== U) arm.items = arm.items.map((item) => getOutputSchema(item));
+        else {
+          const properties: Record<string, Internal> = Object.create(null);
+          for (const key in entries) properties[key] = getOutputSchema(entries[key]!);
+          arm.properties = properties;
+        }
+      }
       const field = arms[idx];
-      if (field === U) return arm;
+      if (field === U) {
+        if (linked) stands(idx, arm);
+        return arm;
+      }
       const local = B_varWithoutAllocation(g);
       code += B_let(g, local);
       reads.set(field, local);
@@ -2777,10 +2797,7 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
         else mut.properties = Object.assign(Object.create(null), mut.properties, { [at]: held });
       }
-      if (field.type !== "message" && getOutputSchema(field.armValue!).anyOf?.some((member) => member.to !== U)) {
-        if (source === union) (source = copySchema(union)).anyOf = [...union.anyOf!];
-        source.anyOf![idx] = copySchema(mut);
-      }
+      if (linked || (field.type !== "message" && getOutputSchema(field.armValue!).anyOf?.some((member) => member.to !== U))) stands(idx, mut);
       mut.to = sinkOf(location, local);
       return mut;
     });
