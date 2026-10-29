@@ -27,7 +27,7 @@ operations:
       one:
         input: "1"
         output: "1"
-      # FIXME: the input document holds only 1, so a consumer validating with it turns away the 2 the union converts
+      # FIXME: the input document is what encode writes, not what parse reads, as on main for S.union([S.string, S.number.with(S.to, S.string)]).with(S.to, S.string): it holds only 1, so a consumer validating with it turns away the 2 the union converts
       two:
         input: "2"
         output: "1"
