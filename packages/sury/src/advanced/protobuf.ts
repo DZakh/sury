@@ -698,7 +698,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       const face = ctx.reads ? at : shape;
       const value = (face.anyOf ?? [face]).map((member) => (ctx.reads ? member : getOutputSchema(member)).const).find((end) => end !== U && typeof end !== "number");
       if (value !== U) {
-        const literal = typeof value === "string" ? JSON.stringify(value) : String(value);
+        const literal = typeof value === "string" ? JSON.stringify(value) : typeof value === "bigint" ? `${value}n` : String(value);
         return panic(`S.protobuf: ${where} is an enum holding ${literal}, which isn't a number. Map it to one with S.to, such as S.literal(${literal}).with(S.to, S.literal(0))`);
       }
     }
@@ -2724,8 +2724,15 @@ const opaque = /* @__PURE__ */ dictFactory(unknown);
 // (`openLiteral`), so held as itself the dispatch would test the arm for the
 // literal and send 5 nowhere: it is any number when it is the arm itself, which
 // its type tells from its siblings, and read as it is beside the arm's literals.
+// Members converting each (`S.literal("a").with(S.to, S.literal(0))`) are held
+// as what they converted to, which the value already is.
 const armHeld = (field: Field, at: string | undefined): Internal => {
   const own = unchecked(getOutputSchema(field.armValue!));
+  if (own.anyOf?.some((member) => member.to !== U)) {
+    own.anyOf = own.anyOf.map((member) => unchecked(getOutputSchema(member)));
+    own.has = {};
+    for (const member of own.anyOf) setHas(own.has, member);
+  }
   return !own.openLiteral ? own : at === U ? unchecked(float) : copySchema(unknown);
 };
 
@@ -2747,6 +2754,9 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
     // The value was decoded already: each arm is what it holds as output, so
     // the union tells it by its literals and converts and checks nothing again.
     const target = copySchema(union);
+    // The arms as the value stands, where one holds what its members
+    // converted to: read as the union's own, the conversion would run again.
+    let source = union;
     target.anyOf = union.anyOf!.map((variant, idx) => {
       const arm = unchecked(getOutputSchema(variant));
       const field = arms[idx];
@@ -2767,12 +2777,16 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
         if (mut.items !== U) mut.items = mut.items.map((item, idx) => (`${idx}` === at ? held : item));
         else mut.properties = Object.assign(Object.create(null), mut.properties, { [at]: held });
       }
+      if (field.type !== "message" && getOutputSchema(field.armValue!).anyOf?.some((member) => member.to !== U)) {
+        if (source === union) (source = copySchema(union)).anyOf = [...union.anyOf!];
+        source.anyOf![idx] = copySchema(mut);
+      }
       mut.to = sinkOf(location, local);
       return mut;
     });
     // One target per arm, which the union's encoder pairs with its own arms.
     target.flags |= 64;
-    from.s = union;
+    from.s = source;
     from.e = target;
     from.io = U;
     code += B_merge(parse(from));

@@ -857,16 +857,61 @@ const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], val
 // own value (a string, null, or the number itself) to its number, held to the
 // same field spelled as the numbers: the same bytes for every member, read back
 // as the member, and a number no member names refused where it sits, unless
-// the member is the only one. Plain, optional, packed and unpacked repeated,
-// and as a map value. Its own stream.
+// the member is the only one. Plain, optional, packed and unpacked repeated, as
+// a map value and as a oneof arm's value beside a string arm. Its own stream.
 const ENUM_NUMBERS = [0, 1, 2, 5, 127, 128, 300, -1, 2147483647, -2147483648];
 const ENUM_LABELS = ["a", "B", "", "é", "😀", "0", "constructor", null];
-type EnumPlace = { name: string; field: (value: S.Schema<unknown, unknown>, packed: boolean) => S.Schema<unknown, unknown>; value: (one: () => unknown, r: Random) => unknown; at: string[] };
+type Schema = S.Schema<unknown, unknown>;
+type EnumPlace = {
+  name: string;
+  // The message holding `field`, the enum numbered by `S.protobufField`.
+  message: (field: (value: Schema) => Schema, value: Schema) => Schema;
+  // A value of the message, each enum value drawn by `one`.
+  value: (one: () => unknown, r: Random) => Record<string, unknown>;
+  // The same value with `f` applied to each enum value.
+  map: (value: Record<string, unknown>, f: (item: unknown) => unknown) => Record<string, unknown>;
+  // A value holding `number` once, at `at`.
+  holding: (number: number) => Record<string, unknown>;
+  at: string[];
+};
+const mapValues = (record: unknown, f: (item: unknown) => unknown) => Object.fromEntries(Object.entries(record as object).map(([key, item]) => [key, f(item)]));
 const enumPlaces: EnumPlace[] = [
-  { name: "plain", field: (value) => value, value: (one) => one(), at: ["k"] },
-  { name: "optional", field: (value) => S.optional(value), value: (one, r) => (chance(r, 0.2) ? undefined : one()), at: ["k"] },
-  { name: "repeated", field: (value) => S.array(value), value: (one, r) => Array.from({ length: int(r, 4) }, one), at: ["k", "0"] },
-  { name: "map", field: (value) => S.record(value), value: (one, r) => Object.fromEntries(Array.from({ length: int(r, 3) }, (_, idx) => [`m${idx}`, one()])), at: ["k", "m0"] },
+  { name: "plain", message: (field, value) => S.schema({ k: field(value) }), value: (one) => ({ k: one() }), map: (value, f) => ({ k: f(value.k) }), holding: (number) => ({ k: number }), at: ["k"] },
+  {
+    name: "optional",
+    message: (field, value) => S.schema({ k: field(S.optional(value)) }),
+    value: (one, r) => (chance(r, 0.2) ? {} : { k: one() }),
+    map: (value, f) => ("k" in value ? { k: f(value.k) } : {}),
+    holding: (number) => ({ k: number }),
+    at: ["k"],
+  },
+  {
+    name: "repeated",
+    message: (field, value) => S.schema({ k: field(S.array(value)) }),
+    value: (one, r) => ({ k: Array.from({ length: int(r, 4) }, one) }),
+    map: (value, f) => ({ k: (value.k as unknown[]).map(f) }),
+    holding: (number) => ({ k: [number] }),
+    at: ["k", "0"],
+  },
+  {
+    name: "map",
+    message: (field, value) => S.schema({ k: field(S.record(value)) }),
+    value: (one, r) => ({ k: Object.fromEntries(Array.from({ length: int(r, 3) }, (_, idx) => [`m${idx}`, one()])) }),
+    map: (value, f) => ({ k: mapValues(value.k, f) }),
+    holding: (number) => ({ k: { m0: number } }),
+    at: ["k", "m0"],
+  },
+  {
+    name: "oneof arm",
+    message: (field, value) => S.schema({ o: S.union([S.schema({ case: "e", value: field(value) }), S.schema({ case: "s", value: S.string.with(S.protobufField, 2) })]) }),
+    value: (one, r) => ({ o: chance(r, 0.25) ? { case: "s", value: "x" } : { case: "e", value: one() } }),
+    map: (value, f) => {
+      const o = value.o as { case: string; value: unknown };
+      return { o: o.case === "e" ? { case: "e", value: f(o.value) } : o };
+    },
+    holding: (number) => ({ o: { case: "e", value: number } }),
+    at: ["o", "value"],
+  },
 ];
 
 const enumChecks = (findings: Finding[], seed: number, values: number): number => {
@@ -886,8 +931,8 @@ const enumChecks = (findings: Finding[], seed: number, values: number): number =
   const packed = chance(r, 0.5);
   const spelled = members.map(([label, number]) => `${label === number ? "" : `${JSON.stringify(label)} -> `}${number}`).join(", ");
   const kind = `enum: per-member chains, ${place.name}`;
-  const message = (value: S.Schema<unknown, unknown>) =>
-    S.schema({ k: S.protobufField(place.field(value, packed), { number: 1, type: "enum", packed, key: "string" } as never) }).with(S.to, S.protobuf);
+  const field = (value: Schema): Schema => S.protobufField(value, { number: 1, type: "enum", packed, key: "string" } as never) as never;
+  const message = (value: Schema): Schema => place.message(field, value).with(S.to, S.protobuf) as never;
   let write: (value: unknown) => Uint8Array, read: (bytes: Uint8Array) => unknown, plain: (value: unknown) => Uint8Array;
   try {
     const schema = message(S.union(members.map(([label, number]) => (label === number ? S.literal(number) : S.literal(label).with(S.to, S.literal(number))))) as never);
@@ -899,22 +944,17 @@ const enumChecks = (findings: Finding[], seed: number, values: number): number =
     return 1;
   }
   const toNumber = new Map<unknown, number>(members.map(([label, number]) => [label, number]));
-  const numbered = (value: unknown): unknown =>
-    Array.isArray(value) ? value.map(numbered)
-    : typeof value === "object" && value !== null ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toNumber.get(item)]))
-    : value === undefined ? undefined : toNumber.get(value);
   for (let i = 0; i < values; i++) {
-    const value = { k: place.value(() => pick(r, members)[0], r) };
+    const value = place.value(() => pick(r, members)[0], r);
     try {
       const bytes = write(value).slice();
-      const want = plain({ k: numbered(value.k) }).slice();
+      const want = plain(place.map(value, (item) => toNumber.get(item))).slice();
       if (!equalValue(bytes, want)) {
         findings.push({ kind: `${kind}: writes other bytes than the numbers do`, seed, detail: `${spelled} value=${show(value)}` });
         continue;
       }
-      const back = read(bytes) as { k?: unknown };
-      const expected = place.name === "optional" && value.k === undefined ? {} : value;
-      if (!equalValue(back, expected)) {
+      const back = read(bytes);
+      if (!equalValue(back, value)) {
         findings.push({ kind: `${kind}: reads a member back as another value`, seed, detail: `${spelled} value=${show(value)} got ${show(back)}` });
       }
     } catch (e) {
@@ -923,10 +963,9 @@ const enumChecks = (findings: Finding[], seed: number, values: number): number =
   }
   if (numbers.length === 1) return values;
   const unnamed = [3, 4, 6, 1000, -2].find((number) => !numbers.includes(number))!;
-  const one = { k: place.name === "repeated" ? [unnamed] : place.name === "map" ? { m0: unnamed } : unnamed };
   let error: unknown;
   try {
-    read((S.decodeOrThrow(message(S.int32 as never)) as (value: unknown) => Uint8Array)(one).slice());
+    read((S.decodeOrThrow(message(S.int32 as never)) as (value: unknown) => Uint8Array)(place.holding(unnamed)).slice());
   } catch (e) {
     error = e;
   }
