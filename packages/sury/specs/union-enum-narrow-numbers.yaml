@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([1, 2, 3]).with(S.to, S.union([1, 2]))
+  input: 1 | 2 | 3
+  output: 1 | 2
+  instantiations: 5044
+jsonSchema:
+  input: "{ enum: [1, 2] }"
+  fromInputType: 1 | 2
+  output: '{ anyOf: [{ type: "number", const: 1 }, { type: "number", const: 2 }, { not: {} }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "number", enum: [1] }, { type: "number", enum: [2] }, { not: {} }] }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="number"&&i==i){for(;;){if(i===1)break;if(i===2)break;if(i===3){for(;;){throw e[0](i)}break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      one:
+        input: "1"
+        output: "1"
+      three:
+        input: "3"
+        error: Expected 1 | 2, received 3
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{typeof i==="number"&&i==i&&(i===1||i===2)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      two:
+        input: "2"
+        output: "2"

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([1, 2, "x"]).with(S.to, S.union([1, "x"]))
+  input: 1 | 2 | "x"
+  output: 1 | "x"
+  instantiations: 5096
+jsonSchema:
+  input: '{ enum: [1, "x"] }'
+  fromInputType: 1 | "x"
+  output: '{ anyOf: [{ type: "number", const: 1 }, { not: {} }, { type: "string", const: "x" }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "number", enum: [1] }, { not: {} }, { type: "string", enum: ["x"] }] }'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare 1 | 2 | \"x\". Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare 1 | \"x\". Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){for(;;){if(i===1)break;if(i===2){for(;;){throw e[0](i)}break}throw e[1](i)}break}if(typeof i==="string"&&i==="x")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      one:
+        input: "1"
+        output: "1"
+        divergence:
+          reason: the checks meet 2 with the whole of 1 | "x" rather than with 1 alone, so they raise on the schema instead of answering about the value
+          check: Ambiguous 2 -> 1 | "x". Should "x" be decoded or ignored? Choose with S.to for 2 -> "x", or S.never -> "x"
+      two:
+        input: "2"
+        error: Expected 1, received 2
+      x:
+        input: '"x"'
+        output: '"x"'
+        divergence:
+          reason: the checks meet 2 with the whole of 1 | "x" rather than with 1 alone, so they raise on the schema instead of answering about the value
+          check: Ambiguous 2 -> 1 | "x". Should "x" be decoded or ignored? Choose with S.to for 2 -> "x", or S.never -> "x"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(typeof i==="number"&&i==i&&i===1||typeof i==="string"&&i==="x")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      one:
+        input: "1"
+        output: "1"

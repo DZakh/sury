@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.union(["a", "b"])).with(S.to, S.nullable(S.union(["a", "b", "c"])))
+  input: '"a" | "b" | undefined'
+  output: '"a" | "b" | "c" | null'
+  instantiations: 5465
+jsonSchema:
+  input: Expected JSON, received "a" | "b" | undefined
+  output: '{ enum: ["a", "b", null] }'
+  fromOutputType: '"a" | "b" | null'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare \"a\" | \"b\" | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare \"a\" | \"b\" | \"c\" | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string"&&(i==="a"||i==="b"))break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      missing:
+        input: undefined
+        output: "null"
+      a:
+        input: '"a"'
+        output: '"a"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){for(;;){if(i==="a")break;if(i==="b")break;if(i==="c"){for(;;){throw e[0](i)}break}throw e[1](i)}break}if(i===null){i=void 0;break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      null-value:
+        input: "null"
+        output: undefined
+      a:
+        input: '"a"'
+        output: '"a"'
+      c:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"

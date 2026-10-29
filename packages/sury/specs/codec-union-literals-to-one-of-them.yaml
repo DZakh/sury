@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Ambiguous 1 | 2 -> 1. Should 2 be decoded or ignored? Choose with S.to for 2 -> 1, or S.never -> 2"
+    creationError: "SuryError: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2"
   decode: eq-to-parse
   encode:
     expression: i=>{try{i===1||e[0](i);return i}catch(v0){e[1](v0)}}

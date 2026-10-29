@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: 'SuryError: Ambiguous 0 -> "a" | "b". Should "b" be decoded or ignored? Choose with S.to for 0 -> "b", or S.never -> "b"'
+    creationError: 'SuryError: Ambiguous 0 -> "a" | "b". 0 could become any of them. Choose one with S.to, such as 0 -> "a"'
   decode: eq-to-parse
   encode:
     expression: i=>{try{for(;;){if(typeof i==="string"&&i==="a"){i=0;break}if(typeof i==="string"&&i==="b"){i=0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}

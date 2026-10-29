@@ -124,13 +124,16 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 // the refinement rejects, then the literal fallback accepts "x"
 ```
 
-With no identical `const`, a const source facing two or more consts would be
-replaced by whichever comes first as well as by any other, so the operation is
-rejected when it's created. `null` and `undefined` keep their bridge:
+A const facing two or more consts of another kind, none of them its own, is
+rejected when the operation is created: it could become any of them. `null`
+and `undefined` keep their bridge. A const facing consts of its own kind
+is checked against them:
 
 ```ts
 S.schema(0).with(S.to, S.union(["a", "b"])); // ❌ 0 -> "a" or 0 -> "b"?
 S.schema(0).with(S.to, S.schema("a")); // ✅ 0 -> "a", rule 1
+S.schema(undefined).with(S.to, S.union(["a", "b"])); // ✅ undefined -> "a"
+S.schema(0).with(S.to, S.union([1, 2])); // ✅ fails 0, which is neither
 ```
 
 **Exception - partial type match.** If the source has the same type as *some but
@@ -213,13 +216,15 @@ S.union([S.number, S.string]).with(S.to, S.string);
 // Invalid operation: for 123 - decode to "123" or fail as a non-matching case?
 ```
 
-A const target has the same type only as the identical const, so another
-const of its kind is a non-matching variant, not one to replace:
+A const target has the same type only as the identical const, so a union
+holding it beside other consts of its kind is rejected:
 
 ```ts
 S.union([1, 2]).with(S.to, S.literal(1)); // ❌ 2 -> 1 or fail?
-S.schema({ o: S.union([1, 2]) }).with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })]));
-// ❌ the same pair, met at o by the first member
+S.union([1, S.literal(2).with(S.to, S.literal(1))]).with(S.to, S.literal(1)); // ✅ 2 -> 1
+S.schema({ o: S.union([1, 2]) }).with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ❌ the same at o
+S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])
+  .with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ✅ { o: 2 } -> { o: 2 }, rule 4
 ```
 
 Say what you mean with an explicit target union:
@@ -267,6 +272,16 @@ S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean])); // ❌ boolean has no source variant
 S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string])); // ❌ boolean has no target variant
 S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
+```
+
+A const passes through to the identical const only. One the target doesn't
+spell out is checked against the target's consts of its kind, which narrows an
+enum and widens one the other way:
+
+```ts
+S.union(["a", "b", "c"]).with(S.to, S.union(["a", "b"])); // ✅ "a" -> "a", fails "c"
+S.union([1, 2, "x"]).with(S.to, S.union([1, "x"])); // ✅ fails 2, never 2 -> 1
+S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"])); // ✅ "c" is never there
 ```
 
 A target union described with `S.meta`, numbered with `S.protobufField` or

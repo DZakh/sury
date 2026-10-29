@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.literal(0).with(S.to, S.union([1, S.never.with(S.to, S.literal(2))]))
+  input: "0"
+  output: 1 | 2
+  instantiations: 5792
+jsonSchema:
+  input: '{ type: "number", const: 0 }'
+  output: "{ not: {} }"
+  fromOutputType: never
+  openapi-3.0:
+    input: '{ type: "number", enum: [0] }'
+isEqual:
+  input: alwaysEqual
+  output: strictEqual
+compare:
+  input: alwaysCompare
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i===0||e[1](i);for(;;){throw e[0](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      zero:
+        input: "0"
+        error: Expected 1 | never, received 0
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i&&i===1){i=0;break}if(typeof i==="number"&&i==i&&i===2){e[0](i);break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      one:
+        input: "1"
+        output: "0"

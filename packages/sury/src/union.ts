@@ -94,6 +94,11 @@ const unionSameType = (a: Internal, b: Internal): boolean =>
 const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
   a === b || (a !== a && b !== b);
 
+// Two consts are one type only as the identical value: between two others of
+// one kind, a conversion would replace one by the other.
+const unionConstMismatch = (a: Internal, b: Internal): boolean =>
+  isLiteral(a) && isLiteral(b) && !unionLiteralEqual(a.const, b.const);
+
 // Union reachability stops at the first `never`: a later `.to(...)` is not
 // executable because the `never` decoder rejects first, and a link whose codec
 // slot is the "never" sentinel produces nothing the same way. The general
@@ -538,6 +543,7 @@ const unionCheckPartial = (
   const other = outputSide ? target : source;
   let matched: Internal | undefined = U;
   let unmatched: Internal | undefined = U;
+  let byConst = false;
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
     const match = outputSide ? unionOutput(variant) : variant;
@@ -547,11 +553,16 @@ const unionCheckPartial = (
       continue;
     }
     // Under rule 3 a const target is the same type only as the identical
-    // const: another of its kind would be replaced by it, which is a decoding.
-    if (unionSameType(other, match) && !(outputSide && isLiteral(other) && isLiteral(match) && !unionLiteralEqual(other.const, match.const))) matched ||= variant;
-    else unmatched ||= variant;
+    // const.
+    const differs = outputSide && unionSameType(other, match) && unionConstMismatch(other, match);
+    if (unionSameType(other, match) && !differs) matched ||= variant;
+    else if (unmatched === U) (unmatched = variant), (byConst = differs);
   }
   if (matched !== U && unmatched !== U) {
+    const it = inputExpression(unmatched);
+    if (byConst) {
+      unionAmbiguous(input, source, target, `${it} isn't ${inputExpression(target)}. Choose with S.to for ${it} -> ${inputExpression(target)}, or S.never -> ${it}${input.path.length ? ", or split what holds it into a union with a member per value, such as a union of objects" : ""}`);
+    }
     unionInvalid(input, source, target, unmatched, outputSide);
   }
 };
@@ -574,11 +585,11 @@ const unionInvalid = (
   const conversion = onSource
     ? `${it} -> ${inputExpression(unionPeer(target))}`
     : `${inputExpression(unionPeer(source))} -> ${it}`;
-  return B_invalidOperation(
-    input,
-    `Ambiguous ${inputExpression(source)} -> ${inputExpression(target)}. Should ${it} be decoded or ignored? Choose with S.to for ${conversion}, or S.never -> ${it}`,
-  );
+  return unionAmbiguous(input, source, target, `Should ${it} be decoded or ignored? Choose with S.to for ${conversion}, or S.never -> ${it}`);
 };
+
+const unionAmbiguous = (input: Val, source: Internal, target: Internal, why: string): never =>
+  B_invalidOperation(input, `Ambiguous ${inputExpression(source)} -> ${inputExpression(target)}. ${why}`);
 
 // ── Normalize → Analyze → Plan → Emit ────────────────────────────────────────
 
@@ -1654,11 +1665,14 @@ export const unionDecoder: Builder = (input: Val) => {
   // variant can produce it.
   if (!(sourceTag & 1) && !(flags & 1)) {
     unionCheckPartial(input, source, self, variants, false);
-    // A const none of the target's consts spells out would be replaced by
+    // A const of a kind none of the target's consts are would be replaced by
     // whichever comes first, as well by any other: two of them leave it
     // ambiguous. Not `null` or `undefined`, which bridge to their opposite.
     const consts = sourceLiteral && !(sourceTag & (16 | 32)) ? variants.filter((variant) => isLiteral(variant) && !unionNeverLink(variant)) : [];
-    if (consts.length > 1) unionInvalid(input, source, self, consts[1]!, false);
+    if (consts.length > 1 && !consts.some((variant) => unionSameType(source, variant))) {
+      const it = inputExpression(source);
+      unionAmbiguous(input, source, self, `${it} could become any of them. Choose one with S.to, such as ${it} -> ${inputExpression(consts[0]!)}`);
+    }
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have
@@ -1876,7 +1890,7 @@ const unionResolveToUnion = (
       }
       continue;
     }
-    const sameTyped = targets.filter(
+    let sameTyped = targets.filter(
       (targetVariant, t) =>
         targetVariant.type !== neverTag &&
         !unionNeverLink(targetVariant) &&
@@ -1884,6 +1898,17 @@ const unionResolveToUnion = (
         (covered[t] = true)
     );
     sourceNullish |= tagFlags[sourceOut.type]! & (32 | 16);
+    // A const passes through to the identical const only. With none, the
+    // target's consts of its type check it, and it fails as a value they
+    // don't take, never replaced by one of them.
+    if (isLiteral(sourceOut)) {
+      const identical = sameTyped.filter((targetVariant) => !unionConstMismatch(sourceOut, targetVariant));
+      if (!identical.length && sameTyped.length) {
+        matches[s] = unionOf(sameTyped);
+        continue;
+      }
+      sameTyped = identical;
+    }
     if (sameTyped.length === 1) {
       matches[s] = sameTyped[0]!;
     } else if (sameTyped.length > 1) {
@@ -1996,10 +2021,9 @@ export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   return unionFactory(arms);
 };
 
-export const unionFactory = (schemas: Internal[]): Internal => {
-  if (!schemas.length) return panic("S.union requires at least one item");
-  if (schemas.length === 1) return schemas[0]!;
-
+// A union of one member too, which checks a value as the member's dispatch
+// does instead of converting it into the member.
+const unionOf = (schemas: Internal[]): Internal => {
   const has: Partial<Record<Tag, boolean>> = {};
   const anyOf: Internal[] = [];
   for (let idx = 0; idx < schemas.length; idx++) {
@@ -2017,4 +2041,9 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.encoder = unionEncoder;
   mut.has = has;
   return mut;
+};
+
+export const unionFactory = (schemas: Internal[]): Internal => {
+  if (!schemas.length) return panic("S.union requires at least one item");
+  return schemas.length === 1 ? schemas[0]! : unionOf(schemas);
 };
