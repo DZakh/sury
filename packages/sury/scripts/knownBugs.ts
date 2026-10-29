@@ -271,20 +271,6 @@ export const KNOWN_BUGS: Known[] = [
       ),
   },
   {
-    id: "jsonstring-fieldor-refined-url-encode",
-    kind: "bug",
-    summary:
-      "`S.object((s) => ({ f: s.fieldOr(\"f\", S.nullable(S.url.with(S.refine, check)), null) })).with(S.to, S.jsonString)` " +
-      "crashes the encode compile (`isOutput`, `encodeOrThrow`) with a TypeError from `B_merge` instead of building it.",
-    spec: "jsonstring-fieldor-refined-url",
-    fuzzers: ["issues"],
-    matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("reading 't'") &&
-      some(f.shape, (node) => node.name === "fieldOr"),
-  },
-  {
     id: "conversion-after-failed-container",
     kind: "limitation",
     summary:

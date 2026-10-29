@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.urlSearchParams.with(S.to, S.schema({ k: S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]) }))'
+  input: URLSearchParams
+  output: "{ k: 0 | 1; }"
+  instantiations: 7321
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { k: { enum: [0, 1] } }, required: ["k"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.k===b.k
+compare:
+  input: "throws: [Sury] Can't compare URLSearchParams. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { k: 0 | 1; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[4]||e[5](i);let v0=e[0](i),v1=v0.get("k");typeof v1==="string"||e[1](v1);for(;;){v1==="a"||e[2](v1);v1=0;break}return {k:v1}}catch(v2){e[6](v2)}}
+    examples:
+      a:
+        input: ((p) => (p.append("k", "a"), p))(new URLSearchParams())
+        output: "{ k: 0 }"
+      # FIXME: should read { k: 1 }: the slot's literal check stays inline, so the first member takes every value (fixed for S.protobuf only, whose slot no check wraps)
+      b:
+        input: ((p) => (p.append("k", "b"), p))(new URLSearchParams())
+        error: 'Failed at k: Expected "a", received "b"'
+      # FIXME: should name both members, "a" | "b", for the same reason
+      c:
+        input: ((p) => (p.append("k", "c"), p))(new URLSearchParams())
+        error: 'Failed at k: Expected "a", received "c"'
+  decode:
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("k");typeof v1==="string"||e[1](v1);for(;;){v1==="a"||e[2](v1);v1=0;break}return {k:v1}}catch(v2){e[4](v2)}}
+    examples:
+      a:
+        input: ((p) => (p.append("k", "a"), p))(new URLSearchParams())
+        output: "{ k: 0 }"
+      # FIXME: should read { k: 1 }: the slot's literal check stays inline, so the first member takes every value (fixed for S.protobuf only, whose slot no check wraps)
+      b:
+        input: ((p) => (p.append("k", "b"), p))(new URLSearchParams())
+        error: 'Failed at k: Expected "a", received "b"'
+  encode:
+    expression: i=>{try{let v0=i.k;for(;;){if(typeof v0==="number"&&v0==v0&&v0===0){v0="a";break}if(typeof v0==="number"&&v0==v0&&v0===1){v0="b";break}throw e[0](v0)}let v1=new e[1]();let v2=v0;typeof v2==="string"&&(v2==="a"||v2==="b")||e[2](v2);v1.append("k",v2);return v1}catch(v3){e[3](v3)}}
+    examples:
+      one:
+        input: "{ k: 1 }"
+        output: ((p) => (p.append("k", "b"), p))(new URLSearchParams())
