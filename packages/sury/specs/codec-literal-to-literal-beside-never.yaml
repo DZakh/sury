@@ -28,3 +28,6 @@ operations:
       one:
         input: "1"
         output: "0"
+      two:
+        input: "2"
+        error: Expected never, received 2

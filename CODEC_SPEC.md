@@ -127,7 +127,9 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 A const facing two or more consts of another kind, none of them its own, is
 rejected when the operation is created: it could become any of them. One
 facing only consts of its own kind, none of them itself, is rejected too: it
-could never succeed. `null` and `undefined` keep their bridge:
+could never succeed. Met as one member of a source union, at any depth, it
+fails as a value instead, since the other members still convert. `null` and
+`undefined` keep their bridge:
 
 ```ts
 S.schema(0).with(S.to, S.union(["a", "b"])); // ❌ 0 -> "a" or 0 -> "b"?
@@ -135,6 +137,7 @@ S.schema(0).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.never
 S.schema(0).with(S.to, S.schema("a")); // ✅ 0 -> "a", rule 1
 S.schema(undefined).with(S.to, S.union(["a", "b"])); // ✅ undefined -> "a"
 S.schema(0).with(S.to, S.union([1, 2])); // ❌ 0 is neither
+S.union([S.schema({ t: "a" }), S.schema({ t: "c" })]).with(S.to, S.schema({ t: S.union(["a", "b"]) })); // ✅ { t: "a" }, fails { t: "c" }
 S.schema(0).with(S.to, S.union([1, 2, S.number])); // ✅ 0 -> 0, the number takes it
 ```
 

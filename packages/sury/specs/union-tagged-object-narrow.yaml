@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0={t:i.t};v0={t:i.t};i=v0;break}if(i.t==="b"){let v1={t:i.t};v1={t:i.t};i=v1;break}if(i.t==="c"){let v2={t:i.t};for(;;){throw e[0](v2)}i=v2;break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v3){e[2](v3)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:i.t};break}if(i.t==="b"){i={t:i.t};break}if(i.t==="c"){let v0={t:i.t};for(;;){throw e[0](v0)}i=v0;break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       b:
         input: '{ t: "b" }'

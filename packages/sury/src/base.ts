@@ -456,10 +456,6 @@ export type Internal = {
   //     caller's bound from a format's; only the bound constructors set these.
   //     A schema bounds one of its value, length or size, so one set covers
   //     minimum/minLength/minItems/minSize alike.
-  //   32768 a target union a member of a source union is handed to check it
-  //     (union.ts, rules 3 and 4): a const none of its consts is fails there
-  //     as a value, where a const met by consts alone is otherwise refused as
-  //     never succeeding.
   // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
   // a schema a union could hold: `unionIsTransparent` counts own fields, and
   // the key alone would stop every union from flattening. The two container

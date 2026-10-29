@@ -99,15 +99,19 @@ const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
 const unionConstMismatch = (a: Internal, b: Internal): boolean =>
   isLiteral(a) && isLiteral(b) && !unionLiteralEqual(a.const, b.const);
 
-// The same for an object, tuple or array target, by the consts it holds: a
-// source whose own const at a field or item differs would be replaced by it.
+// The same for an object, tuple or array target, by the consts it holds at any
+// depth: a source whose own const at a field or item differs would be
+// replaced by it.
 const unionShapeMismatch = (target: Internal, source: Internal): boolean => {
   if (unionConstMismatch(target, source)) return true;
   const fields = (target.properties || target.items) as Record<string, Internal> | undefined;
   const others = (source.properties || source.items) as Record<string, Internal> | undefined;
-  if (fields && others) for (const key in fields) if (others[key] !== U && unionConstMismatch(fields[key]!, unionOutput(others[key]!))) return true;
-  return typeof target.additionalItems === objectTag && typeof source.additionalItems === objectTag && unionConstMismatch(target.additionalItems as Internal, unionOutput(source.additionalItems as Internal));
+  if (fields && others) for (const key in fields) if (others[key] !== U && unionShapeMismatch(fields[key]!, unionOutput(others[key]!))) return true;
+  return typeof target.additionalItems === objectTag && typeof source.additionalItems === objectTag && unionShapeMismatch(target.additionalItems as Internal, unionOutput(source.additionalItems as Internal));
 };
+
+const unionShaped = (schema: Internal): boolean =>
+  !!(schema.properties || schema.items) || typeof schema.additionalItems === objectTag;
 
 // Union reachability stops at the first `never`: a later `.to(...)` is not
 // executable because the `never` decoder rejects first, and a link whose codec
@@ -1662,6 +1666,12 @@ export const unionDecoder: Builder = (input: Val) => {
     expected = copySchema(self);
     expected.anyOf = variants;
   }
+  // A shape holding a const where a variant holds another is not that variant.
+  // With none left, a member of another union being tried fails as a value.
+  if (!(tagFlags[source.type]! & 1) && unionShaped(source)) {
+    const fit = variants.filter((variant) => !unionShapeMismatch(variant, source));
+    if (fit.length < variants.length && (fit.length || input.g.o & 4)) variants = fit;
+  }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
   const sourceLiteral = isLiteral(source);
@@ -1689,14 +1699,14 @@ export const unionDecoder: Builder = (input: Val) => {
     // A const of a kind none of the target's consts are would be replaced by
     // whichever comes first, as well by any other: two of them leave it
     // ambiguous. Not `null` or `undefined`, which bridge to their opposite.
-    // A const of its kind that is none of them can never succeed, unless a
-    // rule handed it here to check a member of another union (flag 32768),
-    // which fails as a value.
+    // A const of its kind that is none of them can never succeed, unless it is
+    // met while a member of another union is tried (`g.o` 4), where it fails
+    // as a value.
     const live = sourceLiteral && !(sourceTag & (16 | 32)) ? variants.filter((variant) => variant.type !== neverTag && !unionNeverLink(variant)) : [];
     const consts = live.filter(isLiteral);
     const own = consts.filter((variant) => unionSameType(source, variant));
     if (consts.length > 1 && !own.length) unionAmbiguous(input, source, self, `${inputExpression(source)} could become any of them. ${unionChoose(source, consts)}`);
-    if (live.length && own.length === live.length && !(self.flags & 32768)) {
+    if (live.length && own.length === live.length && !(input.g.o & 4)) {
       B_invalidOperation(input, `Can't decode ${inputExpression(source)} -> ${inputExpression(self)}: it is none of them. ${unionChoose(source, own)}`);
     }
   }
@@ -1892,14 +1902,9 @@ const unionResolve = (
   if (!(tagFlags[target.type]! & 1) && !target.noValidation) {
     unionCheckPartial(input, source, target, variants, true);
   }
-  // A const handed the whole of a target union is checked by it, as rule 4's
-  // hand-off is (flag 32768).
-  let handed = target;
-  if (target.type === anyOfTag && !(target.flags & 32768)) (handed = copySchema(target)).flags = target.flags | 32768;
-  return variants.map((variant) => {
-    const output = unionOutput(variant);
-    return output.type === neverTag ? U : isLiteral(output) ? handed : target;
-  });
+  return variants.map((variant) =>
+    unionOutput(variant).type === neverTag ? U : target
+  );
 };
 
 // Rule 4 - no coercion: values pass through to the same-type target variant. The
@@ -1945,10 +1950,10 @@ const unionResolveToUnion = (
     // A const passes through to the identical const only. With none, the
     // target's consts of its type check it, and it fails as a value they
     // don't take, never replaced by one of them.
-    if (isLiteral(sourceOut)) {
-      const identical = sameTyped.filter((targetVariant) => !unionConstMismatch(sourceOut, targetVariant));
+    if (isLiteral(sourceOut) || unionShaped(sourceOut)) {
+      const identical = sameTyped.filter((targetVariant) => !unionShapeMismatch(targetVariant, sourceOut));
       if (!identical.length && sameTyped.length) {
-        (matches[s] = unionOf(sameTyped)).flags = 32768;
+        matches[s] = unionOf(sameTyped);
         continue;
       }
       sameTyped = identical;
