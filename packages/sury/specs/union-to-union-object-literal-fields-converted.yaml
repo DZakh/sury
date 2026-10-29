@@ -20,7 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2, or split what holds it into a union with a member per value, such as a union of objects"
+    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2, or split what holds it into a union with a member per value"
   decode: eq-to-parse
   encode:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.o===1){let v2=1;let v1="1";let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v2=v0;i={o:v2};break}if(i.o===2){let v5=2;let v4="2";let v3=+v4;v3==v3&&(v3||v4.trim())||e[1](v4);v5=v3;i={o:v5};break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v6){e[3](v6)}}

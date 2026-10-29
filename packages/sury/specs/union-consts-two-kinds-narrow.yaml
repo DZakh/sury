@@ -24,18 +24,12 @@ operations:
       one:
         input: "1"
         output: "1"
-        divergence:
-          reason: the checks meet 2 with the whole of 1 | "x" rather than with 1 alone, so they raise on the schema instead of answering about the value
-          check: Ambiguous 2 -> 1 | "x". Should "x" be decoded or ignored? Choose with S.to for 2 -> "x", or S.never -> "x"
       two:
         input: "2"
         error: Expected 1, received 2
       x:
         input: '"x"'
         output: '"x"'
-        divergence:
-          reason: the checks meet 2 with the whole of 1 | "x" rather than with 1 alone, so they raise on the schema instead of answering about the value
-          check: Ambiguous 2 -> 1 | "x". Should "x" be decoded or ignored? Choose with S.to for 2 -> "x", or S.never -> "x"
   decode: eq-to-parse
   encode:
     expression: i=>{try{(typeof i==="number"&&i==i&&i===1||typeof i==="string"&&i==="x")||e[0](i);return i}catch(v0){e[1](v0)}}

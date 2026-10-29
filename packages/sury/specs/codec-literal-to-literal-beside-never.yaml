@@ -6,8 +6,7 @@ ts:
   instantiations: 5792
 jsonSchema:
   input: '{ type: "number", const: 0 }'
-  output: "{ not: {} }"
-  fromOutputType: never
+  output: "{ enum: [1, 2] }"
   openapi-3.0:
     input: '{ type: "number", enum: [0] }'
 isEqual:
@@ -21,11 +20,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i===0||e[1](i);for(;;){throw e[0](i)}return i}catch(v0){e[2](v0)}}
-    examples:
-      zero:
-        input: "0"
-        error: Expected 1 | never, received 0
+    creationError: "SuryError: Can't decode 0 -> 1 | never: it is none of them. Choose one with S.to, such as S.literal(0).with(S.to, S.literal(1))"
   decode: eq-to-parse
   encode:
     expression: i=>{try{for(;;){if(typeof i==="number"&&i==i&&i===1){i=0;break}if(typeof i==="number"&&i==i&&i===2){e[0](i);break}throw e[1](i)}return i}catch(v0){e[2](v0)}}

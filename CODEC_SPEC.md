@@ -125,15 +125,17 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 ```
 
 A const facing two or more consts of another kind, none of them its own, is
-rejected when the operation is created: it could become any of them. `null`
-and `undefined` keep their bridge. A const facing consts of its own kind
-is checked against them:
+rejected when the operation is created: it could become any of them. One
+facing only consts of its own kind, none of them itself, is rejected too: it
+could never succeed. `null` and `undefined` keep their bridge:
 
 ```ts
 S.schema(0).with(S.to, S.union(["a", "b"])); // ❌ 0 -> "a" or 0 -> "b"?
+S.schema(0).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.never.with(S.to, S.literal("b"))])); // ✅ 0 <-> "a"
 S.schema(0).with(S.to, S.schema("a")); // ✅ 0 -> "a", rule 1
 S.schema(undefined).with(S.to, S.union(["a", "b"])); // ✅ undefined -> "a"
-S.schema(0).with(S.to, S.union([1, 2])); // ✅ fails 0, which is neither
+S.schema(0).with(S.to, S.union([1, 2])); // ❌ 0 is neither
+S.schema(0).with(S.to, S.union([1, 2, S.number])); // ✅ 0 -> 0, the number takes it
 ```
 
 **Exception - partial type match.** If the source has the same type as *some but
@@ -216,12 +218,15 @@ S.union([S.number, S.string]).with(S.to, S.string);
 // Invalid operation: for 123 - decode to "123" or fail as a non-matching case?
 ```
 
-A const target has the same type only as the identical const, so a union
-holding it beside other consts of its kind is rejected:
+A const target has the same type only as the identical const, and an object,
+tuple or array holding a const only as one holding it too, so a union holding
+one beside others of its kind is rejected:
 
 ```ts
 S.union([1, 2]).with(S.to, S.literal(1)); // ❌ 2 -> 1 or fail?
 S.union([1, S.literal(2).with(S.to, S.literal(1))]).with(S.to, S.literal(1)); // ✅ 2 -> 1
+S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })]).with(S.to, S.schema({ o: S.literal(1) })); // ❌ { o: 2 } -> { o: 1 } or fail?
+S.union([S.array(S.literal(1)), S.array(S.literal(2))]).with(S.to, S.array(S.literal(1))); // ❌ the same for [2]
 S.schema({ o: S.union([1, 2]) }).with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ❌ the same at o
 S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])
   .with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ✅ { o: 2 } -> { o: 2 }, rule 4

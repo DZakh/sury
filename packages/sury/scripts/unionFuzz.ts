@@ -18,6 +18,7 @@ import { node, type Shape } from "./unionFuzz/shape";
 import type { MemberSpec } from "./unionFuzz/generate";
 import { generateMembers, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { issue392Case } from "./unionFuzz/issue392";
+import { narrowingFindings } from "./unionFuzz/narrowing";
 import { classify, describeOutcome, show } from "./unionFuzz/outcome";
 import { compiledParse } from "./unionFuzz/reference";
 import {
@@ -172,10 +173,16 @@ const main = async (): Promise<void> => {
     }
   }
 
+  // Its own stream: the union cases above replay as they did.
+  const narrowing = narrowingFindings(S, rngFromSeed(seed ^ 0x2545f491), Math.max(50, Math.floor(cases / 4)));
+  for (const finding of narrowing.slice(0, 20)) console.log(`\n[narrowing] ${finding}`);
+  if (narrowing.length) process.exitCode = 1;
+
   console.log(
     `\n${stats.compared} compiled-vs-reference comparisons, ${stats.diffs} diff(s), ${stats.skipped} skipped (seed ${seed}, ${cases} unions)`,
   );
   if (known) console.log(`  known: ${known} diff(s) covered by scripts/knownBugs.ts`);
+  console.log(`  narrowing: ${narrowing.length} finding(s)`);
   const gate = !process.argv.some((a) => /^--(seed|cases|max-members)=/.test(a) && a !== "--seed=1");
   const stale = gate ? staleFor(["union"]) : [];
   for (const line of stale) console.log(`  ${line}`);
