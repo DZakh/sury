@@ -69,6 +69,7 @@ import {
 export const parse = (input: Val): Val => {
   let result: Val = input;
   let appliedEncoderRef: Encoder | undefined = U;
+  let handed: number | undefined;
   let loopCount = 0;
   while (!result.io || result.e.to) {
     const appliedEncoder: Encoder | undefined = appliedEncoderRef;
@@ -98,9 +99,17 @@ export const parse = (input: Val): Val => {
       result.io = true;
     } else if (loopInput.io) {
       const to = loopInput.e.to!;
-      // Past a hand-off link only the target is left to compile, and the
-      // union case holding the link puts `g.o` back when it ends.
-      if (loopInput.e.flags & 32768) loopInput.g.o |= 32;
+      const g = loopInput.g;
+      // Past a hand-off link `g.o` 32 holds for the target alone: the next
+      // link is the target's own conversion, refused as it is anywhere else.
+      if (handed !== U) {
+        g.o = (g.o & ~32) | handed;
+        handed = U;
+      }
+      if (loopInput.e.flags & 32768) {
+        handed = g.o & 32;
+        g.o |= 32;
+      }
       result = loopInput.e.parser ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
       const maybeEncoder = loopInput.s.encoder;

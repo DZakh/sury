@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union(["a", "b"]).with(S.to, S.string).with(S.to, S.literal("x")).with(S.to, S.union(["y", "z"]))
+  input: '"a" | "b"'
+  output: '"y" | "z"'
+  instantiations: 5766
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  output: '{ enum: ["y", "z"] }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode \"x\" -> \"y\" | \"z\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"x\").with(S.to, S.literal(\"y\")), S.never.with(S.to, S.literal(\"z\"))])"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode \"x\" -> \"a\" | \"b\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"x\").with(S.to, S.literal(\"a\")), S.never.with(S.to, S.literal(\"b\"))])"

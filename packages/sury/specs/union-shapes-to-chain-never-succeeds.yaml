@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a" }), S.schema({ t: "b" })]).with(S.to, S.schema({ t: S.string })).with(S.to, S.schema({ t: "x" })).with(S.to, S.union([S.schema({ t: "y" }), S.schema({ t: "z" })]))'
+  input: '{ t: "a"; } | { t: "b"; }'
+  output: '{ t: "y"; } | { t: "z"; }'
+  instantiations: 11464
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, additionalProperties: false, required: ["t"] }, { type: "object", properties: { t: { type: "string", const: "b" } }, additionalProperties: false, required: ["t"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "y" } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", const: "z" } }, required: ["t"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, additionalProperties: false, required: ["t"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] } }, additionalProperties: false, required: ["t"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["y"] } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", enum: ["z"] } }, required: ["t"] }] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a":b.t==="b")
+  output: (a,b)=>a===b||(a.t==="y"?b.t==="y":b.t==="z")
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; } | { t: \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"y\"; } | { t: \"z\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { t: \"x\"; } -> { t: \"y\"; } | { t: \"z\"; }: it holds a value none of them does. Choose one with S.to, such as { t: \"x\"; } -> { t: \"y\"; }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="y"){let v0={t:"x"};for(;;){v0={t:"a"};break}i=v0;break}if(i.t==="z"){let v1={t:"x"};for(;;){v1={t:"a"};break}i=v1;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
+    examples:
+      y:
+        input: '{ t: "y" }'
+        output: '{ t: "a" }'
+      other:
+        input: '{ t: "q" }'
+        error: 'Expected { t: "y"; } | { t: "z"; }, received { t: "q"; }'

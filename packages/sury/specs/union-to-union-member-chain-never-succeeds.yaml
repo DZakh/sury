@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.literal("x"), S.number]).with(S.to, S.union([S.literal("x").with(S.to, S.union(["y", "z"])), S.number]))
+  input: number | "x"
+  output: number | "y" | "z"
+  instantiations: 6324
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "x" }, { type: "number" }] }'
+  output: '{ anyOf: [{ enum: ["y", "z"] }, { type: "number" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["x"] }, { type: "number" }] }'
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare \"x\" | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare \"y\" | \"z\" | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode \"x\" -> \"y\" | \"z\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"x\").with(S.to, S.literal(\"y\")), S.never.with(S.to, S.literal(\"z\"))])"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i)break;l1:{if(typeof i==="string"){for(;;){if(i==="y"){i="x";break}if(i==="z"){i="x";break}v0=[v0,e[0](i)];break l1}}else{v0=[v0,e[0](i)];break l1}break}throw e[1](i,v0)}return i}catch(v2){e[2](v2)}}
+    examples:
+      y:
+        input: '"y"'
+        output: '"x"'
+      number:
+        input: "1"
+        output: "1"
+      other:
+        input: '"x"'
+        error: |-
+          Expected "y" | "z" | number, received "x"
+          - Expected "y" | "z", received "x"
