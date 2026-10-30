@@ -237,13 +237,14 @@ const literalRead = (output: Val, input: Val): Val => {
   return val.prev === input ? val : output;
 };
 
-export const completeObjectVal = (objectVal: Val): Val => {
+export const completeObjectVal = (objectVal: Val, inUnion?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
+  const joins = inUnion && keys.some((key) => objectVal.d![key]!.f & 1);
 
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
@@ -251,6 +252,11 @@ export const completeObjectVal = (objectVal: Val): Val => {
     if ((val.f & 1)) {
       promised.push(val);
       resolveAsyncFields(val);
+    } else if (joins) {
+      // The join builds the object inside its `.then`, after the union case
+      // assigned the promise to the var a field re-reads (`i.k`).
+      if (isLiteral(val.s) && !val.vc) val.i = B_inlineConst(val, val.s);
+      else val.v();
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -498,7 +504,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
@@ -671,7 +677,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
         return itemOutput;
       });
     }
-    output = completeObjectVal(objectVal);
+    output = completeObjectVal(objectVal, isUnion);
   } else {
     // Build a fixed-property object target (from a dict or object source).
     const properties = expectedSchema.properties!;
@@ -727,7 +733,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
 
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
