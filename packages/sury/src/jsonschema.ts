@@ -415,9 +415,10 @@ const internalToJSONSchema = (
     let encoded: JSONSchemaT | undefined;
     try {
       const parsed = parse(B_operationArg(unknown, reverse(schema), 0)).s;
-      // A literal converting into the same literal parses to the chain itself,
-      // which would come back here forever: it is the literal's own schema.
-      if (!(isLiteral(parsed) && parsed.to !== U && parsed.const === parsed.to.const)) {
+      // A literal whose reverse parses back to a chain from that literal
+      // (`"a"` into `"a"`, or into `S.string` narrowed back to `"a"`) would
+      // come back here forever: it is the literal's own schema.
+      if (!(isLiteral(parsed) && parsed.to !== U && (parsed.const === parsed.to.const || (isLiteral(schema) && parsed.const === schema.const)))) {
         encoded = internalToJSONSchema(parsed, path, defs, parent, target);
       }
     } catch (exn) {
