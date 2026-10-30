@@ -171,7 +171,7 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   return fields === 6;
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, refiner: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -1680,13 +1680,6 @@ export const unionDecoder: Builder = (input: Val) => {
     }
     if (fit.length < variants.length) variants = fit;
   }
-  // `null` or `undefined` goes to its own arm, else to the opposite nullish
-  // one, as unionResolveToUnion bridges it, ahead of an arm coercing it to text.
-  if (tagFlags[source.type]! & (16 | 32)) {
-    const own = variants.filter((variant) => variant.type === source.type);
-    const bridged = own.length ? own : variants.filter((variant) => variant.type === unionOpposite(source));
-    if (bridged.length) variants = bridged;
-  }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
   const sourceLiteral = isLiteral(source);
@@ -1944,6 +1937,8 @@ const unionResolveToUnion = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
+  // A refined union checks every value it takes, a passed-through one too.
+  const attach = target.refiner !== U ? unionRefinerAttacher(target) : U;
   const targets = target.anyOf!;
   const matches: (Internal | undefined)[] = [];
   const covered: boolean[] = [];
@@ -2038,6 +2033,7 @@ const unionResolveToUnion = (
 
   return matches.map((matched, idx) => {
     if (matched === U) return matched;
+    if (attach !== U) return updateOutput<Internal>(matched, attach);
     const sourceOut = unionOutput(variants[idx]!);
     // Whether the matched target adds nothing to the source variant's output:
     // same type, no transformation, refinement or nested structure left to

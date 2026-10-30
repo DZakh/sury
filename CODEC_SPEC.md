@@ -300,11 +300,13 @@ S.union([1, 2, "x"]).with(S.to, S.union([1, "x"])); // ✅ fails 2, never 2 -> 1
 S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"])); // ✅ "c" is never there
 ```
 
-A target union described with `S.meta`, numbered with `S.protobufField` or
-named with `S.protobufTypeName` is still a union here:
+A target union described with `S.meta`, numbered with `S.protobufField`,
+named with `S.protobufTypeName` or refined with `S.refine` is still a union
+here, and a refinement checks whichever member takes the value:
 
 ```ts
 S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
+S.optional(S.string).with(S.to, S.nullable(S.string).with(S.refine, f)); // ✅ undefined <-> null, f checks both
 S.union(["a", "b"]).with(S.to, S.meta(S.union([0, 1]), { description: "x" })); // ❌ "a" has no same-type target variant
 ```
 
