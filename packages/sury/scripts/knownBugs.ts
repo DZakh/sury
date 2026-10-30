@@ -175,22 +175,6 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
   },
   {
-    id: "jsonstring-null-default-inlined",
-    kind: "bug",
-    summary:
-      "`S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)` fails to compile " +
-      "its parse: the `null` default is inlined as a literal, and the field's conversion to JSON text then " +
-      "assigns to it as if it were a variable (`null=...`).",
-    spec: "jsonstring-object-optional-null-default",
-    fuzzers: ["issues"],
-    matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("Invalid left-hand side in assignment") &&
-      intoJsonString(f.shape) &&
-      some(f.shape, (node) => node.name === "optional" && node.args[1]?.raw === "null"),
-  },
-  {
     id: "union-json-document-member",
     kind: "limitation",
     summary:

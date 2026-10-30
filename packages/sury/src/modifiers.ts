@@ -29,7 +29,6 @@ import {
   type Path,
 } from "./base";
 import {
-  _var,
   B_embed,
   B_contentDiffers,
   B_contentNode,
@@ -631,12 +630,6 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         target,
         target
       );
-      if (default_.type === "value") {
-        // A constant inline is idempotent, so re-reads need no var. The
-        // callback form stays materializable, since re-reading it would call
-        // the callback twice.
-        output.v = _var;
-      }
       // The same seam B_conversion's `trusted` provides: `vc` checks emit at
       // the pre-transform slot, so the item's input refiners would run over
       // the absent value that came in rather than the default that replaced it.
