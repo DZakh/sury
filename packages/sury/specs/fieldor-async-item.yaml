@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ a: s.fieldOr("a", S.string.with(S.to, S.string, { decode: { async: (v) => Promise.resolve(v + "!") }, encode: (v) => v.slice(0, -1) }), "d") }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ a: string; }"
+  instantiations: 4929
+jsonSchema:
+  input: '{ type: "object", properties: { a: { default: "", type: "string" } } }'
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.a;if(v0===void 0){v0=Promise.resolve("d")}else{typeof v0==="string"||e[4](v0);let v1;try{v1=e[3](e[0](v0),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}v0=v1;}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[6])}catch(v2){return e[7](v2)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: '{ a: "d" }'
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+      not-a-string:
+        input: "{ a: 1 }"
+        error: "Failed at a: Expected string | undefined, received 1"
+        issues:
+          - "Failed at a: Expected string | undefined, received 1"
+          - "TypeError: v1.then is not a function"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.a;if(v0===void 0){v0=Promise.resolve("d")}else{typeof v0==="string"||e[4](v0);let v1;try{v1=e[3](e[0](v0),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}v0=v1;}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[5])}catch(v2){return e[6](v2)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: '{ a: "d" }'
+      present:
+        input: '{ a: "x" }'
+        output: '{ a: "x!" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);return {a:v0}}catch(v1){e[3](v1)}}
+    examples:
+      present:
+        input: '{ a: "x!" }'
+        output: '{ a: "x" }'

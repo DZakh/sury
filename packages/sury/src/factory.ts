@@ -156,10 +156,15 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const itemCode = B_merge(itemOutput);
     const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
     const presentBody = itemCode + assign;
+    // A present async item leaves a promise, so the default is one too: the
+    // join reads both branches through `.then`.
+    const async = itemOutput.f & 1;
+    output.f |= async;
+    const fill = async ? `Promise.resolve(${defCode})` : defCode;
     output.cp =
       presentBody === ""
-        ? `if(${v}===void 0)${v}=${defCode};`
-        : `if(${v}===void 0){${v}=${defCode}}else{${presentBody}}`;
+        ? `if(${v}===void 0)${v}=${fill};`
+        : `if(${v}===void 0){${v}=${fill}}else{${presentBody}}`;
     return output;
   };
   return mut;
