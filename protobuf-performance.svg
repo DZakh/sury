@@ -1,0 +1,194 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1184" viewBox="0 0 720 1184" font-family='system-ui, -apple-system, "Segoe UI", sans-serif' role="img">
+<desc>tiny · encode: Sury 19.9 ns (50,153 ops/ms), protobufjs (reflect) 83.3 ns (12,006 ops/ms), protobufjs (static) 79.7 ns (12,544 ops/ms), protobuf-es 190 ns (5,276 ops/ms), pbf 273 ns (3,668 ops/ms). tiny · decode: Sury 9.25 ns (108,115 ops/ms), protobufjs (reflect) 17.4 ns (57,394 ops/ms), protobufjs (static) 20.8 ns (48,146 ops/ms), protobuf-es 118 ns (8,451 ops/ms), pbf 48.0 ns (20,833 ops/ms). typical · encode: Sury 121 ns (8,272 ops/ms), protobufjs (reflect) 226 ns (4,428 ops/ms), protobufjs (static) 206 ns (4,856 ops/ms), protobuf-es 461 ns (2,167 ops/ms), pbf 500 ns (2,002 ops/ms). typical · decode: Sury 97.6 ns (10,249 ops/ms), protobufjs (reflect) 130 ns (7,720 ops/ms), protobufjs (static) 126 ns (7,916 ops/ms), protobuf-es 445 ns (2,249 ops/ms), pbf 149 ns (6,719 ops/ms). large · encode: Sury 1.50 µs (667 ops/ms), protobufjs (reflect) 2.61 µs (383 ops/ms), protobufjs (static) 2.35 µs (425 ops/ms), protobuf-es 4.08 µs (245 ops/ms), pbf 3.56 µs (281 ops/ms). large · decode: Sury 1.66 µs (603 ops/ms), protobufjs (reflect) 1.84 µs (545 ops/ms), protobufjs (static) 1.84 µs (543 ops/ms), protobuf-es 2.33 µs (429 ops/ms), pbf 1.88 µs (533 ops/ms). common · encode: Sury 205 ns (4,882 ops/ms), protobufjs (reflect) 798 ns (1,254 ops/ms), protobufjs (static) 801 ns (1,249 ops/ms), protobuf-es 980 ns (1,020 ops/ms), pbf 753 ns (1,328 ops/ms). common · decode: Sury 166 ns (6,041 ops/ms), protobufjs (reflect) 246 ns (4,072 ops/ms), protobufjs (static) 240 ns (4,172 ops/ms), protobuf-es 769 ns (1,301 ops/ms), pbf 312 ns (3,202 ops/ms). tile · encode: Sury 9.46 µs (106 ops/ms), protobufjs (reflect) 14.95 µs (66.9 ops/ms), protobufjs (static) 14.88 µs (67.2 ops/ms), protobuf-es 34.37 µs (29.1 ops/ms), pbf 9.14 µs (109 ops/ms). tile · decode: Sury 4.68 µs (214 ops/ms), protobufjs (reflect) 10.23 µs (97.8 ops/ms), protobufjs (static) 7.79 µs (128 ops/ms), protobuf-es 31.27 µs (32.0 ops/ms), pbf 7.63 µs (131 ops/ms). oneof-any · encode: Sury 600 ns (1,668 ops/ms), protobufjs (reflect) 1.26 µs (795 ops/ms), protobufjs (static) 1.37 µs (727 ops/ms), protobuf-es 2.46 µs (406 ops/ms), pbf n/a. oneof-any · decode: Sury 630 ns (1,586 ops/ms), protobufjs (reflect) 1.53 µs (653 ops/ms), protobufjs (static) 1.60 µs (625 ops/ms), protobuf-es 2.59 µs (386 ops/ms), pbf n/a</desc>
+<text x="4" y="17" font-size="12"><tspan font-weight="600" fill="#0b0b0b">tiny · encode</tspan><tspan fill="#898781"> · 3 bytes on the wire</tspan></text>
+<text x="137.6" y="33.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 26.5h26.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="181.2" y="33.5" fill="#52514e" font-size="11" font-weight="600">19.9 ns (50,153 ops/ms)</text>
+<text x="137.6" y="47.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 40.5h120.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="275.4" y="47.5" fill="#52514e" font-size="11" font-weight="600">83.3 ns (12,006 ops/ms)</text>
+<text x="137.6" y="61.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 54.5h115.0a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="270.1" y="61.5" fill="#52514e" font-size="11" font-weight="600">79.7 ns (12,544 ops/ms)</text>
+<text x="137.6" y="75.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 68.5h278.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="433.3" y="75.5" fill="#52514e" font-size="11" font-weight="600">190 ns (5,276 ops/ms)</text>
+<text x="137.6" y="89.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 82.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="89.5" fill="#52514e" font-size="11" font-weight="600">273 ns (3,668 ops/ms)</text>
+<text x="4" y="114" font-size="12"><tspan font-weight="600" fill="#0b0b0b">tiny · decode</tspan></text>
+<text x="137.6" y="130.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 123.5h28.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="183.3" y="130.5" fill="#52514e" font-size="11" font-weight="600">9.25 ns (108,115 ops/ms)</text>
+<text x="137.6" y="144.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 137.5h56.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="211.3" y="144.5" fill="#52514e" font-size="11" font-weight="600">17.4 ns (57,394 ops/ms)</text>
+<text x="137.6" y="158.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 151.5h67.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="222.7" y="158.5" fill="#52514e" font-size="11" font-weight="600">20.8 ns (48,146 ops/ms)</text>
+<text x="137.6" y="172.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 165.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="172.5" fill="#52514e" font-size="11" font-weight="600">118 ns (8,451 ops/ms)</text>
+<text x="137.6" y="186.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 179.5h160.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="316.0" y="186.5" fill="#52514e" font-size="11" font-weight="600">48.0 ns (20,833 ops/ms)</text>
+<text x="4" y="211" font-size="12"><tspan font-weight="600" fill="#0b0b0b">typical · encode</tspan><tspan fill="#898781"> · 31 bytes on the wire</tspan></text>
+<text x="137.6" y="227.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 220.5h94.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="249.7" y="227.5" fill="#52514e" font-size="11" font-weight="600">121 ns (8,272 ops/ms)</text>
+<text x="137.6" y="241.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 234.5h179.7a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="334.8" y="241.5" fill="#52514e" font-size="11" font-weight="600">226 ns (4,428 ops/ms)</text>
+<text x="137.6" y="255.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 248.5h163.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="318.7" y="255.5" fill="#52514e" font-size="11" font-weight="600">206 ns (4,856 ops/ms)</text>
+<text x="137.6" y="269.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 262.5h370.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="526.0" y="269.5" fill="#52514e" font-size="11" font-weight="600">461 ns (2,167 ops/ms)</text>
+<text x="137.6" y="283.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 276.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="283.5" fill="#52514e" font-size="11" font-weight="600">500 ns (2,002 ops/ms)</text>
+<text x="4" y="308" font-size="12"><tspan font-weight="600" fill="#0b0b0b">typical · decode</tspan></text>
+<text x="137.6" y="324.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 317.5h85.4a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="240.5" y="324.5" fill="#52514e" font-size="11" font-weight="600">97.6 ns (10,249 ops/ms)</text>
+<text x="137.6" y="338.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 331.5h114.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="269.7" y="338.5" fill="#52514e" font-size="11" font-weight="600">130 ns (7,720 ops/ms)</text>
+<text x="137.6" y="352.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 345.5h111.7a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="266.8" y="352.5" fill="#52514e" font-size="11" font-weight="600">126 ns (7,916 ops/ms)</text>
+<text x="137.6" y="366.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 359.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="366.5" fill="#52514e" font-size="11" font-weight="600">445 ns (2,249 ops/ms)</text>
+<text x="137.6" y="380.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 373.5h132.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="287.3" y="380.5" fill="#52514e" font-size="11" font-weight="600">149 ns (6,719 ops/ms)</text>
+<text x="4" y="405" font-size="12"><tspan font-weight="600" fill="#0b0b0b">large · encode</tspan><tspan fill="#898781"> · 1416 bytes on the wire</tspan></text>
+<text x="137.6" y="421.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 414.5h145.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="300.4" y="421.5" fill="#52514e" font-size="11" font-weight="600">1.50 µs (667 ops/ms)</text>
+<text x="137.6" y="435.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 428.5h255.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="410.9" y="435.5" fill="#52514e" font-size="11" font-weight="600">2.61 µs (383 ops/ms)</text>
+<text x="137.6" y="449.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 442.5h230.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="385.2" y="449.5" fill="#52514e" font-size="11" font-weight="600">2.35 µs (425 ops/ms)</text>
+<text x="137.6" y="463.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 456.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="463.5" fill="#52514e" font-size="11" font-weight="600">4.08 µs (245 ops/ms)</text>
+<text x="137.6" y="477.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 470.5h349.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="505.0" y="477.5" fill="#52514e" font-size="11" font-weight="600">3.56 µs (281 ops/ms)</text>
+<text x="4" y="502" font-size="12"><tspan font-weight="600" fill="#0b0b0b">large · decode</tspan></text>
+<text x="137.6" y="518.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 511.5h285.0a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="440.1" y="518.5" fill="#52514e" font-size="11" font-weight="600">1.66 µs (603 ops/ms)</text>
+<text x="137.6" y="532.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 525.5h315.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="471.0" y="532.5" fill="#52514e" font-size="11" font-weight="600">1.84 µs (545 ops/ms)</text>
+<text x="137.6" y="546.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 539.5h317.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="472.4" y="546.5" fill="#52514e" font-size="11" font-weight="600">1.84 µs (543 ops/ms)</text>
+<text x="137.6" y="560.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 553.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="560.5" fill="#52514e" font-size="11" font-weight="600">2.33 µs (429 ops/ms)</text>
+<text x="137.6" y="574.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 567.5h323.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="478.4" y="574.5" fill="#52514e" font-size="11" font-weight="600">1.88 µs (533 ops/ms)</text>
+<text x="4" y="599" font-size="12"><tspan font-weight="600" fill="#0b0b0b">common · encode</tspan><tspan fill="#898781"> · 79 bytes on the wire</tspan></text>
+<text x="137.6" y="615.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 608.5h81.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="236.3" y="615.5" fill="#52514e" font-size="11" font-weight="600">205 ns (4,882 ops/ms)</text>
+<text x="137.6" y="629.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 622.5h326.3a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="481.4" y="629.5" fill="#52514e" font-size="11" font-weight="600">798 ns (1,254 ops/ms)</text>
+<text x="137.6" y="643.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 636.5h327.6a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="482.7" y="643.5" fill="#52514e" font-size="11" font-weight="600">801 ns (1,249 ops/ms)</text>
+<text x="137.6" y="657.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 650.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="657.5" fill="#52514e" font-size="11" font-weight="600">980 ns (1,020 ops/ms)</text>
+<text x="137.6" y="671.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 664.5h307.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="463.0" y="671.5" fill="#52514e" font-size="11" font-weight="600">753 ns (1,328 ops/ms)</text>
+<text x="4" y="696" font-size="12"><tspan font-weight="600" fill="#0b0b0b">common · decode</tspan></text>
+<text x="137.6" y="712.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 705.5h83.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="238.9" y="712.5" fill="#52514e" font-size="11" font-weight="600">166 ns (6,041 ops/ms)</text>
+<text x="137.6" y="726.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 719.5h126.0a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="281.1" y="726.5" fill="#52514e" font-size="11" font-weight="600">246 ns (4,072 ops/ms)</text>
+<text x="137.6" y="740.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 733.5h122.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="278.0" y="740.5" fill="#52514e" font-size="11" font-weight="600">240 ns (4,172 ops/ms)</text>
+<text x="137.6" y="754.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 747.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="754.5" fill="#52514e" font-size="11" font-weight="600">769 ns (1,301 ops/ms)</text>
+<text x="137.6" y="768.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 761.5h161.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="316.2" y="768.5" fill="#52514e" font-size="11" font-weight="600">312 ns (3,202 ops/ms)</text>
+<text x="4" y="793" font-size="12"><tspan font-weight="600" fill="#0b0b0b">tile · encode</tspan><tspan fill="#898781"> · 3028 bytes on the wire</tspan></text>
+<text x="137.6" y="809.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 802.5h108.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="263.2" y="809.5" fill="#52514e" font-size="11" font-weight="600">9.46 µs (106 ops/ms)</text>
+<text x="137.6" y="823.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 816.5h172.7a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="327.8" y="823.5" fill="#52514e" font-size="11" font-weight="600">14.95 µs (66.9 ops/ms)</text>
+<text x="137.6" y="837.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 830.5h171.9a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="327.0" y="837.5" fill="#52514e" font-size="11" font-weight="600">14.88 µs (67.2 ops/ms)</text>
+<text x="137.6" y="851.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 844.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="851.5" fill="#52514e" font-size="11" font-weight="600">34.37 µs (29.1 ops/ms)</text>
+<text x="137.6" y="865.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 858.5h104.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="259.3" y="865.5" fill="#52514e" font-size="11" font-weight="600">9.14 µs (109 ops/ms)</text>
+<text x="4" y="890" font-size="12"><tspan font-weight="600" fill="#0b0b0b">tile · decode</tspan></text>
+<text x="137.6" y="906.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 899.5h57.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="212.2" y="906.5" fill="#52514e" font-size="11" font-weight="600">4.68 µs (214 ops/ms)</text>
+<text x="137.6" y="920.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 913.5h129.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="284.2" y="920.5" fill="#52514e" font-size="11" font-weight="600">10.23 µs (97.8 ops/ms)</text>
+<text x="137.6" y="934.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 927.5h97.5a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="252.6" y="934.5" fill="#52514e" font-size="11" font-weight="600">7.79 µs (128 ops/ms)</text>
+<text x="137.6" y="948.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 941.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="948.5" fill="#52514e" font-size="11" font-weight="600">31.27 µs (32.0 ops/ms)</text>
+<text x="137.6" y="962.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<path d="M145.6 955.5h95.4a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="250.5" y="962.5" fill="#52514e" font-size="11" font-weight="600">7.63 µs (131 ops/ms)</text>
+<text x="4" y="987" font-size="12"><tspan font-weight="600" fill="#0b0b0b">oneof-any · encode</tspan><tspan fill="#898781"> · 196 bytes on the wire</tspan></text>
+<text x="137.6" y="1003.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 996.5h95.2a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="250.3" y="1003.5" fill="#52514e" font-size="11" font-weight="600">600 ns (1,668 ops/ms)</text>
+<text x="137.6" y="1017.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 1010.5h203.5a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="358.6" y="1017.5" fill="#52514e" font-size="11" font-weight="600">1.26 µs (795 ops/ms)</text>
+<text x="137.6" y="1031.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 1024.5h222.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="377.9" y="1031.5" fill="#52514e" font-size="11" font-weight="600">1.37 µs (727 ops/ms)</text>
+<text x="137.6" y="1045.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 1038.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="1045.5" fill="#52514e" font-size="11" font-weight="600">2.46 µs (406 ops/ms)</text>
+<text x="137.6" y="1059.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<text x="151.6" y="1059.5" fill="#52514e" font-size="11" font-weight="600">n/a</text>
+<text x="4" y="1084" font-size="12"><tspan font-weight="600" fill="#0b0b0b">oneof-any · decode</tspan></text>
+<text x="137.6" y="1100.5" fill="#52514e" font-size="11" text-anchor="end">Sury</text>
+<path d="M145.6 1093.5h95.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#2a78d6"/>
+<text x="250.2" y="1100.5" fill="#52514e" font-size="11" font-weight="600">630 ns (1,586 ops/ms)</text>
+<text x="137.6" y="1114.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (reflect)</text>
+<path d="M145.6 1107.5h236.1a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="391.2" y="1114.5" fill="#52514e" font-size="11" font-weight="600">1.53 µs (653 ops/ms)</text>
+<text x="137.6" y="1128.5" fill="#52514e" font-size="11" text-anchor="end">protobufjs (static)</text>
+<path d="M145.6 1121.5h246.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="401.9" y="1128.5" fill="#52514e" font-size="11" font-weight="600">1.60 µs (625 ops/ms)</text>
+<text x="137.6" y="1142.5" fill="#52514e" font-size="11" text-anchor="end">protobuf-es</text>
+<path d="M145.6 1135.5h401.8a3.5 3.5 0 0 1 0 7H145.6z" fill="#898781"/>
+<text x="556.9" y="1142.5" fill="#52514e" font-size="11" font-weight="600">2.59 µs (386 ops/ms)</text>
+<text x="137.6" y="1156.5" fill="#52514e" font-size="11" text-anchor="end">pbf</text>
+<text x="151.6" y="1156.5" fill="#52514e" font-size="11" font-weight="600">n/a</text>
+<text x="4.0" y="1176" fill="#898781" font-size="10">Lower is better · Timed on node 24.16.0 · linux x64 · 2026-10-30</text>
+</svg>
