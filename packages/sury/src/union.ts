@@ -1680,6 +1680,13 @@ export const unionDecoder: Builder = (input: Val) => {
     }
     if (fit.length < variants.length) variants = fit;
   }
+  // `null` or `undefined` goes to its own arm, else to the opposite nullish
+  // one, as unionResolveToUnion bridges it, ahead of an arm coercing it to text.
+  if (tagFlags[source.type]! & (16 | 32)) {
+    const own = variants.filter((variant) => variant.type === source.type);
+    const bridged = own.length ? own : variants.filter((variant) => variant.type === unionOpposite(source));
+    if (bridged.length) variants = bridged;
+  }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
   const sourceLiteral = isLiteral(source);

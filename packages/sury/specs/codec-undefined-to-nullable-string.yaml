@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(undefined).with(S.to, S.nullable(S.string))
+  input: undefined
+  output: string | null
+  instantiations: 4733
+jsonSchema:
+  input: Expected JSON, received undefined
+  output: '{ type: "null" }'
+  fromOutputType: "null"
+  openapi-3.0:
+    output: "{ enum: [null] }"
+isEqual:
+  input: alwaysEqual
+  output: strictEqual
+compare:
+  input: alwaysCompare
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i===void 0||e[0](i);i=null;return i}catch(v0){e[1](v0)}}
+    examples:
+      missing:
+        input: undefined
+        output: "null"
+      "null":
+        input: "null"
+        error: Expected undefined, received null
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="undefined"){i=void 0;break}if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      "null":
+        input: "null"
+        output: undefined
+      string:
+        input: '"x"'
+        error: Expected string | null, received "x"
