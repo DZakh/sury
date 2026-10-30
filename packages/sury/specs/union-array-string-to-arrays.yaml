@@ -42,7 +42,7 @@ operations:
         input: "[]"
         output: "[]"
   encode:
-    expression: i=>{try{let v2;for(;;){if(Array.isArray(i)){l3:{for(let v0=0;v0<i.length;++v0){let v1=i[v0];if(!(v1===2)){v2=[v2,e[0],v1,[v0]];break l3}}let v5=new Array(i.length);for(let v4=0;v4<i.length;++v4){v5[v4]=1}i=v5;break}l8:{for(let v6=0;v6<i.length;++v6){let v7=i[v6];if(!(v7===3)){v2=[v2,e[1],v7,[v6]];break l8}}let v10=new Array(i.length);for(let v9=0;v9<i.length;++v9){v10[v9]=1}i=v10;break}}if(typeof i==="string")break;throw e[2](i,v2)}return i}catch(v11){e[3](v11)}}
+    expression: i=>{try{let v2;for(;;){if(Array.isArray(i)){l3:{for(let v0=0;v0<i.length;++v0){let v1=i[v0];if(!(v1===2)){v2=[v2,e[0],v1,[v0]];break l3}}for(let v4=0;v4<i.length;++v4){let v5=i[v4];if(!(v5===1)){v2=[v2,e[1],v5,[v4]];break l3}}break}l8:{for(let v6=0;v6<i.length;++v6){let v7=i[v6];if(!(v7===3)){v2=[v2,e[2],v7,[v6]];break l8}}for(let v9=0;v9<i.length;++v9){let v10=i[v9];if(!(v10===1)){v2=[v2,e[3],v10,[v9]];break l8}}break}}if(typeof i==="string")break;throw e[4](i,v2)}return i}catch(v11){e[5](v11)}}
     examples:
       empty:
         input: "[]"

@@ -5,9 +5,10 @@ ts:
   output: '{ t: "a" | "b"; }'
   instantiations: 8954
 jsonSchema:
-  # FIXME: should describe the schema, not overflow the stack, as on main
-  input: Maximum call stack size exceeded
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, additionalProperties: false, required: ["t"] }, { type: "object", properties: { t: { type: "string", const: "c" } }, additionalProperties: false, required: ["t"] }] }'
   output: '{ type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, additionalProperties: false, required: ["t"] }, { type: "object", properties: { t: { type: "string", enum: ["c"] } }, additionalProperties: false, required: ["t"] }] }'
 isEqual:
   input: (a,b)=>a===b||(a.t==="a"?b.t==="a":b.t==="c")
   output: (a,b)=>a===b||a.t===b.t
@@ -37,12 +38,11 @@ operations:
         input: '{ t: "c" }'
         error: 'Failed at t: Expected "a" | "b", received "c"'
   encode:
-    expression: i=>{try{let v0=i.t;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);for(;;){if(typeof v0==="string"){for(;;){if(v0==="a")break;if(v0==="b"){v0="a";break}throw e[1](v0)}}else{throw e[1](v0)}i={t:v0};break}return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{let v0=i.t;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);for(;;){if(i.t==="a"){i={t:v0};break}if(i.t==="c"){i={t:v0};break}throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       kept:
         input: '{ t: "a" }'
         output: '{ t: "a" }'
-      # FIXME: should fail: { t: "b" } is written as { t: "a" }, as on main
       dropped:
         input: '{ t: "b" }'
-        output: '{ t: "a" }'
+        error: 'Expected { t: "a"; } | { t: "c"; }, received { t: "b"; }'

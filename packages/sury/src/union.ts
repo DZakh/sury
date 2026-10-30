@@ -1853,6 +1853,12 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
   B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
   const variants = unionDropNullish(input.s.anyOf!, target, true);
+  // Consts meeting a const inside a union member are checked,
+  // as one const is (literalDecoder), not each replaced by it.
+  if (input.u && isLiteral(target) && variants.every((variant) => isLiteral(variant) && !(tagFlags[variant.type]! & (16 | 32)))) {
+    unionCheckPartial(input, input.s, target, variants, true);
+    return input;
+  }
   if (target.flags & 64 && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever

@@ -263,11 +263,13 @@ export const literalDecoder: Builder = (input: Val) => {
   if (expectedSchema.noValidation && !input.u) {
     return B_nextConst(input, expectedSchema);
   } else if (isLiteral(input.s)) {
-    if (input.s.const === expectedSchema.const) {
-      return input;
-    } else {
-      return B_nextConst(input, expectedSchema);
-    }
+    const from = input.s.const, to = expectedSchema.const;
+    if (from === to || (from !== from && to !== to)) return input;
+    // Inside a union member a const is checked, not replaced:
+    // `S.array(S.literal(1))` into `S.array(S.literal(2)) | ...` takes only `[]`.
+    // `null` and `undefined` still bridge to the member's const.
+    if (!input.u || (tagFlags[input.s.type]! & (16 | 32))) return B_nextConst(input, expectedSchema);
+    return B_refine(input, expectedSchema, [{ c: (inputVar) => `${inputVar}===${B_inlineConst(input, expectedSchema)}`, f: failInvalidType }]);
   } else {
     const schemaTagFlag = tagFlags[expectedSchema.type]!;
 

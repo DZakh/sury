@@ -409,6 +409,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
       const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
       let itemOutput!: Val, output2!: Val;
       const collected = input.g.kj;
