@@ -80,60 +80,6 @@ test("a hole and a foreign Standard Schema are named, not read as data", () => {
   ).toThrow("Expected at most 3 schemas");
 });
 
-test("a schema of a second Sury instance is named, not read as data", async () => {
-  // An ESM app whose CJS dependency loads Sury gets two copies, and a spec has
-  // only one.
-  const path: string = "../index.mjs?instance=2";
-  const other = (await import(path)) as typeof S;
-  const foreign = other.schema({ id: other.string });
-  expect(foreign).not.toBe(user);
-  const ops = [
-    S.parseOrThrow, S.parseAsResult, S.decodeOrThrow, S.decodeAsPromiseOrReject, S.encodeOrThrow,
-    S.encodeAsResult, S.assertInputOrThrow, S.assertOutputOrThrow, S.isInput, S.isOutput,
-    S.makeInputOrThrow, S.makeOutputOrThrow,
-    // The ReScript surface's own operations.
-    ...["$parseAsResult", "$encodeAsResult", "$makeAsResult"].map((name) => (S as unknown as Record<string, unknown>)[name]),
-  ] as ((...a: unknown[]) => unknown)[];
-  for (const op of ops) {
-    for (const args of [[foreign], [foreign, S.unknown], [S.unknown, foreign], [foreign, { id: "x" }], [{ id: "x" }, foreign]]) {
-      expect(() => op(...args), `${op.name}(${args.length})`).toThrow("[Sury] Expected a Sury schema");
-    }
-  }
-  // The second copy can be another version: v11.0.0's schema prototype holds
-  // `with` and the reverse getter, and none of what later versions added.
-  const v11Prototype = Object.create(null);
-  Object.defineProperty(v11Prototype, "with", { value: (fn: (s: unknown) => unknown) => fn });
-  Object.defineProperty(v11Prototype, "r", { get: () => v11Schema });
-  const v11Schema = Object.assign(Object.create(v11Prototype), { type: "string", seq: 1 });
-  const v11SelfReverse = Object.assign(Object.create(Object.create(v11Prototype)), { type: "string", seq: 2 });
-  for (const old of [v11Schema, v11SelfReverse]) {
-    expect(() => S.parseOrThrow(old, S.unknown)).toThrow("[Sury] Expected a Sury schema");
-    expect(() => S.parseOrThrow(S.unknown, old)).toThrow("[Sury] Expected a Sury schema");
-  }
-  // Nor is data: a prototype-less dict, a class instance, an array, whose
-  // prototype has a `with` of its own, one whose `with` is a Temporal-like
-  // method or a getter that throws, and a class rooted in null.
-  expect(S.parseOrThrow(Object.assign(Object.create(null), { with: () => 0 }), S.unknown)).toBeTypeOf("object");
-  expect(S.parseOrThrow(new Date(0), S.unknown)).toEqual(new Date(0));
-  expect(S.parseOrThrow([1], S.unknown)).toEqual([1]);
-  class PlainDate {
-    with() {
-      return this;
-    }
-  }
-  class Throwing {
-    get with(): never {
-      throw new Error("read");
-    }
-  }
-  const NullRooted = class extends (null as unknown as ObjectConstructor) {
-    with() {}
-  };
-  for (const data of [new PlainDate(), new Throwing(), Object.create(NullRooted.prototype)]) {
-    expect(S.parseOrThrow(data, S.unknown)).toBe(data);
-  }
-});
-
 // ── Result tail ──────────────────────────────────────────────────────────────
 
 test("the Result tail is compiled into the operation, not wrapped around it", () => {

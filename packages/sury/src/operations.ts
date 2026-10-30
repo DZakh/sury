@@ -13,7 +13,6 @@ import {
   type Flag,
   initSchema,
   type Internal,
-  isForeignSchema,
   isOwnSchema,
   panic,
   panicNotSchema,
@@ -97,7 +96,6 @@ const dispatch = (
     data = k > 2 ? (isOwnSchema(d) ? panicArity() : d) : k > 1 ? c : b;
     immediate = true;
   }
-  if (immediate && isForeignSchema(data)) panicNotSchema();
   // Flag bit 8 says the operation accepts anything, so the chain's source is
   // `S.unknown` rather than its own head (`parse`, and the check/make families;
   // `decode`/`encode` start from their first schema argument). It is a flag

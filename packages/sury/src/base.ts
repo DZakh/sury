@@ -986,21 +986,6 @@ export const isOwnSchema = (value: unknown): boolean => {
   return proto === schemaPrototype || proto === selfReversePrototype;
 };
 
-// A schema of another copy of Sury (an ESM app beside a CJS dependency loads
-// two, maybe of different versions): rooted in its own copy of the schema
-// prototype, an `Object.create(null)` object holding `with` and the reverse
-// getter (parse.ts), which no JSON value, dict or class instance is. Both keys
-// are on that prototype since v11.0.0, so the witness holds across versions.
-// Asked only of the data, which otherwise would be read as the value, and
-// through `hasOwn` alone, so no getter of the caller's runs. Plain data leaves
-// at its prototype.
-export const isForeignSchema = (value: unknown): boolean => {
-  const proto = typeof value === objectTag && value && Object.getPrototypeOf(value);
-  if (!proto || proto === Object.prototype) return false;
-  const root = Object.getPrototypeOf(proto) || proto;
-  return !Object.getPrototypeOf(root) && Object.hasOwn(root, "with") && Object.hasOwn(root, reversedKey);
-};
-
 // What every operation says when no argument in a schema slot is one. Shared so
 // the sentence exists once: a foreign Standard Schema handed to an operation
 // gets this rather than being silently read as the data to validate.
