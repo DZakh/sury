@@ -991,7 +991,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         semantic === U ||
         semantic === false ||
         semantic[0] !== key);
-    if (!overlaps && semantic !== U && semantic !== false) {
+    if (!overlaps && key !== false && semantic !== U && semantic !== false) {
       for (const value of values!) {
         if (semantic[1].has(value)) {
           overlaps = true;

@@ -113,20 +113,6 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "json-union-instance-tagged-crash",
-    kind: "bug",
-    summary:
-      "`S.json.with(S.to, S.union([S.date, S.schema({ kind: \"k\", v: S.string })]))` crashes the compiler " +
-      "with `values is not iterable`: a union holding a string-stored instance and a tagged object.",
-    spec: "codec-json-union-date-tagged",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "absent" &&
-      f.detail.includes("values is not iterable") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some((member) => member.name === "tagged")),
-  },
-  {
     id: "json-absent-recursive-undefined",
     kind: "bug",
     summary:

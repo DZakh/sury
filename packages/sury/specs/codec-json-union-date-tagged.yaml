@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "object", properties: { kind: { type: "string", const: "k" }, v: { type: "string" } }, additionalProperties: false, required: ["kind", "v"] }] }'
   fromInputType: 'string | { kind: "k"; v: string; }'
-  output: values is not iterable
+  output: 'Expected JSON, received Date | { kind: "k"; v: string; }'
   openapi-3.0:
     input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "object", properties: { kind: { type: "string", enum: ["k"] }, v: { type: "string" } }, additionalProperties: false, required: ["kind", "v"] }] }'
 isEqual:
@@ -21,9 +21,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    # FIXME: known bug json-union-instance-tagged-crash. Reading JSON into a union
-    # of a string-stored instance and a tagged object crashes the compiler.
-    creationError: "TypeError: values is not iterable"
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);i=v0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k"){let v1=i.v;typeof v1==="string"||e[1](v1);i={kind:i.kind,v:v1};break}throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      date:
+        input: '"2020-01-01T00:00:00.000Z"'
+        output: new Date("2020-01-01T00:00:00.000Z")
+      tagged:
+        input: '{ kind: "k", v: "x" }'
+        output: '{ kind: "k", v: "x" }'
+      other-kind:
+        input: '{ kind: "j", v: "x" }'
+        error: 'Expected Date | { kind: "k"; v: string; }, received { kind: "j"; v: "x"; }'
+      not-a-date:
+        input: '"x"'
+        error: Expected Date, received "x"
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v1;for(;;){if(i instanceof e[1]){l2:{let v0;try{v0=i.toISOString()}catch(_){v1=[v1,e[0],i];break l2}i=v0;break}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k"){l4:{let v3=i.v;if(!(typeof v3==="string")){v1=[v1,e[2],v3];break l4}i={kind:i.kind,v:v3};break}}throw e[3](i,v1)}return i}catch(v5){e[4](v5)}}
