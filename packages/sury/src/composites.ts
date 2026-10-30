@@ -1021,7 +1021,9 @@ export const valGet = (parent: Val, location: string): Val => {
 }
 
 // Never read off the value itself: an async one is a promise there.
-export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d![key]!, val);
+// A value no decoder took apart (a codec's output, resolved in a join) has no
+// field vals yet, so they are read off it.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d?.[key] || valGet(at, key), val);
 
 export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
   const record = makeObjectVal(input);
