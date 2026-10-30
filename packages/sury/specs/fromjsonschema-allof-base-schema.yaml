@@ -12,38 +12,41 @@ jsonSchema:
   openapi-3.0:
     input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
     output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
-isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.bar===b.bar:Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
-compare: "throws: [Sury] Can't compare string | number | { bar: integer; } | JSON[] | boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&e[2](a,b):Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
+compare: "throws: [Sury] Can't compare string | number | { [key: string]: JSON; } | JSON[] | boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{e[4](i)||e[5](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){e[2](v2,[v1])}}break}if(typeof i==="boolean")break;if(i===null)break;throw e[3](i)}return i}catch(v3){e[6](v3)}}
+    expression: i=>{try{e[9](i)||e[10](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){e[2](i)||e[4](i);e[3](i)||e[5](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[6](i[v2]);}catch(v3){e[7](v3,[v2])}}break}if(typeof i==="boolean")break;if(i===null)break;throw e[8](i)}return i}catch(v4){e[11](v4)}}
     examples:
-      # FIXME: the same strip the encode block below describes, seen from the
-      # other side - the object arm drops `foo`, so what parse returns fails the
-      # `allOf` that its own jsonSchema.output still requires.
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'
-        output: "{ bar: 2 }"
-        divergence:
-          reason: the object arm strips `foo` before the allOf refinement reads it, so what parse returns fails the document parse itself publishes
-          ajv: "output: data must have required property 'foo'"
+        output: '{ foo: "quux", bar: 2 }'
+      undeclared-key-kept:
+        input: '{ foo: "quux", bar: 2, baz: [1] }'
+        output: '{ foo: "quux", bar: 2, baz: [1] }'
+      base-property-invalid:
+        input: '{ foo: "quux", bar: 2.5 }'
+        error: Should pass every declared property schema.
+      allof-property-invalid:
+        input: "{ foo: 1, bar: 2 }"
+        error: Should pass for all schemas of the allOf property.
       allof-unsatisfied:
         input: "{ bar: 2 }"
         error: Should pass for all schemas of the allOf property.
       base-unsatisfied:
         input: '{ foo: "quux" }'
-        error: "Failed at bar: Expected integer, received undefined"
+        error: Should contain every required property.
   decode:
-    expression: i=>{try{e[0](i)||e[2](i);(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="object"&&i&&!Array.isArray(i)||Array.isArray(i)||typeof i==="boolean"||i===null)||e[1](i);return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{e[5](i)||e[6](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){e[0](i)||e[2](i);e[1](i)||e[3](i);break}if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[4](i)}return i}catch(v2){e[7](v2)}}
     examples:
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'
         output: '{ foo: "quux", bar: 2 }'
   encode:
-    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="object"&&i&&!Array.isArray(i)||Array.isArray(i)||typeof i==="boolean"||i===null)||e[2](i);e[0](i)||e[1](i);return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){e[0](i)||e[2](i);e[1](i)||e[3](i);break}if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[4](i)}e[5](i)||e[6](i);return i}catch(v2){e[7](v2)}}
     examples:
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'

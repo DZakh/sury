@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ "$schema": "https://json-schema.org/draft/2020-12/schema", "$ref": "#/$defs/base", allOf: [{ required: ["foo"] }], "$defs": { base: { type: "object", properties: { bar: { type: "string" } }, required: ["bar"] } } })'
+  input: "{ bar: string; }"
+  output: "{ bar: string; }"
+  instantiations: 3345
+jsonSchema:
+  input: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
+  output: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
+isEqual: (a,b)=>a===b||a.bar===b.bar
+compare: "throws: [Sury] Can't compare { bar: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);let v0=i.bar;typeof v0==="string"||e[0](v0);return {bar:v0}}catch(v1){e[4](v1)}}
+    examples:
+      # FIXME: a `$ref` target is built once per pointer and shared by every
+      # site, so the object it names still strips `foo` here, where the
+      # `allOf` beside the `$ref` reads it. A sibling without the `$ref` keeps
+      # it (fromjsonschema-allof-base-schema).
+      allof-satisfied:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x" }'
+        divergence:
+          reason: the referenced object strips `foo` before the allOf beside the `$ref` reads it, so what parse returns fails the document parse itself publishes
+          ajv: "output: data must have required property 'foo'"
+      allof-unsatisfied:
+        input: '{ bar: "x" }'
+        error: Should pass for all schemas of the allOf property.
+  decode:
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
+    examples:
+      allof-satisfied:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1 }'
+  encode:
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
+    examples:
+      allof-satisfied:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1 }'

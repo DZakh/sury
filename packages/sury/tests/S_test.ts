@@ -2308,7 +2308,7 @@ test("fromJSONSchemaOrThrow: composition keywords constrain in addition to the b
   const parse = S.parseOrThrow(schema) as (d: unknown) => unknown;
 
   const input = { bar: 2, foo: "x" };
-  t.expect(parse(input)).toEqual({ bar: 2 });
+  t.expect(parse(input)).toEqual({ bar: 2, foo: "x" });
   // Fails the base shape.
   t.expect(caught(() => parse({ bar: "no", foo: "x" }))).toBeDefined();
   // Fails only the allOf branch - the base shape alone used to win.

@@ -980,6 +980,30 @@ const withDefault = (property: Internal, defaultValue: unknown): Internal => {
   }
 };
 
+// The keywords that read the same instance as the base shape, in the order
+// fromJSONSchema applies them. Each can pass on an object and fail on it once
+// the keys its `properties` don't declare are stripped, so a base they sit
+// beside keeps those keys instead. `maxProperties` and `propertyNames` only
+// get easier to pass with fewer keys and stay out.
+const readsWholeInstance = [
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "not",
+  "if",
+  "minProperties",
+  "dependentRequired",
+  "dependentSchemas",
+  "dependencies",
+];
+
+// From `from` on: a composition member that becomes the base is read again
+// only by the keywords applied after its own.
+const B_readsUndeclared = (jsonSchema: JSONSchemaT, from: number): boolean =>
+  readsWholeInstance
+    .slice(from)
+    .some((key) => (jsonSchema as Record<string, unknown>)[key] !== U);
+
 const withoutLayeredKeywords = (
   jsonSchema: JSONSchemaT,
   type: JSONSchemaTypeName
@@ -1172,9 +1196,14 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
 
 const jsonDefinitionToSchema = (
   definition: JSONSchemaDefinition,
-  ctx: RefContext
+  ctx: RefContext,
+  keep?: boolean
 ): Internal =>
-  typeof definition !== "boolean" ? fromJSONSchema(definition, ctx) : definition ? json : never_;
+  typeof definition !== "boolean"
+    ? fromJSONSchema(definition, ctx, keep)
+    : definition
+      ? json
+      : never_;
 
 type PatternProp = { re: RegExp; schema: Internal };
 
@@ -1326,9 +1355,13 @@ const B_layer = (
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (
   jsonSchema: JSONSchemaDefinition,
-  parentCtx?: RefContext
+  parentCtx?: RefContext,
+  // A keyword beside the caller reads the same instance, so an object built
+  // here must not strip the keys its `properties` leave undeclared.
+  parentKeep?: boolean
 ): Internal => {
   if (typeof jsonSchema === "boolean") return jsonSchema ? json : never_;
+  const keep = parentKeep || B_readsUndeclared(jsonSchema, 0);
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const uri = jsonSchema["$schema"];
@@ -1450,7 +1483,9 @@ export const fromJSONSchema = (
       }
     } else {
       const additional = jsonSchema.additionalProperties;
-      if ((additional === U || additional === false) && !hasPatterns) {
+      // A Sury object strips or rejects the keys it doesn't declare, so one
+      // that has to keep them is the dict below.
+      if ((additional === false || (additional === U && !keep)) && !hasPatterns) {
         const properties: Record<string, Internal> = Object.create(null);
         const required = new Set(jsonSchema.required);
         for (const key of Object.keys(definitions)) {
@@ -1626,7 +1661,7 @@ export const fromJSONSchema = (
     schema = types.length
       ? union(
           types.map((type) =>
-            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx)
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, keep)
           )
         )
       : never_;
@@ -1677,7 +1712,11 @@ export const fromJSONSchema = (
       );
       constrained ||= applies;
       schemas.push(
-        fromJSONSchema(applies ? withoutLayeredKeywords(jsonSchema, type) : { type }, ctx)
+        fromJSONSchema(
+          applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
+          ctx,
+          keep
+        )
       );
     }
     schema = constrained ? union([...schemas, bool, schemaFactory(null)]) : json;
@@ -1719,7 +1758,11 @@ export const fromJSONSchema = (
       // Only a lone member: Sury has no intersection to compile two into.
       schema =
         schema === json && definitions.length === 1
-          ? jsonDefinitionToSchema(definitions[0]!, ctx)
+          ? jsonDefinitionToSchema(
+              definitions[0]!,
+              ctx,
+              parentKeep || B_readsUndeclared(jsonSchema, 1)
+            )
           : B_layer(
               schema,
               definitions,
@@ -1735,7 +1778,9 @@ export const fromJSONSchema = (
     if (definitions.length === 0) {
       schema = never_;
     } else if (schema === json) {
-      const members = definitions.map((d) => jsonDefinitionToSchema(d, ctx));
+      const members = definitions.map((d) =>
+        jsonDefinitionToSchema(d, ctx, parentKeep || B_readsUndeclared(jsonSchema, 2))
+      );
       schema = members.length === 1 ? members[0]! : union(members);
     } else {
       schema = B_layer(

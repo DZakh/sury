@@ -9,28 +9,28 @@ jsonSchema:
   output: '{ type: "object", properties: { x: { type: "string" } }, not: { required: ["y"] } }'
 isEqual:
   input: strictEqual
-  output: (a,b)=>a===b||a.x===b.x
+  output: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
 compare:
   input: strictCompare
-  output: "throws: [Sury] Can't compare { x: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[3](v0);return v0}catch(v1){e[5](v1)}}
+    expression: i=>{try{typeof i==="string"||e[6](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[4](v0);e[3](v0)||e[5](v0);return v0}catch(v2){e[7](v2)}}
     examples:
       refused-by-not:
         input: '"ab"'
         error: Should NOT be valid against schema in the not property.
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[4](v0);e[3](v0)||e[5](v0);return v0}catch(v2){e[6](v2)}}
     examples:
       refused-by-not:
         input: '"ab"'
         error: Should NOT be valid against schema in the not property.
   encode:
-    expression: i=>{try{e[0](i)||e[3](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}return v0}catch(v1){e[4](v1)}}
+    expression: i=>{try{e[0](i)||e[4](i);e[1](i)||e[5](i);let v1;try{v1=e[2](i)}catch(x){e[3](x)}return v1}catch(v2){e[6](v2)}}
     examples:
       refused-by-not:
         input: '{ x: "ab", y: 1 }'
