@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.instance(ArrayBuffer).with(S.to, S.protobuf).with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }))"
+  input: ArrayBuffer
+  output: "{ a: string; }"
+  instantiations: 6092
+jsonSchema:
+  input: Expected JSON, received ArrayBuffer
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare ArrayBuffer. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: Can't decode ArrayBuffer -> Uint8Array. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode Uint8Array -> ArrayBuffer. Define custom codec with S.to"

@@ -2628,11 +2628,16 @@ const fieldValsOf = (input: Val): Record<string, Val> | undefined => {
 };
 
 const protobufDecoder = (input: Val): Val => {
-  // Bytes in, bytes out: another `S.protobuf`, or an `unknown` source - which
-  // is what `parse` is, and the wire side of a chain is a Uint8Array like any
-  // other, so it validates as one instead of planning a message it has no
-  // value for.
-  if (input.s.encoder === protobufEncoder || tagFlags[input.s.type]! & 1) return instanceDecoder(input);
+  // Bytes in, bytes out. An `unknown` source - which is what `parse` is -
+  // validates as a Uint8Array; a Uint8Array source (`S.protobuf`,
+  // `S.uint8Array`, `S.instance(Uint8Array)`) is the wire already, retyped so
+  // the next link reads it through `protobufEncoder`. Any other instance is no
+  // message either. Planning one would find the object past this link, since
+  // `firstObject` steps over every non-object, and write it from a value that
+  // has none of its fields.
+  const sourceTagFlag = tagFlags[input.s.type]!;
+  if (sourceTagFlag & 1) return instanceDecoder(input);
+  if (sourceTagFlag & 8192) return input.s.class === Uint8Array ? B_refine(input, input.e) : B_unsupportedDecode(input, input.s, input.e);
   const message = compileMessage(objectSchemaOf(input), newCtx(false, true));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();
@@ -2829,13 +2834,14 @@ const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, st
 };
 
 const protobufEncoder = (input: Val, target: Internal): Val => {
-  // Bytes into `S.protobuf` - a union case converts into its member whole - are
-  // those bytes, and the parse loop carries them on down its `.to`. Decoding
-  // here would hand that link a decoded value where it reads bytes.
-  if (target.flags & 256) return input;
+  // An instance target takes the bytes as they are, and the parse loop carries
+  // them on down its `.to`: `S.protobuf` itself (a union case converts into
+  // its member whole), `S.uint8Array`, `S.arrayBuffer`. Decoding here would
+  // find the message past that link, since `firstObject` steps over every
+  // non-object, and skip the link along with whatever it checks.
+  if (tagFlags[target.type]! & 8192) return input;
   const message = compileMessage(target, newCtx(true));
-  // Another instance (`S.arrayBuffer`, say) takes the bytes as they are.
-  if (message === U) return (tagFlags[target.type]! & 8192) ? input : B_unsupportedDecode(input, input.s, target);
+  if (message === U) return B_unsupportedDecode(input, input.s, target);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const readers = compileDecoder(message, fns, input.g.o);

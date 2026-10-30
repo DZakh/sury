@@ -408,6 +408,22 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Protobuf bytes
+
+Bytes on either side of `S.protobuf` are the wire already: they pass as they
+are, and the message is read or written only where the chain meets its object.
+With `M = S.schema({ a: S.string.with(S.protobufField, 1) })` and
+`B = S.instance(Uint8Array)`:
+
+```ts
+B.with(S.to, S.protobuf).with(S.to, M);                                  // reads [10, 1, 97] as { a: "a" }
+S.protobuf.with(S.to, B.with(S.refine, f)).with(S.to, S.protobuf).with(S.to, M); // f checks the bytes
+S.instance(ArrayBuffer).with(S.to, S.protobuf).with(S.to, M);            // refused: not a Uint8Array
+```
+
+One spec per line, in order: `codec-uint8array-protobuf-chain`,
+`codec-protobuf-uint8array-protobuf-chain`, `codec-arraybuffer-protobuf-chain`.
+
 ## Protobuf oneof
 
 A union in a message is a oneof, and what decode makes of bytes with no member
