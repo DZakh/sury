@@ -636,8 +636,6 @@ const getShapedSerializerOutput = (
             // unscoped is what emitted their `let`s a second time (#368) - and
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
-            // An async member's result is a promise, so each field is read
-            // once it resolves, for the object's join to wait on.
             const promise = flattenedOutput.f & 1 ? flattenedOutput.v() : U;
             v.cp = v.cp + B_merge(flattenedOutput);
             for (const key of Object.keys(flattenedOutput.d!)) {

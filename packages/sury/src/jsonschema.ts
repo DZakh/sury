@@ -1197,10 +1197,10 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
 const jsonDefinitionToSchema = (
   definition: JSONSchemaDefinition,
   ctx: RefContext,
-  keep?: boolean
+  keepsUndeclared?: boolean
 ): Internal =>
   typeof definition !== "boolean"
-    ? fromJSONSchema(definition, ctx, keep)
+    ? fromJSONSchema(definition, ctx, keepsUndeclared)
     : definition
       ? json
       : never_;
@@ -1356,12 +1356,10 @@ const B_layer = (
 export const fromJSONSchema = (
   jsonSchema: JSONSchemaDefinition,
   parentCtx?: RefContext,
-  // A keyword beside the caller reads the same instance, so an object built
-  // here must not strip the keys its `properties` leave undeclared.
-  parentKeep?: boolean
+  parentKeepsUndeclared?: boolean
 ): Internal => {
   if (typeof jsonSchema === "boolean") return jsonSchema ? json : never_;
-  const keep = parentKeep || B_readsUndeclared(jsonSchema, 0);
+  const keepsUndeclared = parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 0);
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const uri = jsonSchema["$schema"];
@@ -1485,7 +1483,7 @@ export const fromJSONSchema = (
       const additional = jsonSchema.additionalProperties;
       // A Sury object strips or rejects the keys it doesn't declare, so one
       // that has to keep them is the dict below.
-      if ((additional === false || (additional === U && !keep)) && !hasPatterns) {
+      if ((additional === false || (additional === U && !keepsUndeclared)) && !hasPatterns) {
         const properties: Record<string, Internal> = Object.create(null);
         const required = new Set(jsonSchema.required);
         for (const key of Object.keys(definitions)) {
@@ -1661,7 +1659,7 @@ export const fromJSONSchema = (
     schema = types.length
       ? union(
           types.map((type) =>
-            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, keep)
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, keepsUndeclared)
           )
         )
       : never_;
@@ -1715,7 +1713,7 @@ export const fromJSONSchema = (
         fromJSONSchema(
           applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
           ctx,
-          keep
+          keepsUndeclared
         )
       );
     }
@@ -1761,7 +1759,7 @@ export const fromJSONSchema = (
           ? jsonDefinitionToSchema(
               definitions[0]!,
               ctx,
-              parentKeep || B_readsUndeclared(jsonSchema, 1)
+              parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 1)
             )
           : B_layer(
               schema,
@@ -1779,7 +1777,7 @@ export const fromJSONSchema = (
       schema = never_;
     } else if (schema === json) {
       const members = definitions.map((d) =>
-        jsonDefinitionToSchema(d, ctx, parentKeep || B_readsUndeclared(jsonSchema, 2))
+        jsonDefinitionToSchema(d, ctx, parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 2))
       );
       schema = members.length === 1 ? members[0]! : union(members);
     } else {

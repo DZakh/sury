@@ -2311,7 +2311,7 @@ test("fromJSONSchemaOrThrow: composition keywords constrain in addition to the b
   t.expect(parse(input)).toEqual({ bar: 2, foo: "x" });
   // Fails the base shape.
   t.expect(caught(() => parse({ bar: "no", foo: "x" }))).toBeDefined();
-  // Fails only the allOf branch - the base shape alone used to win.
+  // Fails only the allOf branch.
   t.expect(caught(() => parse({ bar: 2 }))).toBeDefined();
 });
 
