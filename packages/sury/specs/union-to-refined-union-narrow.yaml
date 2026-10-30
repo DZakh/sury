@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union(["a", "c"]).with(S.to, S.union(["a", "b"]).with(S.refine, () => true))
+  input: '"a" | "c"'
+  output: '"a" | "b"'
+  instantiations: 5402
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "a" }, { not: {} }] }'
+  fromInputType: '"a"'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { not: {} }] }'
+  fromOutputType: '"a"'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["a"] }, { not: {} }] }'
+    output: '{ anyOf: [{ type: "string", enum: ["a"] }, { not: {} }] }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a"){let v0=i;e[0](v0)||e[1](v0);break}if(i==="c"){for(;;){throw e[2](i)}e[3](i)||e[4](i);break}throw e[5](i)}}else{throw e[5](i)}return i}catch(v1){e[6](v1)}}
+    examples:
+      a:
+        input: '"a"'
+        output: '"a"'
+      c:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a"){e[0](i)||e[1](i);break}if(i==="b"){e[0](i)||e[3](i);for(;;){throw e[2](i)}break}throw e[4](i)}}else{throw e[4](i)}return i}catch(v0){e[5](v0)}}
+    examples:
+      a:
+        input: '"a"'
+        output: '"a"'

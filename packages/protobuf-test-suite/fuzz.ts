@@ -3,17 +3,27 @@
 // holding a oneof, a packed field beside an unpacked one of the same type, a
 // message that reaches itself two fields down.
 //
-// Three properties per graph. Every generated value goes through `runRoundTrip`,
-// the check each corpus round trip gets: Sury's bytes equal protobufjs's, both
-// decode back to the value, and protobuf-es reads Sury's bytes and the printed
-// `.proto` alike. Then one leaf of the value - a field, a list element, a map
-// value or a map key - is swapped for one its writer refuses, and the encode
-// must fail at it: the error's path leads there from the value, and its
-// reason shows what it found. Last the valid encoding is mutated - a byte
-// flipped, a truncation, a slice repeated or spliced in - and Sury and
-// protobuf-es each decode the result: they must agree on whether it is a
-// message, and where both say it is, re-encode it to the same bytes.
+// Every generated value goes through `runRoundTrip`, the check each corpus
+// round trip gets: Sury's bytes equal protobufjs's, both decode back to the
+// value, and protobuf-es reads Sury's bytes and the printed `.proto` alike.
+// Then one leaf of the value - a field, a list element, a map value or a map
+// key - is swapped for one its writer refuses, and the encode must fail at it:
+// the error's path leads there from the value, and its reason shows what it
+// found. Last the valid encoding is mutated - a byte flipped, a truncation, a
+// slice repeated or spliced in - and Sury and protobuf-es each decode the
+// result: they must agree on whether it is a message, and where both say it is,
+// re-encode it to the same bytes. The graph's message is also held by an Any,
+// through S.protobuf and through S.protobufAny, against protobuf-es's anyPack
+// and anyUnpack: packed to the same bytes, read back whatever prefix its type
+// URL carries, and an unlisted type kept whole by the catch-all. A graph's
+// oneof is also spelled as a union of arms, held to the same group spelled
+// flat, and its message refined where a schema can hold it (the root, a field,
+// a list item, a map value, a oneof arm): a refinement that passes leaves every
+// read as it was, one that refuses fails at the path it sits on. Each seed also
+// draws values for every well-known type, against protobuf-es's own, and an
+// enum spelled as a union of members each mapped to its number.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
+import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
@@ -516,8 +526,9 @@ const wellKnownCases: WellKnownCase[] = [
     toEs: () => ({}),
     fromEs: () => ({}),
   },
-  wrapper("DoubleValue", S.number as never, (r) => genScalar(r, "double")),
-  wrapper("FloatValue", S.number as never, (r) => genScalar(r, "float")),
+  // NaN is a double like any other, which S.number refuses.
+  wrapper("DoubleValue", S.union([S.number, S.schema(NaN)]) as never, (r) => genScalar(r, "double")),
+  wrapper("FloatValue", S.union([S.number, S.schema(NaN)]) as never, (r) => genScalar(r, "float")),
   wrapper("Int64Value", S.bigint as never, (r) => genScalar(r, "int64")),
   wrapper("UInt64Value", S.bigint as never, (r) => genScalar(r, "uint64")),
   wrapper("Int32Value", S.int32 as never, (r) => genScalar(r, "int32")),
@@ -559,6 +570,411 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
   return findings;
 };
 
+// Its own stream, so a seed's other draws replay unchanged.
+const anyChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
+  const r = rng(seed ^ 0x2545f491);
+  let message: S.Schema<unknown, unknown>;
+  let esType: DescMessage;
+  try {
+    message = S.protobufTypeName(suryMessage(fields), "M") as never;
+    esType = protobufEsType(fields);
+  } catch {
+    return 0;
+  }
+  const members = S.union([S.schema({ type: "m", value: message }), S.schema({ type: "other", value: S.protobufAny })]);
+  const envelope = S.schema({ one: S.protobufField(members, 1), many: S.protobufField(S.array(members), 2) });
+  let encode: (value: unknown) => Uint8Array;
+  let decode: (bytes: Uint8Array) => unknown;
+  let encodeMessage: (value: unknown) => Uint8Array;
+  let unpack: (any: unknown) => unknown;
+  let pack: (member: unknown) => unknown;
+  try {
+    encode = S.decodeOrThrow(envelope, S.protobuf) as never;
+    decode = S.decodeOrThrow(S.protobuf, envelope) as never;
+    encodeMessage = S.decodeOrThrow(message, S.protobuf) as never;
+    unpack = S.decodeOrThrow(S.protobufAny.with(S.to, members)) as never;
+    pack = S.encodeOrThrow(S.protobufAny.with(S.to, members)) as never;
+  } catch (e) {
+    findings.push({ kind: `any: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: "" });
+    return 1;
+  }
+  const esAny = (bytes: Uint8Array): Uint8Array => toBinary(wkt.AnySchema, anyPack(esType, fromBinary(esType, bytes)));
+  for (let i = 0; i < values; i++) {
+    const value = genValue(r, fields, 0);
+    const other = { typeUrl: `type.googleapis.com/Other${i}`, value: genScalar(r, "bytes") as Uint8Array };
+    try {
+      const inner = encodeMessage(value).slice();
+      const one = { type: "m", value };
+      const bytes = encode({ one, many: [one, { type: "other", value: other }] }).slice();
+      // field 1 is the first Any, written first: its tag, its length, its bytes
+      const sury = payload(bytes).subarray(0, esAny(inner).length);
+      if (bytesOf(sury).join() !== bytesOf(esAny(inner)).join()) {
+        findings.push({ kind: "any: Sury packs a message protobuf-es packs differently", seed, detail: `value=${show(value)} sury=[${bytesOf(sury)}] es=[${bytesOf(esAny(inner))}]` });
+        continue;
+      }
+      const back = decode(bytes) as { one: { value: unknown }; many: { type: string; value: unknown }[] };
+      if (!equalValue(back.one.value, value) || !equalValue(back.many[0]!.value, value) || back.many[1]!.type !== "other" || !equalValue(back.many[1]!.value, other)) {
+        findings.push({ kind: "any: Sury reads its own Any back as another value", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const unpacked = anyUnpack(fromBinary(wkt.AnySchema, sury), esType);
+      if (unpacked === undefined || bytesOf(toBinary(esType, unpacked)).join() !== bytesOf(inner).join()) {
+        findings.push({ kind: "any: protobuf-es unpacks Sury's Any as another message", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const packed = pack(one) as { typeUrl: string; value: Uint8Array };
+      if (packed.typeUrl !== "type.googleapis.com/M" || bytesOf(packed.value).join() !== bytesOf(inner).join() || !equalValue(pack({ type: "other", value: other }), other)) {
+        findings.push({ kind: "any: S.protobufAny packs a member as another Any than S.protobuf writes", seed, detail: `value=${show(value)}` });
+        continue;
+      }
+      const prefixed = unpack({ typeUrl: "example.com/a/b/M", value: inner }) as { type: string; value: unknown };
+      if (prefixed.type !== "m" || !equalValue(prefixed.value, value)) {
+        findings.push({ kind: "any: a type URL's prefix changes what Sury reads", seed, detail: `value=${show(value)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `any: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `value=${show(value)}` });
+    }
+  }
+  return values;
+};
+
+// A oneof spelled as a union of arms against the same group spelled flat: the
+// same bytes for the same member, and the arm read back. The bare spellings
+// are refused where two members share a runtime type, or one shares the type
+// of the `""` for no member set (what a string member is most often drawn as);
+// that refusal is the only one a spelling may meet.
+// Numeric tags start at 0, falsy, and sit under `length`, a key a bare literal
+// for no member set answers too; neither may be read as an arm. With no arm
+// for no member set the union is optional or, left bare, required, which reads
+// no member set as a failure at the oneof. Its own stream, as the Any family's.
+const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
+  const group = fields.find((def) => def.oneof)?.oneof;
+  if (group === undefined) return 0;
+  const r = rng(seed ^ 0x7f4a7c15);
+  const members = fields.filter((def) => def.oneof === group);
+  const rest = fields.filter((def) => def.oneof !== group);
+  const spelling = int(r, 7);
+  const arm = (def: FieldDef, idx: number, value: S.Schema<unknown, unknown>): S.Schema<unknown, unknown> =>
+    spelling === 1 ? S.schema({ type: `m${idx}`, [def.key]: value })
+    : spelling === 2 ? S.schema({ length: idx, v: value })
+    : spelling === 4 ? S.tuple([`m${idx}`, value])
+    : spelling >= 5 ? value
+    : S.schema({ case: def.key, value });
+  const unsetArm =
+    spelling === 0 ? S.schema({ case: undefined })
+    : spelling === 1 ? S.schema({ type: "none" })
+    : spelling === 2 ? S.schema(-1)
+    : spelling === 4 ? S.tuple(["none"])
+    : spelling === 6 ? S.schema("")
+    : undefined;
+  const required = unsetArm === undefined && chance(r, 0.5);
+  let flat: (value: unknown) => Uint8Array;
+  let encode: (value: unknown) => Uint8Array;
+  let decode: (bytes: Uint8Array) => unknown;
+  try {
+    const properties = { ...(suryMessage(rest) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties };
+    const arms = members.map((def, idx) =>
+      arm(def, idx, (suryMessage([{ ...def, oneof: undefined }]) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties[def.key]!),
+    );
+    const union = S.union(unsetArm === undefined ? arms : [...arms, unsetArm]);
+    properties[group] = unsetArm === undefined && !required ? S.optional(union) : union;
+    const message = S.schema(properties);
+    flat = S.decodeOrThrow(suryMessage(fields), S.protobuf) as never;
+    encode = S.decodeOrThrow(message, S.protobuf) as never;
+    decode = S.decodeOrThrow(S.protobuf, message) as never;
+  } catch (e) {
+    if (spelling >= 5 && (e as Error).message.includes("can't tell its arms apart")) return 0;
+    findings.push({ kind: `oneof: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling}` });
+    return 1;
+  }
+  const flatDecode = S.decodeOrThrow(S.protobuf, suryMessage(fields)) as (bytes: Uint8Array) => Record<string, unknown>;
+  const asUnion = (value: Record<string, unknown>): Record<string, unknown> => {
+    const shaped: Record<string, unknown> = {};
+    for (const def of rest) if (value[def.key] !== undefined) shaped[def.key] = value[def.key];
+    const idx = members.findIndex((def) => value[def.key] !== undefined);
+    const def = members[idx];
+    const held =
+      def === undefined ? (spelling === 0 ? { case: undefined } : spelling === 1 ? { type: "none" } : spelling === 2 ? -1 : spelling === 4 ? ["none"] : spelling === 6 ? "" : undefined)
+      : spelling === 1 ? { type: `m${idx}`, [def.key]: value[def.key] }
+      : spelling === 2 ? { length: idx, v: value[def.key] }
+      : spelling === 4 ? [`m${idx}`, value[def.key]]
+      : spelling >= 5 ? value[def.key]
+      : { case: def.key, value: value[def.key] };
+    if (held !== undefined) shaped[group] = held;
+    return shaped;
+  };
+  for (let i = 0; i < values; i++) {
+    const value = genValue(r, fields, 0);
+    const shaped = asUnion(value);
+    try {
+      const want = flat(value).slice();
+      // Neither side holds a value missing its required oneof.
+      if (required && shaped[group] === undefined) {
+        for (const run of [() => encode(shaped), () => decode(want)]) {
+          let message: string | undefined;
+          try {
+            run();
+          } catch (e) {
+            message = (e as Error).message;
+          }
+          if (!message?.startsWith(`Failed at ${group}: `)) {
+            findings.push({ kind: "oneof: a required oneof with no member set is no failure at it", seed, detail: `spelling=${spelling} value=${show(shaped)} got ${message}` });
+          }
+        }
+        continue;
+      }
+      const got = encode(shaped).slice();
+      if (bytesOf(got).join() !== bytesOf(want).join()) {
+        findings.push({ kind: "oneof: a union writes other bytes than the same oneof flat", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+        continue;
+      }
+      // Twice over, the member is seen again: last wins, a message merges.
+      const twice = new Uint8Array([...got, ...got]);
+      if (!equalValue(decode(got), asUnion(flatDecode(want))) || !equalValue(decode(twice), asUnion(flatDecode(twice)))) {
+        findings.push({ kind: "oneof: a union reads its member back as another value", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `oneof: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+    }
+  }
+  return values;
+};
+
+type Placement = { name: string; wrap: (message: S.Schema<unknown, unknown>, refine: (s: S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>) => S.Schema<unknown, unknown>; value: (v: unknown, r: Random) => unknown; at: (v: unknown) => Segment[] | undefined };
+const refinePlacements: Placement[] = [
+  { name: "root", wrap: (m, refine) => refine(m), value: (v) => v, at: () => [] },
+  { name: "field", wrap: (m, refine) => S.schema({ m: refine(m).with(S.protobufField, 1) }), value: (v) => ({ m: v }), at: () => ["m"] },
+  { name: "list item", wrap: (m, refine) => S.schema({ l: S.array(refine(m)).with(S.protobufField, 1) }), value: (v, r) => ({ l: chance(r, 0.2) ? [] : [v] }), at: (v) => ((v as { l: unknown[] }).l.length ? ["l", 0] : undefined) },
+  { name: "map value", wrap: (m, refine) => S.schema({ m: S.record(refine(m)).with(S.protobufField, { number: 1, type: "message", key: "string" }) }), value: (v) => ({ m: { a: v } }), at: () => ["m", "a"] },
+  {
+    name: "bare oneof arm",
+    wrap: (m, refine) => S.schema({ o: S.optional(S.union([refine(m).with(S.protobufField, 1), S.string.with(S.protobufField, 2)])) }),
+    value: (v, r) => ({ o: chance(r, 0.2) ? "s" : v }),
+    at: (v) => (typeof (v as { o: unknown }).o === "object" ? ["o"] : undefined),
+  },
+  {
+    name: "oneof arm",
+    wrap: (m, refine) => S.schema({ o: S.union([refine(S.schema({ type: "m", m: m.with(S.protobufField, 1) })), S.schema({ type: "none" })]) }),
+    value: (v, r) => ({ o: chance(r, 0.2) ? { type: "none" } : { type: "m", m: v } }),
+    at: (v) => ((v as { o: { type: string } }).o.type === "m" ? ["o"] : undefined),
+  },
+];
+
+// What a throw says, without the value it names, so one cause is one kind.
+const thrown = (e: unknown): string => String((e as Error).message).replace(/, received [^]*/, "").replace(/\d+/g, "#");
+
+// Its own stream, as the Any family's.
+const refineChecks = (findings: Finding[], seed: number, fields: FieldDef[], values: number): number => {
+  const r = rng(seed ^ 0x3c6ef372);
+  let message: S.Schema<unknown, unknown>;
+  try {
+    message = suryMessage(fields);
+  } catch {
+    return 0;
+  }
+  const placement = pick(r, refinePlacements);
+  const kind = `refine: ${placement.name}`;
+  // Each reads what it is handed, so one handed anything but the message read,
+  // the bytes or a var never assigned, answers wrong.
+  const read = (v: unknown) => typeof v === "object" && v !== null && !ArrayBuffer.isView(v);
+  const passes = (s: S.Schema<unknown, unknown>) => s.with(S.refine, read);
+  const refuses = (s: S.Schema<unknown, unknown>) => s.with(S.refine, (v) => !read(v), { error: "refused" });
+  let write: (value: unknown) => Uint8Array;
+  let plain: (bytes: Uint8Array) => unknown;
+  let reads: [spelling: string, read: (bytes: Uint8Array) => unknown, refused: (bytes: Uint8Array) => unknown][];
+  try {
+    const schema = (refine: typeof passes) => placement.wrap(message, refine);
+    write = S.decodeOrThrow(schema(passes), S.protobuf) as never;
+    plain = S.decodeOrThrow(S.protobuf, schema((s) => s)) as never;
+    reads = [
+      ["S.protobuf.with(S.to, X)", S.decodeOrThrow(S.protobuf, schema(passes)) as never, S.decodeOrThrow(S.protobuf, schema(refuses)) as never],
+      ["X.with(S.to, S.protobuf)", S.encodeOrThrow(schema(passes).with(S.to, S.protobuf)) as never, S.encodeOrThrow(schema(refuses).with(S.to, S.protobuf)) as never],
+    ];
+  } catch (e) {
+    findings.push({ kind: `${kind}: compile (${thrown(e)})`, seed, detail: "" });
+    return 1;
+  }
+  for (let i = 0; i < values; i++) {
+    const value = placement.value(genValue(r, fields, 0), r);
+    const at = placement.at(value);
+    try {
+      const bytes = write(value).slice();
+      const want = plain(bytes);
+      for (const [spelling, read, refused] of reads) {
+        if (!equalValue(read(bytes), want)) {
+          findings.push({ kind: `${kind}: a refinement that passes changes what ${spelling} reads`, seed, detail: `value=${show(value).slice(0, 300)}` });
+          continue;
+        }
+        let error: unknown;
+        try {
+          refused(bytes);
+        } catch (e) {
+          error = e;
+        }
+        const failed = error instanceof S.Error && error.reason === "refused";
+        if (at === undefined ? error !== undefined : !failed || error.path.join("\0") !== at.join("\0")) {
+          findings.push({
+            kind: `${kind}: ${spelling} ${at === undefined ? "fails with no refined message read" : failed ? "refuses at another path" : "reads past a refinement that refuses"}`,
+            seed,
+            detail: `value=${show(value).slice(0, 300)} got ${error instanceof S.Error ? `${JSON.stringify(error.path)} ${error.reason}` : String(error)}`,
+          });
+        }
+      }
+    } catch (e) {
+      findings.push({ kind: `${kind}: throws (${thrown(e)})`, seed, detail: `value=${show(value).slice(0, 300)}` });
+    }
+  }
+  try {
+    const dateFirst = chance(r, 0.5);
+    const arms = [message.with(S.protobufField, 1), S.date.with(S.protobufField, 2)];
+    const beside = S.schema({ o: S.optional(S.union(dateFirst ? arms.reverse() : arms)) });
+    const writeBeside = S.decodeOrThrow(beside, S.protobuf) as (value: unknown) => Uint8Array;
+    const readBeside = S.decodeOrThrow(S.protobuf, beside) as (bytes: Uint8Array) => { o?: unknown };
+    const writeMessage = S.decodeOrThrow(message, S.protobuf) as (value: unknown) => Uint8Array;
+    const readMessage = S.decodeOrThrow(S.protobuf, message) as (bytes: Uint8Array) => unknown;
+    for (let i = 0; i < values; i++) {
+      const date = new Date(int(r, 2 ** 40));
+      const back = readBeside(writeBeside({ o: date }).slice()).o;
+      if (!(back instanceof Date) || back.getTime() !== date.getTime()) {
+        findings.push({ kind: "oneof: a Timestamp arm beside a message arm reads back as another", seed, detail: `date=${date.toISOString()} got ${show(back)}` });
+      }
+      // The union tells the arms apart by checking the message, whose S.number
+      // fields refuse the NaN a value drawn for the wire may hold.
+      const value = genValue(r, fields, 0);
+      if (!S.isInput(value, message)) continue;
+      const again = readBeside(writeBeside({ o: value }).slice()).o;
+      if (again instanceof Date || !equalValue(again, readMessage(writeMessage(value).slice()))) {
+        findings.push({ kind: "oneof: a message arm beside a Timestamp arm reads back as another", seed, detail: `value=${show(value).slice(0, 300)}` });
+      }
+    }
+  } catch (e) {
+    findings.push({ kind: `oneof: a message arm beside a Timestamp arm throws (${thrown(e)})`, seed, detail: "" });
+  }
+  return values * 3;
+};
+
+// An enum spelled the way one is by hand, a union of members each mapping its
+// own value (a string, null, or the number itself) to its number, held to the
+// same field spelled as the numbers: the same bytes for every member, read back
+// as the member, and a number no member names refused where it sits, unless
+// the member is the only one. Plain, optional, packed and unpacked repeated, as
+// a map value and as a oneof arm's value beside a string arm. Its own stream.
+const ENUM_NUMBERS = [0, 1, 2, 5, 127, 128, 300, -1, 2147483647, -2147483648];
+const ENUM_LABELS = ["a", "B", "", "é", "😀", "0", "constructor", null];
+type Schema = S.Schema<unknown, unknown>;
+type EnumPlace = {
+  name: string;
+  // The message holding `field`, the enum numbered by `S.protobufField`.
+  message: (field: (value: Schema) => Schema, value: Schema) => Schema;
+  // A value of the message, each enum value drawn by `one`.
+  value: (one: () => unknown, r: Random) => Record<string, unknown>;
+  // The same value with `f` applied to each enum value.
+  map: (value: Record<string, unknown>, f: (item: unknown) => unknown) => Record<string, unknown>;
+  // A value holding `number` once, at `at`.
+  holding: (number: number) => Record<string, unknown>;
+  at: string[];
+};
+const mapValues = (record: unknown, f: (item: unknown) => unknown) => Object.fromEntries(Object.entries(record as object).map(([key, item]) => [key, f(item)]));
+const enumPlaces: EnumPlace[] = [
+  { name: "plain", message: (field, value) => S.schema({ k: field(value) }), value: (one) => ({ k: one() }), map: (value, f) => ({ k: f(value.k) }), holding: (number) => ({ k: number }), at: ["k"] },
+  {
+    name: "optional",
+    message: (field, value) => S.schema({ k: field(S.optional(value)) }),
+    value: (one, r) => (chance(r, 0.2) ? {} : { k: one() }),
+    map: (value, f) => ("k" in value ? { k: f(value.k) } : {}),
+    holding: (number) => ({ k: number }),
+    at: ["k"],
+  },
+  {
+    name: "repeated",
+    message: (field, value) => S.schema({ k: field(S.array(value)) }),
+    value: (one, r) => ({ k: Array.from({ length: int(r, 4) }, one) }),
+    map: (value, f) => ({ k: (value.k as unknown[]).map(f) }),
+    holding: (number) => ({ k: [number] }),
+    at: ["k", "0"],
+  },
+  {
+    name: "map",
+    message: (field, value) => S.schema({ k: field(S.record(value)) }),
+    value: (one, r) => ({ k: Object.fromEntries(Array.from({ length: int(r, 3) }, (_, idx) => [`m${idx}`, one()])) }),
+    map: (value, f) => ({ k: mapValues(value.k, f) }),
+    holding: (number) => ({ k: { m0: number } }),
+    at: ["k", "m0"],
+  },
+  {
+    name: "oneof arm",
+    message: (field, value) => S.schema({ o: S.union([S.schema({ case: "e", value: field(value) }), S.schema({ case: "s", value: S.string.with(S.protobufField, 2) })]) }),
+    value: (one, r) => ({ o: chance(r, 0.25) ? { case: "s", value: "x" } : { case: "e", value: one() } }),
+    map: (value, f) => {
+      const o = value.o as { case: string; value: unknown };
+      return { o: o.case === "e" ? { case: "e", value: f(o.value) } : o };
+    },
+    holding: (number) => ({ o: { case: "e", value: number } }),
+    at: ["o", "value"],
+  },
+];
+
+const enumChecks = (findings: Finding[], seed: number, values: number): number => {
+  const r = rng(seed ^ 0x2545f491);
+  let numbers = [...new Set(Array.from({ length: 1 + int(r, 4) }, () => pick(r, ENUM_NUMBERS)))];
+  // A one-member enum is its zero, which it reads every number as.
+  if (numbers.length === 1) numbers = [0];
+  const labels = new Set<unknown>();
+  const members = numbers.map((number) => {
+    const label = chance(r, 0.25) ? number : pick(r, ENUM_LABELS);
+    if (labels.has(label) || ENUM_NUMBERS.includes(label as number)) return [number, number] as const;
+    labels.add(label);
+    return [label, number] as const;
+  });
+  if (!members.some(([label, number]) => label !== number)) return 0;
+  const place = pick(r, enumPlaces);
+  const packed = chance(r, 0.5);
+  const spelled = members.map(([label, number]) => `${label === number ? "" : `${JSON.stringify(label)} -> `}${number}`).join(", ");
+  const kind = `enum: per-member chains, ${place.name}`;
+  const field = (value: Schema): Schema => S.protobufField(value, { number: 1, type: "enum", packed, key: "string" } as never) as never;
+  const message = (value: Schema): Schema => place.message(field, value).with(S.to, S.protobuf) as never;
+  let write: (value: unknown) => Uint8Array, read: (bytes: Uint8Array) => unknown, plain: (value: unknown) => Uint8Array;
+  try {
+    const schema = message(S.union(members.map(([label, number]) => (label === number ? S.literal(number) : S.literal(label).with(S.to, S.literal(number))))) as never);
+    write = S.decodeOrThrow(schema) as never;
+    read = S.encodeOrThrow(schema) as never;
+    plain = S.decodeOrThrow(message(S.union(numbers.map((number) => S.literal(number))) as never)) as never;
+  } catch (e) {
+    findings.push({ kind: `${kind}: compile (${thrown(e)})`, seed, detail: spelled });
+    return 1;
+  }
+  const toNumber = new Map<unknown, number>(members.map(([label, number]) => [label, number]));
+  for (let i = 0; i < values; i++) {
+    const value = place.value(() => pick(r, members)[0], r);
+    try {
+      const bytes = write(value).slice();
+      const want = plain(place.map(value, (item) => toNumber.get(item))).slice();
+      if (!equalValue(bytes, want)) {
+        findings.push({ kind: `${kind}: writes other bytes than the numbers do`, seed, detail: `${spelled} value=${show(value)}` });
+        continue;
+      }
+      const back = read(bytes);
+      if (!equalValue(back, value)) {
+        findings.push({ kind: `${kind}: reads a member back as another value`, seed, detail: `${spelled} value=${show(value)} got ${show(back)}` });
+      }
+    } catch (e) {
+      findings.push({ kind: `${kind}: throws (${thrown(e)})`, seed, detail: `${spelled} value=${show(value)}` });
+    }
+  }
+  if (numbers.length === 1) return values;
+  const unnamed = [3, 4, 6, 1000, -2].find((number) => !numbers.includes(number))!;
+  let error: unknown;
+  try {
+    read((S.decodeOrThrow(message(S.int32 as never)) as (value: unknown) => Uint8Array)(place.holding(unnamed)).slice());
+  } catch (e) {
+    error = e;
+  }
+  if (!(error instanceof S.Error) || error.path.join("\0") !== place.at.join("\0")) {
+    findings.push({ kind: `${kind}: reads a number no member names`, seed, detail: `${spelled} number=${unnamed} got ${error instanceof S.Error ? `${JSON.stringify(error.path)} ${error.reason}` : show(error)}` });
+  }
+  return values + 1;
+};
+
 export type FuzzOptions = { seeds: number; values: number; mutants: number; corruptions: number; from: number };
 
 export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptions): { findings: Finding[]; graphs: number; checks: number } => {
@@ -582,6 +998,10 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
       findings.push({ kind: "compile", seed, detail: (e as Error).message });
       continue;
     }
+    checks += anyChecks(findings, seed, fields, values);
+    checks += oneofChecks(findings, seed, fields, values);
+    checks += refineChecks(findings, seed, fields, values);
+    checks += enumChecks(findings, seed, values);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;

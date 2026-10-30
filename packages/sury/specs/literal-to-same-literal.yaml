@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.literal(0).with(S.to, S.literal(0))
+  input: "0"
+  output: "0"
+  instantiations: 4674
+jsonSchema:
+  input: '{ type: "number", const: 0 }'
+  output: '{ type: "number", const: 0 }'
+  openapi-3.0:
+    input: '{ type: "number", enum: [0] }'
+    output: '{ type: "number", enum: [0] }'
+isEqual: alwaysEqual
+compare: alwaysCompare
+vs:
+  zod: z.literal(0)
+operations:
+  parse:
+    expression: i=>{try{i===0||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      zero:
+        input: "0"
+        output: "0"
+      one:
+        input: "1"
+        error: Expected 0, received 1
+  decode: eq-to-parse
+  encode: eq-to-parse

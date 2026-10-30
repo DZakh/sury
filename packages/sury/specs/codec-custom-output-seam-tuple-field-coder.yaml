@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with((S as any).$to as typeof S.to, S.tuple([S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), S.number]), { decode: (v: string) => [v + "!", 1], encode: (o: [string, number]) => o[0].slice(0, -1) } as any)'
+  input: string
+  output: "[string, number]"
+  instantiations: 6172
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
+  draft-2020-12:
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { type: "number" }] } }'
+    fromOutputType: "[string | number, string | number]"
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a[0]===b[0]&&a[1]===b[1]
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:a[0]<b[0]?-1:a[0]>b[0]?1:a[1]<b[1]?-1:a[1]>b[1]?1:0
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}
+    examples:
+      coder-result-is-the-output:
+        input: '"x"'
+        output: '["x!", 1]'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-result-is-the-output:
+        input: '"x"'
+        output: '["x!", 1]'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-takes-the-output:
+        input: '["x!", 1]'
+        output: '"x"'

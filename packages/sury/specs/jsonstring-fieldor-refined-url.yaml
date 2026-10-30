@@ -38,7 +38,11 @@ operations:
         input: '{ f: new URL("https://a.b/") }'
         output: '"{\"f\":\"https://a.b/\"}"'
   encode:
-    # FIXME: known bug jsonstring-fieldor-refined-url-encode - reversing a
-    # `fieldOr` default over a refined instance into jsonString crashes the
-    # compile instead of building the encode.
-    creationError: "TypeError: Cannot read properties of undefined (reading 't')"
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.f;for(;;){if(typeof v2==="string"){let v1=e[1](v0.f);v1||e[4](v2);e[2](v1)||e[3](v1);v2=v1;break}if(v2===null)break;throw e[5](v2)}return {f:v2}}catch(v3){e[7](v3)}}
+    examples:
+      url:
+        input: '"{\"f\":\"https://a.b/\"}"'
+        output: '{ f: new URL("https://a.b/") }'
+      null-field:
+        input: '"{\"f\":null}"'
+        output: "{ f: null }"

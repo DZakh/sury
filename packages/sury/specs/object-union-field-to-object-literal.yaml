@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ o: S.union([1, 2]) }).with(S.to, S.schema({ o: S.literal(1) }))"
+  input: "{ o: 1 | 2; }"
+  output: "{ o: 1; }"
+  instantiations: 6350
+jsonSchema:
+  input: '{ type: "object", properties: { o: { enum: [1, 2] } }, required: ["o"] }'
+  output: '{ type: "object", properties: { o: { type: "number", const: 1 } }, required: ["o"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { o: { type: "number", enum: [1] } }, required: ["o"] }'
+isEqual:
+  input: (a,b)=>a===b||a.o===b.o
+  output: alwaysEqual
+compare:
+  input: "throws: [Sury] Can't compare { o: 1 | 2; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o: 1; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2"
+  decode: eq-to-parse
+  encode: identity

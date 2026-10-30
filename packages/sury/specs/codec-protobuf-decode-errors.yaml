@@ -18,13 +18,13 @@ vs:
     _skip: todo(#…)
 operations:
   parse:
-    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.addr,v3=v0.tags;let v2=v1;return v0}catch(v5){e[5](v5)}}
+    expression: i=>{try{i instanceof e[7]||e[8](i);let v0=0,v1="",v2=void 0,v3=[],v4=0;{let r,a2=-1,b2=0,x2,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:v1=r.string();continue;case 26:p=r.sub();if(a2<0){a2=r.pos;b2=r.limit}else x2=r.more(x2);r.pos=r.limit;r.limit=p;continue;case 34:v3.push(r.string());continue;case 45:v4=r.num32();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a2>=0){t=26;g=r.limit;a2<0?r.pos=g:(r.pos=a2,r.limit=b2);v2=m1(r,d+1,x2);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k,v3);e[6](x)}}let v5={id:v0,name:v1,tags:v3,ratio:v4};if(v2!==void 0){v5.addr=v2}return v5}catch(v6){e[9](v6)}}
     examples:
       invalid-utf8-nested:
         input: new Uint8Array([8, 1, 18, 1, 120, 26, 3, 10, 1, 255])
         error: "Failed at addr.street: Protobuf string is not valid UTF-8"
   decode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.addr,v3=v0.tags;let v2=v1;return v0}catch(v5){e[3](v5)}}
+    expression: i=>{try{let v0=0,v1="",v2=void 0,v3=[],v4=0;{let r,a2=-1,b2=0,x2,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:v1=r.string();continue;case 26:p=r.sub();if(a2<0){a2=r.pos;b2=r.limit}else x2=r.more(x2);r.pos=r.limit;r.limit=p;continue;case 34:v3.push(r.string());continue;case 45:v4=r.num32();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a2>=0){t=26;g=r.limit;a2<0?r.pos=g:(r.pos=a2,r.limit=b2);v2=m1(r,d+1,x2);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k,v3);e[6](x)}}let v5={id:v0,name:v1,tags:v3,ratio:v4};if(v2!==void 0){v5.addr=v2}return v5}catch(v6){e[7](v6)}}
     examples:
       valid:
         input: new Uint8Array([8, 1, 18, 1, 120, 45, 0, 0, 128, 63])

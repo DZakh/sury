@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ at: S.record(S.date).with(S.protobufField, 1) }).with(S.to, S.protobuf)"
+  input: "{ at: Record<string, Date>; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5792
+jsonSchema:
+  input: "Failed at at[]: Expected JSON, received Date"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.at,b.at)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { at: { [key: string]: Date; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);let v0=i.at;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);for(let v1 in v0){let v2=v0[v1];v2 instanceof e[1]||e[2](v2,["at",v1]);!Number.isNaN(v2.getTime())||e[0](v2,["at",v1]);}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[4](w,c);w.end(g);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v3}catch(v4){e[10](v4)}}
+    examples:
+      entries:
+        input: '{ at: { a: new Date("1970-01-01T00:00:01.000Z"), b: new Date("1970-01-01T00:00:00.000Z") } }'
+        output: new Uint8Array([10, 7, 10, 1, 97, 18, 2, 8, 1, 10, 5, 10, 1, 98, 18, 0])
+      not-a-date:
+        input: "{ at: { a: 1 } }"
+        error: "Failed at at.a: Expected Date, received 1"
+  decode:
+    expression: i=>{try{let v0=i.at;let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[3].acquire();f=0;v=v0;a=Object.keys(v);n=a.length;j=0;while(j<n){k=a[j++];c=v[k];w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(k);w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);g=w.begin();e[0](w,c);w.end(g);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[1](x,e[2],f,j,a);e[4](x)}}return v2}catch(v3){e[5](v3)}}
+    examples:
+      entries:
+        input: '{ at: { a: new Date("1970-01-01T00:00:01.000Z") } }'
+        output: new Uint8Array([10, 7, 10, 1, 97, 18, 2, 8, 1])
+  encode:
+    expression: i=>{try{let v0={};{let r,ma,mb,mx,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:k=void 0;p=r.sub();ma=-1;mx=void 0;while(r.pos<r.limit){y=r.buf[r.pos];if(y<128)r.pos++;else y=r.tag();if(y<8)fail("Invalid protobuf field number 0");if(y===10)k=r.string();else if(y===18){g=r.sub();if(ma<0){ma=r.pos;mb=r.limit}else mx=r.more(mx);r.pos=r.limit;r.limit=g}else skip(r,y&7,y>>>3,0)}if(k===void 0)k="";g=r.limit;ma<0?r.pos=g:(r.pos=ma,r.limit=mb);c=m1(r,d+1,mx);r.pos=r.limit=g;r.limit=p;k==="__proto__"?Object.defineProperty(v0,k,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[k]=c;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t,k);e[6](x)}}return {at:v0}}catch(v1){e[7](v1)}}
+    examples:
+      entries:
+        input: new Uint8Array([10, 7, 10, 1, 97, 18, 2, 8, 1, 10, 5, 10, 1, 98, 18, 0])
+        output: '{ at: { a: new Date("1970-01-01T00:00:01.000Z"), b: new Date("1970-01-01T00:00:00.000Z") } }'
+      empty:
+        input: new Uint8Array([])
+        output: "{ at: {} }"

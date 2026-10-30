@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ home: S.optional(S.object((s) => ({ street: s.field("s", S.string.with(S.protobufField, 1)) }))).with(S.protobufField, 1) }).with(S.to, S.protobuf)'
+  input: "{ home?: Record<string, unknown> | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7245
+jsonSchema:
+  input: '{ type: "object", properties: { home: { type: "object", properties: { s: { type: "string" } }, required: ["s"] } } }'
+  fromInputType: "{ home?: { s: string; } | undefined; }"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||(a.home===void 0?b.home===void 0:b.home!==void 0&&a.home.s===b.home.s)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { home: { s: string; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.home;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.s;typeof v1==="string"||e[0](v1);v0={street:v1};break}if(v0===void 0)break;throw e[1](v0)}let v2;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[2](w,v);w.end(h)};v2=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v2}catch(v3){e[8](v3)}}
+    examples:
+      writes-the-record-the-value-holds:
+        input: '{ home: { s: "Main" } }'
+        output: new Uint8Array([10, 6, 10, 4, 77, 97, 105, 110])
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+      wrong-type:
+        input: "{ home: { s: 1 } }"
+        error: "Failed at home.s: Expected string, received 1"
+  decode:
+    expression: i=>{try{let v0=i.home;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){v0={street:v0.s};break}if(v0===void 0)break;throw e[0](v0)}let v1;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[4].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[1](w,v);w.end(h)};v1=w.finish()}catch(x){w&&(w.busy=false);x=e[2](x,e[3],f,j,a);e[5](x)}}return v1}catch(v2){e[6](v2)}}
+    examples:
+      writes-the-record-the-value-holds:
+        input: '{ home: { s: "Main" } }'
+        output: new Uint8Array([10, 6, 10, 4, 77, 97, 105, 110])
+      text-turning-non-ascii-midway:
+        input: '{ home: { s: "Ma€n" } }'
+        output: new Uint8Array([10, 8, 10, 6, 77, 97, 226, 130, 172, 110])
+      a-128-byte-message-takes-a-two-byte-length:
+        input: '{ home: { s: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" } }'
+        output: new Uint8Array([10, 128, 1, 10, 126, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120])
+  encode:
+    expression: i=>{try{let v0=void 0;{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a0>=0){t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v1={};if(v0!==void 0){v1.home=v0}return v1}catch(v2){e[7](v2)}}
+    examples:
+      reads-back-through-the-object:
+        input: new Uint8Array([10, 6, 10, 4, 77, 97, 105, 110])
+        output: '{ home: { s: "Main" } }'
+      absent:
+        input: new Uint8Array([])
+        output: "{}"

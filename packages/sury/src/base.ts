@@ -19,8 +19,13 @@ export type Flag = number;
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
 // itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
 // read inside a union case lets its failure escape raw rather than count as
-// the case not matching; a coder's or a protobuf wire failure never does), 64
-// flatten.
+// the case not matching; a coder's or a protobuf wire failure never does), 32
+// handed (the target a source union's member is converted into, set past its
+// hand-off link, schema flag 32768, until the case ends: a const or shape none
+// of a target union's members take fails as a value there, the other members
+// still converting, where met on its own it is refused), 64 flatten. 4 covers
+// every case of every union, the member's own pipeline included, 32 only the
+// target it is handed to, so neither stands for the other.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
 // operation's outcome (parse.ts `outcomeOf`): 128 JS Result
@@ -456,6 +461,9 @@ export type Internal = {
   //     caller's bound from a format's; only the bound constructors set these.
   //     A schema bounds one of its value, length or size, so one set covers
   //     minimum/minLength/minItems/minSize alike.
+  //   32768 a hand-off link: a source union member's output link, copied for
+  //     that union alone, whose `.to` is the target it converts into
+  //     (union.ts `unionHand`). The parse loop sets `g.o` 32 on following it.
   // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
   // a schema a union could hold: `unionIsTransparent` counts own fields, and
   // the key alone would stop every union from flattening. The two container
@@ -508,6 +516,14 @@ export type Internal = {
   space?: number;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
+  // A literal a property read never inlines (`valGet`), because its value can
+  // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
+  // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
+  // `S.protobufField` sets it on every number-valued literal link of an enum
+  // field's chain. Which spellings keep an unknown number is shown in
+  // CODEC_SPEC.md, "Protobuf enum".
+  openLiteral?: true;
+  protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema
@@ -714,6 +730,12 @@ export type Val = {
   // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
   // sink.
   ha?: string;
+  // @as("w") - a union case's input for a literal member, whose check is the
+  // case's dispatch condition. It reads the value the union was handed, which
+  // was assigned before the union runs, so the check lifts off it even where
+  // that value counts as converted, such as a codec's slot (`B_slot`). Left
+  // inline, the first literal member took every value.
+  w?: boolean;
 }
 
 // Shared `undefined` for every value-position use across the implementation:

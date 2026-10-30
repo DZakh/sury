@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ f: S.union(["a", "c"]) }).with(S.to, S.schema({ f: S.string.with(S.to, S.union(["a", "b"])) }))'
+  input: '{ f: "a" | "c"; }'
+  output: '{ f: "a" | "b"; }'
+  instantiations: 6962
+jsonSchema:
+  input: '{ type: "object", properties: { f: { enum: ["a", "c"] } }, required: ["f"] }'
+  output: '{ type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: \"a\" | \"c\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: \"a\" | \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.f;typeof v0==="string"&&(v0==="a"||v0==="c")||e[0](v0);if(typeof v0==="string"){for(;;){if(v0==="a")break;if(v0==="c"){for(;;){throw e[1](v0)}break}throw e[2](v0)}}else{throw e[2](v0)}return {f:v0}}catch(v1){e[4](v1)}}
+    examples:
+      kept:
+        input: '{ f: "a" }'
+        output: '{ f: "a" }'
+      dropped:
+        input: '{ f: "c" }'
+        error: 'Failed at f: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(typeof v0==="string"){for(;;){if(v0==="a")break;if(v0==="c"){for(;;){throw e[0](v0)}break}throw e[1](v0)}}else{throw e[1](v0)}return i}catch(v1){e[2](v1)}}
+    examples:
+      kept:
+        input: '{ f: "a" }'
+        output: '{ f: "a" }'
+      dropped:
+        input: '{ f: "c" }'
+        error: 'Failed at f: Expected "a" | "b", received "c"'
+  encode:
+    expression: i=>{try{let v0=i.f;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);if(typeof v0==="string"){for(;;){if(v0==="a")break;if(v0==="b"){for(;;){throw e[1](v0)}break}throw e[2](v0)}}else{throw e[2](v0)}return i}catch(v1){e[3](v1)}}
+    examples:
+      kept:
+        input: '{ f: "a" }'
+        output: '{ f: "a" }'
+      dropped:
+        input: '{ f: "b" }'
+        error: 'Failed at f: Expected "a" | "c", received "b"'

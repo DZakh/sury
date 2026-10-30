@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.brand(S.nullable(S.string), "NS"))
+  input: string | undefined
+  output: 'string & { readonly " brand": [string | null, "NS"]; }'
+  instantiations: 4897
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  fromOutputType: string | null
+  openapi-3.0:
+    output: '{ type: "string", nullable: true }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      missing:
+        input: undefined
+        output: "null"
+      string:
+        input: '"x"'
+        output: '"x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      null-value:
+        input: "null"
+        output: undefined

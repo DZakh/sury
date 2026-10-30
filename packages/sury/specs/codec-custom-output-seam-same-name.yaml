@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ x: S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.recursive("Node", (self) => S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kids: S.array(self) })), { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any), y: S.recursive("Node", (self) => S.schema({ id: S.number, kids: S.array(self) })) })'
+  input: "{ x: { v?: unknown; }; y?: unknown; }"
+  output: "{ x?: unknown; y?: unknown; }"
+  instantiations: 13550
+jsonSchema:
+  input: '{ type: "object", properties: { x: { type: "object", properties: { v: {} }, required: ["v"] }, y: { $ref: "#/$defs/Node" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { id: { type: "number" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["id", "kids"] } } }'
+  fromInputType: "{ x: { v: JSON; }; y: { id: number; kids: ...[]; }; }"
+  output: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { name: { type: "string" }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" } }, required: ["name", "kids"] }, Node2: { type: "object", properties: { id: { type: "number" }, kids: { items: { $ref: "#/$defs/Node2" }, type: "array" } }, required: ["id", "kids"] } } }'
+  fromOutputType: "{ x: { name: string; kids: ...[]; }; y: { id: number; kids: ...[]; }; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.x.v,b.x.v)&&e[1](a.y,b.y)
+  output: (a,b)=>a===b||e[0](a.x,b.x)&&e[1](a.y,b.y)
+compare:
+  input: "throws: [Sury] Can't compare { x: { v: unknown; }; y: Node; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { x: Node; y: Node; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.x;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v1;try{v1=e[0]({v:v0.v})}catch(x){e[1](x)}try{e[2](v1);}catch(v2){e[3](v2,["x"])}let v3;try{v3=e[5](i.y);}catch(v4){e[6](v4,["y"])}return {x:v1,y:v3}}catch(v5){e[8](v5)}}
+    examples:
+      two-definitions-one-name:
+        input: '{ x: { v: { name: "a!", kids: [] } }, y: { id: 1, kids: [] } }'
+        output: '{ x: { name: "a!", kids: [] }, y: { id: 1, kids: [] } }'
+  decode:
+    expression: i=>{try{let v0=i.x;let v1;try{v1=e[0](v0)}catch(x){e[1](x)}try{e[2](v1);}catch(v2){e[3](v2,["x"])}try{e[4](i.y);}catch(v3){e[5](v3,["y"])}return {x:v1,y:i.y}}catch(v4){e[6](v4)}}
+    examples:
+      two-definitions-one-name:
+        input: '{ x: { v: { name: "a!", kids: [] } }, y: { id: 1, kids: [] } }'
+        output: '{ x: { name: "a!", kids: [] }, y: { id: 1, kids: [] } }'
+  encode:
+    expression: i=>{try{try{e[0](i.x);}catch(v0){e[1](v0,["x"])}let v1;try{v1=e[2](i.x)}catch(x){e[3](x)}try{e[4](i.y);}catch(v2){e[5](v2,["y"])}return {x:v1,y:i.y}}catch(v3){e[6](v3)}}
+    examples:
+      two-definitions-one-name:
+        input: '{ x: { name: "a!", kids: [] }, y: { id: 1, kids: [] } }'
+        output: '{ x: { v: { name: "a!", kids: [] } }, y: { id: 1, kids: [] } }'

@@ -4,6 +4,7 @@ import {
   arrayTag,
   bigintTag,
   booleanTag,
+  copySchema,
   instanceTag,
   type Internal,
   numberTag,
@@ -160,7 +161,7 @@ export const wrappers: Record<string, ProtobufType> = {
   "google.protobuf.BytesValue": "bytes",
 };
 
-const isContainer = (schema: Internal): boolean =>
+export const isContainer = (schema: Internal): boolean =>
   (schema.type === arrayTag || schema.type === objectTag) && typeof schema.additionalItems === objectTag;
 
 // `{ seconds, nanos }` is the Timestamp and Duration message itself: its keys
@@ -183,8 +184,19 @@ const isSecondsNanos = (shape: Internal): boolean => {
   );
 };
 
+// Which type each message is, `S.protobuf` reads off `S.protobufTypeName` when
+// it compiles.
+const isAnyValue = (shape: Internal): boolean =>
+  shape.type === anyOfTag
+    ? shape.anyOf!.every((member) => {
+        const output = getOutputSchema(member);
+        return output.type === undefinedTag || (output.type === arrayTag && output.items !== U) || (isMessageShape(output) && !isContainer(output));
+      })
+    : isMessageShape(shape) && !isContainer(shape);
+
 // The value each well-known type takes, and how an error names it.
 const wellKnown: Record<string, [(shape: Internal, item: Internal | undefined) => boolean, string]> = {
+  "google.protobuf.Any": [isAnyValue, "S.protobufAny, a message S.protobufTypeName names, or an S.union of them"],
   "google.protobuf.Timestamp": [
     (shape) => (shape.type === instanceTag && shape.class === Date) || isSecondsNanos(shape),
     "a Date or { seconds: S.bigint, nanos: S.int32 }",
@@ -218,6 +230,8 @@ const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined
   // The two values with no other wire form.
   if (shape.type === instanceTag && shape.class === Date) return "google.protobuf.Timestamp";
   if (shape.flags & 16) return "google.protobuf.Value";
+  // A union of messages can only be an Any: a oneof has no number of its own.
+  if (shape.type === anyOfTag && isAnyValue(shape)) return "google.protobuf.Any";
   // A `$ref` is `S.recursive`, whose definition is not built yet while the
   // definer runs; a message is the only thing the wire can make of one.
   if (shape.type === objectTag || shape.type === refTag) return "message";
@@ -228,6 +242,18 @@ const inferType = (shape: Internal, literalEnum: boolean): FieldType | undefined
     return "double";
   }
   return U;
+};
+
+// On the schema itself rather than its output: the message is the object the
+// wire speaks, which a `.to` chain starts from.
+// @__NO_SIDE_EFFECTS__
+export const protobufTypeName = (schema: Internal, typeName: string): Internal => {
+  if (!/^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$/.test(typeName)) {
+    return panic(`S.protobufTypeName requires a full name such as "acme.v1.User", not ${JSON.stringify(typeName)}`);
+  }
+  const mut = copySchema(schema);
+  mut.protobufTypeName = typeName;
+  return mut;
 };
 
 // @__NO_SIDE_EFFECTS__
@@ -250,7 +276,10 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   // A union of int32 literals is an enum; a lone literal is a number, since
   // a one-member enum could accept neither its zero nor an unknown value.
   const literalEnum = isIntegerEnum(shape);
-  const type = typeof field === "number" || field.type === U ? inferType(shape, literalEnum) : field.type;
+  const type =
+    typeof field === "number" || field.type === U
+      ? itemOf(present(schema)).protobufTypeName === "google.protobuf.Any" ? "google.protobuf.Any" : inferType(shape, literalEnum)
+      : field.type;
   // The prefix first: the tables are plain objects, and `"constructor"` is a
   // key of every one.
   const known =
@@ -272,7 +301,9 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
   if (mapKeyTypes[key] !== true) {
     return panic(`S.protobufField requires an integral, bool or string map key type`);
   }
-  if (type === "enum" && !literalEnum && (shape.const !== U || shape.type !== numberTag)) {
+  // Declared, a lone zero is a one-member enum, such as google.protobuf.NullValue:
+  // proto3 requires every enum to have its zero.
+  if (type === "enum" && !literalEnum && (shape.type !== numberTag || (shape.const !== U && shape.const !== 0))) {
     return panic(`S.protobufField requires an enum to be a number schema or a union of int32 literals`);
   }
   // Declared as a scalar, the writer would take the object for a number and
@@ -304,7 +335,14 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
     current = current.to;
   }
   const packed = typeof field === "number" || field.packed !== false;
-  return updateOutput(schema, (mut) => {
+  const numbered: Internal = updateOutput(schema, (mut) => {
     mut.protobufField = { number, type, packed, key, oneof, numberedAs: schema } satisfies StoredField;
   });
+  // updateOutput copied every link, so marking them touches nothing shared.
+  if (type === "enum") {
+    for (let link: Internal | undefined = numbered; link !== U; link = link.to) {
+      if (typeof link.const === "number") link.openLiteral = true;
+    }
+  }
+  return numbered;
 };

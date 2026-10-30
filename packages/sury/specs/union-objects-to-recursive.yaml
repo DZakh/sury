@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((R) => S.union([S.schema({ t: "a", n: S.array(R) }), S.schema({ t: "c", n: S.array(R) })]).with(S.to, R))(S.recursive("R", (self) => S.schema({ t: S.union(["a", "b"]), n: S.array(self) })))'
+  input: '{ t: "a"; n: unknown[]; } | { t: "c"; n: unknown[]; }'
+  output: unknown
+  instantiations: 10709
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "c" }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R: { type: "object", properties: { t: { enum: ["a", "b"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, required: ["t", "n"] } } }'
+  fromInputType: '{ t: "a"; n: { t: "a" | "b"; n: ...[]; }[]; } | { t: "c"; n: { t: "a" | "b"; n: ...[]; }[]; }'
+  output: '{ $ref: "#/$defs/R", $defs: { R: { type: "object", properties: { t: { enum: ["a", "b"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, required: ["t", "n"] } } }'
+  fromOutputType: '{ t: "a" | "b"; n: ...[]; }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", enum: ["c"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R: { type: "object", properties: { t: { enum: ["a", "b"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, required: ["t", "n"] } } }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&e[2](a.n,b.n):b.t==="c"&&e[0](a.n,b.n))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; n: R[]; } | { t: \"c\"; n: R[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare R. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;Array.isArray(v0)||e[2](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){e[1](v3,["n",v1])}v4[v1]=v2}e[3]({t:i.t,n:v4});i={t:i.t,n:v4};break}if(i.t==="c"){let v5=i.n;Array.isArray(v5)||e[6](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[4](v5[v6]);}catch(v8){e[5](v8,["n",v6])}v9[v6]=v7}e[7]({t:i.t,n:v9});i={t:i.t,n:v9};break}throw e[8](i)}}else{throw e[8](i)}return i}catch(v10){e[9](v10)}}
+    examples:
+      a:
+        input: '{ t: "a", n: [] }'
+        output: '{ t: "a", n: [] }'
+      c:
+        input: '{ t: "c", n: [] }'
+        error: 'Failed at t: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;for(let v1=0;v1<v0.length;++v1){try{e[0](v0[v1]);}catch(v2){e[1](v2,["n",v1])}}e[2](i);break}if(i.t==="c"){let v3=i.n;for(let v4=0;v4<v3.length;++v4){try{e[3](v3[v4]);}catch(v5){e[4](v5,["n",v4])}}e[5](i);break}throw e[6](i)}}else{throw e[6](i)}return i}catch(v6){e[7](v6)}}
+    examples:
+      a:
+        input: '{ t: "a", n: [] }'
+        output: '{ t: "a", n: [] }'
+  encode:
+    expression: i=>{try{e[0](i);if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;Array.isArray(v0)||e[3](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[1](v0[v1]);}catch(v3){e[2](v3,["n",v1])}v4[v1]=v2}i={t:i.t,n:v4};break}if(i.t==="c"){let v5=i.n;Array.isArray(v5)||e[6](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[4](v5[v6]);}catch(v8){e[5](v8,["n",v6])}v9[v6]=v7}i={t:i.t,n:v9};break}throw e[7](i)}}else{throw e[7](i)}return i}catch(v10){e[8](v10)}}
+    examples:
+      a:
+        input: '{ t: "a", n: [] }'
+        output: '{ t: "a", n: [] }'

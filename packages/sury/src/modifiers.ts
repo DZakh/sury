@@ -17,7 +17,9 @@ import {
   panic,
   pathEmpty,
   refTag,
+  reversedKey,
   type SchemaErrorMessage,
+  setHas,
   U,
   undefinedTag,
   unknown,
@@ -51,6 +53,7 @@ import {
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
+ parse,
  reverse,
  setDefault
 } from "./parse";
@@ -360,6 +363,135 @@ export const linkTo = (
   (configurableValueOptions as Record<string, unknown>)[valKey] = created;
   Object.defineProperty(store, linkKey, configurableValueOptions as PropertyDescriptor);
   return root;
+};
+
+export type Slot = Builder | boolean | undefined;
+
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
+const converting = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && converting(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// The definition each output view (`outputView`) was built from.
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+const outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || converting(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
+// An output-seam coder claims the target as its result, so a target that
+// still converts on its own would have that conversion skipped. The junction
+// seam of `to` feeds the target's chain instead, so it stays legal there, as do
+// the slots that place no coder. A reading is exempt with `B_neverSlot`:
+// neither places a coder, so neither claims the target's result - the very case
+// a reading exists for is a target that converts on its own.
+// A coder's result is what the target's output claims (its view): the
+// target's own conversions, a field's coder among them, would run again over a
+// value already past them. An encode coder is handed the target's output, so
+// the link is to the view, and a decode with no coder runs the plain link's own
+// step into the target from where the seam's stands. A decode coder beside an
+// encode with none keeps the link to the target, which that encode converts
+// through, and checks its result against the view.
+export const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Slot): Internal => {
+  const view =
+    (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
+      ? target.to
+        ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
+        : outputView(target)
+      : target;
+  if (view === target) return codecTo(schema, target, decode, encode);
+  if (typeof encode === functionTag) {
+    return codecTo(schema, view, typeof decode === functionTag ? decode : seamStep(seamPlain(schema, target, decode as boolean | undefined)), encode);
+  }
+  return codecTo(schema, target, seamStep((input) => B_refine((decode as Builder)(input), view, U, view)), encode);
+};
+
+// The plain link's step into the target, from where the seam's link stands.
+const seamPlain = (schema: Internal, target: Internal, reading: boolean | undefined) => (input: Val): Val => {
+  let into = codecTo(schema, target, reading);
+  while (into.to!.to) into = into.to!;
+  const from = B_refine(input, into, U, into);
+  from.io = true;
+  return from;
+};
+
+// Runs `step` to its end, and hands the value on as the seam link's next node's
+// output, which it now is.
+const seamStep = (step: (input: Val) => Val): Builder => (input: Val) => {
+  const through = B_refine(parse(step(input)), U, U, input.e.to);
+  through.io = true;
+  return through;
 };
 
 // Not initSchema: that would stamp the self-reverse marker, and this codec's

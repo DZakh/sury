@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ c: S.optional(S.union([S.protobufField(S.json, 2), S.protobufField(S.boolean, 3)])) }).with(S.to, S.protobuf)"
+  input: "{ c?: JSON | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7134
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{}, { type: "boolean" }] } } }'
+  output: "[Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+isEqual:
+  input: (a,b)=>a===b||e[0](a.c,b.c)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: JSON | boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  decode: eq-to-parse
+  encode: eq-to-parse

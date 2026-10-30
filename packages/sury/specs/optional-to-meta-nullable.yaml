@@ -6,9 +6,9 @@ ts:
   instantiations: 4842
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }, { type: "null" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
   openapi-3.0:
-    output: '{ anyOf: [{ type: "string" }, { type: "string", enum: ["undefined"] }, { enum: [null] }] }'
+    output: '{ type: "string", nullable: true }'
 isEqual: strictEqual
 compare:
   input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
@@ -18,13 +18,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){for(;;){i="undefined";break}break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: a missing value reaches the target as the string "undefined";
-      # without `S.meta` it reads as null.
       undefined:
         input: undefined
-        output: '"undefined"'
+        output: "null"
       string:
         input: '"x"'
         output: '"x"'

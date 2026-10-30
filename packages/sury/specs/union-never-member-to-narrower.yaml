@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"]))
+  input: '"a" | "b" | "c"'
+  output: '"a" | "b"'
+  instantiations: 5759
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  fromInputType: '"a" | "b"'
+  output: '{ enum: ["a", "b"] }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string"&&(i==="a"||i==="b"))break;if(typeof i==="string"&&i==="c"){e[0](i);break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      a:
+        input: '"a"'
+        output: '"a"'
+      c:
+        input: '"c"'
+        error: Expected never, received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      b:
+        input: '"b"'
+        output: '"b"'

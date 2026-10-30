@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.meta(S.union([S.string.with(S.refine, (v) => v.length > 2, { error: "Too short" }), S.number]), { description: "d" }), S.boolean])'
+  input: string | number | boolean
+  output: string | number | boolean
+  instantiations: 2683
+jsonSchema:
+  input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+  output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | number | boolean. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="boolean")break;l1:{try{for(;;){if(typeof i==="string"){if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}if(typeof i==="number"&&i==i)break;v0=[v0,e[2](i)];break l1}break}catch(x){v0=[v0,e[3](x)]}}throw e[4](i,v0)}return i}catch(v2){e[5](v2)}}
+    examples:
+      boolean-outer-member:
+        input: "true"
+        output: "true"
+      long-string:
+        input: '"abc"'
+        output: '"abc"'
+      short-string:
+        input: '"ab"'
+        error: |-
+          Expected string | number | boolean, received "ab"
+          - Too short
+      number:
+        input: "1"
+        output: "1"
+  decode: identity
+  encode: identity

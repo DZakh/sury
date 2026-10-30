@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.shape(S.schema({ a: S.string.with(S.to, S.string, { decode: (x) => x, encode: { async: async (x) => x } }) }).with(S.refine, (v) => v.a !== "bad", { error: "refused" }), (v) => ({ w: v.a }))'
+  input: "{ a: string; }"
+  output: "{ w: string; }"
+  instantiations: 6370
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+  output: '{ type: "object", properties: { w: { type: "string" } }, required: ["w"] }'
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: (a,b)=>a===b||a.w===b.w
+compare:
+  input: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { w: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v1=i.a;typeof v1==="string"||e[3](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v2={a:v0};e[4](v2)||e[5](v2);return {w:v0}}catch(v3){e[7](v3)}}
+    examples:
+      accepted:
+        input: '{ a: "ok" }'
+        output: '{ w: "ok" }'
+      refused:
+        input: '{ a: "bad" }'
+        error: refused
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i.a)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1={a:v0};e[3](v1)||e[4](v1);return {w:v0}}catch(v2){e[5](v2)}}
+    examples:
+      accepted:
+        input: '{ a: "ok" }'
+        output: '{ w: "ok" }'
+      refused:
+        input: '{ a: "bad" }'
+        error: refused
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[3](e[0](i.w),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0}});return v1.then(v1=>{e[4](v1)||e[5](v1);return v1}).catch(e[6])}catch(v2){return e[7](v2)}}
+    examples:
+      accepted:
+        input: '{ w: "ok" }'
+        output: '{ a: "ok" }'
+      refused:
+        input: '{ w: "bad" }'
+        error: refused

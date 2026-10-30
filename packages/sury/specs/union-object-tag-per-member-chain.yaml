@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: S.literal("a").with(S.to, S.literal(0)), v: S.string }), S.schema({ t: S.literal("b").with(S.to, S.literal(1)), n: S.number })])'
+  input: '{ t: "a"; v: string; } | { t: "b"; n: number; }'
+  output: "{ t: 0; v: string; } | { t: 1; n: number; }"
+  instantiations: 9552
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { type: "number" } }, required: ["t", "n"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { type: "number", const: 0 }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "number", const: 1 }, n: { type: "number" } }, required: ["t", "n"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, n: { type: "number" } }, required: ["t", "n"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { t: { type: "number", enum: [0] }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "number", enum: [1] }, n: { type: "number" } }, required: ["t", "n"] }] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&a.v===b.v:b.t==="b"&&a.n===b.n)
+  output: (a,b)=>a===b||(a.t===0?b.t===0&&a.v===b.v:b.t===1&&a.n===b.n)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; v: string; } | { t: \"b\"; n: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: 0; v: string; } | { t: 1; n: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.v;typeof v0==="string"||e[0](v0);i={t:0,v:v0};break}if(i.t==="b"){let v1=i.n;typeof v1==="number"&&v1==v1||e[1](v1);i={t:1,n:v1};break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      first-member:
+        input: '{ t: "a", v: "x" }'
+        output: '{ t: 0, v: "x" }'
+      second-member:
+        input: '{ t: "b", n: 1 }'
+        output: "{ t: 1, n: 1 }"
+  decode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:0,v:i.v};break}if(i.t==="b"){i={t:1,n:i.n};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      second-member:
+        input: '{ t: "b", n: 1 }'
+        output: "{ t: 1, n: 1 }"
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t===0){i={t:"a",v:i.v};break}if(i.t===1){i={t:"b",n:i.n};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      second-member:
+        input: "{ t: 1, n: 1 }"
+        output: '{ t: "b", n: 1 }'

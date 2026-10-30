@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }), contact: S.union([S.schema({ type: "email", email: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema({ type: "home", home: S.protobufField(S.schema({ street: S.protobufField(S.string, { number: 1, type: "string" }) }), { number: 3, type: "message" }) }), S.schema({ type: "none" })]) }).with(S.to, S.protobuf)'
+  input: '{ id: number; contact: { type: "email"; email: string; } | { type: "home"; home: { street: string; }; } | { type: "none"; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11881
+jsonSchema:
+  input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, contact: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "email" }, email: { type: "string" } }, required: ["type", "email"] }, { type: "object", properties: { type: { type: "string", const: "home" }, home: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["type", "home"] }, { type: "object", properties: { type: { type: "string", const: "none" } }, required: ["type"] }] } }, required: ["id", "contact"] }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, contact: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["type", "email"] }, { type: "object", properties: { type: { type: "string", enum: ["home"] }, home: { type: "object", properties: { street: { type: "string" } }, required: ["street"] } }, required: ["type", "home"] }, { type: "object", properties: { type: { type: "string", enum: ["none"] } }, required: ["type"] }] } }, required: ["id", "contact"] }'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&(a.contact.type==="email"?b.contact.type==="email"&&a.contact.email===b.contact.email:a.contact.type==="home"?b.contact.type==="home"&&a.contact.home.street===b.contact.home.street:b.contact.type==="none")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: int32; contact: { type: \"email\"; email: string; } | { type: \"home\"; home: { street: string; }; } | { type: \"none\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.id,v1=i.contact;typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1==0||e[0](v0);if(typeof v1==="object"&&v1&&!Array.isArray(v1)){for(;;){if(v1.type==="email"){let v2=v1.email;typeof v2==="string"||e[1](v2);v1={type:v1.type,email:v2};break}if(v1.type==="home"){let v3=v1.home;typeof v3==="object"&&v3&&!Array.isArray(v3)||e[3](v3);let v4=v3.street;typeof v4==="string"||e[2](v4);v1={type:v1.type,home:{street:v4}};break}if(v1.type==="none"){v1={type:v1.type};break}throw e[4](v1)}}else{throw e[4](v1)}let v5;let v6;if(typeof v1==="object"&&v1&&!Array.isArray(v1)){for(;;){if(v1.type==="email"){v5=v1.email;break}if(v1.type==="home"){v6=v1.home;break}if(v1.type==="none")break;throw e[6](v1)}}else{throw e[6](v1)}let v7;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[10].acquire();f=0;v=v0;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[7](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};f=2;v=v6;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[5](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);x=e[8](x,e[9],f,j,a);e[11](x)}}return v7}catch(v8){e[13](v8)}}
+    examples:
+      email:
+        input: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+        output: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+      none:
+        input: '{ id: 0, contact: { type: "none" } }'
+        output: new Uint8Array([])
+      zero-member-is-written:
+        input: '{ id: 0, contact: { type: "email", email: "" } }'
+        output: new Uint8Array([18, 0])
+      unknown-arm:
+        input: '{ id: 1, contact: { type: "fax", fax: "1" } }'
+        error: 'Failed at contact: Expected { type: "email"; email: string; } | { type: "home"; home: { street: string; }; } | { type: "none"; }, received { type: "fax"; fax: "1"; }'
+  decode:
+    expression: i=>{try{let v2=i.contact;let v0;let v1;if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2.type==="email"){v0=v2.email;break}if(v2.type==="home"){v1=v2.home;break}if(v2.type==="none")break;throw e[1](v2)}}else{throw e[1](v2)}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=i.id;if(v){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=Number(v);if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);w.string(v)};f=2;v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=26:w.varint32(26);h=w.begin();e[0](w,v);w.end(h)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[7](v4)}}
+    examples:
+      email:
+        input: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+        output: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+      home:
+        input: '{ id: 2, contact: { type: "home", home: { street: "x" } } }'
+        output: new Uint8Array([8, 2, 26, 3, 10, 1, 120])
+      none:
+        input: '{ id: 3, contact: { type: "none" } }'
+        output: new Uint8Array([8, 3])
+  encode:
+    expression: i=>{try{let v0=0,v2=0,v1=void 0,v3=void 0;{let r,a2=-1,b2=0,x2,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 8:v0=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;case 18:v2=2;v1=r.string();continue;case 26:p=r.sub();if(v2!==3){v2=3;a2=-1;x2=void 0}if(a2<0){a2=r.pos;b2=r.limit}else x2=r.more(x2);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v2===3){t=26;g=r.limit;a2<0?r.pos=g:(r.pos=a2,r.limit=b2);v3=m1(r,d+1,x2);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v4;if(v2===2){v4={type:"email",email:v1}}else if(v2===3){v4={type:"home",home:v3}}else{v4={type:"none"}}return {id:v0,contact:v4}}catch(v5){e[7](v5)}}
+    examples:
+      email:
+        input: new Uint8Array([8, 1, 18, 3, 97, 64, 98])
+        output: '{ id: 1, contact: { type: "email", email: "a@b" } }'
+      home:
+        input: new Uint8Array([8, 2, 26, 3, 10, 1, 120])
+        output: '{ id: 2, contact: { type: "home", home: { street: "x" } } }'
+      none-set:
+        input: new Uint8Array([8, 3])
+        output: '{ id: 3, contact: { type: "none" } }'
+      last-member-wins:
+        input: new Uint8Array([18, 1, 97, 26, 3, 10, 1, 120])
+        output: '{ id: 0, contact: { type: "home", home: { street: "x" } } }'
+      same-message-member-merges:
+        input: new Uint8Array([26, 3, 10, 1, 120, 26, 0])
+        output: '{ id: 0, contact: { type: "home", home: { street: "x" } } }'

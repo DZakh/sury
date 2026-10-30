@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package example.v1;
+
+import "example/common/address.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// Every scalar protobuf has, once each.
+message Scalars {
+  double double = 1;
+  float float = 2;
+  int32 int32 = 3;
+  int64 int64 = 4;
+  uint32 uint32 = 5;
+  uint64 uint64 = 6;
+  sint32 sint32 = 7;
+  sint64 sint64 = 8;
+  fixed32 fixed32 = 9;
+  fixed64 fixed64 = 10;
+  sfixed32 sfixed32 = 11;
+  sfixed64 sfixed64 = 12;
+  bool bool = 13;
+  string string = 14;
+  bytes bytes = 15;
+  int64 as_string = 16 [jstype = JS_STRING];
+}
+
+// A user of the system.
+message User {
+  // The kinds of user.
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    KIND_PERSON = 1;
+    KIND_ROBOT = 2;
+  }
+
+  // Where a user receives mail.
+  message Mailbox {
+    string name = 1;
+    example.common.Address address = 2;
+  }
+
+  int32 id = 1;
+  string first_name = 2;
+  repeated string tags = 3;
+  map<string, int32> scores = 4;
+  example.common.Address home = 5;
+  optional string nickname = 6;
+  Kind kind = 7;
+  oneof contact {
+    string email = 8;
+    int64 phone = 9;
+    Mailbox mailbox = 10;
+    google.protobuf.Int32Value boxed_in_oneof = 11;
+  }
+  repeated int32 unpacked = 12 [packed = false];
+  map<int32, Mailbox> mailboxes = 13;
+  example.common.Currency currency = 14;
+  optional Kind maybe_kind = 15;
+  string deprecated_field = 16 [deprecated = true];
+  repeated Kind kinds = 17;
+  map<uint64, string> by_id = 18;
+}
+
+message WellKnown {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Duration took = 2;
+  google.protobuf.StringValue label = 3;
+  google.protobuf.Int64Value count = 4;
+  google.protobuf.Struct meta = 5;
+  repeated google.protobuf.Struct metas = 6;
+  map<string, google.protobuf.Struct> by_name = 7;
+  google.protobuf.Value value = 8;
+  repeated google.protobuf.Int32Value boxed_list = 9;
+  repeated google.protobuf.Timestamp log = 10;
+  map<string, google.protobuf.Duration> timeouts = 11;
+  optional google.protobuf.Timestamp seen = 12;
+  oneof when {
+    google.protobuf.Timestamp at_time = 13;
+    google.protobuf.Duration after = 14;
+    google.protobuf.Struct object = 15;
+    google.protobuf.ListValue list = 16;
+  }
+  map<string, google.protobuf.Int32Value> boxed_by_name = 17;
+}
+
+// A tree: a message that holds itself.
+message Node {
+  string name = 1;
+  repeated Node children = 2;
+  Node parent = 3;
+  oneof payload {
+    int32 leaf = 4;
+    Node link = 5;
+  }
+}
+
+// Two messages that hold each other.
+message Branch {
+  int32 n = 1;
+  Leaf leaf = 2;
+}
+
+message Leaf {
+  repeated Branch branches = 1;
+}
+
+// Named as ReScript's Option module, which a group below reads its refs through.
+message Option {
+  int32 o = 1;
+}
+
+// Three messages that each hold all three, one way or another.
+message GraphA {
+  GraphA a = 1;
+  repeated GraphB b = 2;
+  map<string, GraphC> c = 3;
+}
+
+message GraphB {
+  GraphA a = 1;
+  GraphB b = 2;
+  oneof pick {
+    GraphC c = 3;
+    int32 none = 4;
+  }
+}
+
+message GraphC {
+  repeated GraphA a = 1;
+  map<int32, GraphB> b = 2;
+  GraphC c = 3;
+}
+
+// Names protobuf-es escapes.
+message Reserved {
+  string constructor = 1;
+  string to_string = 2;
+  int32 value_of = 3;
+  enum Enum {
+    ENUM_UNSPECIFIED = 0;
+  }
+  Enum enum = 4;
+}
+
+message Empty {}
+
+// An enum whose values keep their prefix: not every value shares it.
+enum Mixed {
+  MIXED_UNSPECIFIED = 0;
+  OTHER = 1;
+}
+
+enum Aliased {
+  option allow_alias = true;
+  ALIASED_UNSPECIFIED = 0;
+  ALIASED_ONE = 1;
+  ALIASED_UNO = 1;
+}
+
+// Only one value.
+enum Lonely {
+  LONELY_UNSPECIFIED = 0;
+}
+
+// Its zero strips to UNKNOWN, a constructor ReScript's own types have too.
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_OK = 1;
+}
+
+message Uses {
+  Mixed mixed = 1;
+  Aliased aliased = 2;
+  Lonely lonely = 3;
+  repeated Mixed mixes = 4;
+  map<string, Aliased> aliases = 5;
+  Empty empty = 6;
+  // Their constructors are named as option's.
+  oneof choice {
+    Empty none = 7;
+    int32 some = 8;
+  }
+  Status status = 9;
+}
+
+// Anys, opaque as protobuf-es holds them; the harness also reads them as a
+// tagged union of the messages they hold.
+message Envelope {
+  google.protobuf.Any payload = 1;
+  repeated google.protobuf.Any details = 2;
+}

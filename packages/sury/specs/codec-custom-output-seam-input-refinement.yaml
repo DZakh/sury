@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with((S as any).$to as typeof S.to, S.fromJSONSchemaOrThrow({ type: "object", properties: { x: { type: "string" } }, not: { required: ["y"] } }), { decode: (v: string) => ({ x: v, y: 1 }), encode: (o: { x: string }) => o.x } as any)'
+  input: string
+  output: "{ x?: string | undefined; }"
+  instantiations: 96206
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "object", properties: { x: { type: "string" } }, not: { required: ["y"] } }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.x===b.x
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { x: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[3](v0);return v0}catch(v1){e[5](v1)}}
+    examples:
+      refused-by-not:
+        input: '"ab"'
+        error: Should NOT be valid against schema in the not property.
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2](v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}
+    examples:
+      refused-by-not:
+        input: '"ab"'
+        error: Should NOT be valid against schema in the not property.
+  encode:
+    expression: i=>{try{e[0](i)||e[3](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      refused-by-not:
+        input: '{ x: "ab", y: 1 }'
+        error: Should NOT be valid against schema in the not property.

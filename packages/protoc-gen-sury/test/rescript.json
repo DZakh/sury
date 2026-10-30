@@ -1,0 +1,8 @@
+{
+  "name": "protoc-gen-sury-generated",
+  "sources": [{ "dir": "generated/res", "subdirs": true }, { "dir": "res" }],
+  "dependencies": ["sury"],
+  "package-specs": { "module": "esmodule", "in-source": true },
+  "suffix": ".res.mjs",
+  "warnings": { "number": "+a", "error": "+a" }
+}

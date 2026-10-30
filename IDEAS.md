@@ -11,7 +11,7 @@
   moment later. Two halves, and the second is what makes the first worth doing:
   - `S.jsonString.with(S.to, S.uint8Array)` (and the reverse) as a declared
     target, so the wire type is bytes and the codec owns the encoding. Today the
-    same thing spells as two hops through `advanced/uint8Array.ts`. It is
+    same thing spells as two hops through `S.uint8Array`. It is
     UTF-8, as `S.uint8Array <-> S.string` is, and must stay so - bytes in a
     *value* position are base64, and this is not one.
   - A native encoder for the aggregate: reuse one module-level `TextEncoder`
@@ -213,7 +213,7 @@ of a form-data story. What they were built to make cheap, roughly in order:
   and `S.to(S.uint8Array)` (via `.arrayBuffer()`) are async in the decode
   direction and sync in the encode one (`new File([i], name)`), so they need
   `B_asyncVal` and the `flagAsync` guard that already makes a sync `S.decode`
-  fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
+  fail with `invalid_operation`. `S.uint8Array` (in `src/refinements.ts`) is the shape to copy.
   The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` -
   parse an upload into a typed value, and reverse it to *build* the upload.
 - **`S.urlSearchParams` and `S.queryString`**, now that `S.formData` has shipped.
@@ -321,8 +321,8 @@ of a form-data story. What they were built to make cheap, roughly in order:
   value has to be fed to the chain's input. The slots that place no coder are
   exempt - `Auto`, `Never`, and the `Pack`/`Unpack` readings
   (`tests/S_to_custom_test.res` carries `S.uint8Array->S.to(S.jsonString->S.to(S.string),
-  ~custom={decode: Unpack, encode: Pack})`), the guard is the `outputSeam`
-  branch of `to` in `src/entry.ts`. JS has no such limit: its `{decode,
+  ~custom={decode: Unpack, encode: Pack})`), the guard is `seamTarget`, behind
+  `$to` in `src/entry.ts`. JS has no such limit: its `{decode,
   encode}` pair lands at the chain head and the whole chain runs after it. So
   the runtime is already there and only the ReScript type is missing:
   `t<'value>` names the output, so a chain's input type has no name to write,

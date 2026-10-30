@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema({ x: S.string, y: S.string }), S.schema({ case: "none" })]) }).with(S.to, S.protobuf)'
+  input: '{ c: { case: "a"; value: number; } | { x: string; y: string; } | { case: "none"; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10563
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { x: { type: "string" }, y: { type: "string" } }, required: ["x", "y"] }, { type: "object", properties: { case: { type: "string", const: "none" } }, required: ["case"] }] } }, required: ["c"] }'
+  output: "[Sury] S.protobuf: oneof \"c\" has an arm that doesn't hold one numbered value beside literals"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["a"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { x: { type: "string" }, y: { type: "string" } }, required: ["x", "y"] }, { type: "object", properties: { case: { type: "string", enum: ["none"] } }, required: ["case"] }] } }, required: ["c"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.c,b.c)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { case: \"a\"; value: int32; } | { x: string; y: string; } | { case: \"none\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" has an arm that doesn't hold one numbered value beside literals"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ o: S.schema({ t: "b" }) }).with(S.to, S.union([S.schema({ o: S.schema({ t: "a" }) }), S.schema({ o: S.schema({ t: "b" }) })]))'
+  input: '{ o: { t: "b"; }; }'
+  output: '{ o: { t: "a"; }; } | { o: { t: "b"; }; }'
+  instantiations: 10655
+jsonSchema:
+  input: '{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }'
+  output: '{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }'
+  fromOutputType: '{ o: { t: "b"; }; }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["b"] } }, required: ["t"] } }, required: ["o"] }'
+    output: '{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["b"] } }, required: ["t"] } }, required: ["o"] }'
+isEqual:
+  input: alwaysEqual
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { o: { t: \"b\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o: { t: \"a\"; }; } | { o: { t: \"b\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.o;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0.t;v1==="b"||e[0](v1);let v2={o:{t:v1}};v2={o:{t:v1}};return v2}catch(v3){e[3](v3)}}
+    examples:
+      b:
+        input: '{ o: { t: "b" } }'
+        output: '{ o: { t: "b" } }'
+  decode: identity
+  encode:
+    creationError: "SuryError: Ambiguous { o: { t: \"a\"; }; } | { o: { t: \"b\"; }; } -> { o: { t: \"b\"; }; }. { o: { t: \"a\"; }; } isn't { o: { t: \"b\"; }; }. Choose with S.to for { o: { t: \"a\"; }; } -> { o: { t: \"b\"; }; }, or S.never -> { o: { t: \"a\"; }; }"

@@ -124,6 +124,31 @@ S.schema("x").with(S.to, S.union([S.string.with(S.minLength, 3), S.schema("x")])
 // the refinement rejects, then the literal fallback accepts "x"
 ```
 
+A const facing two or more consts of another kind, none of them its own, is
+rejected when the operation is created: it could become any of them. One
+facing only consts of its own kind, none of them itself, is rejected too: it
+could never succeed. Met as one member of a source union, at any depth, it
+fails as a value instead, since the other members still convert. `null` and
+`undefined` keep their bridge:
+
+```ts
+S.schema(0).with(S.to, S.union(["a", "b"])); // ❌ 0 -> "a" or 0 -> "b"?
+S.schema(0).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.never.with(S.to, S.literal("b"))])); // ✅ 0 <-> "a"
+S.schema(0).with(S.to, S.schema("a")); // ✅ 0 -> "a", rule 1
+S.schema(undefined).with(S.to, S.union(["a", "b"])); // ✅ undefined -> "a"
+S.schema(0).with(S.to, S.union([1, 2])); // ❌ 0 is neither
+S.union([S.schema({ t: "a" }), S.schema({ t: "c" })]).with(S.to, S.schema({ t: S.union(["a", "b"]) })); // ✅ { t: "a" }, fails { t: "c" }
+S.schema(0).with(S.to, S.union([1, 2, S.number])); // ✅ 0 -> 0, the number takes it
+```
+
+The same holds for an object or tuple by the const at each field or item. A
+list's const items don't count, since an empty list holds none of them:
+
+```ts
+S.schema({ t: "a" }).with(S.to, S.union([S.schema({ t: "b" }), S.schema({ t: "c" })])); // ❌ { t: "a" } is neither
+S.array(S.literal(1)).with(S.to, S.union([S.array(S.literal(2)), S.array(S.literal(3))])); // ✅ [] -> []
+```
+
 **Exception - partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
 can't tell whether you want a pass-through for the matching variant, decoding
@@ -204,6 +229,20 @@ S.union([S.number, S.string]).with(S.to, S.string);
 // Invalid operation: for 123 - decode to "123" or fail as a non-matching case?
 ```
 
+A const target has the same type only as the identical const, and an object,
+tuple or array holding a const only as one holding it too, so a union holding
+one beside others of its kind is rejected:
+
+```ts
+S.union([1, 2]).with(S.to, S.literal(1)); // ❌ 2 -> 1 or fail?
+S.union([1, S.literal(2).with(S.to, S.literal(1))]).with(S.to, S.literal(1)); // ✅ 2 -> 1
+S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })]).with(S.to, S.schema({ o: S.literal(1) })); // ❌ { o: 2 } -> { o: 1 } or fail?
+S.union([S.array(S.literal(1)), S.array(S.literal(2))]).with(S.to, S.array(S.literal(1))); // ❌ the same for [2]
+S.schema({ o: S.union([1, 2]) }).with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ❌ the same at o
+S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])
+  .with(S.to, S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })])); // ✅ { o: 2 } -> { o: 2 }, rule 4
+```
+
 Say what you mean with an explicit target union:
 
 ```ts
@@ -249,6 +288,24 @@ S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean])); // ❌ boolean has no source variant
 S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string])); // ❌ boolean has no target variant
 S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
+```
+
+A const passes through to the identical const only. One the target doesn't
+spell out is checked against the target's consts of its kind, which narrows an
+enum and widens one the other way:
+
+```ts
+S.union(["a", "b", "c"]).with(S.to, S.union(["a", "b"])); // ✅ "a" -> "a", fails "c"
+S.union([1, 2, "x"]).with(S.to, S.union([1, "x"])); // ✅ fails 2, never 2 -> 1
+S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"])); // ✅ "c" is never there
+```
+
+A target union described with `S.meta`, numbered with `S.protobufField` or
+named with `S.protobufTypeName` is still a union here:
+
+```ts
+S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
+S.union(["a", "b"]).with(S.to, S.meta(S.union([0, 1]), { description: "x" })); // ❌ "a" has no same-type target variant
 ```
 
 A transformed source variant matches by its output type, and a transformed
@@ -351,6 +408,90 @@ ignored by variant matching, so it never triggers this rejection:
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
 
+## Protobuf oneof
+
+A union in a message is a oneof, and what decode makes of bytes with no member
+set depends on how the union spells it:
+
+```ts
+S.union([email, phone, S.schema({ case: undefined })]); // no member set: { case: undefined }
+S.optional(S.union([email, phone]));                    // no member set: undefined
+S.union([email, phone]);                                // no member set: fails at the oneof
+```
+
+- **An arm for no member set is what none set reads as.** It holds only
+  literals, or is a bare literal (`codec-protobuf-oneof-case`,
+  `codec-protobuf-oneof-literal-unset`).
+- **`S.optional` reads none set as `undefined`** (`codec-protobuf-oneof-case-optional`).
+- **With neither, the oneof is required.** None set is `undefined` for the
+  union to check, as any absent field is its default for the field's schema to
+  check, so the decode fails at the oneof with the union's own error
+  (`codec-protobuf-oneof-required`, `codec-protobuf-oneof-required-nested`).
+  Encode writes the member the union dispatches to, whichever spelling.
+
+## Protobuf enum
+
+An enum is open on the wire: a number its schema doesn't list reads as that
+number and is written back as it was read, a one-value enum
+(`google.protobuf.NullValue`) included, and a parse still refuses it. A literal
+the field converts its number through answers for it instead. With
+`M = S.schema({ k: field }).with(S.to, S.protobuf)`, read with
+`S.encodeOrThrow(M)` and written with `S.decodeOrThrow(M)`:
+
+```ts
+const en = { number: 1, type: "enum" } as const;
+S.protobufField(S.union([0]), en);                             // reads [8, 3] as 3, writes 3 as [8, 3]
+S.protobufField(S.union([0]), en).with(S.to, S.number);        // reads [8, 5] as 5, writes 5 as [8, 5]
+S.protobufField(S.number.with(S.to, S.literal(0)), en);        // refuses 5 both ways
+S.protobufField(S.literal(null).with(S.to, S.literal(0)), en); // reads [8, 5] as null, writes null as nothing
+S.protobufField(S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]), en);
+// reads [8, 1] as "b", writes "b" as [8, 1], refuses [8, 5]
+S.protobufField(S.union([0, 1]), en).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.literal(1).with(S.to, S.literal("b"))]));
+// refused: "a" faces the wire, and has no number to go as
+```
+
+One spec per line, in order: `codec-protobuf-enum-single`,
+`codec-protobuf-enum-single-to-number`,
+`codec-protobuf-enum-single-number-to-literal`,
+`codec-protobuf-enum-null-to-zero-wire`,
+`codec-protobuf-enum-per-member-chain`,
+`codec-protobuf-enum-to-string-members`.
+
+## Protobuf Any
+
+`S.protobufAny` (`{ typeUrl, value }`) converts to a message `S.protobufTypeName`
+names, to an object holding one beside literals, or to a union of those:
+
+```ts
+const Payload = S.protobufAny.with(S.to, S.union([
+  S.schema({ type: "user", value: User }), // acme.v1.User
+  S.schema({ type: "other", value: S.protobufAny }),
+]));
+```
+
+- **Decode picks the member by name, not by rule 2.** Every member is an
+  object, the same type as the source, so rule 2 would only validate; the Any
+  reads the name after the type URL's last `/` instead and decodes `value` into
+  the member holding that message. A member holding `S.protobufAny` takes every
+  name no other member holds, the empty Any included; without one, an unlisted
+  name fails (`codec-protobuf-any`, `codec-protobuf-any-closed`).
+- **Encode is rule 3.** The union dispatches the value to its member, and that
+  member packs: `type.googleapis.com/` and the name, and the message encoded
+  (`codec-protobuf-any-standalone`).
+- **Both directions refuse what wouldn't come back as it left.** Several
+  members need a literal, distinct per member, to tell them apart, and a message
+  is held by one member only; either is rejected when the operation is created
+  (`codec-protobuf-any-untagged`, `codec-protobuf-any-same-tag`,
+  `codec-protobuf-any-same-type`). A catch-all holding a type another member
+  names fails the encode, since it would decode as that member.
+- **Copies of one Any merge as the message it is.** A later copy's type URL
+  or value replaces the one before, so a copy naming a new type over the first's
+  value reads that value as the new type, the catch-all's included, as
+  protobuf-es does (`codec-protobuf-any` `second-copy-*`, `third-copy-*`).
+- **Anything else is the Any's own object.** `S.parseOrThrow(S.protobufAny)`
+  validates `{ typeUrl, value }`, and a target holding no named message converts
+  field by field (`codec-protobuf-any-json-string`).
+
 ## Custom conversions
 
 `S.to`'s third argument replaces the built-in decoder for a pair, one direction
@@ -383,6 +524,23 @@ proof. A literal, since a type says `string` and never the string `"a"`, so a
 a pair written against it goes through the junction like the JS one. Because
 the trusting seam skips the target's own conversion, it rejects a target that
 converts (`The target already converts`); chain `S.to` instead.
+
+A target whose fields convert on their own is linked through what its output
+claims, so those conversions don't run a second time over the coder's result,
+while its refinements still check it (`codec-custom-output-seam-field-coder`,
+`codec-custom-output-seam-union-field-coder`). A direction left to `"auto"`
+converts through the target itself, while the coder's side still skips the
+field's conversion (`codec-custom-output-seam-mixed-auto`). What the
+target's output claims is all the seam checks: a conversion into `unknown`
+takes whatever it is handed, whatever its encode
+(`codec-custom-output-seam-unknown-never`,
+`codec-custom-output-seam-unknown-decode-only`,
+`codec-custom-output-seam-unknown-async-inner`,
+`codec-custom-output-seam-unknown-jsonstring`,
+`codec-custom-output-seam-unknown-lossy`). `S.list` claims the shape of a
+ReScript list, `0` or a `{hd, tl}` cell, so an Output read back through the
+seam tells it from another member's object
+(`codec-custom-output-seam-list-arm-reversed`).
 
 **A single function is a decode-only shorthand**, and the encode direction is
 then rejected when the operation is created - not skipped, and not skipped

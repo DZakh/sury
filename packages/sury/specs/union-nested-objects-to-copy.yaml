@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ o: S.schema({ t: "a" }) }), S.schema({ o: S.schema({ t: "b" }) })]).with(S.to, S.union([S.schema({ o: S.schema({ t: "a" }) }), S.schema({ o: S.schema({ t: "b" }) })]))'
+  input: '{ o: { t: "a"; }; } | { o: { t: "b"; }; }'
+  output: '{ o: { t: "a"; }; } | { o: { t: "b"; }; }'
+  instantiations: 13717
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["b"] } }, required: ["t"] } }, required: ["o"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["b"] } }, required: ["t"] } }, required: ["o"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare { o: { t: \"a\"; }; } | { o: { t: \"b\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.o;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.t==="a")){v1=[v1,e[0],v0];break l2}i={o:{t:v0.t}};break}l4:{let v3=i.o;if(!(typeof v3==="object"&&v3&&!Array.isArray(v3)&&v3.t==="b")){v1=[v1,e[1],v3];break l4}i={o:{t:v3.t}};break}break l5}break}}throw e[2](i,v1)}return i}catch(v6){e[3](v6)}}
+    examples:
+      a:
+        input: '{ o: { t: "a" } }'
+        output: '{ o: { t: "a" } }'
+      b:
+        input: '{ o: { t: "b" } }'
+        output: '{ o: { t: "b" } }'
+  decode: eq-to-parse
+  encode: eq-to-parse

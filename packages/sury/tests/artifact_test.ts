@@ -4,7 +4,7 @@
 // a consumer would download by accident.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -16,7 +16,10 @@ const artifactsPath = fileURLToPath(new URL("../artifacts", import.meta.url));
 const FILES = [
   "LICENSE",
   "README.md",
+  "bin/protoc-gen-sury/index.mjs",
+  "docs/js-protobuf.md",
   "docs/js-usage.md",
+  "docs/rescript-protobuf.md",
   "docs/rescript-usage.md",
   "index.d.mts",
   "index.d.ts",
@@ -24,6 +27,8 @@ const FILES = [
   "index.mjs",
   "jsr.json",
   "package.json",
+  "protobuf/wkt/index.js",
+  "protobuf/wkt/index.mjs",
   "rescript.json",
   "src/JSONSchema.res",
   "src/JSONSchema.res.mjs",
@@ -35,6 +40,17 @@ const FILES = [
   "src/S.res.mjs",
   "src/StandardSchema.res",
   "src/StandardSchema.res.mjs",
+  "src/protobuf/wkt/google/protobuf/any_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/api_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/duration_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/empty_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/field_mask_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/source_context_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/struct_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/timestamp_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/type_pb.d.ts",
+  "src/protobuf/wkt/google/protobuf/wrappers_pb.d.ts",
+  "src/protobuf/wkt/index.d.ts",
   "src/types/json.d.ts",
   "src/types/jsonschema.d.ts",
   "src/types/standard.d.ts",
@@ -224,7 +240,7 @@ describeArtifact("artifact", () => {
       api.add(name);
     }
     const unknown = new Set<string>();
-    for (const file of ["README.md", "docs/js-usage.md"]) {
+    for (const file of ["README.md", "docs/js-usage.md", "docs/js-protobuf.md"]) {
       // The README's "Coming next:" sentence names API that doesn't exist yet
       // on purpose; nothing else in the docs may.
       const text = read(file).replace(/Coming next:[^\n]*/, "");
@@ -259,10 +275,10 @@ describeArtifact("artifact", () => {
     add(/^\s*(?:type|and)\s+\w+\s*=\s*([A-Z]\w*)\(/gm);
 
     const unknown = new Set<string>();
-    for (const [, name] of read("docs/rescript-usage.md").matchAll(
-      /\bS\.([A-Za-z_][A-Za-z0-9_]*)/g
-    )) {
-      if (!api.has(name!)) unknown.add(`S.${name}`);
+    for (const file of ["docs/rescript-usage.md", "docs/rescript-protobuf.md"]) {
+      for (const [, name] of read(file).matchAll(/\bS\.([A-Za-z_][A-Za-z0-9_]*)/g)) {
+        if (!api.has(name!)) unknown.add(`${file} -> S.${name}`);
+      }
     }
     expect([...unknown]).toEqual([]);
   });
@@ -327,6 +343,54 @@ describeArtifact("artifact", () => {
     expect(read("src/S.res.mjs")).toMatch(/from\s*["']sury["']/);
     expect(read("src/S.res.js")).toMatch(/require\(["']sury["']\)/);
     expect(read("src/S.res.mjs")).not.toContain("Generated from src/entry.ts");
+  });
+
+  // The artifact imports itself as "sury", which Node resolves by the
+  // package's own name, so each format loads the entry beside it.
+  test("both formats of sury/protobuf/wkt decode through the entry beside them", async () => {
+    const bytes = new Uint8Array([8, 1, 16, 2]);
+    const cjs = createRequire(import.meta.url)(path.join(artifactsPath, "protobuf/wkt/index.js"));
+    const esm = await import(pathToFileURL(path.join(artifactsPath, "protobuf/wkt/index.mjs")).href);
+    const esmEntry = await import(pathToFileURL(path.join(artifactsPath, "index.mjs")).href);
+    for (const [entry, wkt] of [[requireCjsEntry(), cjs], [esmEntry, esm]]) {
+      expect(entry.decodeOrThrow(entry.protobuf, wkt.TimestampSchema)(bytes)).toEqual({ seconds: 1n, nanos: 2 });
+    }
+  });
+
+  // A cold tsc on a loaded machine outlasts vitest's 5s default, as in declarations_test.ts.
+  test("sury/protobuf/wkt type-checks from an ESM and a CommonJS consumer", { timeout: 60_000 }, () => {
+    const tscBin = createRequire(import.meta.url).resolve("typescript/bin/tsc");
+    const dir = mkdtempSync(path.join(tmpdir(), "sury-wkt-"));
+    mkdirSync(path.join(dir, "node_modules"));
+    symlinkSync(artifactsPath, path.join(dir, "node_modules/sury"), "dir");
+    writeFileSync(
+      path.join(dir, "tsconfig.json"),
+      JSON.stringify({
+        compilerOptions: { module: "nodenext", moduleResolution: "nodenext", target: "es2022", strict: true, noEmit: true, types: [] },
+        files: ["esm.mts", "cjs.cts"],
+      })
+    );
+    writeFileSync(
+      path.join(dir, "esm.mts"),
+      `import * as S from "sury";\nimport { TimestampSchema, type Timestamp } from "sury/protobuf/wkt";\nexport const t: Timestamp = S.decodeOrThrow(S.protobuf, TimestampSchema)(new Uint8Array());\n`
+    );
+    writeFileSync(
+      path.join(dir, "cjs.cts"),
+      `import S = require("sury");\nimport wkt = require("sury/protobuf/wkt");\nexport const t: wkt.Timestamp = S.decodeOrThrow(S.protobuf, wkt.TimestampSchema)(new Uint8Array());\n`
+    );
+    expect(() => execFileSync(process.execPath, [tscBin, "-p", dir], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })).not.toThrow();
+  });
+
+  // A CodeGeneratorRequest for `a.proto`, holding one empty message `M`.
+  test("the protoc-gen-sury bin answers a request on stdin", () => {
+    const text = (s: string) => [...new TextEncoder().encode(s)];
+    const file = [0x0a, 7, ...text("a.proto"), 0x22, 3, 0x0a, 1, ...text("M"), 0x62, 6, ...text("proto3")];
+    const request = new Uint8Array([0x0a, 7, ...text("a.proto"), 0x7a, file.length, ...file]);
+    const response = execFileSync(process.execPath, [path.join(artifactsPath, "bin/protoc-gen-sury/index.mjs")], { input: request });
+    const out = response.toString("utf8");
+    expect(out).toContain(`// @generated by protoc-gen-sury v${readJson("package.json").version}`);
+    expect(out).toContain("a_pb.ts");
+    expect(out).toContain("export const MSchema");
   });
 
   test("both entries expose the public API", async () => {

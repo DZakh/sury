@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ x: S.optional(S.schema(0).with(S.to, S.union([1, 2]))) })"
+  input: "{ x?: 0 | undefined; }"
+  output: "{ x?: 1 | 2 | undefined; }"
+  instantiations: 7070
+jsonSchema:
+  input: '{ type: "object", properties: { x: { type: "number", const: 0 } } }'
+  output: '{ type: "object", properties: { x: { enum: [1, 2] } } }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { x: { type: "number", enum: [0] } } }'
+isEqual: (a,b)=>a===b||a.x===b.x
+compare:
+  input: "throws: [Sury] Can't compare { x: 0 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { x: 1 | 2 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at x: Can't decode 0 -> 1 | 2: it is none of them. Choose one with S.to, such as S.union([S.literal(0).with(S.to, S.literal(1)), S.never.with(S.to, S.literal(2))])"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.x;let v1;for(;;){if(v0===void 0)break;l2:{if(typeof v0==="number"&&v0==v0){for(;;){if(v0===1){v0=0;break}if(v0===2){v0=0;break}v1=[v1,e[0](v0)];break l2}}else{v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}return {x:v0}}catch(v3){e[2](v3)}}
+    examples:
+      one:
+        input: "{ x: 1 }"
+        output: "{ x: 0 }"

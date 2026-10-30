@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ o: S.union([S.literal(1), S.literal(2)]) }).with(S.to, S.union([S.schema({ o: S.literal(1), a: S.optional(S.string) }), S.schema({ o: S.literal(2), a: S.optional(S.string) })]))"
+  input: "{ o: 1 | 2; }"
+  output: "{ o: 1; a?: string | undefined; } | { o: 2; a?: string | undefined; }"
+  instantiations: 12187
+jsonSchema:
+  input: '{ type: "object", properties: { o: { enum: [1, 2] } }, required: ["o"] }'
+  output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", const: 1 }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", const: 2 }, a: { type: "string" } }, required: ["o"] }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", enum: [1] }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", enum: [2] }, a: { type: "string" } }, required: ["o"] }] }'
+isEqual:
+  input: (a,b)=>a===b||a.o===b.o
+  output: (a,b)=>a===b||(a.o===1?b.o===1&&a.a===b.a:b.o===2&&a.a===b.a)
+compare:
+  input: "throws: [Sury] Can't compare { o: 1 | 2; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o: 1; a: string | undefined; } | { o: 2; a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2, or split what holds it into a union with a member per value"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.o===1){i={o:1};break}if(i.o===2){i={o:2};break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      two:
+        input: "{ o: 2 }"
+        output: "{ o: 2 }"

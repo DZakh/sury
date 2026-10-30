@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.recursive("Node", (self) => S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node")))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: unknown
+  instantiations: 8584
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, child: { $ref: "#/$defs/Node" } }, required: ["id"] } } }'
+  fromOutputType: "{ id: number; child?: ... | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;if(v2==="acme.v1.Node"){let v4;v4=e[3](v1);v3=v4;}else{e[4](v2);}return v3}catch(v5){e[6](v5)}}
+    examples:
+      node:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: new Uint8Array([8, 1]) }'
+        output: "{ id: 1 }"
+      nested:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: new Uint8Array([8, 1, 18, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 78, 111, 100, 101, 18, 2, 8, 2]) }'
+        output: "{ id: 1, child: { id: 2 } }"
+      truncated-child:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: new Uint8Array([8, 1, 18, 1]) }'
+        error: "Failed at child: Truncated protobuf message"
+      other-type:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Other", value: new Uint8Array([]) }'
+        error: Protobuf Any holds acme.v1.Other, expected acme.v1.Node
+      not-bytes:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: [8, 1] }'
+        error: "Failed at value: Expected Uint8Array, received [8, 1]"
+  decode:
+    expression: i=>{try{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;if(v0==="acme.v1.Node"){let v2;v2=e[0](i.value);v1=v2;}else{e[1](v0);}return v1}catch(v3){e[2](v3)}}
+    examples:
+      nested:
+        input: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: new Uint8Array([8, 1, 18, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 78, 111, 100, 101, 18, 2, 8, 2]) }'
+        output: "{ id: 1, child: { id: 2 } }"
+  encode:
+    expression: i=>{try{e[0](i);let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=i.id;if((v=Number(v))){w.pos<w.buf.length?w.buf[w.pos++]=8:w.varint32(8);s=v;if(s<-2147483648||s>2147483647)e[3](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};f=1;v=i.child;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[2](w,v);w.end(h)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return {typeUrl:"type.googleapis.com/acme.v1.Node",value:v0}}catch(v1){e[8](v1)}}
+    examples:
+      nested:
+        input: "{ id: 1, child: { id: 2 } }"
+        output: '{ typeUrl: "type.googleapis.com/acme.v1.Node", value: new Uint8Array([8, 1, 18, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 78, 111, 100, 101, 18, 2, 8, 2]) }'

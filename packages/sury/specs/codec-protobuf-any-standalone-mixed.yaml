@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.union([S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.User"), S.tuple(["order", S.schema({ total: S.bigint.with(S.protobufField, 1) }).with(S.protobufTypeName, "acme.v1.Order")])]))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '{ id: number; } | ["order", { total: bigint; }]'
+  instantiations: 11037
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "[Sury] S.protobufAny can't tell its members apart. Give each a literal, such as type: \"user\", beside the message it holds"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.id===b.id:Array.isArray(b)&&a[1].total===b[1].total)
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: int32; } | [\"order\", { total: bigint; }]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobufAny can't tell its members apart. Give each a literal, such as type: \"user\", beside the message it holds"
+  decode: eq-to-parse
+  encode:
+    creationError: 'SuryError: Ambiguous { id: int32; } | ["order", { total: bigint; }] -> Any. Should ["order", { total: bigint; }] be decoded or ignored? Choose with S.to for ["order", { total: bigint; }] -> Any, or S.never -> ["order", { total: bigint; }]'

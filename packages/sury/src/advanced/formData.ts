@@ -20,7 +20,6 @@ import {
   inputExpression,
   type Internal,
   nullTag,
-  pathConcat,
   tagFlags,
   U,
   undefinedTag,
@@ -32,12 +31,11 @@ import {
   B_let,
   B_sink,
   _var,
-  B_field,
+  B_slot,
   B_dynamicScope,
   B_failInvalidInput,
   B_embed,
   B_hoistDecl,
-  B_markOutput,
   B_refine,
   B_merge,
   B_invalidOperation,
@@ -48,9 +46,8 @@ import {
   B_varWithoutAllocation
 } from "../builder";
 import {
+  B_record,
   arrayFactory,
-  completeObjectVal,
-  makeObjectVal,
   valGet
 } from "../composites";
 import {
@@ -287,75 +284,47 @@ const formDataToObject = (input: Val, target: Internal): Val => {
       `Can't decode FormData -> ${inputExpression(target)} with S.strict. A browser adds entries no schema declares, so use S.strip`,
     );
   }
-  const objectVal = makeObjectVal(input);
-
   const entriesVar = B_varWithoutAllocation(input.g);
   B_hoistDecl(input, entriesVar, `${B_embed(input, readEntries)}(${input.v()})`);
   const properties = target.properties!;
   let listRead = "";
-  for (const key in properties) {
-    const schema = properties[key]!;
-    const keyText = inlinedValueFromString(key);
-    const present = presentArm(schema);
-    const absent = absentArm(schema);
-    const list = present.type === arrayTag;
-    const folds = absent && !list && !admitsBlank(present);
-    const readVar = B_varWithoutAllocation(input.g);
-    const slot = `${entriesVar}.get(${keyText})`;
-    B_hoistDecl(
-      input,
-      readVar,
-      list
-        ? `${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
-    );
+  return B_record(input, (field) => {
+    for (const key in properties) {
+      const schema = properties[key]!;
+      const keyText = inlinedValueFromString(key);
+      const present = presentArm(schema);
+      const absent = absentArm(schema);
+      const list = present.type === arrayTag;
+      const folds = absent && !list && !admitsBlank(present);
+      const readVar = B_varWithoutAllocation(input.g);
+      const slot = `${entriesVar}.get(${keyText})`;
+      B_hoistDecl(
+        input,
+        readVar,
+        list
+          ? `${(listRead ||= B_embed(input, asList))}(${slot})`
+          : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
+      );
 
-    // Canonical Val field order (see B_operationArg in builder.ts). Hung off
-    // the parent rather than chained through `prev`, so each field's merge
-    // emits its own read.
-    const item: Val = {
-      b: U,
-      p: input,
-      v: _var,
-      i: readVar,
-      s: list ? formDataList : folds ? formDataValue : formDataEntry,
-      io: U,
-      e: schema,
-      prev: U,
-      f: 0,
-      d: U,
-      fv: U,
-      cp: "",
-      fu: U,
-      fs: U,
-      hd: "",
-      fz: U,
-      vc: U,
-      u: U,
-      t: true,
-      path: pathConcat(input.path, [key]),
-      g: input.g,
-      o: U,
-    };
+      const item = B_slot(input, readVar, list ? formDataList : folds ? formDataValue : formDataEntry, schema, [key]);
 
-    if (list) {
-      assertListItems(item, present);
-      if (absent && absent.to !== U) {
-        B_invalidOperation(
-          item,
-          `Can't decode form field -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
-        );
+      if (list) {
+        assertListItems(item, present);
+        if (absent && absent.to !== U) {
+          B_invalidOperation(
+            item,
+            `Can't decode form field -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
+          );
+        }
       }
+      field(key, () => {
+        if (!list && present.type === unknownTag) {
+          item.cp = B_failInvalidInput(item, formDataEntry, `!Array.isArray(${readVar})`);
+        }
+        return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
+      });
     }
-    B_field(objectVal, key, () => {
-      if (!list && present.type === unknownTag) {
-        item.cp = B_failInvalidInput(item, formDataEntry, `!Array.isArray(${readVar})`);
-      }
-      return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
-    });
-  }
-
-  return B_markOutput(completeObjectVal(objectVal), input);
+  });
 };
 
 export const formData: Internal = /* @__PURE__ */ initSchema(

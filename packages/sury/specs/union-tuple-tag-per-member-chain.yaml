@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.tuple([S.literal("a").with(S.to, S.literal(0)), S.string]), S.tuple([S.literal("b").with(S.to, S.literal(1)), S.number])])
+  input: '["a", string] | ["b", number]'
+  output: "[0, string] | [1, number]"
+  instantiations: 9878
+jsonSchema:
+  input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "a" }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "b" }, { type: "number" }] }] }'
+  output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 0 }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number" }] }] }'
+  draft-2020-12:
+    input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "a" }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "b" }, { type: "number" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 0 }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "number" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["a"] }, { type: "string" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["b"] }, { type: "number" }] } }] }'
+    fromInputType: '[string, string] | [number | "b", number | "b"]'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [0] }, { type: "string" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "number" }] } }] }'
+    fromOutputType: "[string | 0, string | 0] | [number, number]"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare [\"a\", string] | [\"b\", number]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare [0, string] | [1, number]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(Array.isArray(i)){for(;;){if(i.length===2&&i[0]==="a"){let v0=i[1];typeof v0==="string"||e[0](v0);i=[0,v0];break}if(i.length===2&&i[0]==="b"){let v1=i[1];typeof v1==="number"&&v1==v1||e[1](v1);i=[1,v1];break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      first:
+        input: '["a", "x"]'
+        output: '[0, "x"]'
+      second:
+        input: '["b", 5]'
+        output: "[1, 5]"
+  decode:
+    expression: i=>{try{if(Array.isArray(i)){for(;;){if(i["0"]==="a"){i=[0,i[1]];break}if(i["0"]==="b"){i=[1,i[1]];break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      second:
+        input: '["b", 5]'
+        output: "[1, 5]"
+  encode:
+    expression: i=>{try{if(Array.isArray(i)){for(;;){if(i["0"]===0){i=["a",i[1]];break}if(i["0"]===1){i=["b",i[1]];break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      second:
+        input: "[1, 5]"
+        output: '["b", 5]'

@@ -46,3 +46,10 @@ test("Successfully parses list of optional items", t => {
     list{Some("a"), None, None, Some("b")},
   )
 })
+
+test("Names its Output list", t => {
+  let schema = S.list(S.float)
+
+  t->Assert.deepEqual((schema->S.untag).toString(), "Schema<number[], list>")
+  t->Assert.deepEqual(schema->S.toOutputExpression, "list")
+})

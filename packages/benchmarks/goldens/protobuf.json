@@ -22,7 +22,7 @@
       {
         "label": "Encode and decode",
         "cells": [
-          31034,
+          39431,
           34928,
           13578,
           17946,
@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          31035,
+          39413,
           null,
           13566,
           15469,
@@ -127,7 +127,7 @@
     "align": "center",
     "note": "<sub>Unmarked ✅ and ❌ are probes: the call was run against that library at the version above, and the table prints what happened. † marks a cell read from the library's documentation instead.</sub>"
   },
-  "performanceNote": "<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>",
+  "performanceNote": "<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for, and `oneof-any` is a Timestamp, an Any and a list of oneof items, each library packing and unpacking the Any its own way inside the timing. pbf has no Any.</sub>",
   "conformance": {
     "columns": [
       "Cases",
@@ -149,8 +149,8 @@
         "label": "This repo's corpus, against protobufjs and protobuf-es",
         "note": "every round trip checked against two independent implementations",
         "cells": [
-          650,
-          650,
+          655,
+          655,
           "100.0%"
         ],
         "format": "count"
