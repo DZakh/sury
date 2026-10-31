@@ -12,9 +12,9 @@
     "rate": "75.0%",
     "assertOpPassed": 974,
     "assertOpRate": "75.0%",
-    "identityPassed": 572,
+    "identityPassed": 575,
     "identityAssertions": 594,
-    "identityRate": "96.3%",
+    "identityRate": "96.8%",
     "divergent": 0
   },
   "erroredCases": [
@@ -156,13 +156,10 @@
   ],
   "mutated": [
     "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
-    "allOf.json :: allOf with base schema :: valid",
     "anyOf.json :: anyOf complex types :: both anyOf valid (complex)",
     "default.json :: invalid type for default :: still valid when the invalid default is used",
     "default.json :: invalid string value for default :: still valid when the invalid default is used",
     "default.json :: the default keyword does not do anything if the property is missing :: missing properties are not filled in with the default",
-    "dependentSchemas.json :: dependent subschema incompatible with root :: matches dependency",
-    "dependentSchemas.json :: dependent subschema incompatible with root :: no dependency",
     "enum.json :: enums in properties :: missing optional property is valid",
     "not.json :: forbidden property :: property absent",
     "properties.json :: object properties validation :: doesn't invalidate other properties",
