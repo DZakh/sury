@@ -47,6 +47,6 @@ Measured against sury 11.1.0-rc.0, zod 4.4.3, @sinclair/typebox 0.34.52, arktype
 | --- | ---: | ---: | ---: |
 | JSON Schema Test Suite, draft-07<br><sub>the official corpus, run through `S.fromJSONSchemaOrThrow`</sub> | 927 | 866 | 93.4% |
 | JSON Schema Test Suite, 2020-12<br><sub>`$dynamicRef` and remote `$ref` are the bulk of what is left</sub> | 1299 | 974 | 75.0% |
-| A converted schema converts back to itself<br><sub>`toJSONSchema` then `fromJSONSchema` then `toJSONSchema` again</sub> | 594 | 572 | 96.3% |
+| A converted schema converts back to itself<br><sub>`toJSONSchema` then `fromJSONSchema` then `toJSONSchema` again</sub> | 594 | 575 | 96.8% |
 
 <sub>The suite is pinned by commit in `packages/json-schema-test-suite/suite-ref.json` and run in CI. An assertion counted as errored is a keyword `fromJSONSchemaOrThrow` refuses rather than one it gets wrong: it throws on a document it cannot represent instead of quietly accepting values the document forbids, which is why the false-accept count is 1 and not the difference.</sub>
