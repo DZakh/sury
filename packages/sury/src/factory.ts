@@ -332,7 +332,7 @@ export const schemaObject = (
   };
 
   const field = (fieldName: string, schema: Internal): unknown => {
-    if (fieldName in properties) {
+    if (fieldName in properties && properties[fieldName] !== schema) {
       panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
     properties[fieldName] = schema;
