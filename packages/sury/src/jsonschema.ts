@@ -1138,6 +1138,17 @@ const unescapePointer = (segment: string): string => {
   return segment.replace(/~1/g, "/").replace(/~0/g, "~");
 };
 
+const pointerTarget = (segments: string[], root: unknown): unknown => {
+  let target = root;
+  for (let i = 1; i < segments.length; i++) {
+    target =
+      target !== null && typeof target === "object"
+        ? (target as Record<string, unknown>)[unescapePointer(segments[i]!)]
+        : U;
+  }
+  return target;
+};
+
 const resolveRef = (ref: string, ctx: RefContext): Internal => {
   if (ctx.cyc[ref]) return ctx.ph[ref]!;
   const built = ctx.built[ref];
@@ -1154,13 +1165,7 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
       `Unsupported JSON Schema $ref: ${ref}. Only JSON Pointers into the same document (#/…) resolve - $id, $anchor and remote refs don't`
     );
   }
-  let target: unknown = ctx.root;
-  for (let i = 1; i < segments.length; i++) {
-    target =
-      target !== null && typeof target === "object"
-        ? (target as Record<string, unknown>)[unescapePointer(segments[i]!)]
-        : U;
-  }
+  const target = pointerTarget(segments, ctx.root);
   // A pointer that lands on a non-schema value (a string, `null`, an `enum`
   // array) must fail like a dangling one - falling through would hand the
   // untyped branch an accept-everything `S.json`.
@@ -1416,6 +1421,15 @@ export const fromJSONSchema = (
     // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
     // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
+    // A finite target is built once and shared, stripping what it doesn't
+    // declare; a keyword beside the `$ref` reads those keys, so it gets its own.
+    if (keepsUndeclared && schema.type !== refTag) {
+      schema = jsonDefinitionToSchema(
+        pointerTarget(jsonSchema["$ref"].split("/"), ctx.root) as JSONSchemaDefinition,
+        ctx,
+        true
+      );
+    }
     if (ctx.refSiblings) {
       const siblingKeywords: JSONSchemaT = {};
       // Every assertion keyword that may sit beside a `$ref`: the per-type ones
