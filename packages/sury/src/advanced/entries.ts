@@ -210,6 +210,15 @@ export const convertTextEntry = (
       // representation, so a JSON arm reads it rather than being told to by a
       // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
       const json = present.anyOf!.find((variant) => variant.format === "json");
+      // An entry's text that a number, boolean or null arm reads is JSON text
+      // too, so beside a JSON arm the value could come back as either.
+      const rival = json && present.anyOf!.find((variant) => tagFlags[variant.type]! & (4 | 8 | 16 | 1024));
+      if (rival) {
+        B_invalidOperation(
+          input,
+          `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(present)}. Its text is also JSON text. Choose one with S.to for ${inputExpression(input.s)} -> ${inputExpression(rival)}, or S.never -> ${inputExpression(rival)}`,
+        );
+      }
       const output = B_next(input, input.i, json ? openedText(json) : self, present);
       output.v = _var;
       return output;
