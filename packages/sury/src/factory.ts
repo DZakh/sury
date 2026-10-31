@@ -155,7 +155,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     // The present value, as the source has it: a record's string still
     // decodes to the item's number.
     const present = input.s.anyOf ? input.s.anyOf.filter((member) => member.type !== undefinedTag) : [input.s];
-    itemInput.s = present.length && !present.includes(schema) ? unionFactory(present) : unknown;
+    itemInput.s = present.length === 1 && present[0] !== schema ? present[0]! : unknown;
     itemInput.e = parseAs;
     itemInput.u = input.u;
     const itemOutput = parse(itemInput);
