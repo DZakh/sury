@@ -147,23 +147,6 @@ export const KNOWN_BUGS: Known[] = [
       ),
   },
   {
-    id: "missing-key-env-member-default",
-    kind: "bug",
-    summary:
-      "A missing key never reaches the default of an `S.env` member in its field's union: " +
-      "`S.union([S.env.with(S.to, S.optional(S.string, \"dev\")), S.optional(S.env)])` reads it as " +
-      "`undefined` through `S.json` or a record, where parse reads `\"dev\"`.",
-    spec: "codec-record-object-union-env-default",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "absent" &&
-      some(
-        f.shape,
-        (node) => node.name === "union" && node.args.some((member) => some(member, (n) => n.name === "envTo")),
-      ),
-  },
-  {
     id: "union-never-member-yields",
     kind: "limitation",
     summary:

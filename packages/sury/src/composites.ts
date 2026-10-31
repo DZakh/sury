@@ -923,6 +923,8 @@ const readsAbsent = (s: Internal): boolean => {
   if (!isOptional(s)) return s.type === refTag;
   if (s.to !== U || s.refiner !== U) return true;
   for (const arm of s.anyOf || [s]) {
+    // An env var reads a missing one as unset, which its own link may default.
+    if (arm.format === "env" && arm.to !== U) return true;
     if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
     if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
       return true;
