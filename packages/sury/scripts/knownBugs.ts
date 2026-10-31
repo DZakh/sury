@@ -164,15 +164,18 @@ export const KNOWN_BUGS: Known[] = [
       ),
   },
   {
-    id: "union-never-member",
-    kind: "bug",
+    id: "union-never-member-yields",
+    kind: "limitation",
     summary:
-      "A union member with an `S.never` field makes the whole union's encode refuse to compile, " +
-      "instead of that one member yielding to its siblings.",
-    spec: "union-never-member",
+      "A member that needs a value at an `S.never` field holds none, so it yields to its siblings and the " +
+      "union compiles (spec union-never-member). The member-by-member reference meets that member alone, " +
+      "where nothing is left to yield to and refusing it is right, so it cannot tell the two apart.",
     fuzzers: ["union"],
     matches: (f) =>
-      f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
+      f.fuzzer === "union" &&
+      f.property === "acceptance" &&
+      f.detail.includes("Missing input for never") &&
+      some(f.shape, (n) => n.name === "never"),
   },
   {
     id: "union-json-document-member",

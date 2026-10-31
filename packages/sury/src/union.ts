@@ -133,9 +133,10 @@ const unionOutput = (schema: Internal): Internal => {
 // rejects per value (effect 3), while a never slot removes the variant from
 // this direction entirely, so it accepts nothing, counts toward no coverage,
 // and yields to its siblings.
+// An object needing a value at a `never` field holds none either.
 const unionNeverLink = (schema: Internal): boolean => {
   for (let node: Internal | undefined = schema; node !== U && node.type !== neverTag; node = node.to) {
-    if (node.parser === B_neverSlot) return true;
+    if (node.parser === B_neverSlot || node.required?.some((key) => node!.properties![key]!.type === neverTag)) return true;
   }
   return false;
 };
