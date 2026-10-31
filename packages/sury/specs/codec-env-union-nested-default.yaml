@@ -17,15 +17,11 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}return i}catch(v5){e[4](v5)}}
+    expression: i=>{try{(typeof i==="string"||i===void 0)||e[3](i);if(i){let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}}else{i=3;}return i}catch(v5){e[4](v5)}}
     examples:
-      # FIXME: unset reaches no member, though the optional one alone reads it as 3
       unset-takes-the-default:
         input: undefined
-        error: |-
-          Expected number | boolean | undefined, received undefined
-          - Expected number, received undefined
-          - Expected boolean, received undefined
+        output: "3"
       number:
         input: '"1"'
         output: "1"
@@ -33,15 +29,11 @@ operations:
         input: '"true"'
         output: "true"
   decode:
-    expression: i=>{try{let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}return i}catch(v5){e[3](v5)}}
+    expression: i=>{try{if(i){let v1;for(;;){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}l4:{let v3;if(!((v3=i==="true")||i==="false")){v1=[v1,e[1],i];break l4}i=v3;break}throw e[2](i,v1)}}else{i=3;}return i}catch(v5){e[3](v5)}}
     examples:
-      # FIXME: unset reaches no member, though the optional one alone reads it as 3
       unset-takes-the-default:
         input: undefined
-        error: |-
-          Expected number | boolean | undefined, received undefined
-          - Expected number, received undefined
-          - Expected boolean, received undefined
+        output: "3"
       number:
         input: '"1"'
         output: "1"
