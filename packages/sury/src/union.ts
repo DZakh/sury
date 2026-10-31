@@ -668,7 +668,10 @@ const unionAnalyze = (
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
     const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
-    const d = unionDiscriminator(s);
+    // A document reads an absent or `null` field for an `undefined` const, so
+    // the const tags nothing there.
+    let d = unionDiscriminator(s);
+    if (source.flags & 16 && d !== U && d[1] === U) d = U;
     // Two refs are one runtime type only as one schema: `S.json` and a
     // recursive member are both refs.
     const same = unionRuntimeSame(source, s) && !(s.type === refTag && s !== source);

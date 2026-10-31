@@ -24,7 +24,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){let v0=i.t,v1=i.x;if(v0!==void 0){v0===null||e[0](v0);v0=void 0;}typeof v1==="string"||e[1](v1);i={t:v0,x:v1};break}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    expression: i=>{try{let v1;for(;;){l4:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.t,v3=i.x;if(v0!==void 0){if(!(v0===null)){v1=[v1,e[0],v0];break l2}v0=void 0;}if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l2}i={t:v0,x:v3};break}if(i.t==="b"){i={t:i.t};break}break l4}break}}throw e[2](i,v1)}return i}catch(v5){e[3](v5)}}
     examples:
       void-tag:
         input: '{ x: "y" }'
@@ -32,20 +32,13 @@ operations:
         divergence:
           reason: the input document is rendered from the encode side, which always writes the field
           ajv: "input: data must have required property 't', data must have required property 't', data must match a schema in anyOf"
-      # FIXME: the `t: S.void` member claims every value of `t` it can bridge from
-      # JSON null, so the tagged member after it is never tried.
       b-tag:
         input: '{ t: "b" }'
-        error: 'Failed at t: Expected null, received "b"'
-        issues:
-          - 'Failed at t: Expected null, received "b"'
-          - "Failed at x: Expected string, received undefined"
+        output: '{ t: "b" }'
   decode: eq-to-parse
   encode:
     expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t===void 0){i={t:null,x:i.x};break}if(i.t==="b")break;throw e[0](i)}}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: the `t: S.void` member claims every value of `t` it can bridge from
-      # JSON null, so the tagged member after it is never tried.
       b-tag:
         input: '{ t: "b" }'
         output: '{ t: "b" }'
