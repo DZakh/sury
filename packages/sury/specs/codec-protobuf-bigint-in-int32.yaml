@@ -38,8 +38,6 @@ operations:
       bigint-out-of-range:
         input: "{ x: 1099511627776n, xs: [] }"
         error: "Failed at x: Expected int32, received 1099511627776"
-      # FIXME: an int32 field range-checks only, so a fraction is written as
-      # whatever the varint makes of it, with no failure.
       fraction:
         input: "{ x: 1.5, xs: [] }"
         output: new Uint8Array([8, 1])

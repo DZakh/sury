@@ -53,9 +53,6 @@ operations:
       missing-defaulted:
         input: '{ nick: "n", bio: "hi" }'
         error: "Failed at age: Expected number, received undefined"
-      # FIXME: the union encode path trusts its typed input, so a refinement
-      # inside S.optional is not checked - a plain object target has the same
-      # hole, and the form codec inherits it.
       too-long-optional:
         input: '{ nick: "long", age: 1, bio: "hi" }'
         output: ((f) => (f.append("nick", "long"), f.append("age", "1"), f.append("bio", "hi"), f))(new FormData())
