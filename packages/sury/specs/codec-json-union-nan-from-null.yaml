@@ -10,7 +10,9 @@ jsonSchema:
   output: Expected JSON, received NaN | number
   openapi-3.0:
     input: '{ type: "string", nullable: true }'
-isEqual: (a,b)=>a===b||e[0](a,b)
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||(a!=a?b!=b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:b===null)
 compare:
   input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare NaN | number | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

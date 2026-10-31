@@ -7,7 +7,9 @@ ts:
 jsonSchema:
   input: Expected JSON, received Date | undefined
   output: Expected JSON, received Date
-isEqual: (a,b)=>a===b||e[0](a,b)
+isEqual:
+  input: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)&&!(a instanceof e[0])?typeof b==="object"&&b&&!Array.isArray(b)&&!(b instanceof e[0])&&a._0===b._0:Array.isArray(a)?Array.isArray(b)&&e[1](a,b):a===null?b===null:a instanceof e[0]?b instanceof e[0]&&+a===+b:b===void 0)
+  output: (a,b)=>a===b||e[0](a,b)
 compare:
   input: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | Date | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { TAG: \"a\"; _0: string; } | string[] | Date. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

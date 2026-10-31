@@ -506,7 +506,19 @@ const identityKind = (ctx: Ctx, schema: Internal): number | undefined => {
   return U;
 };
 
-const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
+// A value compares by what it is, so a union kept whole inside another (a
+// default's arm) is its members.
+const flatMembers = (members: Internal[], out: Internal[] = []): Internal[] => {
+  for (const member of members) {
+    if (tagFlags[member.type]! & 256) flatMembers(member.anyOf!, out);
+    else if (!out.includes(member)) out.push(member);
+  }
+  return out;
+};
+
+const unionExpr = (ctx: Ctx, nested: Internal, a: string, b: string): string => {
+  const flat = flatMembers(nested.anyOf!);
+  const schema = flat.length === nested.anyOf!.length ? nested : { ...nested, anyOf: flat };
   const members = schema.anyOf!;
   // Covers `S.optional`/`S.nullable` of a primitive, enums, and any union of
   // plain literals.

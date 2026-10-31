@@ -10,7 +10,7 @@ jsonSchema:
   openapi-3.0:
     output: '{ type: "string" }'
 isEqual:
-  input: (a,b)=>a===b||e[0](a.f,b.f)
+  input: (a,b)=>a===b||(a.f===null?b.f===null:a.f===void 0?b.f===void 0:b.f!=null&&a.f.href===b.f.href)
   output: strictEqual
 compare:
   input: "throws: [Sury] Can't compare { f: URL | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
