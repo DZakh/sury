@@ -20,18 +20,16 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){for(;;){v0="undefined";break}v0={v:v0};break}throw e[0](v0)}return {a:v0}}catch(v1){e[2](v1)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){v0={v:null};break}throw e[0](v0)}return {a:v0}}catch(v1){e[2](v1)}}
     examples:
-      # FIXME: a missing value reaches the shape as the string "undefined"
-      # instead of null.
       absent:
         input: "{}"
-        output: '{ a: { v: "undefined" } }'
+        output: "{ a: { v: null } }"
       string:
         input: '{ a: "x" }'
         output: '{ a: { v: "x" } }'
   decode:
-    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){for(;;){v0="undefined";break}v0={v:v0};break}throw e[0](v0)}return {a:v0}}catch(v1){e[1](v1)}}
+    expression: i=>{try{let v0=i.a;for(;;){if(typeof v0==="string"){v0={v:i.a};break}if(v0===void 0){v0={v:null};break}throw e[0](v0)}return {a:v0}}catch(v1){e[1](v1)}}
     examples:
       string:
         input: '{ a: "x" }'

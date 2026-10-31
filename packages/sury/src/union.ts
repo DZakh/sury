@@ -171,7 +171,7 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   return fields === 6;
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, refiner: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, refiner: 1, parser: 1, to: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -1938,7 +1938,17 @@ const unionResolveToUnion = (
   target: Internal
 ): (Internal | undefined)[] => {
   // A refined union checks every value it takes, a passed-through one too.
-  const attach = target.refiner !== U ? unionRefinerAttacher(target) : U;
+  const refine = target.refiner !== U ? unionRefinerAttacher(target) : U;
+  // What the union does after its member, `S.shape`'s reshape and the links
+  // past it, runs after each member it takes.
+  const attach =
+    refine !== U || target.parser !== U || target.to !== U
+      ? (mut: Internal) => {
+          refine?.(mut);
+          if (target.parser !== U) mut.parser = target.parser;
+          if (target.to !== U) mut.to = target.to;
+        }
+      : U;
   const targets = target.anyOf!;
   const matches: (Internal | undefined)[] = [];
   const covered: boolean[] = [];

@@ -301,12 +301,14 @@ S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a",
 ```
 
 A target union described with `S.meta`, numbered with `S.protobufField`,
-named with `S.protobufTypeName` or refined with `S.refine` is still a union
-here, and a refinement checks whichever member takes the value:
+named with `S.protobufTypeName`, refined with `S.refine`, reshaped with
+`S.shape` or carried on with `S.to` is still a union here, and what it does
+after its member runs after whichever member takes the value:
 
 ```ts
 S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
 S.optional(S.string).with(S.to, S.nullable(S.string).with(S.refine, f)); // ✅ undefined <-> null, f checks both
+S.optional(S.string).with(S.to, S.shape(S.nullable(S.string), (v) => ({ v }))); // ✅ undefined -> { v: null }
 S.union(["a", "b"]).with(S.to, S.meta(S.union([0, 1]), { description: "x" })); // ❌ "a" has no same-type target variant
 ```
 
