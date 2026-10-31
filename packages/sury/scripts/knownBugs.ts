@@ -87,11 +87,12 @@ export const KNOWN_BUGS: Known[] = [
   },
   {
     id: "to-output-keeps-source-refinement",
-    kind: "bug",
+    kind: "limitation",
     summary:
-      "After `S.to` with a custom coder, `isOutput` still runs the source's refinement: " +
-      "`Schema<uuid, number>` tests the uuid pattern against the number, so every decoded value is rejected.",
-    spec: "to-refined-source-output",
+      "The grammar's `to` decodes a string to its length and encodes it back with \"auto\", which writes the " +
+      "number's digits. No refined string format accepts those, so the schema does not round-trip: a decoded " +
+      "value would not encode, and `isOutput`, which asks whether it would, says no. The property reads that " +
+      "as a wrong `isOutput`; it is the codec not inverting itself.",
     fuzzers: ["codec"],
     matches: (f) =>
       f.fuzzer === "codec" &&
