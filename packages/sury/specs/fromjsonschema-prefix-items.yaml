@@ -5,13 +5,11 @@ ts:
   output: "[(string | undefined)?, (number | undefined)?, ...never[]]"
   instantiations: 1107
 jsonSchema:
-  # FIXME: the default target is draft-07, where `prefixItems` means nothing and
-  # `items: false` forbids every item - so this document rejects every non-empty
-  # array the schema itself accepts (the `divergence` entries below). The two
-  # keywords are carried over from the source document rather than re-emitted
-  # for the target, the way S.tuple's positional items are.
-  input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
-  output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }] }'
+  input: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: false }'
+  output: '{ items: [{ type: "string" }, { type: "number" }], type: "array", additionalItems: false }'
+  draft-2020-12:
+    input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
 compare: "throws: [Sury] Can't compare JSON[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
@@ -30,15 +28,9 @@ operations:
       first-only:
         input: '["a"]'
         output: '["a"]'
-        divergence:
-          reason: "the default draft-07 target has no prefixItems, so the emitted `items: false` rejects every non-empty array the schema accepts"
-          ajv: "input: data/0 boolean schema is false; output: data/0 boolean schema is false"
       full-prefix:
         input: '["a", 1]'
         output: '["a", 1]'
-        divergence:
-          reason: "the default draft-07 target has no prefixItems, so the emitted `items: false` rejects every non-empty array the schema accepts"
-          ajv: "input: data/0 boolean schema is false; output: data/0 boolean schema is false"
       additional-item-rejected:
         input: '["a", 1, true]'
         error: Should pass the positional and additional item schemas.

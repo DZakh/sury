@@ -331,8 +331,28 @@ const applyMetadataOverlay = (
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
+  if (metadataRawSchema !== U) Object.assign(jsonSchema, positionalFor(metadataRawSchema, target));
 }
+
+// Positional items are spelled per dialect: `prefixItems` + `items` from draft
+// 2020-12, an `items` array + `additionalItems` before it. An overlay written
+// in one is re-spelled for the other, or the document means something else.
+const positionalFor = (raw: JSONSchemaT, target: JsonSchemaTarget): JSONSchemaT => {
+  const modern = target === draft202012;
+  if (modern ? !Array.isArray(raw.items) : raw.prefixItems === U) return raw;
+  const out: JSONSchemaT = { ...raw };
+  if (modern) {
+    out.prefixItems = raw.items as JSONSchemaDefinition[];
+    delete out.items;
+    if (raw.additionalItems !== U) out.items = raw.additionalItems;
+    delete out.additionalItems;
+  } else {
+    out.items = raw.prefixItems;
+    delete out.prefixItems;
+    if (raw.items !== U) out.additionalItems = raw.items as JSONSchemaDefinition;
+  }
+  return out;
+};
 
 // A ref is published by the definition it carries, a view counted as its
 // source (`viewSource`), under its name unless
