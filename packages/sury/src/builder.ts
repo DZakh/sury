@@ -400,8 +400,14 @@ export const B_then = (param: string, body: string, ret: string): Continuation =
 // library still works (codec-custom-async-foreign-promise); a native one comes
 // back as itself, with no extra hop.
 const nativeThen = Promise.prototype.then;
-const fusedThen = (answer: Promise<unknown>, ok: unknown, no: unknown): Promise<unknown> =>
-  nativeThen.call(typeof answer?.catch === "function" ? Promise.resolve(answer) : answer, ok as never, no as never);
+// The result is marked handled: a union arm that fails a later check leaves
+// it behind, and its rejection would reach Node's unhandled-rejection exit.
+// Whatever does read it still sees the rejection.
+const fusedThen = (answer: Promise<unknown>, ok: unknown, no: unknown): Promise<unknown> => {
+  const result = nativeThen.call(typeof answer?.catch === "function" ? Promise.resolve(answer) : answer, ok as never, no as never);
+  result.catch(() => {});
+  return result;
+};
 
 export const B_asyncTry = (output: Val, call: string, raise: string, path: string): void => {
   const name = output.i;
@@ -411,7 +417,7 @@ export const B_asyncTry = (output: Val, call: string, raise: string, path: strin
   let thenRef: string | undefined, fused: string | undefined, then: Continuation | undefined, settled = false;
   const native = (ok: string, no: string) =>
     cp(`${(thenRef ??= B_embedPure(output, fusedThen))}(${call},${ok},${no})`);
-  const built = (output.cp = cp(`${call}.catch(${rj})`));
+  const built = (output.cp = native("void 0", rj));
   output.fu = (ok, same) => {
     if (output.cp !== built || output.fz) return false;
     output.cp = fused = native(ok(), rj);

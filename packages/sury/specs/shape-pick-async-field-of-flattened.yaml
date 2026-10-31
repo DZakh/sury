@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i.a,v2=i.b,v3=i.c;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3](e[0](v1),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}(typeof v2==="string"||v2===void 0)||e[5](v2);typeof v3==="string"||e[6](v3);return Promise.all([v0]).then(([v0])=>{return {a:v0,b:v2,c:v3}}).catch(e[8])}catch(v4){return e[9](v4)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v1=i.a,v2=i.b,v3=i.c;typeof v1==="string"||e[4](v1);let v0;try{v0=e[2](e[0](v1),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}(typeof v2==="string"||v2===void 0)||e[5](v2);typeof v3==="string"||e[6](v3);return Promise.all([v0]).then(([v0])=>{return {a:v0,b:v2,c:v3}}).catch(e[8])}catch(v4){return e[9](v4)}}
     examples:
       all:
         input: '{ a: "a", b: "b", c: "c" }'
@@ -27,7 +27,7 @@ operations:
         output: '{ a: "a!", b: undefined, c: "c" }'
   decode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[3](e[0](i.a),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0,b:i.b,c:i.c}}).catch(e[4])}catch(v1){return e[5](v1)}}
+    expression: i=>{try{let v0;try{v0=e[2](e[0](i.a),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0,b:i.b,c:i.c}}).catch(e[4])}catch(v1){return e[5](v1)}}
     examples:
       all:
         input: '{ a: "a", b: "b", c: "c" }'
@@ -37,7 +37,7 @@ operations:
         output: '{ a: "a!", b: undefined, c: "c" }'
   encode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[3](e[0](i.a),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0,b:i.b}});let v2=v1.then(v=>v.a);let v3=v1.then(v=>v.b);return Promise.all([v2,v3]).then(([v2,v3])=>{return {a:v2,b:v3,c:i.c}}).catch(e[4])}catch(v4){return e[5](v4)}}
+    expression: i=>{try{let v0;try{v0=e[2](e[0](i.a),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0,b:i.b}});let v2=v1.then(v=>v.a);let v3=v1.then(v=>v.b);return Promise.all([v2,v3]).then(([v2,v3])=>{return {a:v2,b:v3,c:i.c}}).catch(e[4])}catch(v4){return e[5](v4)}}
     examples:
       all:
         input: '{ a: "a!", b: "b", c: "c" }'

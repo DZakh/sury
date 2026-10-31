@@ -19,7 +19,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.a,v3=v0.b;typeof v2==="string"||e[4](v2);let v1;try{v1=e[3](e[0](v2),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}typeof v3==="string"||e[5](v3);let v4=Promise.all([v1]).then(([v1])=>{return {X:v3,Y:v1}});return Promise.all([v4]).then(([v4])=>{return {X:v4.X}}).catch(e[8])}catch(v5){return e[9](v5)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.a,v3=v0.b;typeof v2==="string"||e[4](v2);let v1;try{v1=e[2](e[0](v2),v1=>{typeof v1==="string"||e[3](v1);return v1},e[1])}catch(x){e[1](x)}typeof v3==="string"||e[5](v3);let v4=Promise.all([v1]).then(([v1])=>{return {X:v3,Y:v1}});return Promise.all([v4]).then(([v4])=>{return {X:v4.X}}).catch(e[8])}catch(v5){return e[9](v5)}}
     examples:
       picks-the-shaped-field:
         input: '{ w: { a: "1", b: "2" } }'
@@ -29,7 +29,7 @@ operations:
         error: "Failed at w.b: Expected string, received 2"
   decode:
     isAsync: true
-    expression: i=>{try{let v0=i.w;let v1;try{v1=e[3](e[0](v0.a),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}let v2=Promise.all([v1]).then(([v1])=>{return {X:v0.b,Y:v1}});return Promise.all([v2]).then(([v2])=>{return {X:v2.X}}).catch(e[4])}catch(v3){return e[5](v3)}}
+    expression: i=>{try{let v0=i.w;let v1;try{v1=e[2](e[0](v0.a),v1=>{typeof v1==="string"||e[3](v1);return v1},e[1])}catch(x){e[1](x)}let v2=Promise.all([v1]).then(([v1])=>{return {X:v0.b,Y:v1}});return Promise.all([v2]).then(([v2])=>{return {X:v2.X}}).catch(e[4])}catch(v3){return e[5](v3)}}
     examples:
       picks-the-shaped-field:
         input: '{ w: { a: "1", b: "2" } }'

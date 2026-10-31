@@ -18,7 +18,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v1=i.x;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3](e[0](v1),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b"){let v2=i.y;typeof v2==="string"||e[5](v2);i={k:i.k,y:v2};break}throw e[6](i)}}else{throw e[6](i)}return Promise.resolve(i).catch(e[7])}catch(v3){return e[8](v3)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v1=i.x;typeof v1==="string"||e[4](v1);let v0;try{v0=e[2](e[0](v1),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b"){let v2=i.y;typeof v2==="string"||e[5](v2);i={k:i.k,y:v2};break}throw e[6](i)}}else{throw e[6](i)}return Promise.resolve(i).catch(e[7])}catch(v3){return e[8](v3)}}
     examples:
       a:
         input: '{ k: "a", x: "z" }'
@@ -28,7 +28,7 @@ operations:
         output: '{ k: "b", y: "w" }'
   decode:
     isAsync: true
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[3](e[0](i.x),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b")break;throw e[4](i)}}else{throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.k==="a"){let v0;try{v0=e[2](e[0](i.x),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}i=Promise.all([v0]).then(([v0])=>{return {k:"a",x:v0}});break}if(i.k==="b")break;throw e[4](i)}}else{throw e[4](i)}return Promise.resolve(i).catch(e[5])}catch(v1){return e[6](v1)}}
     examples:
       a:
         input: '{ k: "a", x: "z" }'
