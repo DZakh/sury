@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.schema({ w: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) }).with(S.shape, (v) => ({ A: v.a })) }))'
+  input: "{ w: { A: string; }; }"
+  output: "{ w: { a: string; }; }"
+  instantiations: 6983
+jsonSchema:
+  input: '{ type: "object", properties: { w: { type: "object", properties: { A: { type: "string" } }, required: ["A"] } }, required: ["w"] }'
+  output: '{ type: "object", properties: { w: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, required: ["w"] }'
+isEqual:
+  input: (a,b)=>a===b||a.w.A===b.w.A
+  output: (a,b)=>a===b||a.w.a===b.w.a
+compare:
+  input: "throws: [Sury] Can't compare { w: { A: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { w: { a: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0.A;typeof v1==="string"||e[0](v1);let v2;try{v2=e[4](e[1](v1),v2=>{typeof v2==="string"||e[3](v2);return v2},e[2])}catch(x){e[2](x)}let v3=Promise.all([v2]).then(([v2])=>{return {a:v2}});return Promise.all([v3]).then(([v3])=>{return {w:v3}}).catch(e[7])}catch(v4){return e[8](v4)}}
+    examples:
+      picked:
+        input: '{ w: { A: "a!" } }'
+        output: '{ w: { a: "a" } }'
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;let v1;try{v1=e[3](e[0](v0.A),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}let v2=Promise.all([v1]).then(([v1])=>{return {a:v1}});return Promise.all([v2]).then(([v2])=>{return {w:v2}}).catch(e[4])}catch(v3){return e[5](v3)}}
+    examples:
+      picked:
+        input: '{ w: { A: "a!" } }'
+        output: '{ w: { a: "a" } }'
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0=i.w;let v1;try{v1=e[3](e[0](v0.a),v1=>{typeof v1==="string"||e[2](v1);return v1},e[1])}catch(x){e[1](x)}let v2=Promise.all([v1]).then(([v1])=>{return {A:v1}});return Promise.all([v2]).then(([v2])=>{return {w:v2}}).catch(e[4])}catch(v3){return e[5](v3)}}
+    examples:
+      picked:
+        input: '{ w: { a: "a" } }'
+        output: '{ w: { A: "a!" } }'

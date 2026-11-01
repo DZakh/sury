@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ pick: S.optional(S.union([S.schema({ case: "id", value: S.protobufField(S.schema({ id: S.protobufField(S.string, { number: 1, type: "uint32" }) }), { number: 1, type: "message" }) }), S.schema({ case: "n", value: S.protobufField(S.int32, { number: 2, type: "int32" }) })])) }).with(S.to, S.protobuf)'
+  input: '{ pick?: { case: "id"; value: { id: string; }; } | { case: "n"; value: number; } | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 11582
+jsonSchema:
+  input: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "id" }, value: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "n" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["id"] }, value: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", enum: ["n"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
+isEqual:
+  input: (a,b)=>a===b||(a.pick?.case==="id"?b.pick?.case==="id"&&a.pick.value.id===b.pick.value.id:a.pick?.case==="n"?b.pick?.case==="n"&&a.pick.value===b.pick.value:b.pick===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { pick: { case: \"id\"; value: { id: string; }; } | { case: \"n\"; value: int32; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.pick;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.case==="id"){let v1=v0.value;typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1.id;typeof v2==="string"||e[0](v2);v0={case:v0.case,value:{id:v2}};break}if(v0.case==="n"){let v3=v0.value;typeof v3==="number"&&v3<=2147483647&&v3>=-2147483648&&v3%1==0||e[2](v3);v0={case:v0.case,value:v3};break}throw e[3](v0)}break}if(v0===void 0)break;throw e[3](v0)}let v4;let v5;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.case==="id"){v4=v0.value;break}if(v0.case==="n"){v5=v0.value;break}throw e[5](v0)}break}if(v0===void 0)break;throw e[5](v0)}let v6;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};f=1;v=v5;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[6](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v6=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v6}catch(v7){e[12](v7)}}
+    examples:
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+      id:
+        input: '{ pick: { case: "id", value: { id: "7" } } }'
+        output: new Uint8Array([10, 2, 8, 7])
+  decode:
+    expression: i=>{try{let v2=i.pick;let v0;let v1;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2.case==="id"){v0=v2.value;break}if(v2.case==="n"){v1=v2.value;break}throw e[1](v2)}break}if(v2===void 0)break;throw e[1](v2)}let v3;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};f=1;v=v1;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=16:w.varint32(16);s=v;if(s<-2147483648||s>2147483647)e[2](s,-2147483648,2147483647);s>=0?s<128&&w.pos<w.buf.length?w.buf[w.pos++]=s:w.varint32(s):w.int32(s)};v3=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v3}catch(v4){e[7](v4)}}
+    examples:
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+      n-zero:
+        input: '{ pick: { case: "n", value: 0 } }'
+        output: new Uint8Array([16, 0])
+  encode:
+    expression: i=>{try{let v1=0,v0=void 0,v2=void 0;{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(v1!==1){v1=1;a0=-1;x0=void 0}if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;case 16:v1=2;v2=(r.pos<r.limit&&(q=r.buf[r.pos])<128?(r.pos++,q):r.varint32())|0;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(v1===1){t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v3;if(v1===1){v3={case:"id",value:v0}}else if(v1===2){v3={case:"n",value:v2}}return {pick:v3}}catch(v4){e[7](v4)}}
+    examples:
+      absent:
+        input: new Uint8Array([])
+        output: "{ pick: undefined }"
+      id-converts-to-string:
+        input: new Uint8Array([10, 2, 8, 7])
+        output: '{ pick: { case: "id", value: { id: "7" } } }'
+      n:
+        input: new Uint8Array([16, 3])
+        output: '{ pick: { case: "n", value: 3 } }'

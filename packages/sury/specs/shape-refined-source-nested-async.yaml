@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.shape(S.schema({ n: S.schema({ a: S.string.with(S.to, S.string, { decode: (x) => x, encode: { async: async (x) => x } }) }) }), (v) => ({ w: v.n.a }))"
+  input: "{ n: { a: string; }; }"
+  output: "{ w: string; }"
+  instantiations: 6754
+jsonSchema:
+  input: '{ type: "object", properties: { n: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, required: ["n"] }'
+  output: '{ type: "object", properties: { w: { type: "string" } }, required: ["w"] }'
+isEqual:
+  input: (a,b)=>a===b||a.n.a===b.n.a
+  output: (a,b)=>a===b||a.w===b.w
+compare:
+  input: "throws: [Sury] Can't compare { n: { a: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { w: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.n;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[4](v0);let v2=v0.a;typeof v2==="string"||e[3](v2);let v1;try{v1=e[0](v2)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);return {w:v1}}catch(v3){e[6](v3)}}
+    examples:
+      accepted:
+        input: '{ n: { a: "ok" } }'
+        output: '{ w: "ok" }'
+  decode:
+    expression: i=>{try{let v0=i.n;let v1;try{v1=e[0](v0.a)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);return {w:v1}}catch(v2){e[3](v2)}}
+    examples:
+      accepted:
+        input: '{ n: { a: "ok" } }'
+        output: '{ w: "ok" }'
+  encode:
+    isAsync: true
+    expression: i=>{try{let v0;try{v0=e[3](e[0](i.w),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0}});return Promise.all([v1]).then(([v1])=>{return {n:v1}}).catch(e[4])}catch(v2){return e[5](v2)}}
+    examples:
+      accepted:
+        input: '{ w: "ok" }'
+        output: '{ n: { a: "ok" } }'

@@ -20,8 +20,13 @@ import { testAllTypesProto3 } from "./testMessages";
 
 const decodeRequest = S.decodeOrThrow(S.protobuf, conformanceRequest);
 const encodeResponse = S.decodeOrThrow(conformanceResponse, S.protobuf);
-const decodeMessage = S.decodeOrThrow(S.protobuf, testAllTypesProto3);
-const encodeMessage = S.decodeOrThrow(testAllTypesProto3, S.protobuf);
+// `pnpm conformance generated` points this at what protoc-gen-sury writes for
+// the same .proto, so the suite holds the generator to the same score.
+const generated = process.env.SURY_CONFORMANCE_GENERATED;
+const message: S.Schema<unknown, unknown> =
+  generated === undefined ? testAllTypesProto3 : (await import(generated)).TestAllTypesProto3Schema;
+const decodeMessage = S.decodeOrThrow(S.protobuf, message);
+const encodeMessage = S.decodeOrThrow(message, S.protobuf);
 
 // The one message type S.protobuf speaks. proto2 and the editions variants are
 // answered `skipped`, which the runner counts as neither pass nor fail.

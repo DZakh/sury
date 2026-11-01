@@ -41,6 +41,10 @@ probe. No ledger, no loop.
    each sketch, worktree path and numbers (bundle gz, codegen, perf above the
    floor, lines +/-).
 4. Build it through the `spec` skill, with docs, `S.res` and `index.d.ts`.
+   Docs show, they don't explain: each section leads with the schema and what
+   it reads back, run before it's pasted, and a sentence stays only for what
+   the example can't show. A paragraph a reviewer could swap for a code block
+   is a finding.
 5. Loop.
 
 **Bug** (issue, known bug, finding, red CI; one run and branch per root cause):

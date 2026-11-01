@@ -29,7 +29,7 @@ Measured against sury 11.1.0-rc.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1
   <img alt="Protobuf timings, one bar per library, remeasured on every push to main" src="https://raw.githubusercontent.com/DZakh/sury/benchmarks/protobuf-performance.svg">
 </picture>
 
-<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>
+<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for, and `oneof-any` is a Timestamp, an Any and a list of oneof items, each library packing and unpacking the Any its own way inside the timing. pbf has no Any.</sub>
 
 <sub>Remeasured on every push to main and republished as the chart above, so a bar moves with the runner as well as with the code.</sub>
 
@@ -47,6 +47,6 @@ Measured against sury 11.1.0-rc.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1
 |  | Cases | Passed | Rate |
 | --- | ---: | ---: | ---: |
 | Google's `conformance_test_runner`, binary proto3<br><sub>2 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 696 | 99.7% |
-| This repo's corpus, against protobufjs and protobuf-es<br><sub>every round trip checked against two independent implementations</sub> | 650 | 650 | 100.0% |
+| This repo's corpus, against protobufjs and protobuf-es<br><sub>every round trip checked against two independent implementations</sub> | 655 | 655 | 100.0% |
 
 <sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 2515 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>

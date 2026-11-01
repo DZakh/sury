@@ -13,6 +13,8 @@
 //   issues  the Result that reports every failure: its first is the throw's,
 //           `~standard.validate` is the same answer, and a container's fields
 //           report independently of each other.
+//   seam    a ReScript `~custom` coder in front of the schema: the Output it
+//           hands over comes back untouched, both ways.
 //   option  the ReScript options around the schema, and around a coder from it
 //           to an optional: the empty value is None, everything else Some.
 //
@@ -52,11 +54,12 @@ import { type Ctx, type Family, reason } from "./schemaFuzz/context";
 import { eq } from "./schemaFuzz/eq";
 import { issues } from "./schemaFuzz/issues";
 import { option } from "./schemaFuzz/option";
+import { seam } from "./schemaFuzz/seam";
 import { generateSchema, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { NO_SAMPLE, sample } from "./unionFuzz/sample";
 import type { Sury } from "./unionFuzz/types";
 
-const FAMILIES: Record<string, Family> = { eq, codec, issues, option };
+const FAMILIES: Record<string, Family> = { eq, codec, issues, option, seam };
 
 const arg = (name: string, fallback: string): number => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));

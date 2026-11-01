@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([S.array(S.literal(1)), S.array(S.literal(5))]).with(S.to, S.union([S.tuple([S.array(S.literal(2)), S.array(S.string)]), S.tuple([S.array(S.literal(3)), S.array(S.string)])]))
+  input: "[1[], 5[]]"
+  output: "[2[], string[]] | [3[], string[]]"
+  instantiations: 9713
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ items: { type: "number", const: 1 }, type: "array" }, { items: { type: "number", const: 5 }, type: "array" }] }'
+  output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ items: { type: "number", const: 2 }, type: "array" }, { items: { type: "string", const: "5" }, type: "array" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ items: { type: "number", const: 3 }, type: "array" }, { items: { type: "string", const: "5" }, type: "array" }] }] }'
+  fromOutputType: '[2[], "5"[]] | [3[], "5"[]]'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ items: { type: "number", const: 1 }, type: "array" }, { items: { type: "number", const: 5 }, type: "array" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ items: { type: "number", const: 2 }, type: "array" }, { items: { type: "string", const: "5" }, type: "array" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ items: { type: "number", const: 3 }, type: "array" }, { items: { type: "string", const: "5" }, type: "array" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ items: { type: "number", enum: [1] }, type: "array" }, { items: { type: "number", enum: [5] }, type: "array" }] } }'
+    fromInputType: "[1[] | 5[], 1[] | 5[]]"
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ items: { type: "number", enum: [2] }, type: "array" }, { items: { type: "string", enum: ["5"] }, type: "array" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ items: { type: "number", enum: [3] }, type: "array" }, { items: { type: "string", enum: ["5"] }, type: "array" }] } }] }'
+    fromOutputType: '[2[] | "5"[], 2[] | "5"[]] | [3[] | "5"[], 3[] | "5"[]]'
+isEqual:
+  input: (a,b)=>a===b||e[0](a[0],b[0])&&e[1](a[1],b[1])
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare 1[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare [2[], string[]] | [3[], string[]]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)&&i.length===2||e[5](i);let v0=i[0],v3=i[1];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];v2===1||e[0](v2,["0",v1]);}Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){let v5=v3[v4];v5===5||e[2](v5,["1",v4]);}for(;;){if(i.length===2){let v7=new Array(v0.length);for(let v6=0;v6<v0.length;++v6){v7[v6]=2}let v9=new Array(v3.length);for(let v8=0;v8<v3.length;++v8){v9[v8]="5"}i=[v7,v9];break}throw e[4](i)}return i}catch(v14){e[6](v14)}}
+    examples:
+      other-list:
+        input: "[[], [5]]"
+        output: '[[], ["5"]]'
+  decode:
+    expression: i=>{try{let v0=i[0],v2=i[1];for(;;){if(i.length===2){let v5=new Array(v0.length);for(let v4=0;v4<v0.length;++v4){v5[v4]=2}let v7=new Array(v2.length);for(let v6=0;v6<v2.length;++v6){v7[v6]="5"}i=[v5,v7];break}throw e[0](i)}return i}catch(v12){e[1](v12)}}
+    examples:
+      other-list:
+        input: "[[], [5]]"
+        output: '[[], ["5"]]'
+  encode:
+    expression: i=>{try{let v3;for(;;){l25:{if(Array.isArray(i)){for(;;){if(i.length===2){l4:{let v0=i[0],v5=i[1];if(!(Array.isArray(v0))){v3=[v3,e[1],v0];break l4}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];if(!(v2===2)){v3=[v3,e[0],v2,["0",v1]];break l4}}if(!(Array.isArray(v5))){v3=[v3,e[3],v5];break l4}for(let v6=0;v6<v5.length;++v6){let v7=v5[v6];if(!(typeof v7==="string")){v3=[v3,e[2],v7,["1",v6]];break l4}}let v9=new Array(v0.length);for(let v8=0;v8<v0.length;++v8){v9[v8]=1}let v12=new Array(v5.length);for(let v10=0;v10<v5.length;++v10){let v11=v5[v10];if(!(v11==="5")){v3=[v3,e[4],v11,["1",v10]];break l4}v12[v10]=5}i=[v9,v12];break}l16:{let v13=i[0],v17=i[1];if(!(Array.isArray(v13))){v3=[v3,e[6],v13];break l16}for(let v14=0;v14<v13.length;++v14){let v15=v13[v14];if(!(v15===3)){v3=[v3,e[5],v15,["0",v14]];break l16}}if(!(Array.isArray(v17))){v3=[v3,e[8],v17];break l16}for(let v18=0;v18<v17.length;++v18){let v19=v17[v18];if(!(typeof v19==="string")){v3=[v3,e[7],v19,["1",v18]];break l16}}let v21=new Array(v13.length);for(let v20=0;v20<v13.length;++v20){v21[v20]=1}let v24=new Array(v17.length);for(let v22=0;v22<v17.length;++v22){let v23=v17[v22];if(!(v23==="5")){v3=[v3,e[9],v23,["1",v22]];break l16}v24[v22]=5}i=[v21,v24];break}}break l25}break}}throw e[10](i,v3)}return i}catch(v26){e[11](v26)}}
+    examples:
+      other-list:
+        input: '[[], ["5"]]'
+        output: "[[], [5]]"

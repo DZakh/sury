@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ k: S.protobufField(S.union(["a", "b"]).with(S.to, S.union([0, 1])), { number: 1, type: "enum" }) }).with(S.to, S.protobuf)'
+  input: '{ k: "a" | "b"; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 6274
+jsonSchema:
+  input: '{ type: "object", properties: { k: { enum: ["a", "b"] } }, required: ["k"] }'
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||a.k===b.k
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { k: \"a\" | \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at k: Ambiguous "a" | "b" -> 0 | 1. Should "a" be decoded or ignored? Choose with S.to for "a" -> 0, or S.never -> "a"'
+  decode: eq-to-parse
+  encode:
+    creationError: 'SuryError: Failed at k: Ambiguous 0 | 1 -> "a" | "b". Should 0 be decoded or ignored? Choose with S.to for 0 -> "a", or S.never -> 0'

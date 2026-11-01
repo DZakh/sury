@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.optional(S.union([S.protobufField(S.union([S.string, S.bigint]), { number: 2, type: "int64" }), S.protobufField(S.boolean, 3)])) }).with(S.to, S.protobuf)'
+  input: "{ c?: string | bigint | boolean | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7648
+jsonSchema:
+  input: "Failed at c: Expected JSON, received string | bigint"
+  output: "[Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+isEqual:
+  input: (a,b)=>a===b||a.c===b.c
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: string | bigint | boolean | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"
+  decode: eq-to-parse
+  encode: eq-to-parse

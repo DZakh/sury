@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a" }), S.schema({ t: "c" }), S.string]).with(S.to, S.union([S.schema({ t: S.union(["a", "b"]) }), S.string]))'
+  input: 'string | { t: "a"; } | { t: "c"; }'
+  output: 'string | { t: "a" | "b"; }'
+  instantiations: 9598
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", const: "c" } }, required: ["t"] }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", enum: ["c"] } }, required: ["t"] }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a":a.t==="c"?b.t==="c":typeof b==="string"&&a===b)
+  output: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.t===b.t:typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; } | { t: \"c\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"a\" | \"b\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:i.t};break}if(i.t==="c"){let v0=i.t;for(;;){throw e[0](v0)}i={t:i.t};break}throw e[1](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      a:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+      c:
+        input: '{ t: "c" }'
+        error: 'Failed at t: Expected "a" | "b", received "c"'
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a")break;if(i.t==="c"){let v0="c";for(;;){throw e[0](v0)}break}throw e[1](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      a:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+  encode:
+    creationError: "SuryError: Failed at t: Ambiguous \"a\" | \"b\" -> \"a\". \"b\" isn't \"a\". Choose with S.to for \"b\" -> \"a\", or S.never -> \"b\", or split what holds it into a union with a member per value"

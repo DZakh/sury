@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a" }), S.schema({ t: "c" })]).with(S.to, S.schema({ t: S.string })).with(S.to, S.schema({ t: S.union(["a", "b"]) }))'
+  input: '{ t: "a"; } | { t: "c"; }'
+  output: '{ t: "a" | "b"; }'
+  instantiations: 8954
+jsonSchema:
+  # FIXME: should describe the schema, not overflow the stack, as on main
+  input: Maximum call stack size exceeded
+  output: '{ type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a":b.t==="c")
+  output: (a,b)=>a===b||a.t===b.t
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; } | { t: \"c\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"a\" | \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:i.t};break}if(i.t==="c"){let v0=i.t;for(;;){throw e[0](v0)}i={t:i.t};break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      kept:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+      dropped:
+        input: '{ t: "c" }'
+        error: 'Failed at t: Expected "a" | "b", received "c"'
+  decode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a")break;if(i.t==="c"){let v0="c";for(;;){throw e[0](v0)}break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      kept:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+      dropped:
+        input: '{ t: "c" }'
+        error: 'Failed at t: Expected "a" | "b", received "c"'
+  encode:
+    expression: i=>{try{let v0=i.t;typeof v0==="string"&&(v0==="a"||v0==="b")||e[0](v0);for(;;){if(typeof v0==="string"){for(;;){if(v0==="a")break;if(v0==="b"){v0="a";break}throw e[1](v0)}}else{throw e[1](v0)}i={t:v0};break}return i}catch(v1){e[3](v1)}}
+    examples:
+      kept:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+      # FIXME: should fail: { t: "b" } is written as { t: "a" }, as on main
+      dropped:
+        input: '{ t: "b" }'
+        output: '{ t: "a" }'

@@ -483,7 +483,7 @@ const B_foreignFail = (
 // its code, reason, class and fields read through, and owns only `path`,
 // `cause` and a union's prefixed cases. A deeper level wraps the same original
 // again rather than nesting.
-const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
+export const B_prefixPath = (error: SuryErrorRecord, p: Path, caller?: boolean): SuryErrorRecord => {
   if (!p.length) return error;
   const path = pathConcat(p, error.path);
   const proto = Object.getPrototypeOf(error) as SuryErrorRecord;
@@ -633,8 +633,10 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
       // check reads: a transforming val is safe iff prev is non-transforming
       // (stable input var) and this val has no codeFromPrev of its own -
       // else the lifted check runs before that producer (the
-      // str->to(option(int)) "v0 is not defined" bug class).
-      if (out && (!val.t || !val.prev!.t && val.cp === "")) {
+      // str->to(option(int)) "v0 is not defined" bug class). A union case's
+      // input marked `w` is as stable, and a checked val with no prev at all
+      // stays inline.
+      if (out && (!val.t || val.cp === "" && val.prev !== U && (!val.prev.t || val.prev.w))) {
         const inputVar = (current || val).v();
         const checks = val.vc;
         let hoisted = "";
@@ -771,28 +773,30 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput - object, array, tuple, union, recursive - has to
 // call this. Not calling it silently drops the user's S.refine.
-export const B_markOutput = (val: Val, valInput: Val): Val => {
-  let outC: Check[] | undefined;
-  const ir = valInput.e.inputRefiner;
-  if (ir) {
-    const c = ir(valInput);
-    if (c.length) (valInput.vc ??= []).push(...c);
+//
+// Without `valInput` the value is its own input, as a record a codec built is:
+// its input checks read it where the output checks do, an async one once it
+// resolves, and a record not as the carrier it was read from.
+export const B_markOutput = (val: Val, valInput?: Val): Val => {
+  const from = valInput || val;
+  const ir = from.e.inputRefiner;
+  let outC: Check[] = ir ? ir(from) : [];
+  if (valInput) {
+    if (outC.length) (valInput.vc ??= []).push(...outC);
+    outC = [];
   }
   const rf = val.e.refiner;
-  if (rf) {
-    const c = rf(val);
-    if (c.length) outC = c;
-  }
+  if (rf) outC = outC.concat(rf(val));
   // An async result is a Promise, so the output checks run where the value
   // is: inside a `.then`, the way the parse loop continues an async val.
-  if (outC && (val.f & 1)) {
+  if (outC.length && (val.f & 1)) {
     const v = val.v();
     const then = B_then(v, B_detached(val.g, () => B_merge(B_refine(B_scope(val), U, outC))), v);
     if (!val.fu?.(then, true)) {
       val.i = `${v}.then(${then()})`;
       val.v = _notVar;
     }
-  } else if (outC) val = B_refine(val, U, outC);
+  } else if (outC.length) val = B_refine(val, U, outC);
   val.io = true;
   return val;
 }
@@ -972,8 +976,8 @@ export const B_addObjectField = (objectVal: Val, location: string, val: Val): vo
 // Code that reads a container's value but lands inside the container's own
 // segment, ahead of the guard `B_merge` puts after it (a flattened member's
 // refine or transform): run only if the container's own children, whose code
-// is already in `container.cp`, added nothing. Its declarations go to the
-// sink, since the `if` is a block.
+// is already in `container.cp`, collected no failure. Its declarations go to
+// the sink, since the `if` is a block.
 export const B_unlessCollected = (container: Val, emit: () => string): void => {
   const g = container.g, k = g.k;
   if (!k || !B_collects(g)) {
@@ -1049,7 +1053,7 @@ export const B_scope = (val: Val): Val => {
 //  - `junction` (the JS `{decode, encode}` surface): the result claims
 //    `unknown`, so the loop owes the target a full decode. A coder returning
 //    the wrong thing is caught there.
-//  - otherwise (the ReScript adapter's decodeToOutput / encodeFromOutput):
+//  - otherwise (`$to`, the ReScript `~custom` adapter's seam):
 //    the result claims the target itself, so the loop only runs what a typed
 //    decode would, the same deal `S.decodeOrThrow` gives a caller who declares the
 //    input's schema. The ReScript compiler has already checked the coder's
@@ -1231,3 +1235,33 @@ export const B_mergeWithPathPrepend = (val: Val, parent: Val): string => {
 
 export const noopOperation = (i: unknown): unknown => i;
 (noopOperation as unknown as Record<string, unknown>)["embedded"] = immutableEmptyArray;
+
+// A value a codec read into `i` itself, one slot of a record it hands the core
+// (`B_record`). Hung off `owner` rather than chained through `prev`, so each
+// slot's merge emits only its own code; `location` is where the value lands in
+// the output, which is what a failure in it names.
+// Canonical Val field order (see B_operationArg).
+export const B_slot = (owner: Val, i: string, s: Internal, e: Internal, location: Path): Val => ({
+  b: U,
+  p: owner,
+  v: _var,
+  i,
+  s,
+  io: U,
+  e,
+  prev: U,
+  f: 0,
+  d: U,
+  fv: U,
+  cp: "",
+  fu: U,
+  fs: U,
+  hd: "",
+  fz: U,
+  vc: U,
+  u: U,
+  t: true,
+  path: pathConcat(owner.path, location),
+  g: owner.g,
+  o: U,
+});

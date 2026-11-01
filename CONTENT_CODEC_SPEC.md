@@ -7,7 +7,7 @@ open it.
 
 `B_contentDiffers` and `B_rejectUnsettled` in `src/builder.ts` are the two decisions
 below; the conversions themselves live on the carriers
-(`src/advanced/uint8Array.ts`, `src/advanced/file.ts`, `S.base64` in
+(`S.uint8Array` in `src/refinements.ts`, `src/advanced/file.ts`, `S.base64` in
 `src/refinements.ts`). `docs/js-usage.md` carries the user-facing version under
 "Content", and the `packages/sury/specs/` rows listed at the end snapshot the
 behavior.

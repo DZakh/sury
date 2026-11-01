@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.array(S.literal(1)).with(S.to, S.union([S.array(S.literal(2)), S.array(S.literal(3))])))
+  input: 1[] | undefined
+  output: 2[] | 3[] | undefined
+  instantiations: 6507
+jsonSchema:
+  input: Expected JSON, received 1[] | undefined
+  output: Expected JSON, received 2[] | 3[] | undefined
+isEqual:
+  input: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&e[0](a,b))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare 1[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare 2[] | 3[] | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v1=i[v0];v1===1||e[0](v1,[v0]);}let v4;for(;;){l9:{for(;;){l5:{for(let v2=0;v2<i.length;++v2){let v3=i[v2];if(!(v3===2)){v4=[v4,e[1],v3,[v2]];break l5}}break}l8:{for(let v6=0;v6<i.length;++v6){let v7=i[v6];if(!(v7===3)){v4=[v4,e[2],v7,[v6]];break l8}}break}break l9}break}throw e[3](i,v4)}break}if(i===void 0)break;throw e[4](i)}return i}catch(v10){e[5](v10)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      missing:
+        input: undefined
+        output: undefined
+  decode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v3;for(;;){l8:{for(;;){l4:{for(let v1=0;v1<i.length;++v1){let v2=i[v1];if(!(v2===2)){v3=[v3,e[0],v2,[v1]];break l4}}break}l7:{for(let v5=0;v5<i.length;++v5){let v6=i[v5];if(!(v6===3)){v3=[v3,e[1],v6,[v5]];break l7}}break}break l8}break}throw e[2](i,v3)}break}if(i===void 0)break;throw e[3](i)}return i}catch(v9){e[4](v9)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+  encode:
+    expression: i=>{try{let v12;for(;;){if(i===void 0)break;l13:{let v2;for(;;){l11:{if(Array.isArray(i)){for(;;){l3:{for(let v0=0;v0<i.length;++v0){let v1=i[v0];if(!(v1===2)){v2=[v2,e[0],v1,[v0]];break l3}}let v5=new Array(i.length);for(let v4=0;v4<i.length;++v4){v5[v4]=1}i=v5;break}l8:{for(let v6=0;v6<i.length;++v6){let v7=i[v6];if(!(v7===3)){v2=[v2,e[1],v7,[v6]];break l8}}let v10=new Array(i.length);for(let v9=0;v9<i.length;++v9){v10[v9]=1}i=v10;break}break l11}break}}v12=[v12,e[2](i,v2)];break l13}break}throw e[3](i,v12)}return i}catch(v14){e[4](v14)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"

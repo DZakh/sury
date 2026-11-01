@@ -94,6 +94,26 @@ const unionSameType = (a: Internal, b: Internal): boolean =>
 const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
   a === b || (a !== a && b !== b);
 
+// Two consts are one type only as the identical value: between two others of
+// one kind, a conversion would replace one by the other.
+const unionConstMismatch = (a: Internal, b: Internal): boolean =>
+  isLiteral(a) && isLiteral(b) && !unionLiteralEqual(a.const, b.const);
+
+// The same for an object, tuple or array target, by the consts it holds at any
+// depth: a source whose own const at a field or item differs would be
+// replaced by it.
+// `held` leaves out a list's or dict's items, which an empty one holds none of.
+const unionShapeMismatch = (target: Internal, source: Internal, held?: boolean): boolean => {
+  if (unionConstMismatch(target, source)) return true;
+  const fields = (target.properties || target.items) as Record<string, Internal> | undefined;
+  const others = (source.properties || source.items) as Record<string, Internal> | undefined;
+  if (fields && others) for (const key in fields) if (others[key] !== U && unionShapeMismatch(fields[key]!, unionOutput(others[key]!), held)) return true;
+  return !held && typeof target.additionalItems === objectTag && typeof source.additionalItems === objectTag && unionShapeMismatch(target.additionalItems as Internal, unionOutput(source.additionalItems as Internal));
+};
+
+const unionShaped = (schema: Internal): boolean =>
+  !!(schema.properties || schema.items) || typeof schema.additionalItems === objectTag;
+
 // Union reachability stops at the first `never`: a later `.to(...)` is not
 // executable because the `never` decoder rejects first, and a link whose codec
 // slot is the "never" sentinel produces nothing the same way. The general
@@ -139,12 +159,19 @@ const unionNeverLink = (schema: Internal): boolean => {
 // provenance instead - and a non-enumerable one (the only kind that would not
 // itself change the count) is dropped by `copySchema`, which would make every
 // reversed union opaque.
-const unionIsTransparent = (schema: Internal): boolean => {
+//
+// `converts` asks instead whether a conversion target matches member to member,
+// which nothing that only describes the union changes: a description, or the
+// field number and type name protobuf gives an enum. Flattening keeps such a
+// union whole all the same, as its members alone would lose what it carries.
+const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
-  for (const _key in schema) fields++;
+  for (const key in schema) if (!converts || !(key in unionDescribing)) fields++;
   return fields === 6;
 };
+
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -349,6 +376,15 @@ const unionRaw = (schema: Internal): number => {
   return mask;
 };
 
+// What a ref names past the refs a definition can itself be (`S.recursive`
+// directly inside another's definer): `undefined` while a definer still runs.
+// It ends because `S.recursive` refuses a definition made only of refs back to
+// its own.
+const refDefinition = (ref: Internal): Internal | undefined => {
+  const def = ref.definition!();
+  return def?.type === refTag ? refDefinition(def) : def;
+};
+
 const unionMask = (schema: Internal, mode: number, nan: number): number => {
   if (mode === 2) {
     const resolved = unionRefDef(schema);
@@ -387,6 +423,8 @@ const unionMask = (schema: Internal, mode: number, nan: number): number => {
 // Member low bits record Sury throws (1), foreign throws (2), and opacity (4).
 // Case bit 1 is refined from emitted-body throw tracking, never inferred from
 // the semantic Sury bit. Falls (8) and direct dispatch (16) are shared by plan.
+// Member bit 32: a nested union whose dispatch fuses into its case condition
+// (`unionHoists`).
 
 // Bits 1, 2 and 4 of `f` mean different things on a `UnionCase` than on a
 // `UnionGroup`, and are deliberately left as literals (naming them costs ~30
@@ -520,6 +558,7 @@ const unionCheckPartial = (
   const other = outputSide ? target : source;
   let matched: Internal | undefined = U;
   let unmatched: Internal | undefined = U;
+  let byConst = false;
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
     const match = outputSide ? unionOutput(variant) : variant;
@@ -528,10 +567,21 @@ const unionCheckPartial = (
     if (variant.type === neverTag || (outputSide ? match.type === neverTag : unionNeverLink(variant))) {
       continue;
     }
-    if (unionSameType(other, match)) matched ||= variant;
-    else unmatched ||= variant;
+    // Under rule 3 a const target is the same type only as the identical
+    // const, and an object or list holding one only as one holding it too.
+    const same = unionSameType(other, match);
+    const differs = outputSide && same && unionShapeMismatch(other, match);
+    if (same && !differs) matched ||= variant;
+    else if (unmatched === U) (unmatched = variant), (byConst = differs);
   }
   if (matched !== U && unmatched !== U) {
+    const it = inputExpression(unmatched);
+    // Met at a field while a union's member is tried (`g.o` 4): the source
+    // spelled as a union of the shapes, one per value, meets the members one
+    // to one instead.
+    if (byConst) {
+      unionAmbiguous(input, source, target, `${it} isn't ${inputExpression(target)}. Choose with S.to for ${it} -> ${inputExpression(target)}, or S.never -> ${it}${input.path.length && input.g.o & 4 ? ", or split what holds it into a union with a member per value" : ""}`);
+    }
     unionInvalid(input, source, target, unmatched, outputSide);
   }
 };
@@ -554,13 +604,35 @@ const unionInvalid = (
   const conversion = onSource
     ? `${it} -> ${inputExpression(unionPeer(target))}`
     : `${inputExpression(unionPeer(source))} -> ${it}`;
-  return B_invalidOperation(
-    input,
-    `Ambiguous ${inputExpression(source)} -> ${inputExpression(target)}. Should ${it} be decoded or ignored? Choose with S.to for ${conversion}, or S.never -> ${it}`,
-  );
+  return unionAmbiguous(input, source, target, `Should ${it} be decoded or ignored? Choose with S.to for ${conversion}, or S.never -> ${it}`);
 };
 
+// The spelling that converts a const into the first of `consts` both ways,
+// the others declared never produced.
+const unionChoose = (source: Internal, consts: Internal[]): string => {
+  const to = `S.literal(${inputExpression(source)}).with(S.to, S.literal(${inputExpression(consts[0]!)}))`;
+  return `Choose one with S.to, such as ${consts.length > 1 ? `S.union([${to}${consts.slice(1).map((other) => `, S.never.with(S.to, S.literal(${inputExpression(other)}))`).join("")}])` : to}`;
+};
+
+const unionAmbiguous = (input: Val, source: Internal, target: Internal, why: string): never =>
+  B_invalidOperation(input, `Ambiguous ${inputExpression(source)} -> ${inputExpression(target)}. ${why}`);
+
 // ── Normalize → Analyze → Plan → Emit ────────────────────────────────────────
+
+// A nested union of plain scalar arms read from an unknown value: each arm's
+// case is its narrow alone, so the union's dispatch is one condition (unionEmit's
+// `pure`), which guards its case like any member's. Its own refinement runs past
+// that guard. Only scalars, 19518 = string | number | boolean | undefined | null
+// | bigint | NaN | symbol: anything else may emit a body that fails.
+const unionHoists = (schema: Internal): boolean =>
+  unionIsNoop(schema) &&
+  schema.anyOf!.every(
+    (arm) =>
+      !arm.refiner &&
+      !arm.inputRefiner &&
+      !arm.format &&
+      (arm.anyOf ? unionHoists(arm) : !!(tagFlags[arm.type]! & 19518)),
+  );
 
 const unionAnalyze = (
   sourceMask: number,
@@ -590,7 +662,7 @@ const unionAnalyze = (
     // member claims every type, so `S.optional(self)` tried the recursive call
     // on `undefined` and caught its throw at every leaf of a tree. The case
     // still calls through the ref, so the definition compiles once.
-    const def = s.type === refTag ? s.definition!() : U;
+    const def = s.type === refTag ? refDefinition(s) : U;
     const defTag = def === U ? 0 : tagFlags[def.type]!;
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
@@ -670,7 +742,8 @@ const unionAnalyze = (
         (traits & 7) |
         (effect ? 1 : 0) |
         (sourceDeopt ? 4 : 0) |
-        ((!unknownSource && same) || (tag & (1 | 256 | 512 | 4096 | 32768)) ? 16 : 0),
+        ((!unknownSource && same) || (tag & (1 | 256 | 512 | 4096 | 32768)) ? 16 : 0) |
+        (unknownSource && s.type === anyOfTag && unionHoists(s) ? 32 : 0),
       p:
         (s.type === objectTag && nestedLoc in s.properties!) ||
         (broadObject && (tag & (128 | 8192))) ||
@@ -859,8 +932,9 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   }
 
   // A ref to a union has no narrow to guard its case, and neither has a nested
-  // union whose arms convert (a defaulted `S.nullable` carries its default, so
-  // it stays whole): only a union of checks folds into one condition. Once no
+  // union the factory kept whole, unless its dispatch fuses into the case
+  // condition (member bit 32): its own fallback (a refined arm beside a plain
+  // one) or a converted value in front of it prevents that. Unguarded, once no
   // later group shares a type with it, it stops falling through and would
   // shadow them all.
   // It runs after the groups it shares no type with instead - order between
@@ -872,7 +946,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     const head = group.a[0]!;
     if (
       group.a[1] ||
-      !(head.n.type === refTag || (head.n.type === anyOfTag && !unionIsNoop(head.s))) ||
+      !(head.n.type === refTag || (head.n.type === anyOfTag && !(head.f & 32))) ||
       group.m === ~0
     ) continue;
     group.f |= 8 | 2;
@@ -1246,6 +1320,7 @@ const unionEmit = (
     const caseInput = B_scope(source);
     caseInput.u = true;
     caseInput.t = source.t;
+    if (isLiteral(member.s)) caseInput.w = true;
     caseInput.io = false;
     caseInput.e = member.s;
     // A value proven to be the group's runtime tag is re-labelled with this
@@ -1285,6 +1360,8 @@ const unionEmit = (
         : U;
     if (trustedD !== U) caseInput.s = member.s;
     let caseOut: Val;
+    // Restoring also ends the hand-off (32) the parse loop sets past a member's
+    // link, which it leaves to this.
     const options = input.g.o;
     input.g.o |= 4;
     try {
@@ -1324,9 +1401,6 @@ const unionEmit = (
         string,
         Internal
       >)[trustedD[0]]!;
-      // `===` can't match a NaN discriminant (`x===NaN` is always false), which
-      // made the member unreachable and rejected a value it declares. The
-      // hoisted-check path this replaces used the same NaN-aware form.
       const dRead = inlinedProperty(source.v(), trustedD[0]);
       const dCond =
         dSchema.type === nanTag
@@ -1595,6 +1669,17 @@ export const unionDecoder: Builder = (input: Val) => {
     expected = copySchema(self);
     expected.anyOf = variants;
   }
+  // A shape holding a const where a variant holds another is not that variant.
+  // With none left it can never succeed, and is refused, unless a source
+  // union's member handed it here (`g.o` 32), where it fails as a value. A
+  // list's const items don't count: an empty list holds none of them.
+  if (!(tagFlags[source.type]! & 1) && unionShaped(source)) {
+    const fit = variants.filter((variant) => !unionShapeMismatch(variant, source, true));
+    if (!fit.length && !(input.g.o & 32)) {
+      B_invalidOperation(input, `Can't decode ${inputExpression(source)} -> ${inputExpression(self)}: it holds a value none of them does. Choose one with S.to, such as ${inputExpression(source)} -> ${inputExpression(variants[0]!)}`);
+    }
+    if (fit.length < variants.length) variants = fit;
+  }
   const nan = input.g.o & 2 ? 2048 : 0;
   let flags = 0;
   const sourceLiteral = isLiteral(source);
@@ -1603,7 +1688,10 @@ export const unionDecoder: Builder = (input: Val) => {
     if (sourceLiteral && isLiteral(member) && unionLiteralEqual(member.const, source.const)) {
       flags |= 1;
     }
-    flags |= tagFlags[member.type]! & (64 | tagFlags[numberTag]!);
+    // A recursive object is as broad as a plain one, so an instance arm goes
+    // ahead of it.
+    const def = member.type === refTag ? refDefinition(member) : U;
+    flags |= tagFlags[(def || member).type]! & (64 | tagFlags[numberTag]!);
   }
   const sourceTag = tagFlags[source.type]!;
   // A source that can hold anything constrains nothing, so it can't prove two
@@ -1616,6 +1704,19 @@ export const unionDecoder: Builder = (input: Val) => {
   // variant can produce it.
   if (!(sourceTag & 1) && !(flags & 1)) {
     unionCheckPartial(input, source, self, variants, false);
+    // A const of a kind none of the target's consts are would be replaced by
+    // whichever comes first, as well by any other: two of them leave it
+    // ambiguous. Not `null` or `undefined`, which bridge to their opposite.
+    // A const of its kind that is none of them can never succeed, unless a
+    // source union's member handed it here (`g.o` 32), where it fails as a
+    // value.
+    const live = sourceLiteral && !(sourceTag & (16 | 32)) ? variants.filter((variant) => variant.type !== neverTag && !unionNeverLink(variant)) : [];
+    const consts = live.filter(isLiteral);
+    const own = consts.filter((variant) => unionSameType(source, variant));
+    if (consts.length > 1 && !own.length) unionAmbiguous(input, source, self, `${inputExpression(source)} could become any of them. ${unionChoose(source, consts)}`);
+    if (live.length && own.length === live.length && !(input.g.o & 32)) {
+      B_invalidOperation(input, `Can't decode ${inputExpression(source)} -> ${inputExpression(self)}: it is none of them. ${unionChoose(source, own)}`);
+    }
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have
@@ -1643,7 +1744,7 @@ export const unionDecoder: Builder = (input: Val) => {
               attach(mut);
             }
             if (to !== U) {
-              mut.to = to;
+              unionHand(mut, to);
             }
           });
     });
@@ -1666,6 +1767,15 @@ export const unionDecoder: Builder = (input: Val) => {
     input.g.x = exit;
     input.g.y = y;
   }
+};
+
+// Hands a member's output link on to `to`, marking the link (flag 32768) so
+// the code compiled past it knows it converts one member of a union. The link,
+// a copy made for this union alone, rather than the target, which the
+// operation may meet on its own elsewhere.
+const unionHand = (link: Internal, to: Internal): void => {
+  link.to = to;
+  link.flags |= 32768;
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
@@ -1765,9 +1875,7 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
     const to = resolved[idx];
     return to === U
       ? variant
-      : updateOutput<Internal>(variant, (mut) => {
-          mut.to = to;
-        });
+      : updateOutput<Internal>(variant, (mut) => unionHand(mut, to));
   });
 };
 
@@ -1787,8 +1895,21 @@ const unionResolve = (
   if (source.flags & 64) {
     return variants.map(() => target);
   }
-  if (unionIsTransparent(target)) {
+  if (unionIsTransparent(target, true)) {
     return unionResolveToUnion(input, source, variants, target);
+  }
+  // A check's result sentinel past the union (S.isInput and kin) leaves it the
+  // union it is, each member then carrying the sentinel, so a check compiles
+  // as the parse does.
+  const tail = target.to;
+  if (target.type === anyOfTag && tail?.noValidation) {
+    const own = copySchema(target);
+    delete own.to;
+    if (unionIsTransparent(own, true)) {
+      return unionResolveToUnion(input, source, variants, own).map((to, idx) =>
+        unionOutput(variants[idx]!).type === neverTag ? U : to === U ? tail : updateOutput<Internal>(to, (mut) => { mut.to = tail; })
+      );
+    }
   }
   // Rule 3 - every source variant gets its own built-in decoder to the target.
   // Two targets are never ambiguous: `unknown`, the top type, which decodes
@@ -1833,7 +1954,7 @@ const unionResolveToUnion = (
       }
       continue;
     }
-    const sameTyped = targets.filter(
+    let sameTyped = targets.filter(
       (targetVariant, t) =>
         targetVariant.type !== neverTag &&
         !unionNeverLink(targetVariant) &&
@@ -1841,6 +1962,17 @@ const unionResolveToUnion = (
         (covered[t] = true)
     );
     sourceNullish |= tagFlags[sourceOut.type]! & (32 | 16);
+    // A const passes through to the identical const only. With none, the
+    // target's consts of its type check it, and it fails as a value they
+    // don't take, never replaced by one of them.
+    if (isLiteral(sourceOut) || unionShaped(sourceOut)) {
+      const identical = sameTyped.filter((targetVariant) => !unionShapeMismatch(targetVariant, sourceOut));
+      if (!identical.length && sameTyped.length) {
+        matches[s] = unionOf(sameTyped);
+        continue;
+      }
+      sameTyped = identical;
+    }
     if (sameTyped.length === 1) {
       matches[s] = sameTyped[0]!;
     } else if (sameTyped.length > 1) {
@@ -1953,10 +2085,9 @@ export const unionWrap = (inner: Internal, empties: Internal[]): Internal => {
   return unionFactory(arms);
 };
 
-export const unionFactory = (schemas: Internal[]): Internal => {
-  if (!schemas.length) return panic("S.union requires at least one item");
-  if (schemas.length === 1) return schemas[0]!;
-
+// A union of one member too, which checks a value as the member's dispatch
+// does instead of converting it into the member.
+const unionOf = (schemas: Internal[]): Internal => {
   const has: Partial<Record<Tag, boolean>> = {};
   const anyOf: Internal[] = [];
   for (let idx = 0; idx < schemas.length; idx++) {
@@ -1974,4 +2105,9 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.encoder = unionEncoder;
   mut.has = has;
   return mut;
+};
+
+export const unionFactory = (schemas: Internal[]): Internal => {
+  if (!schemas.length) return panic("S.union requires at least one item");
+  return schemas.length === 1 ? schemas[0]! : unionOf(schemas);
 };
