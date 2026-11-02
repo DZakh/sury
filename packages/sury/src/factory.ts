@@ -146,7 +146,7 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
     const output = B_nextVarOutput(input, v, item, item);
-    if (input.s === unit) {
+    if (input.s.type === undefinedTag) {
       output.cp = `${v}=${defCode};`;
       return output;
     }
@@ -155,22 +155,27 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     // The present value, as the source has it: a record's string still
     // decodes to the item's number.
     const present = input.s.anyOf ? input.s.anyOf.filter((member) => member.type !== undefinedTag) : [input.s];
+    // The item itself as the source is the field's own decode, from unknown.
     itemInput.s = present.length === 1 && present[0] !== schema ? present[0]! : unknown;
     itemInput.e = parseAs;
     itemInput.u = input.u;
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
-    const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const presentBody = itemCode + assign;
-    // A present async item leaves a promise, so the default is one too: the
-    // join reads both branches through `.then`.
-    const async = itemOutput.f & 1;
-    output.f |= async;
-    const fill = async ? `Promise.resolve(${defCode})` : defCode;
+    if (itemOutput.f & 1) {
+      // A promise of its own: a collected failure leaves the field's input in
+      // `v`, which the join would read as one. The default is a promise too,
+      // as the collecting join reads both branches through `.then`.
+      const promise = B_varWithoutAllocation(input.g);
+      output.i = promise;
+      output.f |= 1;
+      output.cp = `${B_let(input.g, promise)}if(${v}===void 0){${promise}=Promise.resolve(${defCode})}else{${itemCode}${promise}=${itemOutput.i};}`;
+      return output;
+    }
+    const presentBody = itemCode + (itemOutput.i === v ? "" : `${v}=${itemOutput.i};`);
     output.cp =
       presentBody === ""
-        ? `if(${v}===void 0)${v}=${fill};`
-        : `if(${v}===void 0){${v}=${fill}}else{${presentBody}}`;
+        ? `if(${v}===void 0)${v}=${defCode};`
+        : `if(${v}===void 0){${v}=${defCode}}else{${presentBody}}`;
     return output;
   };
   return mut;
