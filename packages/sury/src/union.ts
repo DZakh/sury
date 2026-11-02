@@ -68,6 +68,7 @@ import {
   B_pathArg,
   B_pathSnap,
   B_pushCheck,
+  B_next,
   B_refine,
   B_rejectUnsettled,
   B_scope,
@@ -1757,6 +1758,14 @@ export const unionDecoder: Builder = (input: Val) => {
   // The union swaps in its own exit while it emits, and a compile that throws
   // midway must not leave it behind: json.ts catches a failed parse and parses
   // again on the same operation.
+  for (let read: Val | undefined = input; read; read = read.b || read.prev) {
+    if (read.sp! > 1) {
+      const own = B_next(input, input.v(), input.s, input.e);
+      own.v();
+      input = own;
+      break;
+    }
+  }
   const exit = input.g.x, y = input.g.y;
   try {
     return unionEmit(

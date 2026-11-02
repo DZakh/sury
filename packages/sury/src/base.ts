@@ -704,6 +704,10 @@ export type Val = {
   // materialization re-reads inline instead of hoisting onto it (#240).
   // @as("fz") - finalized
   fz?: boolean;
+  // How many `S.shape` placements read this value, itself or inside a placed
+  // object. A union converting one read more than once writes its own var.
+  // @as("sp") - shapePlacements
+  sp?: number;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can
   // test presence with a plain truthy check instead of length.
   // @as("vc") - checks

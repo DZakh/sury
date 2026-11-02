@@ -442,6 +442,11 @@ const assembleShapedObject = (
   return completeObjectVal(output);
 }
 
+const shapePlaced = (val: Val): void => {
+  val.sp = (val.sp || 0) + 1;
+  for (const key in val.d) shapePlaced(val.d[key]!);
+};
+
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
@@ -449,7 +454,9 @@ const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
       valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!)
     );
   } else if (targetSchema.from !== U) {
-    v = B_scope(valAt(input, targetSchema.from));
+    const at = valAt(input, targetSchema.from);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
