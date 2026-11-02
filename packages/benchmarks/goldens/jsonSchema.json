@@ -23,7 +23,7 @@
       {
         "label": "Emit a JSON Schema",
         "cells": [
-          13568,
+          13588,
           64648,
           11931,
           47735,
@@ -36,7 +36,7 @@
         "label": "Check values against a published document",
         "note": "the JSON Schema is the input, not the output",
         "cells": [
-          33595,
+          33857,
           64655,
           null,
           null,
@@ -158,8 +158,8 @@
         "note": "`toJSONSchema` then `fromJSONSchema` then `toJSONSchema` again",
         "cells": [
           594,
-          575,
-          "96.8%"
+          573,
+          "96.5%"
         ],
         "format": "count"
       }
