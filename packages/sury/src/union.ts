@@ -170,10 +170,12 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) if (!converts || !(key in unionDescribing)) fields++;
-  return fields === 6;
+  // Built as a union (s.fieldOr's own has none), so what it carries past its
+  // members is a reshape or a link over them.
+  return fields === 6 && (!converts || schema.encoder !== U);
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, refiner: 1, parser: 1, to: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, parser: 1, to: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -1951,13 +1953,11 @@ const unionResolveToUnion = (
   target: Internal
 ): (Internal | undefined)[] => {
   // A refined union checks every value it takes, a passed-through one too.
-  const refine = target.refiner !== U ? unionRefinerAttacher(target) : U;
   // What the union does after its member, `S.shape`'s reshape and the links
   // past it, runs after each member it takes.
   const attach =
-    refine !== U || target.parser !== U || target.to !== U
+    target.parser !== U || target.to !== U
       ? (mut: Internal) => {
-          refine?.(mut);
           if (target.parser !== U) mut.parser = target.parser;
           if (target.to !== U) mut.to = target.to;
         }
