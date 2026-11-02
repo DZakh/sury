@@ -62,9 +62,9 @@ import {
   Option_getOr,
   deepStrict,
   option,
-  refineInput,
-  viewSource
+  refineInput
 } from "./modifiers";
+import { viewSource } from "./factory";
 import {
  assertResult
 } from "./operations";
@@ -928,15 +928,29 @@ const layeredKeywords = [
 const withRequired = (schema: Internal, required: string[]): Internal =>
   refineInput(
     schema,
-    (data: unknown) => required.every((key) => Object.hasOwn(data as object, key)),
+    (data: unknown) => required.every((key) => (data as Record<string, unknown>)[key] !== U && Object.hasOwn(data as object, key)),
     "Should contain every required property."
   );
 
 // A schema that can't compile passes nothing, rather than failing the whole
 // conversion.
+// JSON has no `undefined`: an object key holding it, as an absent optional
+// field reads, is one the instance doesn't have.
+const withoutUndefined = (data: unknown): unknown => {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return data;
+  for (const key in data) {
+    if ((data as Record<string, unknown>)[key] === U) {
+      const copy: Record<string, unknown> = {};
+      for (const k in data) if ((data as Record<string, unknown>)[k] !== U) copy[k] = (data as Record<string, unknown>)[k];
+      return copy;
+    }
+  }
+  return data;
+};
+
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
-    return (getOp(4096 | 1024, 2, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
+    return (getOp(4096 | 1024, 2, unknown, schema, assertResult) as (input: unknown) => boolean)(withoutUndefined(data));
   } catch {
     return false;
   }
@@ -1921,7 +1935,7 @@ export const fromJSONSchema = (
       schema,
       (data: unknown) => {
         if (!isJsonObject(data)) return true;
-        const n = Object.keys(data).length;
+        const n = Object.keys(withoutUndefined(data) as object).length;
         return (min === U || n >= min) && (max === U || n <= max);
       },
       "Should have a property count within the JSON Schema bounds."

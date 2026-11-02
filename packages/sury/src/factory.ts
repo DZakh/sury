@@ -26,7 +26,7 @@ import {
   compilePath,
   pathEmpty,
   pathToText,
-  refTag,
+  reversedKey,
   setHas,
   U,
   undefinedTag,
@@ -113,35 +113,91 @@ const makeObjectCtx = (
   flatten,
 });
 
+const converting = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && converting(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// The definition each output view (`outputView`) was built from.
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+export const outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || converting(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
 // Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
-// What a decoded value holds, with no conversion left to run: every member,
-// field and item at the end of its own chain. A field's output is that value,
-// so a later link into JSON text renders it rather than decoding it again.
-const outputView = (schema: Internal): Internal => {
-  const output = getOutputSchema(schema);
-  const members = output.anyOf, fields = output.properties, items = output.items, rest = output.additionalItems;
-  if (output.type === refTag || (!members && !fields && !items?.length && typeof rest !== "object")) return output;
-  const view = copySchema(output);
-  if (members) {
-    view.anyOf = members.map(outputView);
-    const has = {};
-    for (const member of view.anyOf) setHas(has, member);
-    view.has = has;
-  }
-  if (fields) {
-    const properties: Record<string, Internal> = Object.create(null);
-    for (const key in fields) properties[key] = outputView(fields[key]!);
-    view.properties = properties;
-  }
-  if (items?.length) view.items = items.map(outputView);
-  if (typeof rest === "object") view.additionalItems = outputView(rest);
-  return view;
-};
-
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   const item = outputView(schema);
   // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for

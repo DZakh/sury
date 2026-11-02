@@ -37,3 +37,6 @@ operations:
       one-member:
         input: '{ bar: "x", foo: 1 }'
         output: '{ bar: "x", foo: 1 }'
+      parse-output:
+        input: '{ bar: "y", foo: 1, baz: undefined }'
+        output: '{ bar: "y", foo: 1, baz: undefined }'

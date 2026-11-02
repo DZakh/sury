@@ -1948,7 +1948,6 @@ const unionResolveToUnion = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
-  // A refined union checks every value it takes, a passed-through one too.
   // What the union does after its member, `S.shape`'s reshape and the links
   // past it, runs after each member it takes.
   const attach =
