@@ -1021,12 +1021,44 @@ const readsWholeInstance = [
   "dependencies",
 ];
 
+// The keys those keywords read beyond the base's own: listed, so the base
+// declares them as JSON and keeps its own fields' defaults, paths and checks,
+// or `true` where they can't be listed (a count, a pattern, a ref).
+type Kept = string[] | true | undefined;
+
+const keptJoin = (a: Kept, b: Kept): Kept =>
+  a === true || b === true ? true : a === U ? b : b === U ? a : a.concat(b);
+
+const keysRead = (definition: JSONSchemaDefinition | undefined): Kept => {
+  if (definition === U || typeof definition === "boolean") return U;
+  if (definition["$ref"] !== U || definition.patternProperties !== U) return true;
+  let kept: Kept = definition.required?.slice() ?? U;
+  if (definition.properties !== U) kept = keptJoin(kept, Object.keys(definition.properties));
+  return keptJoin(kept, undeclaredReads(definition, 0));
+};
+
 // From `from` on: a composition member that becomes the base is read again
 // only by the keywords applied after its own.
-const B_readsUndeclared = (jsonSchema: JSONSchemaT, from: number): boolean =>
-  readsWholeInstance
-    .slice(from)
-    .some((key) => (jsonSchema as Record<string, unknown>)[key] !== U);
+const undeclaredReads = (jsonSchema: JSONSchemaT, from: number): Kept => {
+  let kept: Kept = U;
+  for (const key of readsWholeInstance.slice(from)) {
+    const value = (jsonSchema as Record<string, unknown>)[key];
+    if (value === U) continue;
+    // A count the declared fields alone can reach reads no other key.
+    if (key === "minProperties") {
+      if ((value as number) > Object.keys(jsonSchema.properties ?? {}).length) return true;
+      continue;
+    }
+    if (Array.isArray(value)) for (const member of value) kept = keptJoin(kept, keysRead(member));
+    else if (key === "not" || key === "if") kept = keptJoin(keptJoin(kept, keysRead(value as JSONSchemaDefinition)), keptJoin(keysRead(jsonSchema.then), keysRead(jsonSchema.else)));
+    else
+      for (const name in value as Record<string, unknown>) {
+        const dependency = (value as Record<string, unknown>)[name];
+        kept = keptJoin(keptJoin(kept, [name]), Array.isArray(dependency) ? dependency : keysRead(dependency as JSONSchemaDefinition));
+      }
+  }
+  return kept;
+};
 
 const withoutLayeredKeywords = (
   jsonSchema: JSONSchemaT,
@@ -1226,10 +1258,10 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
 const jsonDefinitionToSchema = (
   definition: JSONSchemaDefinition,
   ctx: RefContext,
-  keepsUndeclared?: boolean
+  kept?: Kept
 ): Internal =>
   typeof definition !== "boolean"
-    ? fromJSONSchema(definition, ctx, keepsUndeclared)
+    ? fromJSONSchema(definition, ctx, kept)
     : definition
       ? json
       : never_;
@@ -1385,10 +1417,10 @@ const B_layer = (
 export const fromJSONSchema = (
   jsonSchema: JSONSchemaDefinition,
   parentCtx?: RefContext,
-  parentKeepsUndeclared?: boolean
+  parentKept?: Kept
 ): Internal => {
   if (typeof jsonSchema === "boolean") return jsonSchema ? json : never_;
-  const keepsUndeclared = parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 0);
+  const kept = keptJoin(parentKept, undeclaredReads(jsonSchema, 0));
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const uri = jsonSchema["$schema"];
@@ -1427,11 +1459,11 @@ export const fromJSONSchema = (
     schema = resolveRef(jsonSchema["$ref"], ctx);
     // A finite target is built once and shared, stripping what it doesn't
     // declare; a keyword beside the `$ref` reads those keys, so it gets its own.
-    if (keepsUndeclared && schema.type !== refTag) {
+    if (kept !== U && schema.type !== refTag) {
       schema = jsonDefinitionToSchema(
         pointerTarget(jsonSchema["$ref"].split("/"), ctx.root) as JSONSchemaDefinition,
         ctx,
-        true
+        kept
       );
     }
     if (ctx.refSiblings) {
@@ -1520,8 +1552,8 @@ export const fromJSONSchema = (
     } else {
       const additional = jsonSchema.additionalProperties;
       // A Sury object strips or rejects the keys it doesn't declare, so one
-      // that has to keep them is the dict below.
-      if ((additional === false || (additional === U && !keepsUndeclared)) && !hasPatterns) {
+      // that has to keep keys it can't list is the dict below.
+      if ((additional === false || (additional === U && kept !== true)) && !hasPatterns) {
         const properties: Record<string, Internal> = Object.create(null);
         const required = new Set(jsonSchema.required);
         for (const key of Object.keys(definitions)) {
@@ -1536,6 +1568,9 @@ export const fromJSONSchema = (
         }
         for (const key of required) {
           if (!(key in properties)) properties[key] = json;
+        }
+        if (additional === U && kept !== U && kept !== true) {
+          for (const key of kept) if (!(key in properties)) properties[key] = option(json);
         }
         schema = objectSchema(properties, additional === false ? "strict" : "strip");
       } else {
@@ -1697,7 +1732,7 @@ export const fromJSONSchema = (
     schema = types.length
       ? union(
           types.map((type) =>
-            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, keepsUndeclared)
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, kept)
           )
         )
       : never_;
@@ -1751,7 +1786,7 @@ export const fromJSONSchema = (
         fromJSONSchema(
           applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
           ctx,
-          keepsUndeclared
+          kept
         )
       );
     }
@@ -1797,7 +1832,7 @@ export const fromJSONSchema = (
           ? jsonDefinitionToSchema(
               definitions[0]!,
               ctx,
-              parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 1)
+              keptJoin(parentKept, undeclaredReads(jsonSchema, 1))
             )
           : B_layer(
               schema,
@@ -1815,7 +1850,7 @@ export const fromJSONSchema = (
       schema = never_;
     } else if (schema === json) {
       const members = definitions.map((d) =>
-        jsonDefinitionToSchema(d, ctx, parentKeepsUndeclared || B_readsUndeclared(jsonSchema, 2))
+        jsonDefinitionToSchema(d, ctx, keptJoin(parentKept, undeclaredReads(jsonSchema, 2)))
       );
       schema = members.length === 1 ? members[0]! : union(members);
     } else {

@@ -5,34 +5,34 @@ ts:
   output: "{ bar: string; }"
   instantiations: 2935
 jsonSchema:
-  input: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], anyOf: [{ required: ["foo"] }, { required: ["baz"] }] }'
-  output: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], anyOf: [{ required: ["foo"] }, { required: ["baz"] }] }'
-isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
-compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: '{ type: "object", properties: { bar: { type: "string" }, foo: {}, baz: {} }, required: ["bar"], anyOf: [{ required: ["foo"] }, { required: ["baz"] }] }'
+  output: '{ type: "object", properties: { bar: { type: "string" }, foo: {}, baz: {} }, required: ["bar"], anyOf: [{ required: ["foo"] }, { required: ["baz"] }] }'
+isEqual: (a,b)=>a===b||a.bar===b.bar&&e[0](a.foo,b.foo)&&e[0](a.baz,b.baz)
+compare: "throws: [Sury] Can't compare { bar: string; foo: JSON | undefined; baz: JSON | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);e[4](i)||e[8](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}return i}catch(v2){e[9](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);e[9](i)||e[11](i);let v0=i.bar,v1=i.foo,v4=i.baz;typeof v0==="string"||e[0](v0);let v3;for(;;){if(v1===void 0)break;try{try{e[1](v1);}catch(v2){e[2](v2,["foo"])}break}catch(x){v3=[v3,e[3](x)]}throw e[4](v1,v3)}let v6;for(;;){if(v4===void 0)break;try{try{e[5](v4);}catch(v5){e[6](v5,["baz"])}break}catch(x){v6=[v6,e[7](x)]}throw e[8](v4,v6)}return {bar:v0,foo:v1,baz:v4}}catch(v7){e[12](v7)}}
     examples:
       anyof-satisfied:
         input: '{ bar: "x", foo: 1 }'
-        output: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1, baz: undefined }'
       anyof-unsatisfied:
         input: '{ bar: "x" }'
         error: Should pass at least one schema according to the anyOf property.
       member-invalid:
         input: "{ bar: 1, foo: 1 }"
-        error: Should pass every declared property schema.
+        error: "Failed at bar: Expected string, received 1"
   decode:
-    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    expression: i=>{try{e[8](i)||e[9](i);let v0=i.foo,v3=i.baz;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}let v5;for(;;){if(v3===void 0)break;try{try{e[4](v3);}catch(v4){e[5](v4,["baz"])}break}catch(x){v5=[v5,e[6](x)]}throw e[7](v3,v5)}return i}catch(v6){e[10](v6)}}
     examples:
       anyof-satisfied:
         input: '{ bar: "x", foo: 1 }'
         output: '{ bar: "x", foo: 1 }'
   encode:
-    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    expression: i=>{try{let v0=i.foo,v3=i.baz;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}let v5;for(;;){if(v3===void 0)break;try{try{e[4](v3);}catch(v4){e[5](v4,["baz"])}break}catch(x){v5=[v5,e[6](x)]}throw e[7](v3,v5)}e[8](i)||e[9](i);return i}catch(v6){e[10](v6)}}
     examples:
       anyof-satisfied:
         input: '{ bar: "x", foo: 1 }'

@@ -5,16 +5,16 @@ ts:
   output: "{ bar: string; }"
   instantiations: 3345
 jsonSchema:
-  input: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
-  output: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
-isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
-compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  input: '{ type: "object", properties: { bar: { type: "string" }, foo: {} }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
+  output: '{ type: "object", properties: { bar: { type: "string" }, foo: {} }, required: ["bar"], allOf: [{ required: ["foo"] }] }'
+isEqual: (a,b)=>a===b||a.bar===b.bar&&e[0](a.foo,b.foo)
+compare: "throws: [Sury] Can't compare { bar: string; foo: JSON | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);e[4](i)||e[8](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}return i}catch(v2){e[9](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);e[5](i)||e[7](i);let v0=i.bar,v1=i.foo;typeof v0==="string"||e[0](v0);let v3;for(;;){if(v1===void 0)break;try{try{e[1](v1);}catch(v2){e[2](v2,["foo"])}break}catch(x){v3=[v3,e[3](x)]}throw e[4](v1,v3)}return {bar:v0,foo:v1}}catch(v4){e[8](v4)}}
     examples:
       allof-satisfied:
         input: '{ bar: "x", foo: 1 }'
@@ -23,13 +23,13 @@ operations:
         input: '{ bar: "x" }'
         error: Should pass for all schemas of the allOf property.
   decode:
-    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    expression: i=>{try{e[4](i)||e[5](i);let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}return i}catch(v3){e[6](v3)}}
     examples:
       allof-satisfied:
         input: '{ bar: "x", foo: 1 }'
         output: '{ bar: "x", foo: 1 }'
   encode:
-    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    expression: i=>{try{let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}e[4](i)||e[5](i);return i}catch(v3){e[6](v3)}}
     examples:
       allof-satisfied:
         input: '{ bar: "x", foo: 1 }'
