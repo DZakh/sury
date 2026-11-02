@@ -26,6 +26,7 @@ import {
   compilePath,
   pathEmpty,
   pathToText,
+  refTag,
   setHas,
   U,
   undefinedTag,
@@ -117,8 +118,32 @@ const makeObjectCtx = (
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
+// What a decoded value holds, with no conversion left to run: every member,
+// field and item at the end of its own chain. A field's output is that value,
+// so a later link into JSON text renders it rather than decoding it again.
+const outputView = (schema: Internal): Internal => {
+  const output = getOutputSchema(schema);
+  const members = output.anyOf, fields = output.properties, items = output.items, rest = output.additionalItems;
+  if (output.type === refTag || (!members && !fields && !items?.length && typeof rest !== "object")) return output;
+  const view = copySchema(output);
+  if (members) {
+    view.anyOf = members.map(outputView);
+    const has = {};
+    for (const member of view.anyOf) setHas(has, member);
+    view.has = has;
+  }
+  if (fields) {
+    const properties: Record<string, Internal> = Object.create(null);
+    for (const key in fields) properties[key] = outputView(fields[key]!);
+    view.properties = properties;
+  }
+  if (items?.length) view.items = items.map(outputView);
+  if (typeof rest === "object") view.additionalItems = outputView(rest);
+  return view;
+};
+
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
-  const item = getOutputSchema(schema);
+  const item = outputView(schema);
   // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for
   // an absent key.
   const mut = baseSchema(anyOfTag, false, noopDecoder);

@@ -98,7 +98,9 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "codec" &&
       f.property === "conformance" &&
       f.detail.includes("isOutput rejects") &&
-      some(f.shape, (node) => node.name === "with" && node.raw === "to"),
+      // The catalog's leaf string-to-length link, not a container carried
+      // into a JSON string (`intoJsonString`).
+      some(f.shape, (node) => node.name === "with" && node.raw === "to" && !(node.args[0]?.args.length ?? 0)),
   },
   {
     id: "fieldor-absent-item-output",
