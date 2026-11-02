@@ -1454,9 +1454,11 @@ export const fromJSONSchema = (
     // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
     // A finite target is built once and shared, stripping what it doesn't
-    // declare; a keyword beside the `$ref` reads those keys, so it gets its own.
+    // declare. Where a keyword reads more keys (beside the `$ref`, or from the
+    // schema around it), it gets a build of its own, once per kept set.
     if (kept !== U && schema.type !== refTag) {
-      schema = jsonDefinitionToSchema(
+      const key = `${jsonSchema["$ref"]}\0${kept === true ? "" : kept.join("\0")}`;
+      schema = ctx.built[key] ??= jsonDefinitionToSchema(
         pointerTarget(jsonSchema["$ref"].split("/"), ctx.root) as JSONSchemaDefinition,
         ctx,
         kept
