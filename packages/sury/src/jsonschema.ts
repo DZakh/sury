@@ -60,6 +60,7 @@ import {
   Metadata_Id_internal,
   Metadata_set,
   Option_getOr,
+  Option_getWithDefault,
   deepStrict,
   option,
   refineInput,
@@ -996,6 +997,9 @@ const withDefault = (property: Internal, defaultValue: unknown): Internal => {
     return Option_getOr(optional, defaultValue);
   } catch (exn) {
     if (exn && (exn as { s?: symbol }).s === errorSymbol) throw exn;
+    if (property.type === refTag && !property.definition!()) {
+      return Option_getWithDefault(optional, { type: "value", value: defaultValue, annotation: true });
+    }
     return extendJSONSchema(optional, { default: defaultValue });
   }
 };

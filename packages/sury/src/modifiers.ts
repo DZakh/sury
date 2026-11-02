@@ -528,7 +528,9 @@ export const nullAsUnit: Internal = /* @__PURE__ */ copyTo(nullLiteral, unit);
 // A default is either an eager value or a lazily-called callback - used only
 // within this module, never exposed to callers.
 export type OptionDefault =
-  | { type: "value"; value: unknown }
+  // `annotation`: a JSON Schema `default`, dropped in as it stands, so the
+  // definition still being built never reads it.
+  | { type: "value"; value: unknown; annotation?: boolean }
   | { type: "callback"; callback: () => unknown };
 
 const readsNone = (output: Internal): boolean =>
@@ -596,7 +598,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       mut.anyOf = items;
       return;
     }
-    if (building !== U) {
+    if (building !== U && !(default_.type === "value" && default_.annotation)) {
       panic(
         `Can't set default for ${inputExpression(mut)}: the default is read as ${building.name}, which would need a default of its own`
       );

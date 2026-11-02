@@ -6,7 +6,7 @@ ts:
   instantiations: 4298
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'
-  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } } } } }'
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", default: { v: 1 } } }, required: ["next"] } } }'
 isEqual: (a,b)=>a===b||e[0](a,b)
 compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
@@ -16,21 +16,16 @@ operations:
   parse:
     expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
       next-missing:
         input: "{ v: 2 }"
-        output: "{ v: 2, next: undefined }"
-  decode:
-    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
-    examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
-      next-missing:
-        input: "{ v: 2 }"
-        output: "{ v: 2 }"
+        output: "{ v: 2, next: { v: 1 } }"
+        divergence:
+          reason: "the default is an annotation dropped in as the document wrote it, and `{ v: 1 }` has no `next` of its own, which the output document requires once the default fills every missing one"
+          ajv: "output: data/next must have required property 'next'"
+  decode: eq-to-parse
   encode:
     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
-      # FIXME: the default on the cyclic ref is dropped (the same keyword on the root document is applied)
       next-missing:
         input: "{ v: 2 }"
-        output: "{ v: 2 }"
+        error: "Failed at next: Expected N, received undefined"
