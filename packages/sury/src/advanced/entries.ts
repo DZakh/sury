@@ -34,8 +34,7 @@ import {
 } from "../parse";
 import {
   openedText,
-  string,
-  unit
+  string
 } from "../primitives";
 
 export const presentArm = (schema: Internal): Internal => {
@@ -144,7 +143,7 @@ export const absentCode = (item: Val, absent: Internal): string => {
     return armCode(item, absent, absent);
   }
   if (absent.type === anyOfTag) {
-    return armCode(item, unit, absent);
+    return armCode(item, absentArm(absent)!, absent);
   }
   if (absent.type === undefinedTag) {
     return "";
