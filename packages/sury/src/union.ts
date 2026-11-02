@@ -134,10 +134,17 @@ const unionOutput = (schema: Internal): Internal => {
 // rejects per value (effect 3), while a never slot removes the variant from
 // this direction entirely, so it accepts nothing, counts toward no coverage,
 // and yields to its siblings.
-// An object needing a value at a `never` field holds none either.
+// A shape needing a value at a `never` field or item holds none either, at
+// any depth, short of a ref.
+const unionHoldsNone = (schema: Internal): boolean =>
+  schema.type === neverTag ||
+  (schema.type !== refTag &&
+    (!!schema.required?.some((key) => unionHoldsNone(schema.properties![key]!)) ||
+      (Array.isArray(schema.items) && schema.items.some(unionHoldsNone))));
+
 const unionNeverLink = (schema: Internal): boolean => {
   for (let node: Internal | undefined = schema; node !== U && node.type !== neverTag; node = node.to) {
-    if (node.parser === B_neverSlot || node.required?.some((key) => node!.properties![key]!.type === neverTag)) return true;
+    if (node.parser === B_neverSlot || unionHoldsNone(node)) return true;
   }
   return false;
 };
@@ -1757,9 +1764,8 @@ export const unionDecoder: Builder = (input: Val) => {
     });
   }
 
-  // The union swaps in its own exit while it emits, and a compile that throws
-  // midway must not leave it behind: json.ts catches a failed parse and parses
-  // again on the same operation.
+  // A value S.shape places more than once is read by each placement, and a
+  // case writes its result back into the var it dispatched on.
   for (let read: Val | undefined = input; read; read = read.b || read.prev) {
     if (read.sp! > 1) {
       const own = B_next(input, input.v(), input.s, input.e);
@@ -1768,6 +1774,9 @@ export const unionDecoder: Builder = (input: Val) => {
       break;
     }
   }
+  // The union swaps in its own exit while it emits, and a compile that throws
+  // midway must not leave it behind: json.ts catches a failed parse and parses
+  // again on the same operation.
   const exit = input.g.x, y = input.g.y;
   try {
     return unionEmit(
@@ -1918,19 +1927,6 @@ const unionResolve = (
   }
   if (unionIsTransparent(target, true)) {
     return unionResolveToUnion(input, source, variants, target);
-  }
-  // A check's result sentinel past the union (S.isInput and kin) leaves it the
-  // union it is, each member then carrying the sentinel, so a check compiles
-  // as the parse does.
-  const tail = target.to;
-  if (target.type === anyOfTag && tail?.noValidation) {
-    const own = copySchema(target);
-    delete own.to;
-    if (unionIsTransparent(own, true)) {
-      return unionResolveToUnion(input, source, variants, own).map((to, idx) =>
-        unionOutput(variants[idx]!).type === neverTag ? U : to === U ? tail : updateOutput<Internal>(to, (mut) => { mut.to = tail; })
-      );
-    }
   }
   // Rule 3 - every source variant gets its own built-in decoder to the target.
   // Two targets are never ambiguous: `unknown`, the top type, which decodes

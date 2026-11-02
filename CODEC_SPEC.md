@@ -34,7 +34,11 @@ now matches.
 - **`S.never` marks an unreachable path.** `S.never` variants - including
   transformed ones like `S.never.with(S.to, S.number)`, which match by their
   `never` input - are ignored by type matching: they never trigger the
-  exceptions below and don't count toward rule 4's coverage.
+  exceptions below and don't count toward rule 4's coverage. So is a shape
+  that needs a value at an `S.never` field or item, at any depth:
+  `S.union([S.string, S.object((s) => ({ a: s.field("a", S.never) }))])`
+  encodes `"x"` (`union-never-member`, `union-never-item-member`,
+  `union-never-nested-field-member`).
 
 ## Rule 1: non-union → non-union
 
@@ -420,12 +424,15 @@ With `M = S.schema({ a: S.string.with(S.protobufField, 1) })` and
 
 ```ts
 B.with(S.to, S.protobuf).with(S.to, M);                                  // reads [10, 1, 97] as { a: "a" }
+S.instance(Buffer).with(S.to, S.protobuf).with(S.to, M);                 // a Uint8Array too: the same
 S.protobuf.with(S.to, B.with(S.refine, f)).with(S.to, S.protobuf).with(S.to, M); // f checks the bytes
 S.instance(ArrayBuffer).with(S.to, S.protobuf).with(S.to, M);            // refused: not a Uint8Array
+S.arrayBuffer.with(S.to, S.protobuf);                                    // S.arrayBuffer converts, both ways
 ```
 
-One spec per line, in order: `codec-uint8array-protobuf-chain`,
-`codec-protobuf-uint8array-protobuf-chain`, `codec-arraybuffer-protobuf-chain`.
+The specs, in order: `codec-uint8array-protobuf-chain`,
+`codec-buffer-protobuf-chain`, `codec-protobuf-uint8array-protobuf-chain`,
+`codec-arraybuffer-protobuf-chain`.
 
 ## Protobuf oneof
 

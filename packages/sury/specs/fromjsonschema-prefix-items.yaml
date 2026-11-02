@@ -10,6 +10,11 @@ jsonSchema:
   draft-2020-12:
     input: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
     output: '{ items: false, type: "array", prefixItems: [{ type: "string" }, { type: "number" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ items: { anyOf: [{ type: "string" }, { type: "number" }] }, type: "array" }'
+    fromInputType: (string | number)[]
+    output: '{ items: { anyOf: [{ type: "string" }, { type: "number" }] }, type: "array" }'
+    fromOutputType: (string | number)[]
 isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(e[0](a[i],b[i])))return false;return true}
 compare: "throws: [Sury] Can't compare JSON[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:

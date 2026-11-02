@@ -455,9 +455,9 @@ const shapePlaced = (val: Val): void => {
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
-    v = B_scope(
-      valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!)
-    );
+    const at = valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (targetSchema.from !== U) {
     const at = valAt(input, targetSchema.from);
     shapePlaced(at);

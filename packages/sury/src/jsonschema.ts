@@ -335,21 +335,25 @@ const applyMetadataOverlay = (
 }
 
 // Positional items are spelled per dialect: `prefixItems` + `items` from draft
-// 2020-12, an `items` array + `additionalItems` before it. An overlay written
-// in one is re-spelled for the other, or the document means something else.
+// 2020-12, an `items` array + `additionalItems` before it, and OpenAPI 3.0,
+// which has neither, the `anyOf` of them S.tuple writes. An overlay written in
+// one is re-spelled for the target, or the document means something else.
 const positionalFor = (raw: JSONSchemaT, target: JsonSchemaTarget): JSONSchemaT => {
-  const modern = target === draft202012;
-  if (modern ? !Array.isArray(raw.items) : raw.prefixItems === U) return raw;
+  const prefix = raw.prefixItems ?? (Array.isArray(raw.items) ? raw.items : U);
+  if (prefix === U) return raw;
+  const rest = raw.prefixItems !== U ? (raw.items as JSONSchemaDefinition | undefined) : raw.additionalItems;
   const out: JSONSchemaT = { ...raw };
-  if (modern) {
-    out.prefixItems = raw.items as JSONSchemaDefinition[];
-    delete out.items;
-    if (raw.additionalItems !== U) out.items = raw.additionalItems;
-    delete out.additionalItems;
+  delete out.prefixItems;
+  delete out.items;
+  delete out.additionalItems;
+  if (target === draft202012) {
+    out.prefixItems = prefix;
+    if (rest !== U) out.items = rest;
+  } else if (target === openApi30) {
+    out.items = { anyOf: prefix };
   } else {
-    out.items = raw.prefixItems;
-    delete out.prefixItems;
-    if (raw.items !== U) out.additionalItems = raw.items as JSONSchemaDefinition;
+    out.items = prefix;
+    if (rest !== U) out.additionalItems = rest;
   }
   return out;
 };

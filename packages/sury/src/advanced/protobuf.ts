@@ -2637,7 +2637,7 @@ const protobufDecoder = (input: Val): Val => {
   // has none of its fields.
   const sourceTagFlag = tagFlags[input.s.type]!;
   if (sourceTagFlag & 1) return instanceDecoder(input);
-  if (sourceTagFlag & 8192) return input.s.class === Uint8Array ? B_refine(input, input.e) : B_unsupportedDecode(input, input.s, input.e);
+  if (sourceTagFlag & 8192) return (input.s.class === Uint8Array || (input.s.class as Function).prototype instanceof Uint8Array) ? B_refine(input, input.e) : B_unsupportedDecode(input, input.s, input.e);
   const message = compileMessage(objectSchemaOf(input), newCtx(false, true));
   if (message === U) return B_unsupportedDecode(input, input.s, input.e);
   const fns = new Map<Message, string>();

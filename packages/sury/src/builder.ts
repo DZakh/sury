@@ -395,14 +395,13 @@ export const B_then = (param: string, body: string, ret: string): Continuation =
 
 // The native `then` on the answer, never the answer's own: a thenable could
 // call H synchronously and have the `try` wrap its error a second time
-// (codec-custom-async-sync-thenable). Anything with a `.catch`, the one method
-// the unfused form ever asked for, is adopted first, so a promise from another
-// library still works (codec-custom-async-foreign-promise); a native one comes
-// back as itself, with no extra hop.
+// (codec-custom-async-sync-thenable). Anything with a `.catch` is adopted first,
+// so a promise from another library still works
+// (codec-custom-async-foreign-promise); a native one comes back as itself.
 const nativeThen = Promise.prototype.then;
-// The result is marked handled: a union arm that fails a later check leaves
-// it behind, and its rejection would reach Node's unhandled-rejection exit.
-// Whatever does read it still sees the rejection.
+// The result is marked handled: a container or union arm that fails a later
+// check leaves it behind, and its rejection would reach Node's
+// unhandled-rejection exit. Whatever does read it still sees the rejection.
 const fusedThen = (answer: Promise<unknown>, ok: unknown, no: unknown): Promise<unknown> => {
   const result = nativeThen.call(typeof answer?.catch === "function" ? Promise.resolve(answer) : answer, ok as never, no as never);
   result.catch(() => {});

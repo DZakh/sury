@@ -223,9 +223,9 @@ export const convertTextEntry = (
       // representation, so a JSON arm reads it rather than being told to by a
       // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
       const json = present.anyOf!.find((variant) => variant.format === "json");
-      // An entry's text that a number, boolean or null arm reads is JSON text
-      // too, so beside a JSON arm the value could come back as either.
-      const rival = json && present.anyOf!.find((variant) => tagFlags[variant.type]! & (4 | 8 | 16 | 1024));
+      // An entry's text that a number, boolean or bigint arm reads is JSON
+      // text too, so beside a JSON arm the value could come back as either.
+      const rival = json && present.anyOf!.find((variant) => tagFlags[variant.type]! & (4 | 8 | 1024));
       if (rival) {
         B_invalidOperation(
           input,

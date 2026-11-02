@@ -919,12 +919,15 @@ const presentTarget = (s: Internal): Internal | undefined => {
 // rather than staying `undefined`. A ref may be optional behind its name, a
 // nested union holds its own `undefined` arm, and an `unknown` or `any` with
 // work to do reaches `undefined` before the plain arm.
+// An env var reads a missing one as unset, which its own link may default.
+const envDefaults = (s: Internal): boolean => s.format === "env" && s.to !== U;
+
 const readsAbsent = (s: Internal): boolean => {
+  if (envDefaults(s)) return true;
   if (!isOptional(s)) return s.type === refTag;
   if (s.to !== U || s.refiner !== U) return true;
   for (const arm of s.anyOf || [s]) {
-    // An env var reads a missing one as unset, which its own link may default.
-    if (arm.format === "env" && arm.to !== U) return true;
+    if (envDefaults(arm)) return true;
     if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
     if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
       return true;
