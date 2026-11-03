@@ -1,0 +1,860 @@
+{
+  "Example": {
+    "rating": {"cases": [
+      {"input": "\"G\"", "output": "\"G\""},
+      {"input": "\"PG\"", "output": "\"PG\""},
+      {"input": "\"PG13\"", "output": "\"PG13\""},
+      {"input": "\"R\"", "output": "\"R\""},
+      {"input": "\"GeneralAudiences\"", "error": "unknown variant `GeneralAudiences`, expected one of `G`, `PG`, `PG13`, `R` at line 1 column 18"},
+      {"input": "\"g\"", "error": "unknown variant `g`, expected one of `G`, `PG`, `PG13`, `R` at line 1 column 3"},
+      {"input": "1", "error": "expected value at line 1 column 1"},
+      {"input": "null", "error": "expected value at line 1 column 1"},
+      {"input": "{\"G\":null}", "output": "\"G\"", "gap": "Serde also reads a unit variant from a map holding the variant's name over null; Sury reads only the string"}
+    ]},
+    "film": {"cases": [
+      {"input": "{\"Id\":1.0,\"Title\":\"My first film\",\"Tags\":[],\"Rating\":\"R\",\"Age\":17}", "output": "{\"Id\":1.0,\"Title\":\"My first film\",\"Tags\":[],\"Rating\":\"R\",\"Age\":17}"},
+      {"input": "{\"Id\":2.5,\"Title\":\"Sad & sed\",\"Tags\":[\"Loved\"],\"Rating\":\"PG13\",\"Age\":null}", "output": "{\"Id\":2.5,\"Title\":\"Sad & sed\",\"Tags\":[\"Loved\"],\"Rating\":\"PG13\",\"Age\":null}"},
+      {"input": "{\"Id\":1,\"Title\":\"My first film\",\"Rating\":\"R\",\"Age\":17}", "output": "{\"Id\":1.0,\"Title\":\"My first film\",\"Tags\":[],\"Rating\":\"R\",\"Age\":17}"},
+      {"input": "{\"Id\":1,\"Title\":\"No age\",\"Tags\":[\"a\"],\"Rating\":\"G\"}", "output": "{\"Id\":1.0,\"Title\":\"No age\",\"Tags\":[\"a\"],\"Rating\":\"G\",\"Age\":null}"},
+      {"input": "{\"Id\":1,\"Title\":\"Extra keys\",\"Rating\":\"G\",\"Age\":null,\"Director\":\"Somebody\"}", "output": "{\"Id\":1.0,\"Title\":\"Extra keys\",\"Tags\":[],\"Rating\":\"G\",\"Age\":null}"},
+      {"input": "{\"Title\":\"No id\",\"Rating\":\"G\"}", "error": "missing field `Id` at line 1 column 30"},
+      {"input": "{\"Id\":1,\"Title\":\"Null tags\",\"Tags\":null,\"Rating\":\"G\"}", "error": "invalid type: null, expected a sequence at line 1 column 39"},
+      {"input": "{\"Id\":\"1\",\"Title\":\"String id\",\"Rating\":\"G\"}", "error": "invalid type: string \"1\", expected f64 at line 1 column 9"},
+      {"input": "{\"Id\":1,\"Title\":\"Bad rating\",\"Rating\":\"X\"}", "error": "unknown variant `X`, expected one of `G`, `PG`, `PG13`, `R` at line 1 column 41"},
+      {"input": "{\"Id\":1,\"Title\":\"Float age\",\"Rating\":\"G\",\"Age\":1.5}", "error": "invalid type: floating point `1.5`, expected i32 at line 1 column 50"},
+      {"input": "[1,\"Film as an array\",[],\"G\",null]", "output": "{\"Id\":1.0,\"Title\":\"Film as an array\",\"Tags\":[],\"Rating\":\"G\",\"Age\":null}", "gap": "Serde also reads a struct from an array of its fields in order; Sury reads only an object"}
+    ]},
+    "matches": {"cases": [
+      {"input": "\"abc\"", "output": "\"abc\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "url": {"skipped": "S.url reads a JS URL instance, which JSON can't hold"},
+    "default": {"cases": [
+      {"input": "\"Hello\"", "output": "\"Hello\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "defaultWith": {"cases": [
+      {"input": "[]", "output": "[]"},
+      {"input": "[\"a\"]", "output": "[\"a\"]"},
+      {"input": "null", "error": "invalid type: null, expected a sequence at line 1 column 4"}
+    ]},
+    "null": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "null"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "nullWithDefault": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "\"Unknown\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "nullable": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "null", "output": "null", "gap": "@s.nullable writes None as undefined: a missing key in an object, but no JSON document on its own"}
+    ]},
+    "nullableWithDefault": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "\"Unknown\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "deprecated": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "describe": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]}
+  },
+  "Format": {
+    "myEmail": {"cases": [
+      {"input": "\"a@b.com\"", "output": "\"a@b.com\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "myPort": {"cases": [
+      {"input": "0", "output": "0"},
+      {"input": "8080", "output": "8080"},
+      {"input": "65535", "output": "65535"},
+      {"input": "65536", "error": "invalid value: integer `65536`, expected u16 at line 1 column 5"},
+      {"input": "-1", "error": "invalid value: integer `-1`, expected u16 at line 1 column 2"},
+      {"input": "80.5", "error": "invalid type: floating point `80.5`, expected u16 at line 1 column 4"},
+      {"input": "\"80\"", "error": "invalid type: string \"80\", expected u16 at line 1 column 4"}
+    ]},
+    "myInteger": {"cases": [
+      {"input": "0", "output": "0"},
+      {"input": "-5", "output": "-5"},
+      {"input": "3000000000", "output": "3000000000"},
+      {"input": "9007199254740991", "output": "9007199254740991"},
+      {"input": "1.5", "error": "invalid type: floating point `1.5`, expected i64 at line 1 column 3"},
+      {"input": "\"1\"", "error": "invalid type: string \"1\", expected i64 at line 1 column 3"}
+    ]},
+    "myJsonString": {"cases": [
+      {"input": "\"{\\\"a\\\":1}\"", "output": "\"{\\\"a\\\":1}\""},
+      {"input": "\"[]\"", "output": "\"[]\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "{\"a\":1}", "error": "invalid type: map, expected a string at line 1 column 0"}
+    ]},
+    "myUrl": {"skipped": "S.url reads a JS URL instance, which JSON can't hold"},
+    "myDate": {"skipped": "S.date reads a JS Date instance, which JSON can't hold"},
+    "myBlob": {"skipped": "S.blob reads a JS Blob, which JSON can't hold"},
+    "myFormData": {"skipped": "S.formData reads a JS FormData, which JSON can't hold"},
+    "myEnv": {"cases": [
+      {"input": "\"42\"", "output": "\"42\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "myUrlSearchParams": {"skipped": "S.urlSearchParams reads a JS URLSearchParams, which JSON can't hold"},
+    "myQueryString": {"cases": [
+      {"input": "\"a=1&b=2\"", "output": "\"a=1&b=2\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "myNonEmptyTags": {"cases": [
+      {"input": "[\"x\"]", "output": "[\"x\"]"},
+      {"input": "null", "error": "invalid type: null, expected a sequence at line 1 column 4"},
+      {"input": "[1]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"}
+    ]},
+    "user": {"cases": [
+      {"input": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\"],\"homepage\":null}", "output": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\"],\"homepage\":null}"},
+      {"input": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\",\"y\"],\"homepage\":\"https://example.com\"}", "output": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\",\"y\"],\"homepage\":\"https://example.com\"}"},
+      {"input": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\"]}", "output": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\",\"tags\":[\"x\"],\"homepage\":null}"},
+      {"input": "{\"id\":\"123e4567-e89b-12d3-a456-426614174000\",\"email\":\"a@b.com\"}", "error": "missing field `tags` at line 1 column 63"}
+    ]},
+    "identifiers": {"cases": [
+      {"input": "{\"key\":\"018f3f8e-7b1a-7c3d-8e4f-9a0b1c2d3e4f\",\"legacyKey\":\"123e4567-e89b-12d3-a456-426614174000\",\"slug\":\"tz4a98xxat96iws9zmbrgj3a\",\"event\":\"01ARZ3NDEKTSV4RRFFQ69G5FAV\",\"trace\":\"9m4e2mr0ui3e8a215n4g\",\"token\":\"V1StGXR8_Z5jdHi6B-myT\"}", "output": "{\"key\":\"018f3f8e-7b1a-7c3d-8e4f-9a0b1c2d3e4f\",\"legacyKey\":\"123e4567-e89b-12d3-a456-426614174000\",\"slug\":\"tz4a98xxat96iws9zmbrgj3a\",\"event\":\"01ARZ3NDEKTSV4RRFFQ69G5FAV\",\"trace\":\"9m4e2mr0ui3e8a215n4g\",\"token\":\"V1StGXR8_Z5jdHi6B-myT\"}"}
+    ]},
+    "host": {"cases": [
+      {"input": "{\"block\":\"192.168.0.0/16\",\"address\":\"192.168.0.1\",\"hardware\":\"00:1b:44:11:3a:b7\",\"homepage\":\"https://example.com\",\"phone\":\"+14155552671\",\"digest\":\"deadbeef\"}", "output": "{\"block\":\"192.168.0.0/16\",\"address\":\"192.168.0.1\",\"hardware\":\"00:1b:44:11:3a:b7\",\"homepage\":\"https://example.com\",\"phone\":\"+14155552671\",\"digest\":\"deadbeef\"}"},
+      {"input": "{\"block\":\"192.168.0.0/16\"}", "error": "missing field `address` at line 1 column 26"}
+    ]}
+  },
+  "General": {
+    "t": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "foo": {"cases": [
+      {"input": "1", "output": "1"},
+      {"input": "-2147483648", "output": "-2147483648"},
+      {"input": "2147483647", "output": "2147483647"},
+      {"input": "2147483648", "error": "invalid value: integer `2147483648`, expected i32 at line 1 column 10"},
+      {"input": "1.5", "error": "invalid type: floating point `1.5`, expected i32 at line 1 column 3"},
+      {"input": "\"1\"", "error": "invalid type: string \"1\", expected i32 at line 1 column 3"}
+    ]},
+    "reusedTypes": {"cases": [
+      {"input": "[\"a\",1,true,1.5]", "output": "[\"a\",1,true,1.5]"},
+      {"input": "[\"a\",1,true]", "error": "invalid length 3, expected a tuple of size 4 at line 1 column 12"},
+      {"input": "[\"a\",1,true,1.5,null]", "error": "trailing characters at line 1 column 17"},
+      {"input": "{\"0\":\"a\"}", "error": "invalid type: map, expected a tuple of size 4 at line 1 column 0"}
+    ]},
+    "stringWithDefault": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "stringWithDefaultAndMatches": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "stringWithDefaultNullAndMatches": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "\"https://example.com\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "ignoredNullWithMatches": {"skipped": "@s.matches(S.option(S.string)) writes None as undefined, which a JSON document can't be"},
+    "stringWithWith": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "stringWithMultipleWith": {"cases": [
+      {"input": "\"abc\"", "output": "\"abc\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "userWithWith": {"cases": [
+      {"input": "{\"name\":\"Jo\",\"age\":18}", "output": "{\"name\":\"Jo\",\"age\":18}"},
+      {"input": "{\"name\":\"Jo\",\"age\":20,\"extra\":null}", "output": "{\"name\":\"Jo\",\"age\":20}"},
+      {"input": "{\"name\":\"Jo\"}", "error": "missing field `age` at line 1 column 13"},
+      {"input": "{\"name\":\"Jo\",\"age\":null}", "error": "invalid type: null, expected i32 at line 1 column 23"}
+    ]},
+    "stringWithDefaultAndWith": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "stringWithWithAndDefault": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"}
+    ]},
+    "intWithWithPlaceholder": {"cases": [
+      {"input": "1", "output": "1"},
+      {"input": "5", "output": "5"},
+      {"input": "null", "error": "invalid type: null, expected i32 at line 1 column 4"},
+      {"input": "1.5", "error": "invalid type: floating point `1.5`, expected i32 at line 1 column 3"}
+    ]},
+    "recordWithOptionalWithField": {"cases": [
+      {"input": "{\"maybe\":\"a\"}", "output": "{\"maybe\":\"a\"}"},
+      {"input": "{\"maybe\":null}", "output": "{\"maybe\":null}"},
+      {"input": "{}", "output": "{\"maybe\":null}"},
+      {"input": "{\"maybe\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 10"}
+    ]},
+    "paramWithWith<string>": {"cases": [
+      {"input": "[\"a\"]", "output": "[\"a\"]"},
+      {"input": "[1]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"},
+      {"input": "null", "error": "invalid type: null, expected a sequence at line 1 column 4"}
+    ]},
+    "withOverNestedAttributes": {"cases": [
+      {"input": "[\"a\",\"b\"]", "output": "[\"a\",\"b\"]"},
+      {"input": "[null]", "error": "invalid type: null, expected a string at line 1 column 5"},
+      {"input": "[1]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"}
+    ]}
+  },
+  "Object": {
+    "simpleObject": {"cases": [
+      {"input": "{\"label\":\"foo\",\"value\":1}", "output": "{\"label\":\"foo\",\"value\":1}"},
+      {"input": "{\"value\":1,\"label\":\"foo\",\"other\":[]}", "output": "{\"label\":\"foo\",\"value\":1}"},
+      {"input": "{\"label\":\"foo\"}", "error": "missing field `value` at line 1 column 15"},
+      {"input": "{\"label\":\"foo\",\"value\":\"1\"}", "error": "invalid type: string \"1\", expected i32 at line 1 column 26"},
+      {"input": "null", "error": "invalid type: null, expected struct SimpleObject at line 1 column 4"}
+    ]}
+  },
+  "Parametrized": {
+    "wrapper<int>": {"cases": [
+      {"input": "{\"value\":42}", "output": "{\"value\":42}"},
+      {"input": "{}", "error": "missing field `value` at line 1 column 2"},
+      {"input": "{\"value\":\"42\"}", "error": "invalid type: string \"42\", expected i32 at line 1 column 13"}
+    ]},
+    "wrapper<string>": {"cases": [
+      {"input": "{\"value\":\"hello\"}", "output": "{\"value\":\"hello\"}"},
+      {"input": "{\"value\":42}", "error": "invalid type: integer `42`, expected a string at line 1 column 11"}
+    ]},
+    "parent": {"cases": [
+      {"input": "{\"wrapped\":{\"value\":42}}", "output": "{\"wrapped\":{\"value\":42}}"},
+      {"input": "{\"wrapped\":42}", "error": "invalid type: integer `42`, expected struct Wrapper at line 1 column 13"}
+    ]},
+    "nested<string>": {"cases": [
+      {"input": "{\"inner\":{\"value\":\"deep\"}}", "output": "{\"inner\":{\"value\":\"deep\"}}"},
+      {"input": "{\"inner\":{\"value\":1}}", "error": "invalid type: integer `1`, expected a string at line 1 column 19"}
+    ]},
+    "withOption<int>": {"cases": [
+      {"input": "{\"data\":5}", "output": "{\"data\":5}"},
+      {"input": "{\"data\":null}", "output": "{\"data\":null}"},
+      {"input": "{}", "output": "{\"data\":null}"},
+      {"input": "{\"data\":\"5\"}", "error": "invalid type: string \"5\", expected i32 at line 1 column 11"}
+    ]},
+    "withArray<string>": {"cases": [
+      {"input": "{\"items\":[\"a\",\"b\"]}", "output": "{\"items\":[\"a\",\"b\"]}"},
+      {"input": "{\"items\":\"a\"}", "error": "invalid type: string \"a\", expected a sequence at line 1 column 12"}
+    ]},
+    "holder": {"cases": [
+      {"input": "{\"res\":{\"TAG\":\"R2A\",\"_0\":1}}", "output": "{\"res\":{\"TAG\":\"R2A\",\"_0\":1}}"},
+      {"input": "{\"res\":{\"TAG\":\"R2B\",\"_0\":\"boom\"}}", "output": "{\"res\":{\"TAG\":\"R2B\",\"_0\":\"boom\"}}"},
+      {"input": "{\"res\":{\"TAG\":\"R2A\",\"_0\":\"1\"}}", "error": "invalid type: string \"1\", expected i32 at line 1 column 28"},
+      {"input": "{\"res\":{\"R2A\":1}}", "error": "missing field `TAG` at line 1 column 16"}
+    ]},
+    "id<int>": {"cases": [
+      {"input": "\"hello\"", "output": "\"hello\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]}
+  },
+  "Polyvariant": {
+    "poly": {"cases": [
+      {"input": "\"one\"", "output": "\"one\""},
+      {"input": "\"two\"", "output": "\"two\""},
+      {"input": "\"three\"", "error": "unknown variant `three`, expected `one` or `two` at line 1 column 7"},
+      {"input": "\"One\"", "error": "unknown variant `One`, expected `one` or `two` at line 1 column 5"},
+      {"input": "{\"NAME\":\"one\"}", "error": "unknown variant `NAME`, expected `one` or `two` at line 1 column 7"}
+    ]},
+    "polyWithSingleItem": {"cases": [
+      {"input": "\"single\"", "output": "\"single\""},
+      {"input": "\"double\"", "error": "unknown variant `double`, expected `single` at line 1 column 8"}
+    ]},
+    "polyEmbeded": {"skipped": "@s.matches(S.string->S.shape(_ => #one)) reads any string as #one and can't write the string back"},
+    "dictField": {"cases": [
+      {"input": "{\"a\":\"one\"}", "output": "{\"a\":\"one\"}"},
+      {"input": "{\"a\":\"two\"}", "error": "unknown variant `two`, expected `one` at line 1 column 10"}
+    ]},
+    "recordField": {"cases": [
+      {"input": "{\"poly\":\"one\"}", "output": "{\"poly\":\"one\"}"},
+      {"input": "{}", "error": "missing field `poly` at line 1 column 2"},
+      {"input": "{\"poly\":null}", "error": "expected value at line 1 column 9"}
+    ]},
+    "objectField": {"cases": [
+      {"input": "{\"poly\":\"one\"}", "output": "{\"poly\":\"one\"}"},
+      {"input": "{}", "error": "missing field `poly` at line 1 column 2"}
+    ]},
+    "polyWithPayloads": {"cases": [
+      {"input": "\"one\"", "output": "\"one\""},
+      {"input": "{\"two\":123}", "output": "{\"two\":123}"},
+      {"input": "{\"three\":[\"hello\",1.5]}", "output": "{\"three\":[\"hello\",1.5]}"},
+      {"input": "{\"four\":{\"foo\":\"bar\"}}", "output": "{\"four\":{\"foo\":\"bar\"}}"},
+      {"input": "{\"NAME\":\"two\",\"VAL\":123}", "error": "unknown variant `NAME`, expected one of `one`, `two`, `three`, `four` at line 1 column 7"},
+      {"input": "\"two\"", "error": "invalid type: unit variant, expected newtype variant"},
+      {"input": "{\"two\":\"123\"}", "error": "invalid type: string \"123\", expected i32 at line 1 column 12"},
+      {"input": "{\"three\":[\"hello\"]}", "error": "invalid length 1, expected tuple variant PolyWithPayloads::three with 2 elements at line 1 column 18"},
+      {"input": "{\"four\":{}}", "error": "missing field `foo` at line 1 column 10"},
+      {"input": "{\"two\":1,\"one\":null}", "error": "expected value at line 1 column 8"}
+    ]},
+    "polyWithSinglePayload": {"cases": [
+      {"input": "{\"value\":\"hello\"}", "output": "{\"value\":\"hello\"}"},
+      {"input": "\"value\"", "error": "invalid type: unit variant, expected newtype variant"},
+      {"input": "{\"value\":null}", "error": "invalid type: null, expected a string at line 1 column 13"}
+    ]},
+    "polyWithInheritance": {"cases": [
+      {"input": "\"one\"", "output": "\"one\""},
+      {"input": "\"two\"", "output": "\"two\""},
+      {"input": "\"three\"", "output": "\"three\""},
+      {"input": "\"four\"", "error": "unknown variant `four`, expected one of `one`, `two`, `three` at line 1 column 6"}
+    ]},
+    "polyWithPayloadInheritance": {"cases": [
+      {"input": "\"one\"", "output": "\"one\""},
+      {"input": "{\"two\":123}", "output": "{\"two\":123}"},
+      {"input": "{\"three\":[\"x\",2.0]}", "output": "{\"three\":[\"x\",2.0]}"},
+      {"input": "{\"four\":{\"foo\":\"y\"}}", "output": "{\"four\":{\"foo\":\"y\"}}"},
+      {"input": "{\"five\":true}", "output": "{\"five\":true}"},
+      {"input": "{\"five\":1}", "error": "invalid type: integer `1`, expected a boolean at line 1 column 9"}
+    ]},
+    "polyInheritanceField": {"cases": [
+      {"input": "{\"variants\":\"one\"}", "output": "{\"variants\":\"one\"}"},
+      {"input": "{\"variants\":\"three\"}", "output": "{\"variants\":\"three\"}"},
+      {"input": "{\"variants\":\"four\"}", "error": "unknown variant `four`, expected one of `one`, `two`, `three` at line 1 column 18"}
+    ]},
+    "polyInlineInheritance": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "{\"b\":7}", "output": "{\"b\":7}"},
+      {"input": "\"c\"", "output": "\"c\""},
+      {"input": "\"b\"", "error": "invalid type: unit variant, expected newtype variant"},
+      {"input": "{\"a\":1}", "error": "invalid type: integer `1`, expected unit at line 1 column 6"}
+    ]}
+  },
+  "Primitive": {
+    "myString": {"cases": [
+      {"input": "\"\"", "output": "\"\""},
+      {"input": "\"Hello World!\"", "output": "\"Hello World!\""},
+      {"input": "\"😀 \\\"quoted\\\"\\n\"", "output": "\"😀 \\\"quoted\\\"\\n\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "null", "error": "invalid type: null, expected a string at line 1 column 4"},
+      {"input": "true", "error": "invalid type: boolean `true`, expected a string at line 1 column 4"},
+      {"input": "[]", "error": "invalid type: sequence, expected a string at line 1 column 0"}
+    ]},
+    "myInt": {"cases": [
+      {"input": "0", "output": "0"},
+      {"input": "1", "output": "1"},
+      {"input": "-1", "output": "-1"},
+      {"input": "2147483647", "output": "2147483647"},
+      {"input": "-2147483648", "output": "-2147483648"},
+      {"input": "2147483648", "error": "invalid value: integer `2147483648`, expected i32 at line 1 column 10"},
+      {"input": "-2147483649", "error": "invalid value: integer `-2147483649`, expected i32 at line 1 column 11"},
+      {"input": "1.5", "error": "invalid type: floating point `1.5`, expected i32 at line 1 column 3"},
+      {"input": "\"1\"", "error": "invalid type: string \"1\", expected i32 at line 1 column 3"},
+      {"input": "null", "error": "invalid type: null, expected i32 at line 1 column 4"},
+      {"input": "1.0", "error": "invalid type: floating point `1.0`, expected i32 at line 1 column 3", "gap": "Serde refuses a float token for an integer; JSON.parse has already made 1.0 the number 1"}
+    ]},
+    "myFloat": {"cases": [
+      {"input": "0.0", "output": "0.0"},
+      {"input": "1.0", "output": "1.0"},
+      {"input": "1.5", "output": "1.5"},
+      {"input": "-2.25", "output": "-2.25"},
+      {"input": "1e+300", "output": "1e+300"},
+      {"input": "1.7976931348623157e+308", "output": "1.7976931348623157e+308"},
+      {"input": "1", "output": "1.0"},
+      {"input": "-3", "output": "-3.0"},
+      {"input": "1e2", "output": "100.0"},
+      {"input": "null", "error": "invalid type: null, expected f64 at line 1 column 4"},
+      {"input": "\"1\"", "error": "invalid type: string \"1\", expected f64 at line 1 column 3"},
+      {"input": "-0.0", "output": "-0.0", "gap": "JSON.stringify writes -0 as 0, so Sury loses the sign Serde keeps"}
+    ]},
+    "myBool": {"cases": [
+      {"input": "true", "output": "true"},
+      {"input": "false", "output": "false"},
+      {"input": "0", "error": "invalid type: integer `0`, expected a boolean at line 1 column 1"},
+      {"input": "\"true\"", "error": "invalid type: string \"true\", expected a boolean at line 1 column 6"},
+      {"input": "null", "error": "invalid type: null, expected a boolean at line 1 column 4"}
+    ]},
+    "myUnit": {"cases": [
+      {"input": "null", "output": "null"},
+      {"input": "{}", "error": "invalid type: map, expected unit at line 1 column 0"},
+      {"input": "[]", "error": "invalid type: sequence, expected unit at line 1 column 0"},
+      {"input": "0", "error": "invalid type: integer `0`, expected unit at line 1 column 1"},
+      {"input": "\"\"", "error": "invalid type: string \"\", expected unit at line 1 column 2"}
+    ]},
+    "myUnknown": {"cases": [
+      {"input": "null", "output": "null"},
+      {"input": "1.5", "output": "1.5"},
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "[1,{\"b\":null}]", "output": "[1,{\"b\":null}]"},
+      {"input": "{\"a\":true}", "output": "{\"a\":true}"}
+    ]},
+    "myNever": {"cases": [
+      {"input": "null", "error": "expected value at line 1 column 1"},
+      {"input": "1", "error": "expected value at line 1 column 1"},
+      {"input": "\"a\"", "error": "unknown variant `a`, there are no variants at line 1 column 3"},
+      {"input": "{}", "error": "expected value at line 1 column 2"}
+    ]},
+    "myOptionOfString": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "null"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"},
+      {"input": "[]", "error": "invalid type: sequence, expected a string at line 1 column 0"}
+    ]},
+    "myNullableOfString": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "null"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "myArrayOfString": {"cases": [
+      {"input": "[]", "output": "[]"},
+      {"input": "[\"a\",\"b\"]", "output": "[\"a\",\"b\"]"},
+      {"input": "null", "error": "invalid type: null, expected a sequence at line 1 column 4"},
+      {"input": "[1]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"},
+      {"input": "{\"0\":\"a\"}", "error": "invalid type: map, expected a sequence at line 1 column 0"},
+      {"input": "\"a\"", "error": "invalid type: string \"a\", expected a sequence at line 1 column 3"}
+    ]},
+    "myListOfString": {"cases": [
+      {"input": "[]", "output": "[]"},
+      {"input": "[\"a\",\"b\"]", "output": "[\"a\",\"b\"]"},
+      {"input": "null", "error": "invalid type: null, expected a sequence at line 1 column 4"},
+      {"input": "[1]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"}
+    ]},
+    "myDictOfString": {"cases": [
+      {"input": "{}", "output": "{}"},
+      {"input": "{\"a\":\"x\",\"b\":\"y\"}", "output": "{\"a\":\"x\",\"b\":\"y\"}"},
+      {"input": "null", "error": "invalid type: null, expected a map at line 1 column 4"},
+      {"input": "{\"a\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 6"},
+      {"input": "[\"a\"]", "error": "invalid type: sequence, expected a map at line 1 column 0"}
+    ]},
+    "myDictOfStringFromJs": {"cases": [
+      {"input": "{\"a\":\"x\"}", "output": "{\"a\":\"x\"}"},
+      {"input": "{\"a\":null}", "error": "invalid type: null, expected a string at line 1 column 9"}
+    ]},
+    "myDictOfStringFromCore": {"cases": [
+      {"input": "{\"a\":\"x\"}", "output": "{\"a\":\"x\"}"},
+      {"input": "{\"a\":null}", "error": "invalid type: null, expected a string at line 1 column 9"}
+    ]},
+    "myJson": {"cases": [
+      {"input": "null", "output": "null"},
+      {"input": "{\"a\":[1,2.5,\"x\",false]}", "output": "{\"a\":[1,2.5,\"x\",false]}"}
+    ]},
+    "myJsonFromCore": {"cases": [
+      {"input": "[null,{}]", "output": "[null,{}]"}
+    ]},
+    "myTuple": {"cases": [
+      {"input": "[\"a\",1]", "output": "[\"a\",1]"},
+      {"input": "[\"a\"]", "error": "invalid length 1, expected a tuple of size 2 at line 1 column 5"},
+      {"input": "[\"a\",1,2]", "error": "trailing characters at line 1 column 8"},
+      {"input": "[1,\"a\"]", "error": "invalid type: integer `1`, expected a string at line 1 column 2"},
+      {"input": "null", "error": "invalid type: null, expected a tuple of size 2 at line 1 column 4"}
+    ]},
+    "myBigTuple": {"cases": [
+      {"input": "[\"a\",\"b\",\"c\",1,2,3,1.5,2.5,3.5,true,false,true]", "output": "[\"a\",\"b\",\"c\",1,2,3,1.5,2.5,3.5,true,false,true]"},
+      {"input": "[\"a\",\"b\",\"c\",1,2,3,1.5,2.5,3.5,true,false]", "error": "invalid length 11, expected a tuple of size 12 at line 1 column 42"}
+    ]},
+    "myCustomString": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "myCustomLiteralString": {"cases": [
+      {"input": "\"123\"", "output": "\"123\""},
+      {"input": "\"124\"", "error": "unknown variant `124`, expected `123` at line 1 column 5"},
+      {"input": "123", "error": "expected value at line 1 column 1"}
+    ]},
+    "myCustomOptionalString": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "null"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]},
+    "myNullOfString": {"cases": [
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "output": "null"},
+      {"input": "1", "error": "invalid type: integer `1`, expected a string at line 1 column 1"}
+    ]}
+  },
+  "Protobuf": {
+    "address": {"cases": [
+      {"input": "{\"street\":\"Main\"}", "output": "{\"street\":\"Main\"}"},
+      {"input": "{}", "error": "missing field `street` at line 1 column 2"}
+    ]},
+    "user": {"cases": [
+      {"input": "{\"id\":150,\"home\":{\"street\":\"Main\"}}", "output": "{\"id\":150,\"home\":{\"street\":\"Main\"}}"},
+      {"input": "{\"id\":1,\"home\":null}", "output": "{\"id\":1,\"home\":null}"},
+      {"input": "{\"id\":1}", "output": "{\"id\":1,\"home\":null}"},
+      {"input": "{\"home\":null}", "error": "missing field `id` at line 1 column 13"}
+    ]}
+  },
+  "Record": {
+    "strictRecord": {"cases": [
+      {"input": "{\"strictEmail\":\"a@b.c\",\"strictName\":\"A\"}", "output": "{\"strictEmail\":\"a@b.c\",\"strictName\":\"A\"}"},
+      {"input": "{\"strictEmail\":\"a@b.c\",\"strictName\":\"A\",\"extra\":1}", "error": "unknown field `extra`, expected `strictEmail` or `strictName` at line 1 column 47"},
+      {"input": "{\"strictEmail\":\"a@b.c\"}", "error": "missing field `strictName` at line 1 column 23"}
+    ]},
+    "stripRecord": {"cases": [
+      {"input": "{\"stripEmail\":\"a@b.c\",\"stripName\":\"A\"}", "output": "{\"stripEmail\":\"a@b.c\",\"stripName\":\"A\"}"},
+      {"input": "{\"stripEmail\":\"a@b.c\",\"stripName\":\"A\",\"extra\":1}", "output": "{\"stripEmail\":\"a@b.c\",\"stripName\":\"A\"}"}
+    ]},
+    "deepStrictRecord": {"cases": [
+      {"input": "{\"deepStrictEmail\":\"a@b.c\",\"deepStrictName\":\"A\"}", "output": "{\"deepStrictEmail\":\"a@b.c\",\"deepStrictName\":\"A\"}"},
+      {"input": "{\"deepStrictEmail\":\"a@b.c\",\"deepStrictName\":\"A\",\"extra\":{}}", "error": "unknown field `extra`, expected `deepStrictEmail` or `deepStrictName` at line 1 column 55"}
+    ]},
+    "deepStripRecord": {"cases": [
+      {"input": "{\"deepStripEmail\":\"a@b.c\",\"deepStripName\":\"A\"}", "output": "{\"deepStripEmail\":\"a@b.c\",\"deepStripName\":\"A\"}"},
+      {"input": "{\"deepStripEmail\":\"a@b.c\",\"deepStripName\":\"A\",\"extra\":{}}", "output": "{\"deepStripEmail\":\"a@b.c\",\"deepStripName\":\"A\"}"}
+    ]},
+    "noValidationRecord": {"cases": [
+      {"input": "{\"noValEmail\":\"a@b.c\",\"noValName\":\"A\"}", "output": "{\"noValEmail\":\"a@b.c\",\"noValName\":\"A\"}"}
+    ]},
+    "metaRecord": {"cases": [
+      {"input": "{\"metaEmail\":\"a@b.c\",\"metaName\":\"A\"}", "output": "{\"metaEmail\":\"a@b.c\",\"metaName\":\"A\"}"},
+      {"input": "{\"metaEmail\":\"a@b.c\"}", "error": "missing field `metaName` at line 1 column 21"}
+    ]},
+    "combinedRecord": {"cases": [
+      {"input": "{\"combinedEmail\":\"a@b.c\",\"combinedName\":\"A\"}", "output": "{\"combinedEmail\":\"a@b.c\",\"combinedName\":\"A\"}"},
+      {"input": "{\"combinedEmail\":\"a@b.c\",\"combinedName\":\"A\",\"extra\":1}", "error": "unknown field `extra`, expected `combinedEmail` or `combinedName` at line 1 column 51"}
+    ]},
+    "simpleRecord": {"cases": [
+      {"input": "{\"label\":\"foo\",\"value\":1}", "output": "{\"label\":\"foo\",\"value\":1}"},
+      {"input": "{\"value\":1,\"label\":\"foo\",\"unknown\":[1]}", "output": "{\"label\":\"foo\",\"value\":1}"},
+      {"input": "{\"label\":\"foo\"}", "error": "missing field `value` at line 1 column 15"},
+      {"input": "{\"label\":\"foo\",\"value\":null}", "error": "invalid type: null, expected i32 at line 1 column 27"},
+      {"input": "{\"label\":1,\"value\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 10"},
+      {"input": "[]", "error": "invalid length 0, expected struct SimpleRecord with 2 elements at line 1 column 2"},
+      {"input": "null", "error": "invalid type: null, expected struct SimpleRecord at line 1 column 4"},
+      {"input": "[\"foo\",1]", "output": "{\"label\":\"foo\",\"value\":1}", "gap": "Serde also reads a struct from an array of its fields in order; Sury reads only an object"},
+      {"input": "{\"label\":\"foo\",\"value\":1,\"value\":2}", "error": "duplicate field `value` at line 1 column 32", "gap": "Serde refuses a repeated key; JSON.parse keeps the last one"}
+    ]},
+    "recordWithAlias": {"cases": [
+      {"input": "{\"aliased-label\":\"foo\",\"value\":1}", "output": "{\"aliased-label\":\"foo\",\"value\":1}"},
+      {"input": "{\"label\":\"foo\",\"value\":1}", "error": "missing field `aliased-label` at line 1 column 25"}
+    ]},
+    "recordWithOptional": {"cases": [
+      {"input": "{\"label\":\"foo\",\"value\":1}", "output": "{\"label\":\"foo\",\"value\":1}"},
+      {"input": "{\"label\":null,\"value\":null}", "output": "{\"label\":null,\"value\":null}"},
+      {"input": "{}", "output": "{\"label\":null,\"value\":null}"},
+      {"input": "{\"label\":null}", "output": "{\"label\":null,\"value\":null}"},
+      {"input": "{\"value\":2}", "output": "{\"label\":null,\"value\":2}"},
+      {"input": "{\"label\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 10"},
+      {"input": "{\"value\":\"1\"}", "error": "invalid type: string \"1\", expected i32 at line 1 column 12"}
+    ]},
+    "flagWithDefault": {"cases": [
+      {"input": "true", "output": "true"},
+      {"input": "false", "output": "false"},
+      {"input": "null", "error": "invalid type: null, expected a boolean at line 1 column 4"}
+    ]},
+    "recordWithOptionalDefaulted": {"cases": [
+      {"input": "{\"darkMode\":true}", "output": "{\"darkMode\":true}"},
+      {"input": "{\"darkMode\":false}", "output": "{\"darkMode\":false}"},
+      {"input": "{\"darkMode\":null}", "output": "{\"darkMode\":null}"},
+      {"input": "{}", "output": "{\"darkMode\":null}"},
+      {"input": "{\"darkMode\":\"yes\"}", "error": "invalid type: string \"yes\", expected a boolean at line 1 column 17"}
+    ]},
+    "emptyRecord": {"cases": [
+      {"input": "{}", "output": "{}"},
+      {"input": "{\"any\":1}", "output": "{}"},
+      {"input": "null", "error": "invalid type: null, expected struct EmptyRecord at line 1 column 4"},
+      {"input": "\"\"", "error": "invalid type: string \"\", expected struct EmptyRecord at line 1 column 2"},
+      {"input": "[]", "output": "{}", "gap": "Serde also reads a struct from an array of its fields in order; Sury reads only an object"}
+    ]},
+    "recordWithNullableField": {"cases": [
+      {"input": "{}", "output": "{}"},
+      {"input": "{\"subscription\":null}", "output": "{\"subscription\":null}"},
+      {"input": "{\"subscription\":\"pro\"}", "output": "{\"subscription\":\"pro\"}"},
+      {"input": "{\"subscription\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 17"}
+    ]},
+    "recordWithOptionalNullableField": {"cases": [
+      {"input": "{}", "output": "{}"},
+      {"input": "{\"foo\":\"bar\"}", "output": "{\"foo\":\"bar\"}"},
+      {"input": "{\"foo\":null}", "output": "{}"},
+      {"input": "{\"foo\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 8"}
+    ]},
+    "recordWithOptionalNullField": {"cases": [
+      {"input": "{\"foo\":null}", "output": "{\"foo\":null}"},
+      {"input": "{\"foo\":\"bar\"}", "output": "{\"foo\":\"bar\"}"},
+      {"input": "{}", "error": "missing field `foo` at line 1 column 2"},
+      {"input": "{\"foo\":1}", "error": "invalid type: integer `1`, expected a string at line 1 column 8"}
+    ]},
+    "Meta.t": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hello\"}", "output": "{\"id\":\"abc\",\"summary\":\"hello\"}"},
+      {"input": "{\"id\":\"abc\",\"summary\":null}", "output": "{\"id\":\"abc\",\"summary\":null}"},
+      {"input": "{\"id\":\"abc\"}", "output": "{\"id\":\"abc\",\"summary\":null}"},
+      {"input": "{\"summary\":\"hello\"}", "error": "missing field `id` at line 1 column 19"}
+    ]},
+    "recordWithSpread": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hello\",\"messages\":[\"a\"]}", "output": "{\"id\":\"abc\",\"summary\":\"hello\",\"messages\":[\"a\"]}"},
+      {"input": "{\"id\":\"abc\",\"messages\":[]}", "output": "{\"id\":\"abc\",\"summary\":null,\"messages\":[]}"},
+      {"input": "{\"id\":\"abc\",\"summary\":\"hello\"}", "error": "missing field `messages` at line 1 column 30"}
+    ]},
+    "Extra.t": {"cases": [
+      {"input": "{\"score\":9.5}", "output": "{\"score\":9.5}"},
+      {"input": "{}", "error": "missing field `score` at line 1 column 2"}
+    ]},
+    "recordWithMultipleSpreads": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":null,\"score\":9.5,\"active\":true}", "output": "{\"id\":\"abc\",\"summary\":null,\"score\":9.5,\"active\":true}"},
+      {"input": "{\"id\":\"abc\",\"score\":9.5}", "error": "missing field `active` at line 1 column 24"}
+    ]},
+    "recordWithOnlySpread": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hi\"}", "output": "{\"id\":\"abc\",\"summary\":\"hi\"}"},
+      {"input": "{\"id\":\"abc\",\"summary\":null}", "output": "{\"id\":\"abc\",\"summary\":null}"},
+      {"input": "{\"id\":\"abc\"}", "output": "{\"id\":\"abc\",\"summary\":null}"}
+    ]},
+    "recordWithMultipleSpreadsNoFields": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hi\",\"score\":5.0}", "output": "{\"id\":\"abc\",\"summary\":\"hi\",\"score\":5.0}"},
+      {"input": "{\"id\":\"abc\"}", "error": "missing field `score` at line 1 column 12"}
+    ]},
+    "recordWithSpreadAndAliasedField": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hi\",\"ms\":[\"a\"]}", "output": "{\"id\":\"abc\",\"summary\":\"hi\",\"ms\":[\"a\"]}"},
+      {"input": "{\"id\":\"abc\",\"messages\":[]}", "error": "missing field `ms` at line 1 column 26"}
+    ]},
+    "recordWithSpreadAndOptionalField": {"cases": [
+      {"input": "{\"id\":\"abc\",\"summary\":\"hi\",\"extra\":5}", "output": "{\"id\":\"abc\",\"summary\":\"hi\",\"extra\":5}"},
+      {"input": "{\"id\":\"abc\",\"summary\":null,\"extra\":null}", "output": "{\"id\":\"abc\",\"summary\":null,\"extra\":null}"},
+      {"input": "{\"id\":\"abc\"}", "output": "{\"id\":\"abc\",\"summary\":null,\"extra\":null}"},
+      {"input": "{\"id\":\"abc\",\"extra\":null}", "output": "{\"id\":\"abc\",\"summary\":null,\"extra\":null}"}
+    ]}
+  },
+  "Recursive": {
+    "node": {"cases": [
+      {"input": "{\"id\":\"1\",\"children\":[{\"id\":\"2\",\"children\":[]},{\"id\":\"3\",\"children\":[{\"id\":\"4\",\"children\":[]}]}]}", "output": "{\"id\":\"1\",\"children\":[{\"id\":\"2\",\"children\":[]},{\"id\":\"3\",\"children\":[{\"id\":\"4\",\"children\":[]}]}]}"},
+      {"input": "{\"id\":\"1\",\"children\":[{\"id\":\"2\"}]}", "error": "missing field `children` at line 1 column 32"},
+      {"input": "{\"id\":\"1\",\"children\":null}", "error": "invalid type: null, expected a sequence at line 1 column 25"}
+    ]},
+    "tree": {"cases": [
+      {"input": "{\"Branch\":[{\"Leaf\":1},{\"Branch\":[{\"Leaf\":2}]}]}", "output": "{\"Branch\":[{\"Leaf\":1},{\"Branch\":[{\"Leaf\":2}]}]}"},
+      {"input": "{\"Leaf\":0}", "output": "{\"Leaf\":0}"},
+      {"input": "{\"Branch\":[{\"Leaf\":\"1\"}]}", "error": "invalid type: string \"1\", expected i32 at line 1 column 22"},
+      {"input": "{\"Branch\":[1]}", "error": "expected value at line 1 column 12"}
+    ]},
+    "polyTree": {"cases": [
+      {"input": "{\"branch\":[{\"leaf\":1},{\"branch\":[{\"leaf\":2}]}]}", "output": "{\"branch\":[{\"leaf\":1},{\"branch\":[{\"leaf\":2}]}]}"},
+      {"input": "{\"branch\":[{\"NAME\":\"leaf\",\"VAL\":1}]}", "error": "unknown variant `NAME`, expected `leaf` or `branch` at line 1 column 18"}
+    ]},
+    "chain": {"cases": [
+      {"input": "{\"next\":null}", "output": "{\"next\":null}"},
+      {"input": "{\"next\":{\"next\":{\"next\":{\"next\":null}}}}", "output": "{\"next\":{\"next\":{\"next\":{\"next\":null}}}}"},
+      {"input": "{}", "output": "{\"next\":null}"},
+      {"input": "{\"next\":{}}", "output": "{\"next\":{\"next\":null}}"},
+      {"input": "{\"next\":{\"next\":1}}", "error": "invalid type: integer `1`, expected struct Chain at line 1 column 17"}
+    ]},
+    "pair": {"cases": [
+      {"input": "{\"both\":null}", "output": "{\"both\":null}"},
+      {"input": "{\"both\":[{\"both\":null},{\"both\":null}]}", "output": "{\"both\":[{\"both\":null},{\"both\":null}]}"},
+      {"input": "{\"both\":[{},{\"both\":null}]}", "output": "{\"both\":[{\"both\":null},{\"both\":null}]}"},
+      {"input": "{\"both\":[{}]}", "error": "invalid length 1, expected a tuple of size 2 at line 1 column 12"}
+    ]},
+    "notActuallyRec": {"cases": [
+      {"input": "1", "output": "1"},
+      {"input": "null", "error": "invalid type: null, expected i32 at line 1 column 4"}
+    ]},
+    "expr": {"cases": [
+      {"input": "{\"Block\":[{\"label\":\"a\",\"body\":{\"Num\":1}},{\"label\":\"b\",\"body\":{\"Block\":[]}}]}", "output": "{\"Block\":[{\"label\":\"a\",\"body\":{\"Num\":1}},{\"label\":\"b\",\"body\":{\"Block\":[]}}]}"},
+      {"input": "{\"Block\":[{\"label\":\"a\"}]}", "error": "missing field `body` at line 1 column 23"}
+    ]},
+    "stmt": {"cases": [
+      {"input": "{\"label\":\"x\",\"body\":{\"Block\":[{\"label\":\"y\",\"body\":{\"Num\":2}}]}}", "output": "{\"label\":\"x\",\"body\":{\"Block\":[{\"label\":\"y\",\"body\":{\"Num\":2}}]}}"},
+      {"input": "{\"label\":\"x\",\"body\":\"Num\"}", "error": "invalid type: unit variant, expected newtype variant at line 1 column 26"}
+    ]},
+    "a": {"cases": [
+      {"input": "{\"b\":{\"c\":{\"a\":{\"b\":null}}}}", "output": "{\"b\":{\"c\":{\"a\":{\"b\":null}}}}"},
+      {"input": "{\"b\":{\"c\":{}}}", "output": "{\"b\":{\"c\":{\"a\":null}}}"}
+    ]},
+    "b": {"cases": [
+      {"input": "{\"c\":{\"a\":null}}", "output": "{\"c\":{\"a\":null}}"},
+      {"input": "{\"c\":{\"a\":{\"b\":1}}}", "error": "invalid type: integer `1`, expected struct B at line 1 column 16"}
+    ]},
+    "c": {"cases": [
+      {"input": "{\"a\":null}", "output": "{\"a\":null}"}
+    ]},
+    "root": {"cases": [
+      {"input": "{\"mid\":{\"tail\":{\"back\":null}},\"last\":null}", "output": "{\"mid\":{\"tail\":{\"back\":null}},\"last\":null}"},
+      {"input": "{}", "output": "{\"mid\":null,\"last\":null}"}
+    ]},
+    "mid": {"cases": [
+      {"input": "{\"tail\":{\"back\":{\"mid\":null,\"last\":null}}}", "output": "{\"tail\":{\"back\":{\"mid\":null,\"last\":null}}}"}
+    ]},
+    "last": {"cases": [
+      {"input": "{\"back\":{\"mid\":null,\"last\":{\"back\":null}}}", "output": "{\"back\":{\"mid\":null,\"last\":{\"back\":null}}}"}
+    ]},
+    "g1": {"cases": [
+      {"input": "{\"toG2\":{\"toG3\":{\"toG4\":{\"toG5\":{\"toG1\":null}}}}}", "output": "{\"toG2\":{\"toG3\":{\"toG4\":{\"toG5\":{\"toG1\":null}}}}}"}
+    ]},
+    "g2": {"cases": [
+      {"input": "{\"toG3\":null}", "output": "{\"toG3\":null}"}
+    ]},
+    "g3": {"cases": [
+      {"input": "{\"toG4\":{\"toG5\":{\"toG1\":{\"toG2\":null}}}}", "output": "{\"toG4\":{\"toG5\":{\"toG1\":{\"toG2\":null}}}}"}
+    ]},
+    "g4": {"cases": [
+      {"input": "{\"toG5\":null}", "output": "{\"toG5\":null}"}
+    ]},
+    "g5": {"cases": [
+      {"input": "{\"toG1\":null}", "output": "{\"toG1\":null}"}
+    ]},
+    "leaf": {"cases": [
+      {"input": "{\"name\":\"a\"}", "output": "{\"name\":\"a\"}"},
+      {"input": "{}", "error": "missing field `name` at line 1 column 2"}
+    ]},
+    "holder": {"cases": [
+      {"input": "{\"leaf\":{\"name\":\"a\"},\"next\":{\"leaf\":{\"name\":\"b\"},\"next\":null}}", "output": "{\"leaf\":{\"name\":\"a\"},\"next\":{\"leaf\":{\"name\":\"b\"},\"next\":null}}"},
+      {"input": "{\"next\":null}", "error": "missing field `leaf` at line 1 column 13"}
+    ]},
+    "strictNode": {"cases": [
+      {"input": "{\"id\":\"1\",\"kids\":[{\"id\":\"2\",\"kids\":[]}]}", "output": "{\"id\":\"1\",\"kids\":[{\"id\":\"2\",\"kids\":[]}]}"},
+      {"input": "{\"id\":\"1\",\"kids\":[{\"id\":\"2\",\"kids\":[],\"extra\":true}]}", "error": "unknown field `extra`, expected `id` or `kids` at line 1 column 45"}
+    ]},
+    "matchesSelf": {"cases": [
+      {"input": "{\"id\":\"1\",\"children\":[{\"id\":\"2\",\"children\":[]}]}", "output": "{\"id\":\"1\",\"children\":[{\"id\":\"2\",\"children\":[]}]}"}
+    ]},
+    "cut": {"skipped": "@s.matches(S.unknown->magic) takes whatever is there, a missing key included"},
+    "aliased": {"cases": [
+      {"input": "{\"Id\":\"1\",\"Kids\":[{\"Id\":\"2\",\"Kids\":[]}]}", "output": "{\"Id\":\"1\",\"Kids\":[{\"Id\":\"2\",\"Kids\":[]}]}"},
+      {"input": "{\"id\":\"1\",\"kids\":[]}", "error": "missing field `Id` at line 1 column 20"}
+    ]}
+  },
+  "Regression": {
+    "CknittelBugReport.A.payload": {"cases": [
+      {"input": "{\"a\":\"foo\"}", "output": "{\"a\":\"foo\"}"},
+      {"input": "{\"a\":null}", "output": "{\"a\":null}"},
+      {"input": "{}", "output": "{\"a\":null}"}
+    ]},
+    "CknittelBugReport.A.t": {"cases": [
+      {"input": "{\"payload\":{\"a\":\"foo\"}}", "output": "{\"payload\":{\"a\":\"foo\"}}"},
+      {"input": "{}", "error": "missing field `payload` at line 1 column 2"}
+    ]},
+    "CknittelBugReport.B.payload": {"cases": [
+      {"input": "{\"b\":42}", "output": "{\"b\":42}"},
+      {"input": "{\"b\":null}", "output": "{\"b\":null}"},
+      {"input": "{}", "output": "{\"b\":null}"}
+    ]},
+    "CknittelBugReport.B.t": {"cases": [
+      {"input": "{\"payload\":{\"b\":42}}", "output": "{\"payload\":{\"b\":42}}"},
+      {"input": "{\"payload\":{\"b\":\"42\"}}", "error": "invalid type: string \"42\", expected i32 at line 1 column 20"}
+    ]},
+    "CknittelBugReport2.a": {"cases": [
+      {"input": "{\"x\":1}", "output": "{\"x\":1}"},
+      {"input": "{}", "error": "missing field `x` at line 1 column 2"}
+    ]},
+    "CknittelBugReport2.b": {"cases": [
+      {"input": "{\"y\":\"y\"}", "output": "{\"y\":\"y\"}"},
+      {"input": "{}", "error": "missing field `y` at line 1 column 2"}
+    ]},
+    "CknittelBugReport2.t": {"cases": [
+      {"input": "{\"test\":null}", "output": "{\"test\":null}"},
+      {"input": "{\"test\":{\"type\":\"a\",\"x\":1}}", "output": "{\"test\":{\"type\":\"a\",\"x\":1}}"},
+      {"input": "{\"test\":{\"type\":\"b\",\"y\":\"y\"}}", "output": "{\"test\":{\"type\":\"b\",\"y\":\"y\"}}"},
+      {"input": "{}", "output": "{\"test\":null}"},
+      {"input": "{\"test\":{\"type\":\"c\"}}", "error": "unknown variant `c`, expected `a` or `b` at line 1 column 19"},
+      {"input": "{\"test\":{\"type\":\"a\"}}", "error": "missing field `x` at line 1 column 21"}
+    ]}
+  },
+  "Variant": {
+    "variant": {"cases": [
+      {"input": "\"One\"", "output": "\"One\""},
+      {"input": "\"Two\"", "output": "\"Two\""},
+      {"input": "\"Three\"", "error": "unknown variant `Three`, expected `One` or `Two` at line 1 column 7"},
+      {"input": "\"one\"", "error": "unknown variant `one`, expected `One` or `Two` at line 1 column 5"},
+      {"input": "null", "error": "expected value at line 1 column 1"},
+      {"input": "1", "error": "expected value at line 1 column 1"},
+      {"input": "{\"One\":null}", "output": "\"One\"", "gap": "Serde also reads a unit variant from a map holding the variant's name over null; Sury reads only the string"}
+    ]},
+    "variantWithSingleItem": {"cases": [
+      {"input": "\"Single\"", "output": "\"Single\""},
+      {"input": "\"Other\"", "error": "unknown variant `Other`, expected `Single` at line 1 column 7"}
+    ]},
+    "variantWithAlias": {"cases": [
+      {"input": "\"하나\"", "output": "\"하나\""},
+      {"input": "\"Two\"", "output": "\"Two\""},
+      {"input": "\"One\"", "error": "unknown variant `One`, expected `하나` or `Two` at line 1 column 5"}
+    ]},
+    "variantWithPayloads": {"cases": [
+      {"input": "\"Constant\"", "output": "\"Constant\""},
+      {"input": "{\"SinglePayload\":1}", "output": "{\"SinglePayload\":1}"},
+      {"input": "{\"TuplePayload\":[1,\"a\"]}", "output": "{\"TuplePayload\":[1,\"a\"]}"},
+      {"input": "{\"RecordPayload\":{\"foo\":1.5}}", "output": "{\"RecordPayload\":{\"foo\":1.5}}"},
+      {"input": "{\"RecordPayload\":{\"foo\":2,\"bar\":true}}", "output": "{\"RecordPayload\":{\"foo\":2.0}}"},
+      {"input": "\"SinglePayload\"", "error": "invalid type: unit variant, expected newtype variant"},
+      {"input": "{\"SinglePayload\":\"1\"}", "error": "invalid type: string \"1\", expected i32 at line 1 column 20"},
+      {"input": "{\"SinglePayload\":null}", "error": "invalid type: null, expected i32 at line 1 column 21"},
+      {"input": "{\"SinglePayload\":1,\"Constant\":null}", "error": "expected value at line 1 column 18"},
+      {"input": "{\"TuplePayload\":[1]}", "error": "invalid length 1, expected tuple variant VariantWithPayloads::TuplePayload with 2 elements at line 1 column 19"},
+      {"input": "{\"TuplePayload\":[1,\"a\",2]}", "error": "trailing characters at line 1 column 24"},
+      {"input": "{\"TuplePayload\":{\"0\":1,\"1\":\"a\"}}", "error": "invalid type: map, expected tuple variant VariantWithPayloads::TuplePayload at line 1 column 16"},
+      {"input": "{\"RecordPayload\":{}}", "error": "missing field `foo` at line 1 column 19"},
+      {"input": "{\"Unknown\":1}", "error": "unknown variant `Unknown`, expected one of `Constant`, `SinglePayload`, `TuplePayload`, `RecordPayload` at line 1 column 10"},
+      {"input": "{}", "error": "expected value at line 1 column 2"},
+      {"input": "{\"TAG\":\"SinglePayload\",\"_0\":1}", "error": "unknown variant `TAG`, expected one of `Constant`, `SinglePayload`, `TuplePayload`, `RecordPayload` at line 1 column 6"},
+      {"input": "null", "error": "expected value at line 1 column 1"},
+      {"input": "{\"RecordPayload\":[1.5]}", "output": "{\"RecordPayload\":{\"foo\":1.5}}", "gap": "Serde also reads a struct variant from an array of its fields in order; Sury reads only an object"}
+    ]},
+    "renamedPayloads": {"cases": [
+      {"input": "{\"one\":1}", "output": "{\"one\":1}"},
+      {"input": "{\"two\":{\"value\":\"a\"}}", "output": "{\"two\":{\"value\":\"a\"}}"},
+      {"input": "{\"maybe\":2}", "output": "{\"maybe\":2}"},
+      {"input": "{\"maybe\":null}", "output": "{\"maybe\":null}"},
+      {"input": "{\"Empty\":null}", "output": "{\"Empty\":null}"},
+      {"input": "{\"One\":1}", "error": "unknown variant `One`, expected one of `one`, `two`, `maybe`, `Empty` at line 1 column 6"},
+      {"input": "{\"maybe\":\"1\"}", "error": "invalid type: string \"1\", expected i32 at line 1 column 12"},
+      {"input": "{}", "error": "expected value at line 1 column 2"},
+      {"input": "{\"Empty\":{}}", "error": "invalid type: map, expected unit at line 1 column 9"},
+      {"input": "\"Empty\"", "error": "invalid type: unit variant, expected newtype variant"}
+    ]},
+    "unboxedVariant": {"cases": [
+      {"input": "\"Constant\"", "output": "\"Constant\""},
+      {"input": "1", "output": "1"},
+      {"input": "\"a\"", "output": "\"a\""},
+      {"input": "null", "error": "data did not match any variant of untagged enum UnboxedVariant"},
+      {"input": "1.5", "error": "data did not match any variant of untagged enum UnboxedVariant"},
+      {"input": "true", "error": "data did not match any variant of untagged enum UnboxedVariant"},
+      {"input": "[]", "error": "data did not match any variant of untagged enum UnboxedVariant"}
+    ]},
+    "taggedVariant": {"cases": [
+      {"input": "{\"kind\":\"circle\",\"radius\":1.0}", "output": "{\"kind\":\"circle\",\"radius\":1.0}"},
+      {"input": "{\"kind\":\"square\",\"x\":2.0}", "output": "{\"kind\":\"square\",\"x\":2.0}"},
+      {"input": "{\"kind\":\"triangle\",\"x\":1.0,\"y\":2.5}", "output": "{\"kind\":\"triangle\",\"x\":1.0,\"y\":2.5}"},
+      {"input": "{\"radius\":1,\"kind\":\"circle\",\"color\":\"red\"}", "output": "{\"kind\":\"circle\",\"radius\":1.0}"},
+      {"input": "{\"kind\":\"Circle\",\"radius\":1}", "error": "unknown variant `Circle`, expected one of `circle`, `square`, `triangle` at line 1 column 16"},
+      {"input": "{\"radius\":1}", "error": "missing field `kind` at line 1 column 12"},
+      {"input": "{\"kind\":\"square\"}", "error": "missing field `x`"},
+      {"input": "{\"circle\":{\"radius\":1}}", "error": "missing field `kind` at line 1 column 23"},
+      {"input": "\"circle\"", "error": "invalid type: string \"circle\", expected internally tagged enum TaggedVariant at line 1 column 8"}
+    ]},
+    "taggedWithUnit": {"cases": [
+      {"input": "{\"kind\":\"Idle\"}", "output": "{\"kind\":\"Idle\"}"},
+      {"input": "{\"kind\":\"busy\",\"since\":1.5}", "output": "{\"kind\":\"busy\",\"since\":1.5}"},
+      {"input": "{\"kind\":\"Idle\",\"extra\":1}", "output": "{\"kind\":\"Idle\"}"},
+      {"input": "\"Idle\"", "error": "invalid type: string \"Idle\", expected internally tagged enum TaggedWithUnit at line 1 column 6"},
+      {"input": "{\"kind\":\"idle\"}", "error": "unknown variant `idle`, expected `Idle` or `busy` at line 1 column 14"},
+      {"input": "{\"kind\":\"busy\"}", "error": "missing field `since`"}
+    ]},
+    "strictVariant": {"cases": [
+      {"input": "\"StrictA\"", "output": "\"StrictA\""},
+      {"input": "{\"StrictB\":1}", "output": "{\"StrictB\":1}"},
+      {"input": "{\"StrictB\":1,\"extra\":2}", "error": "expected value at line 1 column 12"},
+      {"input": "{\"StrictB\":\"1\"}", "error": "invalid type: string \"1\", expected i32 at line 1 column 14"}
+    ]},
+    "taggedInlinedAlias": {"cases": [
+      {"input": "{\"type\":\"Foo\",\"Foo\":\"a\"}", "output": "{\"type\":\"Foo\",\"Foo\":\"a\"}"},
+      {"input": "{\"type\":\"Bar\",\"Bar\":\"b\"}", "output": "{\"type\":\"Bar\",\"Bar\":\"b\"}"},
+      {"input": "{\"type\":\"Foo\",\"foo\":\"a\"}", "error": "missing field `Foo`"},
+      {"input": "{\"Foo\":\"a\"}", "error": "missing field `type` at line 1 column 11"}
+    ]},
+    "baseColors": {"cases": [
+      {"input": "\"Red\"", "output": "\"Red\""},
+      {"input": "\"Blue\"", "output": "\"Blue\""},
+      {"input": "\"Green\"", "output": "\"Green\""},
+      {"input": "\"Yellow\"", "error": "unknown variant `Yellow`, expected one of `Red`, `Blue`, `Green` at line 1 column 8"}
+    ]},
+    "extendedColors": {"cases": [
+      {"input": "\"Red\"", "output": "\"Red\""},
+      {"input": "\"Blue\"", "output": "\"Blue\""},
+      {"input": "\"Green\"", "output": "\"Green\""},
+      {"input": "\"Yellow\"", "output": "\"Yellow\""},
+      {"input": "\"Purple\"", "error": "unknown variant `Purple`, expected one of `Red`, `Blue`, `Green`, `Yellow` at line 1 column 8"}
+    ]},
+    "singleCase": {"cases": [
+      {"input": "\"Only\"", "output": "\"Only\""},
+      {"input": "\"Another\"", "error": "unknown variant `Another`, expected `Only` at line 1 column 9"}
+    ]},
+    "extendedFromSingleCase": {"cases": [
+      {"input": "\"Only\"", "output": "\"Only\""},
+      {"input": "\"Another\"", "output": "\"Another\""},
+      {"input": "\"Other\"", "error": "unknown variant `Other`, expected `Only` or `Another` at line 1 column 7"}
+    ]}
+  }
+}

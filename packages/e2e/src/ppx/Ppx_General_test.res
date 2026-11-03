@@ -35,7 +35,8 @@ test("Creates schema with default", t => {
 let myCustomSchema = S.string->S.trim
 
 @schema
-type stringWithDefaultAndMatches = @s.default("https://example.com") @s.matches(myCustomSchema) string
+type stringWithDefaultAndMatches = @s.default("https://example.com") @s.matches(myCustomSchema)
+string
 test("Creates schema with default using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultAndMatchesSchema,
@@ -44,7 +45,10 @@ test("Creates schema with default using @s.matches", t => {
 })
 
 @schema
-type stringWithDefaultNullAndMatches = @s.default("https://example.com") @s.null @s.matches(myCustomSchema) string
+type stringWithDefaultNullAndMatches = @s.default("https://example.com")
+@s.null
+@s.matches(myCustomSchema)
+string
 test("Creates schema with default null using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultNullAndMatchesSchema,
@@ -65,9 +69,15 @@ test("Creates schema with @s.with transform", t => {
 })
 
 @schema
-type stringWithMultipleWith = @s.with(S.trim) @s.with(s => s->S.minLength(1)) @s.with(s => s->S.maxLength(5)) string
+type stringWithMultipleWith = @s.with(S.trim)
+@s.with(s => s->S.minLength(1))
+@s.with(s => s->S.maxLength(5))
+string
 test("Applies multiple @s.with transforms in order of appearance", t => {
-  t->assertEqualSchemas(stringWithMultipleWithSchema, S.string->S.trim->S.minLength(1)->S.maxLength(5))
+  t->assertEqualSchemas(
+    stringWithMultipleWithSchema,
+    S.string->S.trim->S.minLength(1)->S.maxLength(5),
+  )
 })
 
 @schema @s.with(s => s->S.meta({description: "A user"}))
@@ -115,7 +125,9 @@ test("Applies @s.with on an optional field", t => {
   t->assertEqualSchemas(
     recordWithOptionalWithFieldSchema,
     S.schema(s => {
-      maybe: ?s.matches(S.option(S.string->S.trim)),
+      maybe: ?s.matches(
+        S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.string->S.trim)]),
+      ),
     }),
   )
 })
@@ -140,3 +152,24 @@ test("Applies @s.with over a nested @s.default", t => {
     S.array(S.option(S.string)->S.Option.getOr("x"))->S.meta({description: "items"}),
   )
 })
+
+assertSerdeCompatible(
+  "General",
+  [
+    ("t", schema->S.castToUnknown),
+    ("foo", fooSchema->S.castToUnknown),
+    ("reusedTypes", reusedTypesSchema->S.castToUnknown),
+    ("stringWithDefault", stringWithDefaultSchema->S.castToUnknown),
+    ("stringWithDefaultAndMatches", stringWithDefaultAndMatchesSchema->S.castToUnknown),
+    ("stringWithDefaultNullAndMatches", stringWithDefaultNullAndMatchesSchema->S.castToUnknown),
+    ("stringWithWith", stringWithWithSchema->S.castToUnknown),
+    ("stringWithMultipleWith", stringWithMultipleWithSchema->S.castToUnknown),
+    ("userWithWith", userWithWithSchema->S.castToUnknown),
+    ("stringWithDefaultAndWith", stringWithDefaultAndWithSchema->S.castToUnknown),
+    ("stringWithWithAndDefault", stringWithWithAndDefaultSchema->S.castToUnknown),
+    ("intWithWithPlaceholder", intWithWithPlaceholderSchema->S.castToUnknown),
+    ("recordWithOptionalWithField", recordWithOptionalWithFieldSchema->S.castToUnknown),
+    ("paramWithWith<string>", paramWithWithSchema(S.string)->S.castToUnknown),
+    ("withOverNestedAttributes", withOverNestedAttributesSchema->S.castToUnknown),
+  ],
+)

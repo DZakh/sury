@@ -38,9 +38,34 @@ test("Main example", t => {
         ]),
       ),
       deprecatedAgeRestriction: s.matches(
-        S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
+        S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.int)])->S.meta({
+          description: "Use rating instead",
+          deprecated: true,
+        }),
       ),
     }),
+  )
+  t->Assert.deepEqual(
+    %raw(`{"Id": 1, "Title": "My first film", "Rating": "R", "Age": null}`)->S.parseOrThrow(
+      ~to=filmSchema,
+    ),
+    {
+      id: 1.,
+      title: "My first film",
+      tags: [],
+      rating: Restricted,
+      deprecatedAgeRestriction: None,
+    },
+  )
+  t->Assert.deepEqual(
+    {
+      id: 2.,
+      title: "Sad & sed",
+      tags: ["Loved"],
+      rating: ParentalStronglyCautioned,
+      deprecatedAgeRestriction: None,
+    }->S.convertOrThrow(~from=filmSchema, ~to=S.unknown),
+    %raw(`{"Id": 2, "Title": "Sad & sed", "Tags": ["Loved"], "Rating": "PG13", "Age": null}`),
   )
 })
 
@@ -118,3 +143,20 @@ test("@s.description", t => {
     S.string->S.meta({description: "A useful bit of text, if you know what to do with it."}),
   )
 })
+
+assertSerdeCompatible(
+  "Example",
+  [
+    ("rating", ratingSchema->S.castToUnknown),
+    ("film", filmSchema->S.castToUnknown),
+    ("matches", matchesSchema->S.castToUnknown),
+    ("default", defaultSchema->S.castToUnknown),
+    ("defaultWith", defaultWithSchema->S.castToUnknown),
+    ("null", nullSchema->S.castToUnknown),
+    ("nullWithDefault", nullWithDefaultSchema->S.castToUnknown),
+    ("nullable", nullableSchema->S.castToUnknown),
+    ("nullableWithDefault", nullableWithDefaultSchema->S.castToUnknown),
+    ("deprecated", deprecatedSchema->S.castToUnknown),
+    ("describe", describeSchema->S.castToUnknown),
+  ],
+)

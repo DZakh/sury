@@ -90,8 +90,8 @@ test("Record schema with optional fields", t => {
   t->assertEqualSchemas(
     recordWithOptionalSchema,
     S.schema(s => {
-      label: s.matches(S.option(S.string)),
-      value: ?s.matches(S.option(S.int)),
+      label: s.matches(S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.string)])),
+      value: ?s.matches(S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.int)])),
     }),
   )
   t->Assert.deepEqual(
@@ -101,6 +101,14 @@ test("Record schema with optional fields", t => {
   t->Assert.deepEqual(
     %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalSchema),
     {label: %raw(`undefined`), value: %raw(`undefined`)},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"label":null,"value":null}`)->S.parseOrThrow(~to=recordWithOptionalSchema),
+    {label: None, value: ?None},
+  )
+  t->Assert.deepEqual(
+    {label: None, value: ?None}->S.convertOrThrow(~from=recordWithOptionalSchema, ~to=S.unknown),
+    %raw(`{"label":null,"value":null}`),
   )
 })
 
@@ -119,17 +127,14 @@ test("Optional field of a type with a default keeps a missing value as None", t 
   )
   t->Assert.deepEqual(
     {darkMode: ?None}->S.convertOrThrow(~from=recordWithOptionalDefaultedSchema, ~to=S.unknown),
-    %raw(`{}`),
+    %raw(`{"darkMode":null}`),
   )
 })
 
 @schema
 type emptyRecord = {}
 test("Empty record schema", t => {
-  t->Assert.deepEqual(
-    %raw(`{}`)->S.parseOrThrow(~to=emptyRecordSchema),
-    ({}: emptyRecord),
-  )
+  t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(~to=emptyRecordSchema), ({}: emptyRecord))
 })
 
 @schema
@@ -413,3 +418,33 @@ test("Record schema with spread and optional own field", t => {
   )
   t->assertReverseReversesBack(recordWithSpreadAndOptionalFieldSchema)
 })
+
+assertSerdeCompatible(
+  "Record",
+  [
+    ("strictRecord", strictRecordSchema->S.castToUnknown),
+    ("stripRecord", stripRecordSchema->S.castToUnknown),
+    ("deepStrictRecord", deepStrictRecordSchema->S.castToUnknown),
+    ("deepStripRecord", deepStripRecordSchema->S.castToUnknown),
+    ("noValidationRecord", noValidationRecordSchema->S.castToUnknown),
+    ("metaRecord", metaRecordSchema->S.castToUnknown),
+    ("combinedRecord", combinedRecordSchema->S.castToUnknown),
+    ("simpleRecord", simpleRecordSchema->S.castToUnknown),
+    ("recordWithAlias", recordWithAliasSchema->S.castToUnknown),
+    ("recordWithOptional", recordWithOptionalSchema->S.castToUnknown),
+    ("flagWithDefault", flagWithDefaultSchema->S.castToUnknown),
+    ("recordWithOptionalDefaulted", recordWithOptionalDefaultedSchema->S.castToUnknown),
+    ("emptyRecord", emptyRecordSchema->S.castToUnknown),
+    ("recordWithNullableField", recordWithNullableFieldSchema->S.castToUnknown),
+    ("recordWithOptionalNullableField", recordWithOptionalNullableFieldSchema->S.castToUnknown),
+    ("recordWithOptionalNullField", recordWithOptionalNullFieldSchema->S.castToUnknown),
+    ("Meta.t", Meta.schema->S.castToUnknown),
+    ("recordWithSpread", recordWithSpreadSchema->S.castToUnknown),
+    ("Extra.t", Extra.schema->S.castToUnknown),
+    ("recordWithMultipleSpreads", recordWithMultipleSpreadsSchema->S.castToUnknown),
+    ("recordWithOnlySpread", recordWithOnlySpreadSchema->S.castToUnknown),
+    ("recordWithMultipleSpreadsNoFields", recordWithMultipleSpreadsNoFieldsSchema->S.castToUnknown),
+    ("recordWithSpreadAndAliasedField", recordWithSpreadAndAliasedFieldSchema->S.castToUnknown),
+    ("recordWithSpreadAndOptionalField", recordWithSpreadAndOptionalFieldSchema->S.castToUnknown),
+  ],
+)

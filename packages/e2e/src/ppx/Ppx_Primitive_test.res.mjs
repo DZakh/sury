@@ -21,9 +21,9 @@ let myBoolSchema = Sury.boolean;
 
 Vitest.test("Bool schema", t => U.assertEqualSchemas(t, myBoolSchema, Sury.boolean, undefined));
 
-let myUnitSchema = Sury.$unit;
+let myUnitSchema = Sury.$nullAsUnit;
 
-Vitest.test("Unit schema", t => U.assertEqualSchemas(t, myUnitSchema, Sury.$unit, undefined));
+Vitest.test("Unit schema is null, as Serde writes ()", t => U.assertEqualSchemas(t, myUnitSchema, Sury.$nullAsUnit, undefined));
 
 let myUnknownSchema = Sury.unknown;
 
@@ -33,9 +33,9 @@ let myNeverSchema = Sury.never;
 
 Vitest.test("Never schema", t => U.assertEqualSchemas(t, myNeverSchema, Sury.never, undefined));
 
-let myOptionOfStringSchema = Sury.$option(Sury.string);
+let myOptionOfStringSchema = Sury.$nullAsOption(Sury.string);
 
-Vitest.test("Option of string schema", t => U.assertEqualSchemas(t, myOptionOfStringSchema, Sury.$option(Sury.string), undefined));
+Vitest.test("Option of string schema reads and writes None as null, as Serde does", t => U.assertEqualSchemas(t, myOptionOfStringSchema, Sury.$nullAsOption(Sury.string), undefined));
 
 let myNullableOfStringSchema = Sury.nullish(Sury.string);
 
@@ -114,13 +114,104 @@ let myCustomLiteralStringSchema = Sury.literal("123");
 
 Vitest.test("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, Sury.literal("123"), undefined));
 
-let myCustomOptionalStringSchema = Sury.$option(myCustomSchema);
+let myCustomOptionalStringSchema = Sury.$nullAsOption(myCustomSchema);
 
-Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, Sury.$option(myCustomSchema), undefined));
+Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, Sury.$nullAsOption(myCustomSchema), undefined));
 
 let myNullOfStringSchema = Sury.$nullAsOption(Sury.string);
 
 Vitest.test("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, Sury.$nullAsOption(Sury.string), undefined));
+
+U.assertSerdeCompatible("Primitive", [
+  [
+    "myString",
+    myStringSchema
+  ],
+  [
+    "myInt",
+    myIntSchema
+  ],
+  [
+    "myFloat",
+    myFloatSchema
+  ],
+  [
+    "myBool",
+    myBoolSchema
+  ],
+  [
+    "myUnit",
+    myUnitSchema
+  ],
+  [
+    "myUnknown",
+    myUnknownSchema
+  ],
+  [
+    "myNever",
+    myNeverSchema
+  ],
+  [
+    "myOptionOfString",
+    myOptionOfStringSchema
+  ],
+  [
+    "myNullableOfString",
+    myNullableOfStringSchema
+  ],
+  [
+    "myArrayOfString",
+    myArrayOfStringSchema
+  ],
+  [
+    "myListOfString",
+    myListOfStringSchema
+  ],
+  [
+    "myDictOfString",
+    myDictOfStringSchema
+  ],
+  [
+    "myDictOfStringFromJs",
+    myDictOfStringFromJsSchema
+  ],
+  [
+    "myDictOfStringFromCore",
+    myDictOfStringFromCoreSchema
+  ],
+  [
+    "myJson",
+    myJsonSchema
+  ],
+  [
+    "myJsonFromCore",
+    myJsonFromCoreSchema
+  ],
+  [
+    "myTuple",
+    myTupleSchema
+  ],
+  [
+    "myBigTuple",
+    myBigTupleSchema
+  ],
+  [
+    "myCustomString",
+    myCustomSchema
+  ],
+  [
+    "myCustomLiteralString",
+    myCustomLiteralStringSchema
+  ],
+  [
+    "myCustomOptionalString",
+    myCustomOptionalStringSchema
+  ],
+  [
+    "myNullOfString",
+    myNullOfStringSchema
+  ]
+]);
 
 let myCustomStringSchema = myCustomSchema;
 

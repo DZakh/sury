@@ -100,6 +100,8 @@ if [ $FAST -eq 0 ]; then
   # compiles sury as a dependency, rejects as inconsistent.
   step "e2e" packages/e2e sh -c "pnpm rescript clean && pnpm rescript && pnpm test"
   step "e2e compiled ReScript matches source" packages/e2e ../../scripts/assert-no-drift.sh '*.res.mjs'
+  # Needs cargo. Fails on a stale fixtures.json or an unmirrored @schema type.
+  step "Serde mirror" packages/serde-compat cargo run --locked -- check
   # e2e's build compiles sury as a dependency, which deletes sury's checked-in
   # dev-only output (tests/*.res.mjs). CI runs e2e in its own job and never
   # sees it; here it would land in the next commit.

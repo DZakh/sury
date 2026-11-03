@@ -51,40 +51,50 @@ test("Supported as an object field", t => {
 
 @schema
 type polyWithPayloads = [#one | #two(int) | #three(string, float) | #four({"foo": string})]
-test("Polymorphic variant with payloads (issue #160)", t => {
+test("Polymorphic variant with payloads is externally tagged like a Serde enum", t => {
   t->assertEqualSchemas(
     polyWithPayloadsSchema,
     S.union([
       S.literal(#one),
-      S.schema(s => #two(s.matches(S.int))),
-      S.schema(s => #three(s.matches(S.string), s.matches(S.float))),
-      S.schema(s => #four(s.matches(S.schema(s => {"foo": s.matches(S.string)})))),
+      S.object(s => #two(s.field("two", S.int)))->S.strict,
+      S.object(s =>
+        #three(s.field("three", S.schema(s => (s.matches(S.string), s.matches(S.float)))))
+      )->S.strict,
+      S.object(s => #four(s.field("four", S.schema(s => {"foo": s.matches(S.string)}))))->S.strict,
     ]),
   )
   t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithPayloadsSchema), #one)
+  t->Assert.deepEqual(%raw(`{"two": 123}`)->S.parseOrThrow(~to=polyWithPayloadsSchema), #two(123))
   t->Assert.deepEqual(
-    %raw(`{NAME:"two",VAL:123}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
-    #two(123),
-  )
-  t->Assert.deepEqual(
-    %raw(`{NAME:"three",VAL:["hello",1.5]}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    %raw(`{"three": ["hello", 1.5]}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
     #three("hello", 1.5),
   )
   t->Assert.deepEqual(
-    %raw(`{NAME:"four",VAL:{foo:"bar"}}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    %raw(`{"four": {"foo": "bar"}}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
     #four({"foo": "bar"}),
+  )
+  t->Assert.deepEqual(
+    #three("hello", 1.5)->S.convertOrThrow(~from=polyWithPayloadsSchema, ~to=S.unknown),
+    %raw(`{"three": ["hello", 1.5]}`),
+  )
+  t->assertThrowsMessage(
+    () => %raw(`{"two": 1, "one": null}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    `Expected "one" | { two: int32; } | { three: [string, number]; } | { four: { foo: string; }; }, received { two: 1; one: null; }
+- Unrecognized key "one"
+- At three: Expected [string, number], received undefined
+- At four: Expected { foo: string; }, received undefined`,
   )
 })
 
 @schema
 type polyWithSinglePayload = [#value(string)]
-test("Polymorphic variant with single payload (issue #160)", t => {
+test("Polymorphic variant with single payload", t => {
   t->assertEqualSchemas(
     polyWithSinglePayloadSchema,
-    S.schema(s => #value(s.matches(S.string))),
+    S.object(s => #value(s.field("value", S.string)))->S.strict,
   )
   t->Assert.deepEqual(
-    %raw(`{NAME:"value",VAL:"hello"}`)->S.parseOrThrow(~to=polyWithSinglePayloadSchema),
+    %raw(`{"value": "hello"}`)->S.parseOrThrow(~to=polyWithSinglePayloadSchema),
     #value("hello"),
   )
 })
@@ -111,15 +121,18 @@ type polyWithPayloadInheritance = [polyWithPayloads | #five(bool)]
 test("Polymorphic variant inheriting a type that has payloads", t => {
   t->assertEqualSchemas(
     polyWithPayloadInheritanceSchema,
-    S.union([polyWithPayloadsSchema->S.castToAny, S.schema(s => #five(s.matches(S.bool)))]),
+    S.union([
+      polyWithPayloadsSchema->S.castToAny,
+      S.object(s => #five(s.field("five", S.bool)))->S.strict,
+    ]),
   )
   t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema), #one)
   t->Assert.deepEqual(
-    %raw(`{NAME:"two",VAL:123}`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema),
+    %raw(`{"two": 123}`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema),
     #two(123),
   )
   t->Assert.deepEqual(
-    %raw(`{NAME:"five",VAL:true}`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema),
+    %raw(`{"five": true}`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema),
     #five(true),
   )
   // Reverse: both an inherited payload tag and the own tag must round-trip.
@@ -152,13 +165,10 @@ test("Polymorphic variant with an inline spread is flattened into one union", t 
   // nested union (and no cast) is generated.
   t->assertEqualSchemas(
     polyInlineInheritanceSchema,
-    S.union([S.literal(#a), S.schema(s => #b(s.matches(S.int))), S.literal(#c)]),
+    S.union([S.literal(#a), S.object(s => #b(s.field("b", S.int)))->S.strict, S.literal(#c)]),
   )
   t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=polyInlineInheritanceSchema), #a)
-  t->Assert.deepEqual(
-    %raw(`{NAME:"b",VAL:7}`)->S.parseOrThrow(~to=polyInlineInheritanceSchema),
-    #b(7),
-  )
+  t->Assert.deepEqual(%raw(`{"b": 7}`)->S.parseOrThrow(~to=polyInlineInheritanceSchema), #b(7))
   t->Assert.deepEqual(%raw(`"c"`)->S.parseOrThrow(~to=polyInlineInheritanceSchema), #c)
   // Reverse: an inline-spliced tag (incl. a payload one) must round-trip.
   t->assertReverseParsesBack(polyInlineInheritanceSchema, #a)
@@ -168,3 +178,20 @@ test("Polymorphic variant with an inline spread is flattened into one union", t 
 
 // TODO: Support
 // type basicBlueTone<'a> = [> #Blue | #DeepBlue | #LightBlue] as 'a
+
+assertSerdeCompatible(
+  "Polyvariant",
+  [
+    ("poly", polySchema->S.castToUnknown),
+    ("polyWithSingleItem", polyWithSingleItemSchema->S.castToUnknown),
+    ("dictField", dictFieldSchema->S.castToUnknown),
+    ("recordField", recordFieldSchema->S.castToUnknown),
+    ("objectField", objectFieldSchema->S.castToUnknown),
+    ("polyWithPayloads", polyWithPayloadsSchema->S.castToUnknown),
+    ("polyWithSinglePayload", polyWithSinglePayloadSchema->S.castToUnknown),
+    ("polyWithInheritance", polyWithInheritanceSchema->S.castToUnknown),
+    ("polyWithPayloadInheritance", polyWithPayloadInheritanceSchema->S.castToUnknown),
+    ("polyInheritanceField", polyInheritanceFieldSchema->S.castToUnknown),
+    ("polyInlineInheritance", polyInlineInheritanceSchema->S.castToUnknown),
+  ],
+)

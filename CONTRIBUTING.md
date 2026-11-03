@@ -189,6 +189,18 @@ npm run test:res
 npm run test -- --watch
 ```
 
+5. Hold it to Serde
+
+The ppx reads and writes JSON the way Serde does. A `@schema` type added to
+`packages/e2e/src/ppx` needs a Rust mirror in `packages/serde-compat`, and its
+test file lists the schema in `assertSerdeCompatible`:
+
+```
+cd packages/serde-compat
+cargo run            # rewrites fixtures.json
+cargo run -- check   # what CI runs
+```
+
 ## Make comparison
 
 `pnpm benchmarks --write` regenerates `docs/benchmarks/*.md`, which is where the

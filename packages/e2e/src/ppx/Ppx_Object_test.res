@@ -36,3 +36,5 @@ test("Simple object schema", t => {
 //     {"label": "foo", "value": 1},
 //   )
 // })
+
+assertSerdeCompatible("Object", [("simpleObject", simpleObjectSchema->S.castToUnknown)])

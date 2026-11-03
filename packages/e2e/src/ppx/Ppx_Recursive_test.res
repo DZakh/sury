@@ -47,7 +47,10 @@ test("A rec type that never references itself stays a plain schema", t => {
 @schema
 type rec expr = Num(int) | Block(array<stmt>)
 @schema
-and stmt = {label: string, body: expr}
+and stmt = {
+  label: string,
+  body: expr,
+}
 test("Mutually recursive types work from either entry point", t => {
   t->assertReverseParsesBack(
     exprSchema,
@@ -59,9 +62,13 @@ test("Mutually recursive types work from either entry point", t => {
 @schema
 type rec a = {b: option<b>}
 @schema
-and b = {c: option<c>}
+and b = {
+  c: option<c>,
+}
 @schema
-and c = {a: option<a>}
+and c = {
+  a: option<a>,
+}
 test("Three-way mutual cycle works from every entry point", t => {
   t->assertReverseParsesBack(aSchema, {b: Some({c: Some({a: Some({b: None})})})})
   t->assertReverseParsesBack(bSchema, {c: Some({a: Some({b: Some({c: None})})})})
@@ -71,9 +78,13 @@ test("Three-way mutual cycle works from every entry point", t => {
 @schema
 type rec root = {mid: option<mid>, last: option<last>}
 @schema
-and mid = {tail: option<last>}
+and mid = {
+  tail: option<last>,
+}
 @schema
-and last = {back: option<root>}
+and last = {
+  back: option<root>,
+}
 test("A sibling needed by several members is bound once and reused", t => {
   t->assertReverseParsesBack(rootSchema, {mid: Some({tail: Some({back: None})}), last: None})
   t->assertReverseParsesBack(midSchema, {tail: Some({back: Some({mid: None, last: None})})})
@@ -83,13 +94,21 @@ test("A sibling needed by several members is bound once and reused", t => {
 @schema
 type rec g1 = {toG2: option<g2>}
 @schema
-and g2 = {toG3: option<g3>}
+and g2 = {
+  toG3: option<g3>,
+}
 @schema
-and g3 = {toG4: option<g4>}
+and g3 = {
+  toG4: option<g4>,
+}
 @schema
-and g4 = {toG5: option<g5>}
+and g4 = {
+  toG5: option<g5>,
+}
 @schema
-and g5 = {toG1: option<g1>}
+and g5 = {
+  toG1: option<g1>,
+}
 test("Mutual groups are not capped in size", t => {
   t->assertReverseParsesBack(
     g1Schema,
@@ -101,7 +120,10 @@ test("Mutual groups are not capped in size", t => {
 @schema
 type rec leaf = {name: string}
 @schema
-and holder = {leaf: leaf, next: option<holder>}
+and holder = {
+  leaf: leaf,
+  next: option<holder>,
+}
 test("A rec group member that isn't recursive is left unwrapped and bound first", t => {
   t->assertEqualSchemas(leafSchema, S.schema(s => {name: s.matches(S.string)}))
   t->assertReverseParsesBack(
@@ -113,13 +135,11 @@ test("A rec group member that isn't recursive is left unwrapped and bound first"
 @schema @s.strict
 type rec strictNode = {id: string, kids: array<strictNode>}
 test("Type-level attributes apply to self-references too", t => {
-  t->assertThrowsMessage(
-    () =>
-      {"id": "1", "kids": [{"id": "2", "kids": [], "extra": true}]}
-      ->S.parseOrThrow(~to=strictNodeSchema)
-      ->ignore,
-    `Failed at kids[0]: Unrecognized key "extra"`,
-  )
+  t->assertThrowsMessage(() =>
+    {"id": "1", "kids": [{"id": "2", "kids": [], "extra": true}]}
+    ->S.parseOrThrow(~to=strictNodeSchema)
+    ->ignore
+  , `Failed at kids[0]: Unrecognized key "extra"`)
 })
 
 @schema
@@ -146,3 +166,33 @@ test("Field aliases survive the recursive wrapper", t => {
   )
   t->assertReverseParsesBack(aliasedSchema, {id: "1", kids: [{id: "2", kids: []}]})
 })
+
+assertSerdeCompatible(
+  "Recursive",
+  [
+    ("node", nodeSchema->S.castToUnknown),
+    ("tree", treeSchema->S.castToUnknown),
+    ("polyTree", polyTreeSchema->S.castToUnknown),
+    ("chain", chainSchema->S.castToUnknown),
+    ("pair", pairSchema->S.castToUnknown),
+    ("notActuallyRec", notActuallyRecSchema->S.castToUnknown),
+    ("expr", exprSchema->S.castToUnknown),
+    ("stmt", stmtSchema->S.castToUnknown),
+    ("a", aSchema->S.castToUnknown),
+    ("b", bSchema->S.castToUnknown),
+    ("c", cSchema->S.castToUnknown),
+    ("root", rootSchema->S.castToUnknown),
+    ("mid", midSchema->S.castToUnknown),
+    ("last", lastSchema->S.castToUnknown),
+    ("g1", g1Schema->S.castToUnknown),
+    ("g2", g2Schema->S.castToUnknown),
+    ("g3", g3Schema->S.castToUnknown),
+    ("g4", g4Schema->S.castToUnknown),
+    ("g5", g5Schema->S.castToUnknown),
+    ("leaf", leafSchema->S.castToUnknown),
+    ("holder", holderSchema->S.castToUnknown),
+    ("strictNode", strictNodeSchema->S.castToUnknown),
+    ("matchesSelf", matchesSelfSchema->S.castToUnknown),
+    ("aliased", aliasedSchema->S.castToUnknown),
+  ],
+)

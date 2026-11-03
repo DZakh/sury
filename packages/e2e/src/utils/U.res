@@ -3,7 +3,9 @@ open Vitest
 // Read the real toString() instead of hardcoding it, so coverage/instrumentation
 // tooling that rewrites function source (and would otherwise change the literal
 // output) can't desync this from the actual generated code.
-let noopOpCode: string = (S.compileConvertOrThrow(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
+let noopOpCode: string = (
+  S.compileConvertOrThrow(~from=S.unknown, ~to=S.unknown)->Obj.magic
+)["toString"]()
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
@@ -88,7 +90,10 @@ let getCompiledCodeString = (
       let fn = S.compileConvertAsPromiseOrReject(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #Assert =>
-      let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
+      let fn = S.compileConvertOrThrow(
+        ~from=S.unknown,
+        ~to=schema->S.to(S.literal()->S.noValidation(true)),
+      )
       fn->magic
     | #ReverseParse => {
         let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=schema->S.reverse)
@@ -186,4 +191,109 @@ let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
 
 let assertReverseReversesBack = (t, schema: S.t<'value>) => {
   t->assertEqualSchemas(schema->S.castToUnknown, schema->S.reverse->S.reverse)
+}
+
+// What Serde does with JSON, per ppx test type: packages/serde-compat mirrors
+// each one as the Rust type Serde would read the same JSON into, and writes its
+// verdicts here. `output` is what Serde writes back for the value it read,
+// `error` why it refused the text, `gap` a disagreement Sury is known to have.
+type serdeCase = {input: string, output?: string, error?: string, gap?: string}
+type serdeMirror = {cases?: array<serdeCase>, skipped?: string}
+@module("../../../serde-compat/fixtures.json")
+external serdeFixtures: dict<dict<serdeMirror>> = "default"
+
+// toEqual would let -0 pass for 0, which Serde tells apart.
+let rec jsonEqual = (a: JSON.t, b: JSON.t) =>
+  switch (a, b) {
+  | (Number(a), Number(b)) => Object.is(a, b)
+  | (String(a), String(b)) => a === b
+  | (Boolean(a), Boolean(b)) => a === b
+  | (Null, Null) => true
+  | (Array(a), Array(b)) =>
+    a->Array.length === b->Array.length &&
+      a->Array.everyWithIndex((item, idx) => jsonEqual(item, b->Array.getUnsafe(idx)))
+  | (Object(a), Object(b)) =>
+    let keys = a->Dict.keysToArray
+    keys->Array.length === b->Dict.keysToArray->Array.length &&
+      keys->Array.every(key =>
+        switch b->Dict.get(key) {
+        | Some(value) => jsonEqual(a->Dict.getUnsafe(key), value)
+        | None => false
+        }
+      )
+  | _ => false
+  }
+
+type jsonVerdict = Wrote(JSON.t) | WroteUndefined | Refused(string)
+
+let describeVerdict = verdict =>
+  switch verdict {
+  | Wrote(json) => `writes ${json->JSON.stringify}`
+  | WroteUndefined => "writes undefined, which isn't JSON"
+  | Refused(reason) => `refuses it (${reason})`
+  }
+
+// What the README does with JSON: parse the value, convert it back to unknown
+// and stringify that. The written text is parsed again rather than compared as
+// a value, so whatever JSON.stringify loses on the wire is lost here too.
+let suryJsonVerdict = (schema: S.t<unknown>, input) =>
+  switch input->JSON.parseOrThrow->S.parseOrThrow(~to=schema) {
+  | value =>
+    switch value->S.convertOrThrow(~from=schema, ~to=S.unknown)->JSON.stringifyAny {
+    | Some(text) => Wrote(text->JSON.parseOrThrow)
+    | None => WroteUndefined
+    }
+  | exception S.Exn(error) => Refused(error.message)
+  }
+
+let assertSerdeCase = (t, schema, case: serdeCase, ~label) => {
+  let serde = switch (case.output, case.error) {
+  | (Some(output), _) => Wrote(output->JSON.parseOrThrow)
+  | (None, Some(error)) => Refused(error)
+  | (None, None) => JsError.throwWithMessage(`${label} ${case.input}: a case without a verdict`)
+  }
+  let sury = suryJsonVerdict(schema, case.input)
+  let agree = switch (serde, sury) {
+  | (Wrote(a), Wrote(b)) => jsonEqual(a, b)
+  | (Refused(_), Refused(_)) => true
+  | _ => false
+  }
+  switch (case.gap, agree) {
+  | (None, true) | (Some(_), false) => ()
+  | (None, false) =>
+    t->Assert.fail(
+      `${label} ${case.input}: Serde ${serde->describeVerdict}, Sury ${sury->describeVerdict}`,
+    )
+  | (Some(gap), true) =>
+    t->Assert.fail(
+      `${label} ${case.input}: Sury now agrees with Serde, closing the gap "${gap}". Move the case out of \`diverges\` in packages/serde-compat.`,
+    )
+  }
+}
+
+// One test per schema, plus one holding the list to the mirror's: a type the
+// mirror skips has to be left out here too.
+let assertSerdeCompatible = (group, schemas: array<(string, S.t<unknown>)>) => {
+  let mirrors = switch serdeFixtures->Dict.get(group) {
+  | Some(mirrors) => mirrors
+  | None => JsError.throwWithMessage(`packages/serde-compat/fixtures.json has no group "${group}"`)
+  }
+  test(`Every ${group} type has a Serde mirror and every mirror a schema`, t => {
+    let mirrored =
+      mirrors
+      ->Dict.toArray
+      ->Array.filterMap(((name, mirror)) => mirror.cases->Option.map(_ => name))
+      ->Array.toSorted(String.compare)
+    let tested = schemas->Array.map(((name, _)) => name)->Array.toSorted(String.compare)
+    t->Assert.deepEqual(tested, mirrored)
+  })
+  schemas->Array.forEach(((name, schema)) =>
+    test(`${group}.${name} reads and writes JSON the way Serde does`, t => {
+      let label = `${group}.${name}`
+      switch mirrors->Dict.get(name) {
+      | Some({cases}) => cases->Array.forEach(case => t->assertSerdeCase(schema, case, ~label))
+      | _ => t->Assert.fail(`packages/serde-compat has no cases for ${label}`)
+      }
+    })
+  )
 }

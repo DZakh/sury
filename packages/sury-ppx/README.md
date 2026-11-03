@@ -2,10 +2,19 @@
 
 # Sury PPX
 
-ReScript PPX to generate **Sury** schema from types.
+ReScript PPX to generate **Sury** schema from types. The schemas read and write
+JSON the way [Serde](https://serde.rs) does for the matching Rust type, so a
+ReScript app and a Rust service can share their types.
 
 > 🧠 It's 100% opt-in. You can use **Sury** without ppx.
 
+## Table of contents
+
+- [Table of contents](#table-of-contents)
+- [Install](#install)
+- [Basic usage](#basic-usage)
+- [Serde compatibility](#serde-compatibility)
+- [API reference](#api-reference)
 ## Table of contents
 
 - [Table of contents](#table-of-contents)
@@ -65,7 +74,12 @@ let filmSchema = S.object(s => {
   title: s.field("Title", S.string),
   tags: s.fieldOr("Tags", S.array(S.string), []),
   rating: s.field("Rating", ratingSchema),
-  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.meta({deprecated: true})),
+  deprecatedAgeRestriction: s.field(
+    "Age",
+    S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.int)])->S.meta({
+      deprecated: true,
+    }),
+  ),
 })
 
 // 3. Parse data using the schema
@@ -75,14 +89,14 @@ let filmSchema = S.object(s => {
   "Title": "My first film",
   "Rating": "R",
   "Age": 17
-}`)->S.parseOrThrow(filmSchema)
-// Ok({
+}`)->S.parseOrThrow(~to=filmSchema)
+// {
 //   id: 1.,
 //   title: "My first film",
 //   tags: [],
 //   rating: Restricted,
 //   deprecatedAgeRestriction: Some(17),
-// })
+// }
 
 // 4. Transform data back using the same schema
 {
@@ -92,13 +106,13 @@ let filmSchema = S.object(s => {
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
 }->S.convertOrThrow(~from=filmSchema, ~to=S.unknown)
-// Ok(%raw(`{
+// {
 //   "Id": 2,
 //   "Title": "Sad & sed",
-//   "Rating": "PG13",
 //   "Tags": ["Loved"],
-//   "Age": undefined,
-// }`))
+//   "Rating": "PG13",
+//   "Age": null,
+// }
 
 // 5. Use schema as a building block for other tools
 // For example, create a JSON schema and use it for OpenAPI generation
@@ -106,6 +120,51 @@ let filmJSONSchema = filmSchema->S.toInputJSONSchemaOrThrow
 ```
 
 > 🧠 Read more about schema usage in the _[ReScript Schema for ReScript users](/docs/rescript-usage.md)_ documentation.
+
+## Serde compatibility
+
+Each ReScript type reads and writes the JSON Serde does for the Rust type in
+the same row, in Serde's default mode:
+
+| ReScript | Rust | JSON |
+| --- | --- | --- |
+| `string`, `int`, `float`, `bool` | `String`, `i32`, `f64`, `bool` | `"a"`, `1`, `1.5`, `true` |
+| `unit` | `()` | `null` |
+| `option<'a>` | `Option<A>` | `null` for `None` |
+| `array<'a>`, `list<'a>` | `Vec<A>` | `[a]` |
+| `dict<'a>` | `HashMap<String, A>` | `{"key": a}` |
+| `('a, 'b)` | `(A, B)` | `[a, b]` |
+| `JSON.t`, `unknown` | `serde_json::Value` | anything |
+| `{x: 'a}` | `struct { x: A }` | `{"x": a}` |
+| `Unit` | `Unit` | `"Unit"` |
+| `Newtype('a)` | `Newtype(A)` | `{"Newtype": a}` |
+| `Tuple('a, 'b)` | `Tuple(A, B)` | `{"Tuple": [a, b]}` |
+| `Struct({x: 'a})` | `Struct { x: A }` | `{"Struct": {"x": a}}` |
+| `#tag`, `#tag('a)` | `tag`, `tag(A)` | `"tag"`, `{"tag": a}` |
+
+A record field of type `option<_>`, or one marked `?`, also reads a missing
+key as `None`, the way a Serde struct reads a missing `Option` field. Unknown
+keys are ignored, as Serde does by default.
+
+Attributes line up with Serde's:
+
+| ReScript | Rust |
+| --- | --- |
+| `@as("key")` on a field or a constructor | `#[serde(rename = "key")]` |
+| `@tag("kind")` on a variant | `#[serde(tag = "kind")]` |
+| `@unboxed` on a variant | `#[serde(untagged)]` |
+| `@s.strict` | `#[serde(deny_unknown_fields)]` |
+| `@s.default(value)` on a field | `#[serde(default = "...")]` |
+| `@s.nullable` on a `?` field | `#[serde(default, skip_serializing_if = "Option::is_none")]` |
+
+Two differences remain. An `@unboxed` constructor without a payload reads its
+name, where Serde's untagged unit variant is `null`. And an `@tag` constructor
+whose payload isn't an inline record keeps it under `_0`, where Serde puts a
+struct's fields next to the tag. [serde-compat](/packages/serde-compat/README.md)
+lists both, with what isn't covered yet and the inputs Serde reads that Sury
+doesn't. It holds every type in the ppx test suite to its Rust mirror.
+
+> 🧠 Before Serde compatibility, a variant with a payload read the ReScript runtime representation (`{"TAG": "Newtype", "_0": a}`), a polymorphic one `{"NAME": "tag", "VAL": a}`, and `option<_>` and `unit` read `undefined`. To keep one of those, describe it with `@s.matches`, for example `@s.matches(S.option(S.string)) option<string>`.
 
 ## API reference
 
@@ -185,7 +244,7 @@ let userSchema = S.schema(s => {
   id: s.matches(S.uuid),
   email: s.matches(S.email),
   tags: s.matches(S.array(S.string)->S.nonEmpty),
-  homepage: s.matches(S.option(S.uri)),
+  homepage: s.matches(S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.uri)])),
 })
 ```
 
@@ -215,19 +274,9 @@ let schema = myCustomSchema
 
 **Applies to**: option type expressions, optional record fields
 
-Makes the schema accept `null` instead of `undefined`. The output value is still an `option`.
-
-```rescript
-@schema
-type t = @s.null option<string>
-
-// Generated by PPX ⬇️
-let schema = S.nullAsOption(S.string)
-// Input:  string | null
-// Output: option<string>
-```
-
-On an optional record field it replaces `S.option`. The `?` still makes the field optional in ReScript, but the data must have the key set to `null`:
+An `option<_>` already reads and writes `None` as `null`. On a record field,
+`@s.null` takes away the missing key, so the data must carry the key, set to
+`null` for `None`:
 
 ```rescript
 @schema
@@ -243,23 +292,28 @@ let schema = S.schema(s => {
 // Output: {foo?: string}
 ```
 
+Without it, the same field reads a missing key as `None` too:
+
+```rescript
+@schema
+type t = {
+  foo?: string,
+}
+
+// Generated by PPX ⬇️
+let schema = S.schema(s => {
+  foo: ?s.matches(S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.string)])),
+})
+// Input:  {foo?: string | null}
+// Output: {foo?: string}, and None writes as null
+```
+
 ### `@s.nullable`
 
 **Applies to**: option type expressions, optional record fields
 
-Makes the schema accept both `null` and `undefined`. The output value is still an `option`, which turns back into `undefined`.
-
-```rescript
-@schema
-type t = @s.nullable option<string>
-
-// Generated by PPX ⬇️
-let schema = S.nullableAsOption(S.string)
-// Input:  string | null | undefined
-// Output: option<string>
-```
-
-On an optional record field it replaces `S.option`, so both a missing key and `null` parse to `None`:
+Reads both `null` and a missing value as `None`, and writes `None` as a missing
+value - Serde's `#[serde(default, skip_serializing_if = "Option::is_none")]`.
 
 ```rescript
 @schema
@@ -272,14 +326,15 @@ let schema = S.schema(s => {
   foo: ?s.matches(S.nullableAsOption(S.string)),
 })
 // Input:  {foo?: string | null}
-// Output: {foo?: string}
+// Output: {foo?: string}, and None writes as {}
 ```
 
 ### `@s.default('value)`
 
 **Applies to**: type expressions
 
-Falls back to the provided value when the data is missing.
+Falls back to the provided value when the data is missing, as Serde's
+`#[serde(default)]` does. `null` is still an error.
 
 ```rescript
 @schema

@@ -458,3 +458,14 @@ jobs:
       - name: Compiled ReScript matches its source
         run: ../../scripts/assert-no-drift.sh '*.res.mjs'
         working-directory: packages/e2e
+
+  # e2e holds every ppx schema to fixtures.json: what Serde reads and writes
+  # for the Rust type mirroring it. This keeps the file honest - it fails when a
+  # verdict moved, or when a @schema type in packages/e2e/src/ppx has no mirror.
+  serde-compat:
+    name: Serde mirror
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo run --locked -- check
+        working-directory: packages/serde-compat

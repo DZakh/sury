@@ -11,18 +11,12 @@ type wrapper<'a> = {value: 'a}
 
 test("Parametrized record with single type param - int", t => {
   let schema = wrapperSchema(S.int)
-  t->Assert.deepEqual(
-    %raw(`{"value": 42}`)->S.parseOrThrow(~to=schema),
-    {value: 42},
-  )
+  t->Assert.deepEqual(%raw(`{"value": 42}`)->S.parseOrThrow(~to=schema), {value: 42})
 })
 
 test("Parametrized record with single type param - string", t => {
   let schema = wrapperSchema(S.string)
-  t->Assert.deepEqual(
-    %raw(`{"value": "hello"}`)->S.parseOrThrow(~to=schema),
-    {value: "hello"},
-  )
+  t->Assert.deepEqual(%raw(`{"value": "hello"}`)->S.parseOrThrow(~to=schema), {value: "hello"})
 })
 
 // --- Using a parametrized type as a field ---
@@ -54,10 +48,7 @@ type withOption<'a> = {data: option<'a>}
 
 test("Parametrized type with option field", t => {
   let schema = withOptionSchema(S.int)
-  t->Assert.deepEqual(
-    %raw(`{"data": 5}`)->S.parseOrThrow(~to=schema),
-    {data: Some(5)},
-  )
+  t->Assert.deepEqual(%raw(`{"data": 5}`)->S.parseOrThrow(~to=schema), {data: Some(5)})
 })
 
 // --- Parametrized type with array field ---
@@ -85,10 +76,7 @@ test("Parametrized type with array field", t => {
 
 type result2<'a, 'b> = R2A('a) | R2B('b)
 let result2Schema = (aSchema, bSchema) =>
-  S.union([
-    S.schema(s => R2A(s.matches(aSchema))),
-    S.schema(s => R2B(s.matches(bSchema))),
-  ])
+  S.union([S.schema(s => R2A(s.matches(aSchema))), S.schema(s => R2B(s.matches(bSchema)))])
 
 @schema
 type holder = {
@@ -112,8 +100,19 @@ type id<'a> = string
 
 test("Parametrized type alias whose param is unused (phantom)", t => {
   let schema = idSchema(S.int)
-  t->Assert.deepEqual(
-    %raw(`"hello"`)->S.parseOrThrow(~to=schema),
-    "hello",
-  )
+  t->Assert.deepEqual(%raw(`"hello"`)->S.parseOrThrow(~to=schema), "hello")
 })
+
+U.assertSerdeCompatible(
+  "Parametrized",
+  [
+    ("wrapper<int>", wrapperSchema(S.int)->S.castToUnknown),
+    ("wrapper<string>", wrapperSchema(S.string)->S.castToUnknown),
+    ("parent", parentSchema->S.castToUnknown),
+    ("nested<string>", nestedSchema(S.string)->S.castToUnknown),
+    ("withOption<int>", withOptionSchema(S.int)->S.castToUnknown),
+    ("withArray<string>", withArraySchema(S.string)->S.castToUnknown),
+    ("holder", holderSchema->S.castToUnknown),
+    ("id<int>", idSchema(S.int)->S.castToUnknown),
+  ],
+)

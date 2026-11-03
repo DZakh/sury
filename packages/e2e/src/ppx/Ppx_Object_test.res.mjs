@@ -21,6 +21,11 @@ Vitest$1.test("Simple object schema", t => {
   }, undefined);
 });
 
+U.assertSerdeCompatible("Object", [[
+    "simpleObject",
+    simpleObjectSchema
+  ]]);
+
 export {
   simpleObjectSchema,
 }

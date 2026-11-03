@@ -14,3 +14,8 @@ test("A PPX record numbered with @s.with is a protobuf message", t => {
   let bytes = value->S.convertOrThrow(~from=userSchema, ~to=S.protobuf)
   t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema), value)
 })
+
+U.assertSerdeCompatible(
+  "Protobuf",
+  [("address", addressSchema->S.castToUnknown), ("user", userSchema->S.castToUnknown)],
+)

@@ -7,7 +7,10 @@ import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
 let payloadSchema = Sury.$schema(s => ({
-  a: s.m(Sury.$option(Sury.string))
+  a: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.string)
+  ]))
 }));
 
 let schema = Sury.$schema(s => ({
@@ -20,7 +23,10 @@ let A = {
 };
 
 let payloadSchema$1 = Sury.$schema(s => ({
-  b: s.m(Sury.$option(Sury.int32))
+  b: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.int32)
+  ]))
 }));
 
 let schema$1 = Sury.$schema(s => ({
@@ -43,7 +49,7 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
       _0: m
     }))
   ]);
-  U.assertCompiledCode(t, schema$2, "Encode", `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;i=v0;break}if(i.TAG==="B"){let v2=i._0;let v3=v2.payload;i=v2;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v4){e[1](v4)}}`, undefined);
+  U.assertCompiledCode(t, schema$2, "Encode", `i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;let v1=v0.payload;let v2=v1.a;for(;;){if(v2===void 0){v2=null;break}if(typeof v2==="string")break;if(v2===void 0)break;throw e[0](v2)}i={payload:{a:v2}};break}if(i.TAG==="B"){let v3=i._0;let v4=v3.payload;let v5=v4.b;for(;;){if(v5===void 0){v5=null;break}if(typeof v5==="number"&&v5==v5)break;if(v5===void 0)break;throw e[1](v5)}i={payload:{b:v5}};break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v6){e[3](v6)}}`, undefined);
   Vitest.Assert.deepEqual(t, S.convertOrThrow({
     TAG: "B",
     _0: {
@@ -52,6 +58,12 @@ Vitest$1.test("Union serializing of objects with optional fields", t => {
       }
     }
   }, schema$2, undefined, Sury.unknown), {"payload":{"b":42}}, undefined);
+  Vitest.Assert.deepEqual(t, S.convertOrThrow({
+    TAG: "B",
+    _0: {
+      payload: {}
+    }
+  }, schema$2, undefined, Sury.unknown), {"payload":{"b":null}}, undefined);
   Vitest.Assert.deepEqual(t, S.convertOrThrow({
     TAG: "A",
     _0: {
@@ -93,11 +105,14 @@ let testSchema = Sury.union([
 ]);
 
 let schema$2 = Sury.$schema(s => ({
-  test: s.m(Sury.$option(testSchema))
+  test: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(testSchema)
+  ]))
 }));
 
 Vitest$1.test("Successfully parses nested optional union", t => {
-  U.assertCompiledCode(t, schema$2, "Parse", `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.test;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){let v1=v0.x;typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[0](v1);v0={TAG:"A",_0:{x:v1}};break}if(v0.type==="b"){let v2=v0.y;typeof v2==="string"||e[1](v2);v0={TAG:"B",_0:{y:v2}};break}throw e[2](v0)}break}if(v0===void 0)break;throw e[2](v0)}return {test:v0}}catch(v3){e[4](v3)}}`, undefined);
+  U.assertCompiledCode(t, schema$2, "Parse", `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.test;for(;;){if(v0===null){v0=void 0;break}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){let v1=v0.x;typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1==0||e[0](v1);v0={TAG:"A",_0:{x:v1}};break}if(v0.type==="b"){let v2=v0.y;typeof v2==="string"||e[1](v2);v0={TAG:"B",_0:{y:v2}};break}throw e[2](v0)}break}if(v0===void 0)break;throw e[2](v0)}return {test:v0}}catch(v3){e[4](v3)}}`, undefined);
   Vitest.Assert.deepEqual(t, S.convertOrThrow("{}", Sury.jsonString, undefined, schema$2), {
     test: undefined
   }, undefined);
@@ -136,6 +151,37 @@ let CknittelBugReport2 = {
   testSchema: testSchema,
   schema: schema$2
 };
+
+U.assertSerdeCompatible("Regression", [
+  [
+    "CknittelBugReport.A.payload",
+    payloadSchema
+  ],
+  [
+    "CknittelBugReport.A.t",
+    schema
+  ],
+  [
+    "CknittelBugReport.B.payload",
+    payloadSchema$1
+  ],
+  [
+    "CknittelBugReport.B.t",
+    schema$1
+  ],
+  [
+    "CknittelBugReport2.a",
+    aSchema
+  ],
+  [
+    "CknittelBugReport2.b",
+    bSchema
+  ],
+  [
+    "CknittelBugReport2.t",
+    schema$2
+  ]
+]);
 
 export {
   CknittelBugReport,

@@ -3,8 +3,14 @@
 import * as S from "sury/src/S.res.mjs";
 import * as Sury from "sury";
 import * as Vitest from "./Vitest.res.mjs";
+import * as Vitest$1 from "vitest";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
+import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
+import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Stdlib_JsError from "@rescript/runtime/lib/es6/Stdlib_JsError.js";
+import * as Primitive_string from "@rescript/runtime/lib/es6/Primitive_string.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
+import FixturesJson from "../../../serde-compat/fixtures.json";
 
 let noopOpCode = S.compileConvertOrThrow(Sury.unknown, undefined, Sury.unknown).toString();
 
@@ -173,6 +179,157 @@ function assertReverseReversesBack(t, schema) {
   unsafeAssertEqualSchemas(t, schema, Sury.reverse(Sury.reverse(schema)), undefined);
 }
 
+let serdeFixtures = FixturesJson;
+
+function jsonEqual(a, b) {
+  if (a === null) {
+    return b === null;
+  }
+  if (Array.isArray(a)) {
+    if (Array.isArray(b) && a.length === b.length) {
+      return a.every((item, idx) => jsonEqual(item, b[idx]));
+    } else {
+      return false;
+    }
+  }
+  switch (typeof a) {
+    case "boolean" :
+      if (typeof b === "boolean") {
+        return a === b;
+      } else {
+        return false;
+      }
+    case "string" :
+      if (typeof b === "string") {
+        return a === b;
+      } else {
+        return false;
+      }
+    case "number" :
+      if (typeof b === "number") {
+        return Object.is(a, b);
+      } else {
+        return false;
+      }
+    case "object" :
+      if (typeof b !== "object" || b === null || Array.isArray(b)) {
+        return false;
+      }
+      let keys = Object.keys(a);
+      if (keys.length === Object.keys(b).length) {
+        return keys.every(key => {
+          let value = b[key];
+          if (value !== undefined) {
+            return jsonEqual(a[key], value);
+          } else {
+            return false;
+          }
+        });
+      } else {
+        return false;
+      }
+  }
+}
+
+function describeVerdict(verdict) {
+  if (typeof verdict !== "object") {
+    return "writes undefined, which isn't JSON";
+  } else if (verdict.TAG === "Wrote") {
+    return `writes ` + JSON.stringify(verdict._0);
+  } else {
+    return `refuses it (` + verdict._0 + `)`;
+  }
+}
+
+function suryJsonVerdict(schema, input) {
+  let value;
+  try {
+    value = Sury.parseOrThrow(JSON.parse(input), schema);
+  } catch (raw_error) {
+    let error = Primitive_exceptions.internalToException(raw_error);
+    if (error.RE_EXN_ID === S.Exn) {
+      return {
+        TAG: "Refused",
+        _0: error._1.message
+      };
+    }
+    throw error;
+  }
+  let text = JSON.stringify(S.convertOrThrow(value, schema, undefined, Sury.unknown));
+  if (text !== undefined) {
+    return {
+      TAG: "Wrote",
+      _0: JSON.parse(text)
+    };
+  } else {
+    return "WroteUndefined";
+  }
+}
+
+function assertSerdeCase(t, schema, $$case, label) {
+  let match = $$case.output;
+  let match$1 = $$case.error;
+  let serde = match !== undefined ? ({
+      TAG: "Wrote",
+      _0: JSON.parse(match)
+    }) : (
+      match$1 !== undefined ? ({
+          TAG: "Refused",
+          _0: match$1
+        }) : Stdlib_JsError.throwWithMessage(label + ` ` + $$case.input + `: a case without a verdict`)
+    );
+  let sury = suryJsonVerdict(schema, $$case.input);
+  let agree;
+  agree = typeof serde !== "object" ? false : (
+      serde.TAG === "Wrote" ? (
+          typeof sury !== "object" || sury.TAG !== "Wrote" ? false : jsonEqual(serde._0, sury._0)
+        ) : (
+          typeof sury !== "object" ? false : sury.TAG !== "Wrote"
+        )
+    );
+  let match$2 = $$case.gap;
+  if (match$2 !== undefined) {
+    if (agree) {
+      return Vitest.Assert.fail(t, label + ` ` + $$case.input + `: Sury now agrees with Serde, closing the gap "` + match$2 + `". Move the case out of \`diverges\` in packages/serde-compat.`);
+    } else {
+      return;
+    }
+  } else if (agree) {
+    return;
+  } else {
+    return Vitest.Assert.fail(t, label + ` ` + $$case.input + `: Serde ` + describeVerdict(serde) + `, Sury ` + describeVerdict(sury));
+  }
+}
+
+function assertSerdeCompatible(group, schemas) {
+  let mirrors = serdeFixtures[group];
+  let mirrors$1 = mirrors !== undefined ? mirrors : Stdlib_JsError.throwWithMessage(`packages/serde-compat/fixtures.json has no group "` + group + `"`);
+  Vitest$1.test(`Every ` + group + ` type has a Serde mirror and every mirror a schema`, t => {
+    let mirrored = Stdlib_Array.filterMap(Object.entries(mirrors$1), param => {
+      let name = param[0];
+      return Stdlib_Option.map(param[1].cases, param => name);
+    }).toSorted(Primitive_string.compare);
+    let tested = schemas.map(param => param[0]).toSorted(Primitive_string.compare);
+    Vitest.Assert.deepEqual(t, tested, mirrored, undefined);
+  });
+  schemas.forEach(param => {
+    let schema = param[1];
+    let name = param[0];
+    Vitest$1.test(group + `.` + name + ` reads and writes JSON the way Serde does`, t => {
+      let label = group + `.` + name;
+      let match = mirrors$1[name];
+      if (match !== undefined) {
+        let cases = match.cases;
+        if (cases !== undefined) {
+          cases.forEach($$case => assertSerdeCase(t, schema, $$case, label));
+          return;
+        }
+      }
+      Vitest.Assert.fail(t, `packages/serde-compat has no cases for ` + label);
+    });
+  });
+}
+
 let assertEqualSchemas = unsafeAssertEqualSchemas;
 
 export {
@@ -193,5 +350,11 @@ export {
   assertEqualSchemas,
   assertReverseParsesBack,
   assertReverseReversesBack,
+  serdeFixtures,
+  jsonEqual,
+  describeVerdict,
+  suryJsonVerdict,
+  assertSerdeCase,
+  assertSerdeCompatible,
 }
 /* noopOpCode Not a pure module */

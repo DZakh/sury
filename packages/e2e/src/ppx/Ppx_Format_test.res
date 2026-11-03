@@ -92,12 +92,13 @@ test("Record of formats", t => {
       id: s.matches(S.uuid),
       email: s.matches(S.email),
       tags: s.matches(S.array(S.string)->S.nonEmpty),
-      homepage: s.matches(S.option(S.uri)),
+      homepage: s.matches(S.union([S.literal(Null.null)->S.to(S.literal(None)), S.option(S.uri)])),
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{id: "123e4567-e89b-12d3-a456-426614174000", email: "a@b.com", tags: ["x"]}`)
-    ->S.parseOrThrow(~to=userSchema),
+    %raw(`{id: "123e4567-e89b-12d3-a456-426614174000", email: "a@b.com", tags: ["x"]}`)->S.parseOrThrow(
+      ~to=userSchema,
+    ),
     {
       id: Uuid("123e4567-e89b-12d3-a456-426614174000"),
       email: Email("a@b.com"),
@@ -170,3 +171,19 @@ test("Record of network formats", t => {
     },
   )
 })
+
+assertSerdeCompatible(
+  "Format",
+  [
+    ("myEmail", myEmailSchema->S.castToUnknown),
+    ("myPort", myPortSchema->S.castToUnknown),
+    ("myInteger", myIntegerSchema->S.castToUnknown),
+    ("myJsonString", myJsonStringSchema->S.castToUnknown),
+    ("myEnv", myEnvSchema->S.castToUnknown),
+    ("myQueryString", myQueryStringSchema->S.castToUnknown),
+    ("myNonEmptyTags", myNonEmptyTagsSchema->S.castToUnknown),
+    ("user", userSchema->S.castToUnknown),
+    ("identifiers", identifiersSchema->S.castToUnknown),
+    ("host", hostSchema->S.castToUnknown),
+  ],
+)

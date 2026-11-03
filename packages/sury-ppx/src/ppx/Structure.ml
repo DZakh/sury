@@ -33,18 +33,108 @@ let applySchemaAttribute ~loc ~value_type schema_expr
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr
 
-let optionFactoryExpression ~loc ptyp_attributes =
+type nullability = Unset | Null | Nullable
+
+let getNullability ~loc ptyp_attributes =
   match
     ( getAttributeByName ptyp_attributes "s.null",
       getAttributeByName ptyp_attributes "s.nullable" )
   with
-  | Ok None, Ok None -> [%expr S.option]
-  | Ok (Some _), Ok None -> [%expr S.nullAsOption]
-  | Ok None, Ok (Some _) -> [%expr S.nullableAsOption]
+  | Ok None, Ok None -> Unset
+  | Ok (Some _), Ok None -> Null
+  | Ok None, Ok (Some _) -> Nullable
   | Ok (Some _), Ok (Some _) ->
     fail loc
       "Attributes @s.null and @s.nullable are not supported at the same time"
   | _, Error s | Error s, _ -> fail loc s
+
+(* Serde writes `None` as `null` and reads only `null` back as one, so that is
+   what `option<_>` means wherever it stands. *)
+let optionFactoryExpression ~loc = function
+  | Unset | Null -> [%expr S.nullAsOption]
+  | Nullable -> [%expr S.nullableAsOption]
+
+(* What @s.default falls back over. Serde's `#[serde(default)]` fills in a
+   missing value only and still rejects `null`, unless @s.null/@s.nullable say
+   otherwise. *)
+let defaultFactoryExpression ~loc = function
+  | Unset -> [%expr S.option]
+  | Null -> [%expr S.nullAsOption]
+  | Nullable -> [%expr S.nullableAsOption]
+
+let hasAttribute attributes name =
+  match getAttributeByName attributes name with
+  | Ok (Some _) -> true
+  | _ -> false
+
+let stringExpr s = Exp.constant (Pconst_string (s, Location.none, None))
+
+let intExpr i = Exp.constant (Pconst_integer (string_of_int i, None))
+
+(* For the S members metaquot can't parse because their names are OCaml
+   keywords: `object`, `to`. *)
+let sKeyword name = Exp.ident (mknoloc (Longident.Ldot (Lident "S", name)))
+
+(* Serde's `Option` field: a missing key and `null` both read as `None`, ahead
+   of whatever the item makes of them, and `None` writes as `null`. The null arm
+   goes first because a union encodes through its first member that fits;
+   S.option keeps the missing key ahead of an item that reads one itself. *)
+let missingOrNullAsNone ~loc item_schema =
+  let null_as_none =
+    Exp.apply (sKeyword "to")
+      [(Nolabel, [%expr S.literal Null.null]); (Nolabel, [%expr S.literal None])]
+  in
+  [%expr S.union [|[%e null_as_none]; S.option [%e item_schema]|]]
+
+let objectSchema ~loc body =
+  Exp.apply (sKeyword "object")
+    [ ( Nolabel,
+        uncurriedFun ~loc ~arity:1 [%expr fun (s : S.Object.s) -> [%e body]] );
+    ]
+
+let tupleSchema ~loc body =
+  [%expr
+    S.tuple
+      [%e uncurriedFun ~loc ~arity:1 [%expr fun (s : S.Tuple.s) -> [%e body]]]]
+
+(* Serde's default enum representation: `{"Variant": payload}`. The object has
+   to hold that one key and nothing else, as serde_json demands. `build` gets
+   the function that reads the key with a schema. *)
+let externallyTagged ~loc ~key build =
+  [%expr
+    S.strict
+      [%e
+        objectSchema ~loc
+          (build (fun payload_schema ->
+               [%expr s.field [%e stringExpr key] [%e payload_schema]]))]]
+
+type variantRepresentation =
+  | External
+  | Internal of expression (* @tag("...") *)
+  | Untagged (* @unboxed *)
+
+let getVariantRepresentation ~loc attributes =
+  match
+    (getAttributeByName attributes "tag", getAttributeByName attributes "unboxed")
+  with
+  | Ok (Some attribute), _ -> Internal (getExpressionFromPayload attribute)
+  | Ok None, Ok (Some _) -> Untagged
+  | Ok None, Ok None -> External
+  | Error s, _ | _, Error s -> fail loc s
+
+(* The key Serde writes for a constructor: its name, or the `@as` that renames
+   it, the way `#[serde(rename = "...")]` does. *)
+let getConstructorKey {pcd_name = {txt; loc}; pcd_attributes} =
+  match getAttributeByName pcd_attributes "as" with
+  | Ok None -> txt
+  | Ok (Some attribute) -> (
+    match (getExpressionFromPayload attribute).pexp_desc with
+    | Pexp_constant (Pconst_string (key, _, _)) -> key
+    | _ ->
+      fail loc
+        "The @as of a constructor with a payload must be a string - it names \
+         the constructor's key in the JSON object")
+  | Error s -> fail loc s
 
 let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
     type_args option_factory_expression =
@@ -56,7 +146,7 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lident "float", _ -> [%expr S.float]
   | Lident "bigint", _ -> [%expr S.bigint]
   | Lident "bool", _ -> [%expr S.bool]
-  | Lident "unit", _ -> [%expr S.unit]
+  | Lident "unit", _ -> [%expr S.nullAsUnit]
   | Lident "unknown", _ -> [%expr S.unknown]
   | Ldot (Lident "S", "never"), _ -> [%expr S.never]
   (* The format schemas and stdlib aliases are named identically as a type and
@@ -112,47 +202,24 @@ and polyvariantUnionItems row_fields =
   (* Returns the flattened list of S.union members for a set of poly-variant
      rows. An inherited row (`Rinherit`) may itself expand into several members
      (when it is an inline polyvariant), so we concat-map rather than map. *)
-  let payloadCoreTypeToMatchesExpression core_type =
-    [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
-  in
   row_fields
-  |> List.map (fun {prf_desc; prf_loc} ->
+  |> List.map (fun {prf_desc; prf_loc = loc} ->
          (* The bool field of Rtag is the ampersand-conjunction flag,
             which ReScript polymorphic variants don't expose. *)
          match prf_desc with
          | Rtag ({txt = name}, _, []) ->
            [[%expr S.literal [%e Exp.variant name None]]]
-         | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
-           (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
-              the type level. Unfold it so the construction site uses flat
-              args, mirroring how generateVariantSchemaExpression handles
-              Pcstr_tuple multi-arg variants. *)
-           let body =
-             Exp.variant name
-               (Some
-                  (Exp.tuple
-                     (tuple_types
-                     |> List.map payloadCoreTypeToMatchesExpression)))
-           in
-           [ [%expr
-               S.schema
-                 [%e
-                   uncurriedFun ~loc:prf_loc ~arity:1
-                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           ]
          | Rtag ({txt = name}, _, [payload_core_type]) ->
-           let body =
-             Exp.variant name
-               (Some (payloadCoreTypeToMatchesExpression payload_core_type))
-           in
-           [ [%expr
-               S.schema
-                 [%e
-                   uncurriedFun ~loc:prf_loc ~arity:1
-                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
+           (* `#tag(t1, t2)` carries one tuple payload at the type level, which
+              is what Serde writes for a tuple variant: `{"tag": [t1, t2]}`. *)
+           [ externallyTagged ~loc ~key:name (fun readKey ->
+                 Exp.variant name
+                   (Some
+                      (readKey
+                         (generateCoreTypeSchemaExpression payload_core_type))))
            ]
          | Rtag _ ->
-           fail prf_loc
+           fail loc
              "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
               supported"
          | Rinherit {ptyp_desc = Ptyp_variant (inherited_rows, _, _)} ->
@@ -178,40 +245,110 @@ and generatePolyvariantSchemaExpression row_fields =
   | union_items -> [%expr S.union [%e Exp.array union_items]]
 
 and generateFieldSchemaExpression field =
-  let schema_expression = generateCoreTypeSchemaExpression field.core_type in
+  let {ptyp_desc; ptyp_loc = loc; ptyp_attributes} = field.core_type in
+  let has = hasAttribute ptyp_attributes in
+  let has_default = has "s.default" || has "s.defaultWith" in
+  let option_item =
+    match ptyp_desc with
+    | Ptyp_constr ({txt = Longident.Lident "option"}, [item_type]) -> Some item_type
+    | _ -> None
+  in
   if field.is_optional then
-    let {ptyp_desc; ptyp_loc; ptyp_attributes} = field.core_type in
-    (* On `option<_>` (and `@s.default`/`@s.defaultWith`) the factory is
-       already consumed by generateCoreTypeSchemaExpression, so applying it
-       again as the optionality wrapper would double it up. *)
-    let factory_consumed =
-      (match ptyp_desc with
-      | Ptyp_constr ({txt = Longident.Lident "option"}, [_]) -> true
-      | _ -> false)
-      || ["s.default"; "s.defaultWith"]
-         |> List.exists (fun name ->
-                match getAttributeByName ptyp_attributes name with
-                | Ok (Some _) -> true
-                | _ -> false)
+    let schema_expression = generateCoreTypeSchemaExpression field.core_type in
+    let optional_schema =
+      if has_default then [%expr S.option [%e schema_expression]]
+      else
+        match (getNullability ~loc ptyp_attributes, option_item) with
+        (* On `option<_>` the attribute already went into the item's schema,
+           so the field itself gets the Serde reading below. *)
+        | Null, None -> [%expr S.nullAsOption [%e schema_expression]]
+        | Nullable, None -> [%expr S.nullableAsOption [%e schema_expression]]
+        | _ -> missingOrNullAsNone ~loc schema_expression
     in
-    (* S.nullAsOption/S.nullableAsOption already produce an option<_>, so on an
-       optional field they replace the S.option wrapper instead of nesting
-       inside it. *)
-    let wrapper =
-      if factory_consumed then [%expr S.option]
-      else optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
-    in
-    [%expr Obj.magic ([%e wrapper] [%e schema_expression])]
-  else schema_expression
+    [%expr Obj.magic [%e optional_schema]]
+  else
+    match option_item with
+    | Some item_type
+      when not (has "s.matches" || has "s.null" || has "s.nullable" || has_default)
+      ->
+      (* Built over the item rather than around the option's schema, so the
+         attributes written on `option<_>` (@s.with, @s.meta) wrap the field's
+         whole reading. *)
+      generateCoreTypeSchemaExpression
+        ~base:(missingOrNullAsNone ~loc (generateCoreTypeSchemaExpression item_type))
+        field.core_type
+    | _ -> generateCoreTypeSchemaExpression field.core_type
 
-and generateVariantSchemaExpression constr_decls =
+and generateVariantSchemaExpression ~representation constr_decls =
   let payloadCoreTypeToMatchesExpression core_type =
     [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
+  in
+  (* The constructor over its runtime representation: what an @unboxed variant
+     reads, and an @tag one. Serde's internal tagging agrees on an inline
+     record; any other payload stays under `_0`, where Serde flattens a struct
+     and refuses the rest. *)
+  let runtimeShaped ~loc ~name pcd_args =
+    let body =
+      match pcd_args with
+      | Pcstr_tuple [payload_core_type] ->
+        Exp.construct (lid name)
+          (Some (payloadCoreTypeToMatchesExpression payload_core_type))
+      | Pcstr_tuple payload_core_types ->
+        Exp.construct (lid name)
+          (Some
+             (Exp.tuple
+                (payload_core_types |> List.map payloadCoreTypeToMatchesExpression)))
+      | Pcstr_record label_declarations ->
+        Exp.construct (lid name)
+          (Some
+             (Exp.record
+                (label_declarations
+                |> List.map (fun label_declaration ->
+                       let field = parseLabelDeclaration label_declaration in
+                       ( lid field.name,
+                         [%expr s.matches [%e generateFieldSchemaExpression field]]
+                       )))
+                None))
+    in
+    [%expr
+      S.schema
+        [%e uncurriedFun ~loc ~arity:1 [%expr fun (s : S.Schema.s) -> [%e body]]]]
+  in
+  let externallyTaggedPayload ~loc ~name ~key pcd_args =
+    externallyTagged ~loc ~key (fun readKey ->
+        match pcd_args with
+        | Pcstr_tuple [payload_core_type] ->
+          Exp.construct (lid name)
+            (Some (readKey (generateCoreTypeSchemaExpression payload_core_type)))
+        | Pcstr_tuple payload_core_types ->
+          let items =
+            payload_core_types
+            |> List.mapi (fun idx payload_core_type ->
+                   [%expr
+                     s.item [%e intExpr idx]
+                       [%e generateCoreTypeSchemaExpression payload_core_type]])
+          in
+          readKey
+            (tupleSchema ~loc (Exp.construct (lid name) (Some (Exp.tuple items))))
+        | Pcstr_record label_declarations ->
+          let field_expressions =
+            label_declarations
+            |> List.map (fun label_declaration ->
+                   let field = parseLabelDeclaration label_declaration in
+                   ( lid field.name,
+                     [%expr
+                       s.field
+                         [%e stringExpr field.runtime_name]
+                         [%e generateFieldSchemaExpression field]] ))
+          in
+          readKey
+            (objectSchema ~loc
+               (Exp.construct (lid name) (Some (Exp.record field_expressions None)))))
   in
   let spread_schemas = ref [] in
   let union_items =
     constr_decls
-    |> List.filter_map (fun {pcd_name = {txt = name; loc}; pcd_args} ->
+    |> List.filter_map (fun ({pcd_name = {txt = name; loc}; pcd_args} as decl) ->
            if name = "..." then (
              match pcd_args with
              | Pcstr_tuple [spread_type] ->
@@ -222,49 +359,22 @@ and generateVariantSchemaExpression constr_decls =
                None
              | _ -> fail loc "Unsupported variant spread syntax")
            else
+             let constructor = Exp.construct (lid name) None in
              Some
-               (match pcd_args with
-               | Pcstr_tuple [] ->
-                 [%expr S.literal [%e Exp.construct (lid name) None]]
-               | Pcstr_tuple payload_core_types ->
-                 let body =
-                   Exp.construct (lid name)
-                     (Some
-                        (match payload_core_types with
-                        | [payload_core_type] ->
-                          payloadCoreTypeToMatchesExpression payload_core_type
-                        | payload_core_types ->
-                          Exp.tuple
-                            (payload_core_types
-                            |> List.map payloadCoreTypeToMatchesExpression)))
-                 in
-                 [%expr
-                   S.schema
-                     [%e
-                       uncurriedFun ~loc ~arity:1
-                         [%expr fun (s : S.Schema.s) -> [%e body]]]]
-               | Pcstr_record label_declarations ->
-                 let fields =
-                   label_declarations |> List.map parseLabelDeclaration
-                 in
-                 let field_expressions =
-                   fields
-                   |> List.map (fun field ->
-                          let schema_expression =
-                            generateFieldSchemaExpression field
-                          in
-                          ( lid field.name,
-                            [%expr s.matches [%e schema_expression]] ))
-                 in
-                 let body =
-                   Exp.construct (lid name)
-                     (Some (Exp.record field_expressions None))
-                 in
-                 [%expr
-                   S.schema
-                     [%e
-                       uncurriedFun ~loc ~arity:1
-                         [%expr fun (s : S.Schema.s) -> [%e body]]]]))
+               (match (representation, pcd_args) with
+               | (External | Untagged), Pcstr_tuple [] ->
+                 [%expr S.literal [%e constructor]]
+               (* Serde's internally tagged unit variant: `{"tag": "Variant"}`.
+                  The constructor is its own tag value, `@as` included. *)
+               | Internal tag, Pcstr_tuple [] ->
+                 objectSchema ~loc
+                   [%expr
+                     s.tag [%e tag] [%e constructor];
+                     [%e constructor]]
+               | External, _ ->
+                 externallyTaggedPayload ~loc ~name ~key:(getConstructorKey decl)
+                   pcd_args
+               | (Internal _ | Untagged), _ -> runtimeShaped ~loc ~name pcd_args))
   in
   let spread_schemas = List.rev !spread_schemas in
   if spread_schemas = [] then
@@ -383,15 +493,17 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
         uncurriedFun ~loc:Location.none ~arity:1
           (Exp.fun_ Nolabel None s_pat [%expr Obj.magic [%e assign_call]])]]
 
-and generateCoreTypeSchemaExpression core_type =
+(* `base` stands in for the schema the type itself would get, under the same
+   attributes - generateFieldSchemaExpression builds a field's reading of an
+   option through it. *)
+and generateCoreTypeSchemaExpression ?base core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
   let customSchemaExpression = getAttributeByName ptyp_attributes "s.matches" in
-  let option_factory_expression =
-    optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
-  in
+  let nullability = getNullability ~loc:ptyp_loc ptyp_attributes in
   let schema_expression =
-    match customSchemaExpression with
-    | Ok None -> (
+    match (base, customSchemaExpression) with
+    | Some base, _ -> base
+    | None, Ok None -> (
       match ptyp_desc with
       | Ptyp_any -> fail ptyp_loc "Can't generate schema for `any` type"
       | Ptyp_arrow (_, _, _) ->
@@ -414,14 +526,17 @@ and generateCoreTypeSchemaExpression core_type =
       | Ptyp_var s -> makeIdentExpr (generateTypeVarSchemaName s)
       | Ptyp_constr (constr, type_args) ->
         generateConstrSchemaExpression constr type_args
-          option_factory_expression
+          (optionFactoryExpression ~loc:ptyp_loc nullability)
       | Ptyp_variant (row_fields, _, _) ->
         generatePolyvariantSchemaExpression row_fields
       | Ptyp_object (object_fields, Closed) ->
         object_fields |> List.map parseObjectField |> generateObjectSchema
       | _ -> fail ptyp_loc "Unsupported type")
-    | Ok (Some attribute) -> getExpressionFromPayload attribute
-    | Error s -> fail ptyp_loc s
+    | None, Ok (Some attribute) -> getExpressionFromPayload attribute
+    | None, Error s -> fail ptyp_loc s
+  in
+  let default_factory_expression =
+    defaultFactoryExpression ~loc:ptyp_loc nullability
   in
   let handle_attribute schema_expr ({attr_name = {Location.txt}} as attribute) =
     match txt with
@@ -430,13 +545,13 @@ and generateCoreTypeSchemaExpression core_type =
       let default_value = getExpressionFromPayload attribute in
       [%expr
         S.Option.getOr
-          ([%e option_factory_expression] [%e schema_expr])
+          ([%e default_factory_expression] [%e schema_expr])
           [%e default_value]]
     | "s.defaultWith" ->
       let default_fn = getExpressionFromPayload attribute in
       [%expr
         S.Option.getOrWith
-          ([%e option_factory_expression] [%e schema_expr])
+          ([%e default_factory_expression] [%e schema_expr])
           [%e default_fn]]
     | _ ->
       applySchemaAttribute ~loc:ptyp_loc
@@ -452,8 +567,10 @@ let generateTypeDeclarationSchemaExpression type_declaration =
     fail ptype_loc "Can't generate schema for abstract type"
   | {ptype_manifest = Some manifest; _} ->
     manifest |> generateCoreTypeSchemaExpression
-  | {ptype_kind = Ptype_variant decls; _} ->
-    generateVariantSchemaExpression decls
+  | {ptype_kind = Ptype_variant decls; ptype_attributes; ptype_loc} ->
+    generateVariantSchemaExpression
+      ~representation:(getVariantRepresentation ~loc:ptype_loc ptype_attributes)
+      decls
   | {ptype_name = {txt = type_name}; ptype_kind = Ptype_record label_declarations; _} ->
     let spread_types, regular_lds =
       List.partition

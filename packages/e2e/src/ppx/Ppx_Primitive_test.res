@@ -29,8 +29,8 @@ test("Bool schema", t => {
 
 @schema
 type myUnit = unit
-test("Unit schema", t => {
-  t->assertEqualSchemas(myUnitSchema, S.unit)
+test("Unit schema is null, as Serde writes ()", t => {
+  t->assertEqualSchemas(myUnitSchema, S.nullAsUnit)
 })
 
 @schema
@@ -47,8 +47,8 @@ test("Never schema", t => {
 
 @schema
 type myOptionOfString = option<string>
-test("Option of string schema", t => {
-  t->assertEqualSchemas(myOptionOfStringSchema, S.option(S.string))
+test("Option of string schema reads and writes None as null, as Serde does", t => {
+  t->assertEqualSchemas(myOptionOfStringSchema, S.nullAsOption(S.string))
 })
 
 @schema
@@ -144,7 +144,7 @@ test("Custom litaral string schema", t => {
 @schema
 type myCustomOptionalString = option<@s.matches(myCustomSchema) string>
 test("Custom optional string schema", t => {
-  t->assertEqualSchemas(myCustomOptionalStringSchema, myCustomSchema->S.option)
+  t->assertEqualSchemas(myCustomOptionalStringSchema, myCustomSchema->S.nullAsOption)
 })
 
 // @schema
@@ -157,3 +157,31 @@ type myNullOfString = @s.matches(S.nullAsOption(S.string)) option<string>
 test("Null of string schema", t => {
   t->assertEqualSchemas(myNullOfStringSchema, S.nullAsOption(S.string))
 })
+
+assertSerdeCompatible(
+  "Primitive",
+  [
+    ("myString", myStringSchema->S.castToUnknown),
+    ("myInt", myIntSchema->S.castToUnknown),
+    ("myFloat", myFloatSchema->S.castToUnknown),
+    ("myBool", myBoolSchema->S.castToUnknown),
+    ("myUnit", myUnitSchema->S.castToUnknown),
+    ("myUnknown", myUnknownSchema->S.castToUnknown),
+    ("myNever", myNeverSchema->S.castToUnknown),
+    ("myOptionOfString", myOptionOfStringSchema->S.castToUnknown),
+    ("myNullableOfString", myNullableOfStringSchema->S.castToUnknown),
+    ("myArrayOfString", myArrayOfStringSchema->S.castToUnknown),
+    ("myListOfString", myListOfStringSchema->S.castToUnknown),
+    ("myDictOfString", myDictOfStringSchema->S.castToUnknown),
+    ("myDictOfStringFromJs", myDictOfStringFromJsSchema->S.castToUnknown),
+    ("myDictOfStringFromCore", myDictOfStringFromCoreSchema->S.castToUnknown),
+    ("myJson", myJsonSchema->S.castToUnknown),
+    ("myJsonFromCore", myJsonFromCoreSchema->S.castToUnknown),
+    ("myTuple", myTupleSchema->S.castToUnknown),
+    ("myBigTuple", myBigTupleSchema->S.castToUnknown),
+    ("myCustomString", myCustomStringSchema->S.castToUnknown),
+    ("myCustomLiteralString", myCustomLiteralStringSchema->S.castToUnknown),
+    ("myCustomOptionalString", myCustomOptionalStringSchema->S.castToUnknown),
+    ("myNullOfString", myNullOfStringSchema->S.castToUnknown),
+  ],
+)

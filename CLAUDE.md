@@ -212,6 +212,16 @@ that importing one message keeps none of its siblings in a Rollup 4 bundle.
 A codec change a generated shape needs lands in `packages/sury/src` with its
 spec first, like any other.
 
+## Changing sury-ppx
+
+Its output is held to Serde, not to itself. Every `@schema` type in
+`packages/e2e/src/ppx` has a Rust mirror in `packages/serde-compat` - the type
+Serde reads the same JSON into - and the e2e test file holds the schema to the
+mirror's verdicts in `fixtures.json` with `assertSerdeCompatible`. A new type
+gets a mirror, or a `skip` with its reason; `cargo run` there rewrites the
+fixtures and `cargo run -- check` fails on a missing one. An input Sury reads
+differently is a `.diverges` case with its reason, never a dropped one.
+
 ## Codecs
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,

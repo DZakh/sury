@@ -79,14 +79,26 @@ Vitest$1.test("Record schema with alias for field name", t => {
 });
 
 let recordWithOptionalSchema = Sury.$schema(s => ({
-  label: s.m(Sury.$option(Sury.string)),
-  value: s.m(Sury.$option(Sury.int32))
+  label: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.string)
+  ])),
+  value: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.int32)
+  ]))
 }));
 
 Vitest$1.test("Record schema with optional fields", t => {
   U.assertEqualSchemas(t, recordWithOptionalSchema, Sury.$schema(s => ({
-    label: s.m(Sury.$option(Sury.string)),
-    value: s.m(Sury.$option(Sury.int32))
+    label: s.m(Sury.union([
+      S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+      Sury.$option(Sury.string)
+    ])),
+    value: s.m(Sury.union([
+      S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+      Sury.$option(Sury.int32)
+    ]))
   })), undefined);
   Vitest.Assert.deepEqual(t, Sury.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
     label: "foo",
@@ -96,12 +108,21 @@ Vitest$1.test("Record schema with optional fields", t => {
     label: undefined,
     value: undefined
   }, undefined);
+  Vitest.Assert.deepEqual(t, Sury.parseOrThrow({"label":null,"value":null}, recordWithOptionalSchema), {
+    label: undefined
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.convertOrThrow({
+    label: undefined
+  }, recordWithOptionalSchema, undefined, Sury.unknown), {"label":null,"value":null}, undefined);
 });
 
 let flagWithDefaultSchema = Sury.$Option_getOr(Sury.$option(Sury.boolean), false);
 
 let recordWithOptionalDefaultedSchema = Sury.$schema(s => ({
-  darkMode: s.m(Sury.$option(flagWithDefaultSchema))
+  darkMode: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(flagWithDefaultSchema)
+  ]))
 }));
 
 Vitest$1.test("Optional field of a type with a default keeps a missing value as None", t => {
@@ -109,7 +130,7 @@ Vitest$1.test("Optional field of a type with a default keeps a missing value as 
   Vitest.Assert.deepEqual(t, Sury.parseOrThrow({"darkMode":true}, recordWithOptionalDefaultedSchema), {
     darkMode: true
   }, undefined);
-  Vitest.Assert.deepEqual(t, S.convertOrThrow({}, recordWithOptionalDefaultedSchema, undefined, Sury.unknown), {}, undefined);
+  Vitest.Assert.deepEqual(t, S.convertOrThrow({}, recordWithOptionalDefaultedSchema, undefined, Sury.unknown), {"darkMode":null}, undefined);
 });
 
 let emptyRecordSchema = Sury.$schema(s => ({}));
@@ -204,7 +225,10 @@ Vitest$1.test("Multiple @s.* attributes on root record type", t => U.assertEqual
 
 let schema = Sury.$schema(s => ({
   id: s.m(Sury.string),
-  summary: s.m(Sury.$option(Sury.string))
+  summary: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.string)
+  ]))
 }));
 
 let Meta = {
@@ -293,7 +317,10 @@ Vitest$1.test("Record schema with spread and @as-aliased own field", t => {
 });
 
 let recordWithSpreadAndOptionalFieldSchema = Sury.$schema(s => Object.assign({
-  extra: s.m(Sury.$option(Sury.int32))
+  extra: s.m(Sury.union([
+    S.to(Sury.literal(null), Sury.literal(undefined), undefined),
+    Sury.$option(Sury.int32)
+  ]))
 }, schema.properties));
 
 Vitest$1.test("Record schema with spread and optional own field", t => {
@@ -309,6 +336,105 @@ Vitest$1.test("Record schema with spread and optional own field", t => {
   }, undefined);
   U.assertReverseReversesBack(t, recordWithSpreadAndOptionalFieldSchema);
 });
+
+U.assertSerdeCompatible("Record", [
+  [
+    "strictRecord",
+    strictRecordSchema
+  ],
+  [
+    "stripRecord",
+    stripRecordSchema
+  ],
+  [
+    "deepStrictRecord",
+    deepStrictRecordSchema
+  ],
+  [
+    "deepStripRecord",
+    deepStripRecordSchema
+  ],
+  [
+    "noValidationRecord",
+    noValidationRecordSchema
+  ],
+  [
+    "metaRecord",
+    metaRecordSchema
+  ],
+  [
+    "combinedRecord",
+    combinedRecordSchema
+  ],
+  [
+    "simpleRecord",
+    simpleRecordSchema
+  ],
+  [
+    "recordWithAlias",
+    recordWithAliasSchema
+  ],
+  [
+    "recordWithOptional",
+    recordWithOptionalSchema
+  ],
+  [
+    "flagWithDefault",
+    flagWithDefaultSchema
+  ],
+  [
+    "recordWithOptionalDefaulted",
+    recordWithOptionalDefaultedSchema
+  ],
+  [
+    "emptyRecord",
+    emptyRecordSchema
+  ],
+  [
+    "recordWithNullableField",
+    recordWithNullableFieldSchema
+  ],
+  [
+    "recordWithOptionalNullableField",
+    recordWithOptionalNullableFieldSchema
+  ],
+  [
+    "recordWithOptionalNullField",
+    recordWithOptionalNullFieldSchema
+  ],
+  [
+    "Meta.t",
+    schema
+  ],
+  [
+    "recordWithSpread",
+    recordWithSpreadSchema
+  ],
+  [
+    "Extra.t",
+    schema$1
+  ],
+  [
+    "recordWithMultipleSpreads",
+    recordWithMultipleSpreadsSchema
+  ],
+  [
+    "recordWithOnlySpread",
+    recordWithOnlySpreadSchema
+  ],
+  [
+    "recordWithMultipleSpreadsNoFields",
+    recordWithMultipleSpreadsNoFieldsSchema
+  ],
+  [
+    "recordWithSpreadAndAliasedField",
+    recordWithSpreadAndAliasedFieldSchema
+  ],
+  [
+    "recordWithSpreadAndOptionalField",
+    recordWithSpreadAndOptionalFieldSchema
+  ]
+]);
 
 export {
   strictRecordSchema,
