@@ -395,9 +395,6 @@ export const linkTo = (
 
 export type Slot = Builder | boolean | undefined;
 
-// A ref met while its own definer still runs has no definition to ask yet, and
-// is viewed on demand like one that converts. A parser always sits beside a
-// `.to`, so `to` stands for both.
 
 // An output-seam coder claims the target as its result, so a target that
 // still converts on its own would have that conversion skipped. The junction
@@ -458,40 +455,61 @@ const readsNone = (output: Internal): boolean =>
   output.properties?.[nestedLoc] !== U ||
   !!output.anyOf?.some(readsNone);
 
+// What ReScript's `getOr` does to the arms before it builds the default: it
+// peels one option off each, which JS, having no nested option, never asks
+// for. Returns U once it has finished the union itself.
+type Peel = (anyOf: Internal[], owner: Internal, default_: OptionDefault) => Internal[] | undefined;
+
+const peelArms: Peel = (anyOf, owner, default_) => {
+  let reached = false;
+  const items = anyOf.map((variant) => {
+    const output = getOutputSchema(variant);
+    if (output.type === undefinedTag) {
+      reached = true;
+      return variant;
+    }
+    // An earlier default, which never encodes, ahead of every `undefined` arm
+    // always wins. A None or a Some(None) it can still give would change under
+    // this default's peel, and the arm can't take that back. Only a chain of
+    // `getOr`s builds one: a wrapper puts its own empty arm first.
+    if (!reached && output.serializer === B_neverSlot && readsNone(output)) {
+      panic(
+        `Can't set default for ${inputExpression(owner)}: an earlier default already takes undefined. Set one default`
+      );
+    }
+    return noneOf(variant);
+  });
+  // `None` over a nested option: a peeled arm already reads the absent value
+  // as `None`, so there is nothing to replace, and a later default still sees
+  // a plain `undefined` arm to take.
+  if (
+    default_.type === "value" &&
+    default_.value === U &&
+    items.some((variant, idx) => variant !== anyOf[idx] && getOutputSchema(variant).type === undefinedTag)
+  ) {
+    owner.anyOf = items;
+    return U;
+  }
+  return items;
+};
+
 // Every undefined-producing variant converts to the item union, supplying the
 // default on decode and taking the never slot on encode so it yields to its
 // siblings there. Spelling the default as ordinary union arms is what lets the
 // planner treat it like any other variant.
-export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
+// An arm is empty by what it read before the peel: a peeled Some(None) reads
+// `undefined` too, but as the inner option's None.
+const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
     if (anyOf === U) {
       return panic(`Can't set default for ${inputExpression(mut)}`);
     }
+    const items = peel ? peel(anyOf, mut, default_) : anyOf;
+    if (items === U) return;
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
-    const none = default_.type === "value" && default_.value === U;
-    let reached = false;
-    let building: Internal | undefined;
-    const items = anyOf.map((variant) => {
-      const output = getOutputSchema(variant);
-      if (output.type === undefinedTag) {
-        reached = true;
-        return variant;
-      }
-      // An earlier default, which never encodes, ahead of every `undefined` arm
-      // always wins. A None or a Some(None) it can still give would change
-      // under this default's peel, and the arm can't take that back. Only a
-      // ReScript chain of `getOr`s builds one: a wrapper puts its own empty
-      // arm first.
-      if (!reached && output.serializer === B_neverSlot && readsNone(output)) {
-        panic(
-          `Can't set default for ${inputExpression(mut)}: an earlier default already takes undefined. Set one default`
-        );
-      }
-      return noneOf(variant);
-    });
     for (let idx = 0; idx < anyOf.length; idx++) {
       if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
         const variant = items[idx]!;
@@ -500,7 +518,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
         if (outputSchema.type === refTag && !outputSchema.definition!()) {
-          building = outputSchema;
+          panic(
+            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
+          );
         }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
@@ -509,19 +529,6 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         }
         originalItems.push(variant);
       }
-    }
-
-    // `None` over a nested option: the peeled arms already read the absent
-    // value as `None`, so there is nothing to replace, and a later default
-    // still sees a plain `undefined` arm to take.
-    if (none && outputItems.some((output) => output.type === undefinedTag)) {
-      mut.anyOf = items;
-      return;
-    }
-    if (building !== U) {
-      panic(
-        `Can't set default for ${inputExpression(mut)}: the default is read as ${building.name}, which would need a default of its own`
-      );
     }
 
     const item: Internal =
@@ -571,10 +578,18 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
 // @__NO_SIDE_EFFECTS__
 export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
-  Option_getWithDefault(schema, { type: "value", value: defaultValue });
+  getOrArms(schema, { type: "value", value: defaultValue }, peelArms);
 // @__NO_SIDE_EFFECTS__
 export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
-  Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
+  getOrArms(schema, { type: "callback", callback: defaultCb }, peelArms);
+
+export const emptyOr = (schema: Internal, or: unknown): Internal =>
+  getOrArms(
+    schema,
+    typeof or === functionTag
+      ? { type: "callback", callback: or as () => unknown }
+      : { type: "value", value: or }
+  );
 
 export type ObjectCtx = {
   // @as("f") - field

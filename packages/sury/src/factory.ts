@@ -113,6 +113,9 @@ const makeObjectCtx = (
   flatten,
 });
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
 const converting = (schema: Internal, seen: Set<Internal>): boolean =>
   !seen.has(schema) &&
   (seen.add(schema),

@@ -59,7 +59,7 @@ import {
   Metadata_get,
   Metadata_Id_internal,
   Metadata_set,
-  Option_getOr,
+  emptyOr,
   deepStrict,
   option,
   refineInput
@@ -1004,14 +1004,14 @@ const B_invalidLengthRange = (
 
 // `default` is an annotation, not an assertion: a document may carry one its own
 // property schema rejects (`{type: "integer", default: ""}` is everywhere in
-// hand-written OpenAPI) and it still has to load. `Option_getOr` panics on that,
+// hand-written OpenAPI) and it still has to load. `emptyOr` panics on that,
 // because writing one by hand *is* a caller bug - so an unusable default falls
 // back to a plain optional that keeps the annotation for the round-trip. Same
 // shape as `applyBound`: a SuryError still escapes.
 const withDefault = (property: Internal, defaultValue: unknown): Internal => {
   const optional = option(property);
   try {
-    return Option_getOr(optional, defaultValue);
+    return emptyOr(optional, defaultValue);
   } catch (exn) {
     if (exn && (exn as { s?: symbol }).s === errorSymbol) throw exn;
     return extendJSONSchema(optional, { default: defaultValue });
