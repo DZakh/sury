@@ -29,12 +29,11 @@ operations:
         error: 'Expected { t: "y"; } | { t: "z"; }, received { t: "x"; }'
   decode: eq-to-parse
   encode:
-    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="y"){let v0={t:"x"};for(;;){v0={t:"a"};break}i=v0;break}if(i.t==="z"){let v1={t:"x"};for(;;){v1={t:"a"};break}i=v1;break}throw e[0](i)}}else{throw e[0](i)}return i}catch(v2){e[1](v2)}}
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="y"){let v0={t:"x"};for(;;){if(v0.t==="a"){v0={t:"x"};break}if(v0.t==="b"){v0={t:"x"};break}throw e[0](v0)}i=v0;break}if(i.t==="z"){let v1={t:"x"};for(;;){if(v1.t==="a"){v1={t:"x"};break}if(v1.t==="b"){v1={t:"x"};break}throw e[1](v1)}i=v1;break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v2){e[3](v2)}}
     examples:
-      # FIXME: should fail: { t: "y" } is written as { t: "a" }, as on main
       y:
         input: '{ t: "y" }'
-        output: '{ t: "a" }'
+        error: 'Expected { t: "a"; } | { t: "b"; }, received { t: "x"; }'
       other:
         input: '{ t: "q" }'
         error: 'Expected { t: "y"; } | { t: "z"; }, received { t: "q"; }'

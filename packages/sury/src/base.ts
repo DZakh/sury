@@ -679,11 +679,11 @@ export type Val = {
   fv?: Val[];
   // @as("cp") - codeFromPrev
   cp: string;
-  // Set by `B_asyncTry`. Given `ok`, rewrites `cp` from `call.catch(H)` to the
-  // native `then(ok, H)`, still inside the same `try`, one promise hop fewer.
+  // Set by `B_asyncTry`. Given `ok`, rewrites `cp` from `then(void 0, H)` to
+  // `then(ok, H)`, still inside the same `try`, one promise hop fewer.
   // Equivalent only because H always throws: a `.then` second argument never
-  // sees a throw from the first, and neither did the `.catch` ahead of it. The
-  // native `then`, not the answer's own (builder.ts `fusedThen`). Returns
+  // sees a throw from the first. The native `then`, not the answer's own
+  // (builder.ts `fusedThen`). Returns
   // false, leaving `cp` alone, once `cp` has changed or been emitted. Never
   // copied onto a refined val: it rebuilds this val's `cp`, not theirs.
   // @as("fu") - fuse
@@ -704,6 +704,10 @@ export type Val = {
   // materialization re-reads inline instead of hoisting onto it (#240).
   // @as("fz") - finalized
   fz?: boolean;
+  // How many `S.shape` placements read this value, itself or inside a placed
+  // object. A union converting one read more than once writes its own var.
+  // @as("sp") - shapePlacements
+  sp?: number;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can
   // test presence with a plain truthy check instead of length.
   // @as("vc") - checks

@@ -10,6 +10,7 @@ import {
   baseSchema,
   type Builder,
   copySchema,
+  inlinedProperty,
   globalConfig,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -25,6 +26,7 @@ import {
   compilePath,
   pathEmpty,
   pathToText,
+  reversedKey,
   setHas,
   U,
   undefinedTag,
@@ -35,6 +37,8 @@ import {
 import {
   _notVarAtParent,
   _var,
+  B_let,
+  B_varWithoutAllocation,
   B_addObjectField,
   B_field,
   B_unlessCollected,
@@ -109,13 +113,96 @@ const makeObjectCtx = (
   flatten,
 });
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
+const converting = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && converting(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// The definition each output view (`outputView`) was built from.
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+export const outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || converting(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
 // Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
-  const item = getOutputSchema(schema);
+  const item = outputView(schema);
   // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for
   // an absent key.
   const mut = baseSchema(anyOfTag, false, noopDecoder);
@@ -143,19 +230,32 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
     const output = B_nextVarOutput(input, v, item, item);
-    if (input.s === unit) {
+    if (input.s.type === undefinedTag) {
       output.cp = `${v}=${defCode};`;
       return output;
     }
     const itemInput = B_scope(input);
     itemInput.io = false;
-    itemInput.s = unknown;
+    // The present value, as the source has it: a record's string still
+    // decodes to the item's number.
+    const present = input.s.anyOf ? input.s.anyOf.filter((member) => member.type !== undefinedTag) : [input.s];
+    // The item itself as the source is the field's own decode, from unknown.
+    itemInput.s = present.length === 1 && present[0] !== schema ? present[0]! : unknown;
     itemInput.e = parseAs;
     itemInput.u = input.u;
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
-    const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const presentBody = itemCode + assign;
+    if (itemOutput.f & 1) {
+      // A promise of its own: a collected failure leaves the field's input in
+      // `v`, which the join would read as one. The default is a promise too,
+      // as the collecting join reads both branches through `.then`.
+      const promise = B_varWithoutAllocation(input.g);
+      output.i = promise;
+      output.f |= 1;
+      output.cp = `${B_let(input.g, promise)}if(${v}===void 0){${promise}=Promise.resolve(${defCode})}else{${itemCode}${promise}=${itemOutput.i};}`;
+      return output;
+    }
+    const presentBody = itemCode + (itemOutput.i === v ? "" : `${v}=${itemOutput.i};`);
     output.cp =
       presentBody === ""
         ? `if(${v}===void 0)${v}=${defCode};`
@@ -321,7 +421,7 @@ export const schemaObject = (
   };
 
   const field = (fieldName: string, schema: Internal): unknown => {
-    if (fieldName in properties) {
+    if (fieldName in properties && properties[fieldName] !== schema) {
       panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
     properties[fieldName] = schema;
@@ -431,14 +531,21 @@ const assembleShapedObject = (
   return completeObjectVal(output);
 }
 
+const shapePlaced = (val: Val): void => {
+  val.sp = (val.sp || 0) + 1;
+  for (const key in val.d) shapePlaced(val.d[key]!);
+};
+
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
-    v = B_scope(
-      valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!)
-    );
+    const at = valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (targetSchema.from !== U) {
-    v = B_scope(valAt(input, targetSchema.from));
+    const at = valAt(input, targetSchema.from);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
@@ -628,9 +735,18 @@ const getShapedSerializerOutput = (
             // unscoped is what emitted their `let`s a second time (#368) - and
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
+            const promise = flattenedOutput.f & 1 ? flattenedOutput.v() : U;
             v.cp = v.cp + B_merge(flattenedOutput);
             for (const key of Object.keys(flattenedOutput.d!)) {
-              B_addObjectField(v, key, valGet(flattenedOutput, key));
+              const field = valGet(flattenedOutput, key);
+              if (promise !== U) {
+                const name = B_varWithoutAllocation(v.g);
+                v.cp += B_let(v.g, name, `${promise}.then(v=>v${inlinedProperty("", key)})`);
+                field.i = name;
+                field.v = _var;
+                field.f |= 1;
+              }
+              B_addObjectField(v, key, field);
             }
           });
         }

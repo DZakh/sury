@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.instance(Buffer).with(S.to, S.protobuf).with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }))"
+  input: Buffer<ArrayBufferLike>
+  output: "{ a: string; }"
+  instantiations: 6483
+jsonSchema:
+  input: Expected JSON, received Buffer
+  output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare Buffer. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0="";{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1];try{r=e[3].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:v0=r.string();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[4](x,e[2],t);e[5](x)}}return {a:v0}}catch(v1){e[8](v1)}}
+    examples:
+      bytes:
+        input: Buffer.from([10, 1, 97])
+        output: '{ a: "a" }'
+  decode:
+    expression: i=>{try{let v0="";{let r,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1];try{r=e[3].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:v0=r.string();continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}r.busy=false}catch(x){r&&(r.busy=false);x=e[4](x,e[2],t);e[5](x)}}return {a:v0}}catch(v1){e[6](v1)}}
+    examples:
+      bytes:
+        input: Buffer.from([10, 1, 97])
+        output: '{ a: "a" }'
+  encode:
+    creationError: "SuryError: Can't decode Uint8Array -> Buffer. Define custom codec with S.to"

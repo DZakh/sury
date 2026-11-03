@@ -101,21 +101,17 @@ test("Flatten inside of a strict object", t => {
   )
 })
 
-// FIXME: Should work
 test("Flatten schema with duplicated field of the same type (flatten first)", t => {
-  t->Assert.throws(
-    () => {
-      S.object(
-        s =>
-          {
-            "bar": s.flatten(S.object(s => s.field("foo", S.string))),
-            "foo": s.field("foo", S.string),
-          },
-      )
-    },
-    ~expectations={
-      message: `[Sury] The field "foo" defined twice with incompatible schemas`,
-    },
+  let schema = S.object(s =>
+    {
+      "bar": s.flatten(S.object(s => s.field("foo", S.string))),
+      "foo": s.field("foo", S.string),
+    }
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{"foo": "x"}`)->S.parseOrThrow(~to=schema),
+    {"bar": "x", "foo": "x"},
   )
 })
 

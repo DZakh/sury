@@ -17,7 +17,7 @@ vs:
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.a;typeof v1==="string"||e[4](v1);let v0;try{v0=e[3](e[0](v1),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[6])}catch(v2){return e[7](v2)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.a;typeof v1==="string"||e[4](v1);let v0;try{v0=e[2](e[0](v1),v0=>{typeof v0==="number"&&v0==v0||e[3](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[6])}catch(v2){return e[7](v2)}}
     examples:
       resolves:
         input: '{ a: "abc" }'
@@ -27,7 +27,7 @@ operations:
         error: "Failed at a: rejected"
   decode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[3](e[0](i.a),v0=>{typeof v0==="number"&&v0==v0||e[2](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[4])}catch(v1){return e[5](v1)}}
+    expression: i=>{try{let v0;try{v0=e[2](e[0](i.a),v0=>{typeof v0==="number"&&v0==v0||e[3](v0);return v0},e[1])}catch(x){e[1](x)}return Promise.all([v0]).then(([v0])=>{return {a:v0}}).catch(e[4])}catch(v1){return e[5](v1)}}
     examples:
       resolves:
         input: '{ a: "abc" }'

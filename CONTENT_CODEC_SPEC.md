@@ -199,6 +199,13 @@ literal, a number and a field of a document are values and store. An entry
 source (`S.env`, a form field), a parse from `unknown` and a carrier's opened
 text are representations and are read.
 
+An entry read into a JSON text arm beside a number, boolean or bigint arm has
+two readings of the same text, so it is refused when built:
+
+```ts
+S.env.with(S.to, S.union([S.jsonString, S.number])); // decode: Ambiguous, "42" is both (codec-env-jsonstring-or-number)
+```
+
 ## Never ambiguous
 
 These skip the rules entirely:

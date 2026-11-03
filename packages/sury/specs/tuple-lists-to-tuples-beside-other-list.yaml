@@ -27,13 +27,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{Array.isArray(i)&&i.length===2||e[5](i);let v0=i[0],v3=i[1];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];v2===1||e[0](v2,["0",v1]);}Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){let v5=v3[v4];v5===5||e[2](v5,["1",v4]);}for(;;){if(i.length===2){let v7=new Array(v0.length);for(let v6=0;v6<v0.length;++v6){v7[v6]=2}let v9=new Array(v3.length);for(let v8=0;v8<v3.length;++v8){v9[v8]="5"}i=[v7,v9];break}throw e[4](i)}return i}catch(v14){e[6](v14)}}
+    expression: i=>{try{Array.isArray(i)&&i.length===2||e[7](i);let v0=i[0],v3=i[1];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];v2===1||e[0](v2,["0",v1]);}Array.isArray(v3)||e[3](v3);for(let v4=0;v4<v3.length;++v4){let v5=v3[v4];v5===5||e[2](v5,["1",v4]);}let v8;for(;;){l17:{for(;;){if(i.length===2){l9:{for(let v6=0;v6<v0.length;++v6){let v7=v0[v6];if(!(v7===2)){v8=[v8,e[4],v7,["0",v6]];break l9}}let v11=new Array(v3.length);for(let v10=0;v10<v3.length;++v10){v11[v10]="5"}i=[v0,v11];break}l14:{for(let v12=0;v12<v0.length;++v12){let v13=v0[v12];if(!(v13===3)){v8=[v8,e[5],v13,["0",v12]];break l14}}let v16=new Array(v3.length);for(let v15=0;v15<v3.length;++v15){v16[v15]="5"}i=[v0,v16];break}}break l17}break}throw e[6](i,v8)}return i}catch(v18){e[8](v18)}}
     examples:
       other-list:
         input: "[[], [5]]"
         output: '[[], ["5"]]'
   decode:
-    expression: i=>{try{let v0=i[0],v2=i[1];for(;;){if(i.length===2){let v5=new Array(v0.length);for(let v4=0;v4<v0.length;++v4){v5[v4]=2}let v7=new Array(v2.length);for(let v6=0;v6<v2.length;++v6){v7[v6]="5"}i=[v5,v7];break}throw e[0](i)}return i}catch(v12){e[1](v12)}}
+    expression: i=>{try{let v0=i[0],v2=i[1];let v6;for(;;){l15:{for(;;){if(i.length===2){l7:{for(let v4=0;v4<v0.length;++v4){let v5=v0[v4];if(!(v5===2)){v6=[v6,e[0],v5,["0",v4]];break l7}}let v9=new Array(v2.length);for(let v8=0;v8<v2.length;++v8){v9[v8]="5"}i=[v0,v9];break}l12:{for(let v10=0;v10<v0.length;++v10){let v11=v0[v10];if(!(v11===3)){v6=[v6,e[1],v11,["0",v10]];break l12}}let v14=new Array(v2.length);for(let v13=0;v13<v2.length;++v13){v14[v13]="5"}i=[v0,v14];break}}break l15}break}throw e[2](i,v6)}return i}catch(v16){e[3](v16)}}
     examples:
       other-list:
         input: "[[], [5]]"

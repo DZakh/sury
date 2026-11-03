@@ -5,9 +5,13 @@ ts:
   output: '"a" | "b"'
   instantiations: 5275
 jsonSchema:
-  # FIXME: both sides should describe the schema, not overflow the stack, as on main
-  input: Maximum call stack size exceeded
-  output: Maximum call stack size exceeded
+  input: '{ anyOf: [{ type: "string", const: "a" }, { not: {} }] }'
+  fromInputType: '"a"'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { not: {} }] }'
+  fromOutputType: '"a"'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", enum: ["a"] }, { not: {} }] }'
+    output: '{ anyOf: [{ type: "string", enum: ["a"] }, { not: {} }] }'
 isEqual: strictEqual
 compare: strictCompare
 vs:

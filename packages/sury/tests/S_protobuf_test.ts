@@ -443,7 +443,6 @@ test("protobuf names the field that keeps a schema from being a message", (t) =>
 });
 
 test("protobuf requires an adjacent fully annotated object schema", (t) => {
-  t.expect(() => S.decodeOrThrow(S.uint8Array, S.protobuf)).toThrow();
   t.expect(() => S.decodeOrThrow(S.protobuf, S.string)).toThrow();
   t.expect(() => S.decodeOrThrow(S.schema({ value: S.int32 }), S.protobuf)).toThrow();
   t.expect(() =>

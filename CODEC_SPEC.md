@@ -34,7 +34,11 @@ now matches.
 - **`S.never` marks an unreachable path.** `S.never` variants - including
   transformed ones like `S.never.with(S.to, S.number)`, which match by their
   `never` input - are ignored by type matching: they never trigger the
-  exceptions below and don't count toward rule 4's coverage.
+  exceptions below and don't count toward rule 4's coverage. So is a shape
+  that needs a value at an `S.never` field or item, at any depth:
+  `S.union([S.string, S.object((s) => ({ a: s.field("a", S.never) }))])`
+  encodes `"x"` (`union-never-member`, `union-never-item-member`,
+  `union-never-nested-field-member`).
 
 ## Rule 1: non-union → non-union
 
@@ -300,11 +304,14 @@ S.union([1, 2, "x"]).with(S.to, S.union([1, "x"])); // ✅ fails 2, never 2 -> 1
 S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a", "b"])); // ✅ "c" is never there
 ```
 
-A target union described with `S.meta`, numbered with `S.protobufField` or
-named with `S.protobufTypeName` is still a union here:
+A target union described with `S.meta`, numbered with `S.protobufField`,
+named with `S.protobufTypeName`, reshaped with `S.shape` or carried on with
+`S.to` is still a union here, and what it does after its member runs after
+whichever member takes the value:
 
 ```ts
 S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { name: "NS" })); // ✅ undefined <-> null
+S.optional(S.string).with(S.to, S.shape(S.nullable(S.string), (v) => ({ v }))); // ✅ undefined -> { v: null }
 S.union(["a", "b"]).with(S.to, S.meta(S.union([0, 1]), { description: "x" })); // ❌ "a" has no same-type target variant
 ```
 
@@ -407,6 +414,25 @@ ignored by variant matching, so it never triggers this rejection:
 ```ts
 S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
 ```
+
+## Protobuf bytes
+
+Bytes on either side of `S.protobuf` are the wire already: they pass as they
+are, and the message is read or written only where the chain meets its object.
+With `M = S.schema({ a: S.string.with(S.protobufField, 1) })` and
+`B = S.instance(Uint8Array)`:
+
+```ts
+B.with(S.to, S.protobuf).with(S.to, M);                                  // reads [10, 1, 97] as { a: "a" }
+S.instance(Buffer).with(S.to, S.protobuf).with(S.to, M);                 // a Uint8Array too: the same
+S.protobuf.with(S.to, B.with(S.refine, f)).with(S.to, S.protobuf).with(S.to, M); // f checks the bytes
+S.instance(ArrayBuffer).with(S.to, S.protobuf).with(S.to, M);            // refused: not a Uint8Array
+S.arrayBuffer.with(S.to, S.protobuf);                                    // S.arrayBuffer converts, both ways
+```
+
+The specs, in order: `codec-uint8array-protobuf-chain`,
+`codec-buffer-protobuf-chain`, `codec-protobuf-uint8array-protobuf-chain`,
+`codec-arraybuffer-protobuf-chain`.
 
 ## Protobuf oneof
 

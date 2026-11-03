@@ -37,7 +37,7 @@ operations:
         error: refused
   encode:
     isAsync: true
-    expression: i=>{try{let v0;try{v0=e[3](e[0](i.w),v0=>{typeof v0==="string"||e[2](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0}});return v1.then(v1=>{e[4](v1)||e[5](v1);return v1}).catch(e[6])}catch(v2){return e[7](v2)}}
+    expression: i=>{try{let v0;try{v0=e[2](e[0](i.w),v0=>{typeof v0==="string"||e[3](v0);return v0},e[1])}catch(x){e[1](x)}let v1=Promise.all([v0]).then(([v0])=>{return {a:v0}});return v1.then(v1=>{e[4](v1)||e[5](v1);return v1}).catch(e[6])}catch(v2){return e[7](v2)}}
     examples:
       accepted:
         input: '{ w: "ok" }'

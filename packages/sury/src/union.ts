@@ -68,6 +68,7 @@ import {
   B_pathArg,
   B_pathSnap,
   B_pushCheck,
+  B_next,
   B_refine,
   B_rejectUnsettled,
   B_scope,
@@ -133,9 +134,17 @@ const unionOutput = (schema: Internal): Internal => {
 // rejects per value (effect 3), while a never slot removes the variant from
 // this direction entirely, so it accepts nothing, counts toward no coverage,
 // and yields to its siblings.
+// A shape needing a value at a `never` field or item holds none either, at
+// any depth, short of a ref.
+const unionHoldsNone = (schema: Internal): boolean =>
+  schema.type === neverTag ||
+  (schema.type !== refTag &&
+    (!!schema.required?.some((key) => unionHoldsNone(schema.properties![key]!)) ||
+      (Array.isArray(schema.items) && schema.items.some(unionHoldsNone))));
+
 const unionNeverLink = (schema: Internal): boolean => {
   for (let node: Internal | undefined = schema; node !== U && node.type !== neverTag; node = node.to) {
-    if (node.parser === B_neverSlot) return true;
+    if (node.parser === B_neverSlot || unionHoldsNone(node)) return true;
   }
   return false;
 };
@@ -168,10 +177,12 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) if (!converts || !(key in unionDescribing)) fields++;
-  return fields === 6;
+  // Built as a union (s.fieldOr's own has none), so what it carries past its
+  // members is a reshape or a link over them.
+  return fields === 6 && (!converts || schema.encoder !== U);
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, parser: 1, to: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -667,7 +678,10 @@ const unionAnalyze = (
     const view = def !== U && !(defTag & (1 | 256 | 512)) ? def : s;
     const tag = tagFlags[view.type]!;
     const inputMask = unionMask(defTag & 256 ? def! : view, 1, nan);
-    const d = unionDiscriminator(s);
+    // A document reads an absent or `null` field for an `undefined` const, so
+    // the const tags nothing there.
+    let d = unionDiscriminator(s);
+    if (source.flags & 16 && d !== U && d[1] === U) d = U;
     // Two refs are one runtime type only as one schema: `S.json` and a
     // recursive member are both refs.
     const same = unionRuntimeSame(source, s) && !(s.type === refTag && s !== source);
@@ -991,7 +1005,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         semantic === U ||
         semantic === false ||
         semantic[0] !== key);
-    if (!overlaps && semantic !== U && semantic !== false) {
+    if (!overlaps && key !== false && semantic !== U && semantic !== false) {
       for (const value of values!) {
         if (semantic[1].has(value)) {
           overlaps = true;
@@ -1750,6 +1764,16 @@ export const unionDecoder: Builder = (input: Val) => {
     });
   }
 
+  // A value S.shape places more than once is read by each placement, and a
+  // case writes its result back into the var it dispatched on.
+  for (let read: Val | undefined = input; read; read = read.b || read.prev) {
+    if (read.sp! > 1) {
+      const own = B_next(input, input.v(), input.s, input.e);
+      own.v();
+      input = own;
+      break;
+    }
+  }
   // The union swaps in its own exit while it emits, and a compile that throws
   // midway must not leave it behind: json.ts catches a failed parse and parses
   // again on the same operation.
@@ -1853,6 +1877,12 @@ export const unionEncoder: Encoder = (input: Val, target: Internal) => {
   B_rejectUnsettled(input, target, input.s);
   if (unionTargetOwns(target)) return input;
   const variants = unionDropNullish(input.s.anyOf!, target, true);
+  // Consts meeting a const inside a union member are checked,
+  // as one const is (literalDecoder), not each replaced by it.
+  if (input.u && isLiteral(target) && variants.every((variant) => isLiteral(variant) && !(tagFlags[variant.type]! & (16 | 32)))) {
+    unionCheckPartial(input, input.s, target, variants, true);
+    return input;
+  }
   if (target.flags & 64 && target.anyOf!.length === variants.length) {
     // An already-resolved per-variant mapping (the JSON encoder builds one for an
     // object field): each target variant *is* its source variant plus whatever
@@ -1898,19 +1928,6 @@ const unionResolve = (
   if (unionIsTransparent(target, true)) {
     return unionResolveToUnion(input, source, variants, target);
   }
-  // A check's result sentinel past the union (S.isInput and kin) leaves it the
-  // union it is, each member then carrying the sentinel, so a check compiles
-  // as the parse does.
-  const tail = target.to;
-  if (target.type === anyOfTag && tail?.noValidation) {
-    const own = copySchema(target);
-    delete own.to;
-    if (unionIsTransparent(own, true)) {
-      return unionResolveToUnion(input, source, variants, own).map((to, idx) =>
-        unionOutput(variants[idx]!).type === neverTag ? U : to === U ? tail : updateOutput<Internal>(to, (mut) => { mut.to = tail; })
-      );
-    }
-  }
   // Rule 3 - every source variant gets its own built-in decoder to the target.
   // Two targets are never ambiguous: `unknown`, the top type, which decodes
   // nothing; and a `noValidation` target (S.assertInputOrThrow's result sentinel), which
@@ -1931,6 +1948,15 @@ const unionResolveToUnion = (
   variants: Internal[],
   target: Internal
 ): (Internal | undefined)[] => {
+  // What the union does after its member, `S.shape`'s reshape and the links
+  // past it, runs after each member it takes.
+  const attach =
+    target.parser !== U || target.to !== U
+      ? (mut: Internal) => {
+          if (target.parser !== U) mut.parser = target.parser;
+          if (target.to !== U) mut.to = target.to;
+        }
+      : U;
   const targets = target.anyOf!;
   const matches: (Internal | undefined)[] = [];
   const covered: boolean[] = [];
@@ -2025,6 +2051,7 @@ const unionResolveToUnion = (
 
   return matches.map((matched, idx) => {
     if (matched === U) return matched;
+    if (attach !== U) return updateOutput<Internal>(matched, attach);
     const sourceOut = unionOutput(variants[idx]!);
     // Whether the matched target adds nothing to the source variant's output:
     // same type, no transformation, refinement or nested structure left to

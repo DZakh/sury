@@ -21,4 +21,4 @@ operations:
     creationError: 'SuryError: Failed at k: Ambiguous "a" | "b" -> 0 | 1. Should "a" be decoded or ignored? Choose with S.to for "a" -> 0, or S.never -> "a"'
   decode: eq-to-parse
   encode:
-    creationError: 'SuryError: Failed at k: Ambiguous 0 | 1 -> "a" | "b". Should 0 be decoded or ignored? Choose with S.to for 0 -> "a", or S.never -> 0'
+    creationError: 'SuryError: Failed at k: Ambiguous 0 -> "a" | "b". 0 could become any of them. Choose one with S.to, such as S.union([S.literal(0).with(S.to, S.literal("a")), S.never.with(S.to, S.literal("b"))])'
