@@ -93,6 +93,18 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
+const renest = (schema: Internal, nestedSchema: Internal, depth: number): Internal =>
+  updateOutput<Internal>(schema, (mut) => {
+    // copySchema, not a spread: a spread keeps the original's seq,
+    // and two schemas sharing a seq can collide in the seq-keyed
+    // operation caches.
+    const bumped = copySchema(nestedSchema);
+    bumped.const = depth;
+    const properties: Record<string, Internal> = {};
+    properties[nestedLoc] = bumped;
+    mut.properties = properties;
+  });
+
 // The schema read one option level deeper: an undefined it outputs is Some(None)
 // and a Some(None) marker counts one more Some. Recurses into output unions,
 // since a coder's input never reaches its output.
@@ -102,16 +114,7 @@ export const someOf = (schema: Internal): Internal => {
   if (out.type === undefinedTag) {
     return nestedOption(schema);
   } else if (nestedSchema !== U) {
-    return updateOutput<Internal>(schema, (mut) => {
-      // copySchema, not a spread: a spread keeps the original's seq,
-      // and two schemas sharing a seq can collide in the seq-keyed
-      // operation caches.
-      const bumped = copySchema(nestedSchema);
-      bumped.const = (nestedSchema.const as number) + 1;
-      const properties: Record<string, Internal> = {};
-      properties[nestedLoc] = bumped;
-      mut.properties = properties;
-    });
+    return renest(schema, nestedSchema, (nestedSchema.const as number) + 1);
   } else if (out.anyOf !== U) {
     return updateOutput<Internal>(schema, (mut) => {
       mut.anyOf = out.anyOf!.map(someOf);
@@ -119,6 +122,31 @@ export const someOf = (schema: Internal): Internal => {
   } else {
     return schema;
   }
+}
+
+// `someOf` taken back, for a default that peels one option off: the outer
+// Some(None) marker is the inner option's None again.
+const noneOf = (schema: Internal): Internal => {
+  const out = getOutputSchema(schema);
+  const nestedSchema = out.properties?.[nestedLoc];
+  if (nestedSchema === U) {
+    return out.anyOf === U
+      ? schema
+      : updateOutput<Internal>(schema, (mut) => {
+          mut.anyOf = out.anyOf!.map(noneOf);
+        });
+  }
+  const depth = nestedSchema.const as number;
+  if (depth) return renest(schema, nestedSchema, depth - 1);
+  // A bare marker is an arm of an earlier default's output union.
+  if (schema.to === U) return unit;
+  const root = copySchema(schema);
+  let mut = root;
+  while (mut.to!.to) mut = mut.to = copySchema(mut.to!);
+  // `delete`, not `= U`: unionIsTransparent counts a schema's keys.
+  delete mut.to;
+  delete mut.parser;
+  return root;
 }
 
 // @__NO_SIDE_EFFECTS__
@@ -504,23 +532,70 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
+const readsNone = (output: Internal): boolean =>
+  output.type === undefinedTag ||
+  output.properties?.[nestedLoc] !== U ||
+  !!output.anyOf?.some(readsNone);
+
+// What ReScript's `getOr` does to the arms before it builds the default: it
+// peels one option off each, which JS, having no nested option, never asks
+// for. Returns U once it has finished the union itself.
+type Peel = (anyOf: Internal[], owner: Internal, default_: OptionDefault) => Internal[] | undefined;
+
+const peelArms: Peel = (anyOf, owner, default_) => {
+  let reached = false;
+  const items = anyOf.map((variant) => {
+    const output = getOutputSchema(variant);
+    if (output.type === undefinedTag) {
+      reached = true;
+      return variant;
+    }
+    // An earlier default, which never encodes, ahead of every `undefined` arm
+    // always wins. A None or a Some(None) it can still give would change under
+    // this default's peel, and the arm can't take that back. Only a chain of
+    // `getOr`s builds one: a wrapper puts its own empty arm first.
+    if (!reached && output.serializer === B_neverSlot && readsNone(output)) {
+      panic(
+        `Can't set default for ${inputExpression(owner)}: an earlier default already takes undefined. Set one default`
+      );
+    }
+    return noneOf(variant);
+  });
+  // `None` over a nested option: a peeled arm already reads the absent value
+  // as `None`, so there is nothing to replace, and a later default still sees
+  // a plain `undefined` arm to take.
+  if (
+    default_.type === "value" &&
+    default_.value === U &&
+    items.some((variant, idx) => variant !== anyOf[idx] && getOutputSchema(variant).type === undefinedTag)
+  ) {
+    owner.anyOf = items;
+    return U;
+  }
+  return items;
+};
+
 // Every undefined-producing variant converts to the item union, supplying the
 // default on decode and taking the never slot on encode so it yields to its
 // siblings there. Spelling the default as ordinary union arms is what lets the
 // planner treat it like any other variant.
-export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
+// An arm is empty by what it read before the peel: a peeled Some(None) reads
+// `undefined` too, but as the inner option's None.
+const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
     if (anyOf === U) {
       return panic(`Can't set default for ${inputExpression(mut)}`);
     }
+    const items = peel ? peel(anyOf, mut, default_) : anyOf;
+    if (items === U) return;
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
     for (let idx = 0; idx < anyOf.length; idx++) {
-      const variant = anyOf[idx]!;
-      const outputSchema = getOutputSchema(variant);
-      if (outputSchema.type !== undefinedTag) {
+      if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
+        const variant = items[idx]!;
+        const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
@@ -581,20 +656,28 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       result.io = true;
       return result;
     };
-    mut.anyOf = anyOf.map((variant) =>
+    mut.anyOf = anyOf.map((variant, idx) =>
       getOutputSchema(variant).type === undefinedTag
         ? codecTo(variant, item, decodeB, B_neverSlot)
-        : variant
+        : items[idx]!
     );
   });
 };
 
 // @__NO_SIDE_EFFECTS__
 export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
-  Option_getWithDefault(schema, { type: "value", value: defaultValue });
+  getOrArms(schema, { type: "value", value: defaultValue }, peelArms);
 // @__NO_SIDE_EFFECTS__
 export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
-  Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
+  getOrArms(schema, { type: "callback", callback: defaultCb }, peelArms);
+
+export const emptyOr = (schema: Internal, or: unknown): Internal =>
+  getOrArms(
+    schema,
+    typeof or === functionTag
+      ? { type: "callback", callback: or as () => unknown }
+      : { type: "value", value: or }
+  );
 
 export type ObjectCtx = {
   // @as("f") - field

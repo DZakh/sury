@@ -28,3 +28,42 @@ test("a default the refinement accepts is kept", () => {
     f: "x",
   });
 });
+
+const R = S as unknown as Record<string, (...args: unknown[]) => S.Schema<unknown>>;
+const nested = () => R.$option!(R.$option!(S.string));
+const blankAsNone = () =>
+  R.$option!(
+    S.string.with(S.to, R.$option!(S.string), {
+      decode: (v: string) => (v === "" ? undefined : v),
+      encode: (v: unknown) => (v === undefined ? "" : v),
+    } as never),
+  );
+const refused =
+  "[Sury] Can't set default for string | undefined: an earlier default already takes undefined. Set one default";
+
+test("getOr after a Some(None) default is refused", () => {
+  expect(() =>
+    R.$Option_getOr!(R.$Option_getOr!(R.$option!(nested()), { BS_PRIVATE_NESTED_SOME_NONE: 0 }), undefined),
+  ).toThrow(refused);
+});
+
+test("getOr after a None default over a coder is refused", () => {
+  expect(() => R.$Option_getOr!(R.$Option_getOr!(blankAsNone(), undefined), "y")).toThrow(refused);
+});
+
+test("getOr after a lazy None default over a coder is refused", () => {
+  expect(() => R.$Option_getOr!(R.$Option_getOrWith!(blankAsNone(), () => undefined), "y")).toThrow(refused);
+});
+
+test("getOr after a lazy Some(None) default is refused", () => {
+  expect(() =>
+    R.$Option_getOr!(
+      R.$Option_getOrWith!(R.$option!(nested()), () => ({ BS_PRIVATE_NESTED_SOME_NONE: 0 })),
+      "y",
+    ),
+  ).toThrow(refused);
+});
+
+test("getOr after a value default is refused, since it never applies", () => {
+  expect(() => R.$Option_getOr!(R.$Option_getOr!(nested(), "x"), "y")).toThrow(refused);
+});

@@ -56,8 +56,7 @@ import {
   codecTo,
   linkTo,
   nullAsUnit,
-  Option_getOr,
-  Option_getOrWith,
+  emptyOr,
   refine as refineCore,
   seamTarget,
   type Slot,
@@ -417,37 +416,19 @@ export const refine = (
 // @__NO_SIDE_EFFECTS__
 export const optional = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = unionWrap(definitionToSchema(definition), [unit]);
-  if (maybeOr === U) {
-    return schema;
-  } else if (typeof maybeOr === functionTag) {
-    return Option_getOrWith(schema, maybeOr as () => unknown);
-  } else {
-    return Option_getOr(schema, maybeOr);
-  }
+  return maybeOr === U ? schema : emptyOr(schema, maybeOr);
 };
 
 // @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = unionWrap(definitionToSchema(definition), [maybeOr === U ? nullLiteral : nullAsUnit]);
-  if (maybeOr === U) {
-    return schema;
-  } else if (typeof maybeOr === functionTag) {
-    return Option_getOrWith(schema, maybeOr as () => unknown);
-  } else {
-    return Option_getOr(schema, maybeOr);
-  }
+  return maybeOr === U ? schema : emptyOr(schema, maybeOr);
 };
 
 // @__NO_SIDE_EFFECTS__
 export const nullish = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = unionWrap(definitionToSchema(definition), [unit, maybeOr === U ? nullLiteral : nullAsUnit]);
-  if (maybeOr === U) {
-    return schema;
-  } else if (typeof maybeOr === functionTag) {
-    return Option_getOrWith(schema, maybeOr as () => unknown);
-  } else {
-    return Option_getOr(schema, maybeOr);
-  }
+  return maybeOr === U ? schema : emptyOr(schema, maybeOr);
 };
 
 // A string additionalItems is what separates a plain object from an S.record,
