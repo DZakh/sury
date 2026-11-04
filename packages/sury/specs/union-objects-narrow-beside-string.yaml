@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a" }), S.schema({ t: "c" }), S.string]).with(S.to, S.union([S.schema({ t: "a" }), S.string]))'
+  input: 'string | { t: "a"; } | { t: "c"; }'
+  output: 'string | { t: "a"; }'
+  instantiations: 9230
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] }, { type: "string" }] }'
+  fromInputType: 'string | { t: "a"; }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] }, { not: {} }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] }, { not: {} }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a":a.t==="c"?b.t==="c":typeof b==="string"&&a===b)
+  output: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b):typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; } | { t: \"c\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"a\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){i={t:i.t};break}if(i.t==="c"){let v0={t:i.t};for(;;){throw e[0](v0)}i=v0;break}throw e[1](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      a:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+      c:
+        input: '{ t: "c" }'
+        error: 'Expected { t: "a"; }, received { t: "c"; }'
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a")break;if(i.t==="c"){for(;;){throw e[0](i)}break}throw e[1](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      a:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'
+  encode:
+    expression: i=>{try{(typeof i==="object"&&i&&!Array.isArray(i)&&i.t==="a"||typeof i==="string")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      a:
+        input: '{ t: "a" }'
+        output: '{ t: "a" }'

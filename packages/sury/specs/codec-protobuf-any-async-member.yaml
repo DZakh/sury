@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ u: S.protobufField(S.union([S.schema({ type: "au", value: S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU") }), S.schema({ type: "b", value: S.protobufTypeName(S.schema({ n: S.protobufField(S.int32, 1) }), "acme.v1.B") })]), 1) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: '{ u: { type: "au"; value: { name: string; }; } | { type: "b"; value: { n: number; }; }; }'
+  instantiations: 12122
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { u: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "au" }, value: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["type", "value"] }, { type: "object", properties: { type: { type: "string", const: "b" }, value: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } }, required: ["type", "value"] }] } }, required: ["u"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { u: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["au"] }, value: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["type", "value"] }, { type: "object", properties: { type: { type: "string", enum: ["b"] }, value: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } }, required: ["type", "value"] }] } }, required: ["u"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(a.u.type==="au"?b.u.type==="au"&&a.u.value.name===b.u.value.name:b.u.type==="b"&&a.u.value.n===b.u.value.n)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { u: { type: \"au\"; value: { name: string; }; } | { type: \"b\"; value: { n: int32; }; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    creationError: "SuryError: S.protobuf: an Any holds a message that converts asynchronously, which a member of several can't"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.u;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="au"){let v1=v0.value;let v2;try{v2=e[0](v1.name)}catch(x){e[1](x)}typeof v2==="string"||e[2](v2);v0={type:"au",value:{name:v2}};break}if(v0.type==="b"){let v3=v0.value;break}throw e[3](v0)}}else{throw e[3](v0)}let v4;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v4=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v4}catch(v5){e[11](v5)}}
+    examples:
+      member:
+        input: '{ u: { type: "b", value: { n: 1 } } }'
+        output: new Uint8Array([10, 35, 10, 29, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 66, 18, 2, 8, 1])

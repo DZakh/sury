@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a" }).with(S.to, S.schema({ t: S.union(["b", "c"]) })), S.string])'
+  input: 'string | { t: "a"; }'
+  output: 'string | { t: "b" | "c"; }'
+  instantiations: 7582
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { enum: ["b", "c"] } }, required: ["t"] }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b):typeof b==="string"&&a===b)
+  output: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.t===b.t:typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"b\" | \"c\"; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at t: Can't decode \"a\" -> \"b\" | \"c\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"a\").with(S.to, S.literal(\"b\")), S.never.with(S.to, S.literal(\"c\"))])"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.t;if(typeof v0==="string"){for(;;){if(v0==="b"){v0="a";break}if(v0==="c"){v0="a";break}throw e[0](v0)}}else{throw e[0](v0)}i={t:v0};break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
+    examples:
+      b:
+        input: '{ t: "b" }'
+        output: '{ t: "a" }'
+      string:
+        input: '"s"'
+        output: '"s"'

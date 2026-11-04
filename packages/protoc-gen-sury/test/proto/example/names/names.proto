@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package example.names;
+
+import "google/protobuf/struct.proto";
+
+// Named as what the generated code names: Sury, and the standard library's
+// modules and types.
+message S {
+  string a = 1;
+}
+
+message JSON {
+  bytes raw = 1;
+}
+
+message Uint8Array {
+  int32 n = 1;
+}
+
+message Float {
+  double f = 1;
+}
+
+message Stdlib {
+  bool b = 1;
+}
+
+message String {
+  String next = 1;
+  oneof option {
+    int32 n = 2;
+    String other = 3;
+  }
+}
+
+message Holder {
+  S s = 1;
+  JSON json = 2;
+  Uint8Array box = 3;
+  Float f = 4;
+  google.protobuf.Struct meta = 5;
+  bytes data = 6;
+  double d = 7;
+  oneof t {
+    string str = 8;
+    S of_s = 9;
+  }
+  oneof string {
+    int32 num = 10;
+  }
+  oneof option {
+    bool flag = 11;
+  }
+  String text = 12;
+  Stdlib lib = 13;
+}
+
+// Skipped: only its messages are generated.
+service Api {
+  rpc Get(Holder) returns (Holder);
+}

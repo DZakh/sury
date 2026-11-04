@@ -9,7 +9,6 @@ import {
   initSchema,
   inputExpression,
   type Internal,
-  pathConcat,
   stringTag,
   tagFlags,
   U,
@@ -20,13 +19,12 @@ import {
   B_let,
   B_sink,
   _var,
-  B_field,
+  B_slot,
   B_dynamicScope,
   B_failInvalidInput,
   B_embed,
   B_hoistDecl,
   B_invalidOperation,
-  B_markOutput,
   B_merge,
   B_next,
   B_scope,
@@ -34,9 +32,8 @@ import {
   B_varWithoutAllocation
 } from "../builder";
 import {
+  B_record,
   arrayFactory,
-  completeObjectVal,
-  makeObjectVal,
   valGet
 } from "../composites";
 import {
@@ -182,68 +179,45 @@ const searchParamsToObject = (input: Val, target: Internal): Val => {
       `Can't decode URLSearchParams -> ${inputExpression(target)} with S.strict. A query carries keys no schema declares, so use S.strip`,
     );
   }
-  const objectVal = makeObjectVal(input);
   const entriesVar = B_varWithoutAllocation(input.g);
   B_hoistDecl(input, entriesVar, `${B_embed(input, readEntries)}(${input.v()})`);
   const properties = target.properties!;
   let listRead = "";
-  for (const key in properties) {
-    const schema = properties[key]!;
-    const keyText = inlinedValueFromString(key);
-    const present = presentArm(schema);
-    const absent = absentArm(schema);
-    const list = present.type === arrayTag;
-    const folds = absent && !list && !admitsBlank(present);
-    const readVar = B_varWithoutAllocation(input.g);
-    const slot = `${entriesVar}.get(${keyText})`;
-    B_hoistDecl(
-      input,
-      readVar,
-      list
-        ? `${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
-    );
-    const item: Val = {
-      b: U,
-      p: input,
-      v: _var,
-      i: readVar,
-      s: list ? searchList : folds ? searchValue : searchEntry,
-      io: U,
-      e: schema,
-      prev: U,
-      f: 0,
-      d: U,
-      fv: U,
-      cp: "",
-      fu: U,
-      fs: U,
-      hd: "",
-      fz: U,
-      vc: U,
-      u: U,
-      t: true,
-      path: pathConcat(input.path, [key]),
-      g: input.g,
-      o: U,
-    };
-    if (list) {
-      assertListItems(item, present);
-      if (absent && absent.to !== U) {
-        B_invalidOperation(
-          item,
-          `Can't decode search param -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
-        );
+  return B_record(input, (field) => {
+    for (const key in properties) {
+      const schema = properties[key]!;
+      const keyText = inlinedValueFromString(key);
+      const present = presentArm(schema);
+      const absent = absentArm(schema);
+      const list = present.type === arrayTag;
+      const folds = absent && !list && !admitsBlank(present);
+      const readVar = B_varWithoutAllocation(input.g);
+      const slot = `${entriesVar}.get(${keyText})`;
+      B_hoistDecl(
+        input,
+        readVar,
+        list
+          ? `${(listRead ||= B_embed(input, asList))}(${slot})`
+          : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
+      );
+      const item = B_slot(input, readVar, list ? searchList : folds ? searchValue : searchEntry, schema, [key]);
+      if (list) {
+        assertListItems(item, present);
+        if (absent && absent.to !== U) {
+          B_invalidOperation(
+            item,
+            `Can't decode search param -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
+          );
+        }
       }
+      field(key, () => {
+        if (!list && present.type === unknownTag) {
+          item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
+        }
+        return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
+      });
     }
-    B_field(objectVal, key, () => {
-      if (!list && present.type === unknownTag) {
-        item.cp = B_failInvalidInput(item, searchEntry, `!Array.isArray(${readVar})`);
-      }
-      return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
-    });
-  }
-  return B_markOutput(completeObjectVal(objectVal), input);
+  });
 };
 
 const isObjectTarget = (schema: Internal): boolean =>

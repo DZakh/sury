@@ -59,11 +59,12 @@ import {
   Metadata_get,
   Metadata_Id_internal,
   Metadata_set,
-  Option_getOr,
+  emptyOr,
   deepStrict,
   option,
   refineInput
 } from "./modifiers";
+import { viewSource } from "./factory";
 import {
  assertResult
 } from "./operations";
@@ -330,21 +331,47 @@ const applyMetadataOverlay = (
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  if (metadataRawSchema !== U) Object.assign(jsonSchema, metadataRawSchema);
+  if (metadataRawSchema !== U) Object.assign(jsonSchema, positionalFor(metadataRawSchema, target));
 }
 
-// A ref is published by the definition it carries, under its name unless
+// Positional items are spelled per dialect: `prefixItems` + `items` from draft
+// 2020-12, an `items` array + `additionalItems` before it, and OpenAPI 3.0,
+// which has neither, the `anyOf` of them S.tuple writes. An overlay written in
+// one is re-spelled for the target, or the document means something else.
+const positionalFor = (raw: JSONSchemaT, target: JsonSchemaTarget): JSONSchemaT => {
+  const prefix = raw.prefixItems ?? (Array.isArray(raw.items) ? raw.items : U);
+  if (prefix === U) return raw;
+  const rest = raw.prefixItems !== U ? (raw.items as JSONSchemaDefinition | undefined) : raw.additionalItems;
+  const out: JSONSchemaT = { ...raw };
+  delete out.prefixItems;
+  delete out.items;
+  delete out.additionalItems;
+  if (target === draft202012) {
+    out.prefixItems = prefix;
+    if (rest !== U) out.items = rest;
+  } else if (target === openApi30) {
+    out.items = { anyOf: prefix };
+  } else {
+    out.items = prefix;
+    if (rest !== U) out.additionalItems = rest;
+  }
+  return out;
+};
+
+// A ref is published by the definition it carries, a view counted as its
+// source (`viewSource`), under its name unless
 // another definition already took that key (specs/recursive-same-name.yaml).
 type Defs = [string, Internal][];
 
 const refKey = (defs: Defs, ref: Internal, path: Path): string => {
-  const def = ref.definition!();
-  if (def === U)
+  const found = ref.definition!();
+  if (found === U)
     throw new SuryError({
       code: "invalid_operation",
       path,
       reason: `${ref.name} is used before S.recursive returns its definition`,
     });
+  const def = viewSource(found);
   let entry = defs.find((e) => e[1] === def);
   if (entry === U) {
     const name = ref["$ref"]!.slice(8);
@@ -411,13 +438,13 @@ const internalToJSONSchema = (
   if (hasUserTo) {
     let encoded: JSONSchemaT | undefined;
     try {
-      encoded = internalToJSONSchema(
-        parse(B_operationArg(unknown, reverse(schema), 0)).s,
-        path,
-        defs,
-        parent,
-        target
-      );
+      const parsed = parse(B_operationArg(unknown, reverse(schema), 0)).s;
+      // A literal whose reverse parses back to a chain from that literal
+      // (`"a"` into `"a"`, or into `S.string` narrowed back to `"a"`) would
+      // come back here forever: it is the literal's own schema.
+      if (!(isLiteral(parsed) && parsed.to !== U && (parsed.const === parsed.to.const || (isLiteral(schema) && parsed.const === schema.const)))) {
+        encoded = internalToJSONSchema(parsed, path, defs, parent, target);
+      }
     } catch (exn) {
       getOrRethrow(exn);
     }
@@ -901,15 +928,29 @@ const layeredKeywords = [
 const withRequired = (schema: Internal, required: string[]): Internal =>
   refineInput(
     schema,
-    (data: unknown) => required.every((key) => Object.hasOwn(data as object, key)),
+    (data: unknown) => required.every((key) => (data as Record<string, unknown>)[key] !== U && Object.hasOwn(data as object, key)),
     "Should contain every required property."
   );
 
 // A schema that can't compile passes nothing, rather than failing the whole
 // conversion.
+// JSON has no `undefined`: an object key holding it, as an absent optional
+// field reads, is one the instance doesn't have.
+const withoutUndefined = (data: unknown): unknown => {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return data;
+  for (const key in data) {
+    if ((data as Record<string, unknown>)[key] === U) {
+      const copy: Record<string, unknown> = {};
+      for (const k in data) if ((data as Record<string, unknown>)[k] !== U) copy[k] = (data as Record<string, unknown>)[k];
+      return copy;
+    }
+  }
+  return data;
+};
+
 const passesSchema = (data: unknown, schema: Internal): boolean => {
   try {
-    return (getOp(4096 | 1024, 2, unknown, schema, assertResult) as (input: unknown) => boolean)(data);
+    return (getOp(4096 | 1024, 2, unknown, schema, assertResult) as (input: unknown) => boolean)(withoutUndefined(data));
   } catch {
     return false;
   }
@@ -963,18 +1004,74 @@ const B_invalidLengthRange = (
 
 // `default` is an annotation, not an assertion: a document may carry one its own
 // property schema rejects (`{type: "integer", default: ""}` is everywhere in
-// hand-written OpenAPI) and it still has to load. `Option_getOr` panics on that,
+// hand-written OpenAPI) and it still has to load. `emptyOr` panics on that,
 // because writing one by hand *is* a caller bug - so an unusable default falls
 // back to a plain optional that keeps the annotation for the round-trip. Same
 // shape as `applyBound`: a SuryError still escapes.
 const withDefault = (property: Internal, defaultValue: unknown): Internal => {
   const optional = option(property);
   try {
-    return Option_getOr(optional, defaultValue);
+    return emptyOr(optional, defaultValue);
   } catch (exn) {
     if (exn && (exn as { s?: symbol }).s === errorSymbol) throw exn;
     return extendJSONSchema(optional, { default: defaultValue });
   }
+};
+
+// The keywords that read the same instance as the base shape, in the order
+// fromJSONSchema applies them. Each can pass on an object and fail on it once
+// the keys its `properties` don't declare are stripped, so a base they sit
+// beside keeps those keys instead. `maxProperties` and `propertyNames` only
+// get easier to pass with fewer keys and stay out.
+const readsWholeInstance = [
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "not",
+  "if",
+  "minProperties",
+  "dependentRequired",
+  "dependentSchemas",
+  "dependencies",
+];
+
+// The keys those keywords read beyond the base's own: listed, so the base
+// declares them as JSON and keeps its own fields' defaults, paths and checks,
+// or `true` where they can't be listed (a count, a pattern, a ref).
+type Kept = string[] | true | undefined;
+
+const keptJoin = (a: Kept, b: Kept): Kept =>
+  a === true || b === true ? true : a === U ? b : b === U ? a : a.concat(b);
+
+const keysRead = (definition: JSONSchemaDefinition | undefined): Kept => {
+  if (definition === U || typeof definition === "boolean") return U;
+  if (definition["$ref"] !== U || definition.patternProperties !== U) return true;
+  let kept: Kept = definition.required?.slice() ?? U;
+  if (definition.properties !== U) kept = keptJoin(kept, Object.keys(definition.properties));
+  return keptJoin(kept, undeclaredReads(definition, 0));
+};
+
+// From `from` on: a composition member that becomes the base is read again
+// only by the keywords applied after its own.
+const undeclaredReads = (jsonSchema: JSONSchemaT, from: number): Kept => {
+  let kept: Kept = U;
+  for (const key of readsWholeInstance.slice(from)) {
+    const value = (jsonSchema as Record<string, unknown>)[key];
+    if (value === U) continue;
+    // A count the declared fields alone can reach reads no other key.
+    if (key === "minProperties") {
+      if ((value as number) > Object.keys(jsonSchema.properties ?? {}).length) return true;
+      continue;
+    }
+    if (Array.isArray(value)) for (const member of value) kept = keptJoin(kept, keysRead(member));
+    else if (key === "not" || key === "if") kept = keptJoin(keptJoin(kept, keysRead(value as JSONSchemaDefinition)), keptJoin(keysRead(jsonSchema.then), keysRead(jsonSchema.else)));
+    else
+      for (const name in value as Record<string, unknown>) {
+        const dependency = (value as Record<string, unknown>)[name];
+        kept = keptJoin(keptJoin(kept, [name]), Array.isArray(dependency) ? dependency : keysRead(dependency as JSONSchemaDefinition));
+      }
+  }
+  return kept;
 };
 
 const withoutLayeredKeywords = (
@@ -1091,6 +1188,17 @@ const unescapePointer = (segment: string): string => {
   return segment.replace(/~1/g, "/").replace(/~0/g, "~");
 };
 
+const pointerTarget = (segments: string[], root: unknown): unknown => {
+  let target = root;
+  for (let i = 1; i < segments.length; i++) {
+    target =
+      target !== null && typeof target === "object"
+        ? (target as Record<string, unknown>)[unescapePointer(segments[i]!)]
+        : U;
+  }
+  return target;
+};
+
 const resolveRef = (ref: string, ctx: RefContext): Internal => {
   if (ctx.cyc[ref]) return ctx.ph[ref]!;
   const built = ctx.built[ref];
@@ -1107,13 +1215,7 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
       `Unsupported JSON Schema $ref: ${ref}. Only JSON Pointers into the same document (#/…) resolve - $id, $anchor and remote refs don't`
     );
   }
-  let target: unknown = ctx.root;
-  for (let i = 1; i < segments.length; i++) {
-    target =
-      target !== null && typeof target === "object"
-        ? (target as Record<string, unknown>)[unescapePointer(segments[i]!)]
-        : U;
-  }
+  const target = pointerTarget(segments, ctx.root);
   // A pointer that lands on a non-schema value (a string, `null`, an `enum`
   // array) must fail like a dangling one - falling through would hand the
   // untyped branch an accept-everything `S.json`.
@@ -1169,9 +1271,14 @@ const resolveRef = (ref: string, ctx: RefContext): Internal => {
 
 const jsonDefinitionToSchema = (
   definition: JSONSchemaDefinition,
-  ctx: RefContext
+  ctx: RefContext,
+  kept?: Kept
 ): Internal =>
-  typeof definition !== "boolean" ? fromJSONSchema(definition, ctx) : definition ? json : never_;
+  typeof definition !== "boolean"
+    ? fromJSONSchema(definition, ctx, kept)
+    : definition
+      ? json
+      : never_;
 
 type PatternProp = { re: RegExp; schema: Internal };
 
@@ -1323,9 +1430,11 @@ const B_layer = (
 // @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (
   jsonSchema: JSONSchemaDefinition,
-  parentCtx?: RefContext
+  parentCtx?: RefContext,
+  parentKept?: Kept
 ): Internal => {
   if (typeof jsonSchema === "boolean") return jsonSchema ? json : never_;
+  const kept = keptJoin(parentKept, undeclaredReads(jsonSchema, 0));
   // Every nested call threads the caller's context; only the outermost one
   // owns the document, and only it publishes the `$defs` collected below.
   const uri = jsonSchema["$schema"];
@@ -1362,6 +1471,17 @@ export const fromJSONSchema = (
     // Draft-07 and OpenAPI 3.0 ignore assertion siblings beside `$ref`;
     // draft-2019-09 and newer apply them. The root `$schema` selects the rule.
     schema = resolveRef(jsonSchema["$ref"], ctx);
+    // A finite target is built once and shared, stripping what it doesn't
+    // declare. Where a keyword reads more keys (beside the `$ref`, or from the
+    // schema around it), it gets a build of its own, once per kept set.
+    if (kept !== U && schema.type !== refTag) {
+      const key = `${jsonSchema["$ref"]}\0${kept === true ? "" : kept.join("\0")}`;
+      schema = ctx.built[key] ??= jsonDefinitionToSchema(
+        pointerTarget(jsonSchema["$ref"].split("/"), ctx.root) as JSONSchemaDefinition,
+        ctx,
+        kept
+      );
+    }
     if (ctx.refSiblings) {
       const siblingKeywords: JSONSchemaT = {};
       // Every assertion keyword that may sit beside a `$ref`: the per-type ones
@@ -1447,7 +1567,9 @@ export const fromJSONSchema = (
       }
     } else {
       const additional = jsonSchema.additionalProperties;
-      if ((additional === U || additional === false) && !hasPatterns) {
+      // A Sury object strips or rejects the keys it doesn't declare, so one
+      // that has to keep keys it can't list is the dict below.
+      if ((additional === false || (additional === U && kept !== true)) && !hasPatterns) {
         const properties: Record<string, Internal> = Object.create(null);
         const required = new Set(jsonSchema.required);
         for (const key of Object.keys(definitions)) {
@@ -1462,6 +1584,9 @@ export const fromJSONSchema = (
         }
         for (const key of required) {
           if (!(key in properties)) properties[key] = json;
+        }
+        if (additional === U && kept !== U && kept !== true) {
+          for (const key of kept) if (!(key in properties)) properties[key] = option(json);
         }
         schema = objectSchema(properties, additional === false ? "strict" : "strip");
       } else {
@@ -1623,7 +1748,7 @@ export const fromJSONSchema = (
     schema = types.length
       ? union(
           types.map((type) =>
-            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx)
+            fromJSONSchema(withoutLayeredKeywords(jsonSchema, type), ctx, kept)
           )
         )
       : never_;
@@ -1674,7 +1799,11 @@ export const fromJSONSchema = (
       );
       constrained ||= applies;
       schemas.push(
-        fromJSONSchema(applies ? withoutLayeredKeywords(jsonSchema, type) : { type }, ctx)
+        fromJSONSchema(
+          applies ? withoutLayeredKeywords(jsonSchema, type) : { type },
+          ctx,
+          kept
+        )
       );
     }
     schema = constrained ? union([...schemas, bool, schemaFactory(null)]) : json;
@@ -1716,7 +1845,11 @@ export const fromJSONSchema = (
       // Only a lone member: Sury has no intersection to compile two into.
       schema =
         schema === json && definitions.length === 1
-          ? jsonDefinitionToSchema(definitions[0]!, ctx)
+          ? jsonDefinitionToSchema(
+              definitions[0]!,
+              ctx,
+              keptJoin(parentKept, undeclaredReads(jsonSchema, 1))
+            )
           : B_layer(
               schema,
               definitions,
@@ -1732,7 +1865,9 @@ export const fromJSONSchema = (
     if (definitions.length === 0) {
       schema = never_;
     } else if (schema === json) {
-      const members = definitions.map((d) => jsonDefinitionToSchema(d, ctx));
+      const members = definitions.map((d) =>
+        jsonDefinitionToSchema(d, ctx, keptJoin(parentKept, undeclaredReads(jsonSchema, 2)))
+      );
       schema = members.length === 1 ? members[0]! : union(members);
     } else {
       schema = B_layer(
@@ -1800,7 +1935,7 @@ export const fromJSONSchema = (
       schema,
       (data: unknown) => {
         if (!isJsonObject(data)) return true;
-        const n = Object.keys(data).length;
+        const n = Object.keys(withoutUndefined(data) as object).length;
         return (min === U || n >= min) && (max === U || n <= max);
       },
       "Should have a property count within the JSON Schema bounds."

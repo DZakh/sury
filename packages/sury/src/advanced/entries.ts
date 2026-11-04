@@ -82,6 +82,15 @@ export const absentArm = (schema: Internal): Internal | undefined => {
   return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
 };
 
+// An entry with no absent arm of its own: a nested union that reads the
+// missing value itself, with its own default. Not one with a text arm, which
+// could keep a blank entry, so what a blank one means stays the question.
+const absentOrNested = (schema: Internal): Internal | undefined =>
+  absentArm(schema) ||
+  schema.anyOf?.find(
+    (arm) => arm.type === anyOfTag && absentArm(arm) !== U && !arm.anyOf!.some((member) => tagFlags[member.type]! & 2),
+  );
+
 export const beforeTo = (schema: Internal): Internal => {
   if (schema.to === U) {
     return schema;
@@ -133,6 +142,9 @@ export const absentCode = (item: Val, absent: Internal): string => {
   if (absent.to !== U) {
     return armCode(item, absent, absent);
   }
+  if (absent.type === anyOfTag) {
+    return armCode(item, absentArm(absent)!, absent);
+  }
   if (absent.type === undefinedTag) {
     return "";
   }
@@ -153,7 +165,7 @@ export const readWrapped = (
   const presentCode = armCode(item, present.format === "json" ? openedText(present) : item.s, present);
   let code = presentCode;
   if (folds !== U) {
-    const absent = absentCode(item, absentArm(schema)!);
+    const absent = absentCode(item, absentOrNested(schema)!);
     code = presentCode
       ? `if(${folds ? v : `${v}!==void 0`}){${presentCode}}${absent && `else{${absent}}`}`
       : absent
@@ -176,7 +188,7 @@ export const convertTextEntry = (
   self: Internal,
   blank?: boolean,
 ): Val => {
-  const absent = absentArm(target);
+  const absent = absentOrNested(target);
   const present = absent ? presentArm(target) : target;
   // Same split as a form field: a required `S.string` must choose, an
   // optional/nullable one reads `""` as absent - unless its present arm keeps
@@ -210,6 +222,15 @@ export const convertTextEntry = (
       // representation, so a JSON arm reads it rather than being told to by a
       // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
       const json = present.anyOf!.find((variant) => variant.format === "json");
+      // An entry's text that a number, boolean or bigint arm reads is JSON
+      // text too, so beside a JSON arm the value could come back as either.
+      const rival = json && present.anyOf!.find((variant) => tagFlags[variant.type]! & (4 | 8 | 1024));
+      if (rival) {
+        B_invalidOperation(
+          input,
+          `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(present)}. Its text is also JSON text. Choose one with S.to for ${inputExpression(input.s)} -> ${inputExpression(rival)}, or S.never -> ${inputExpression(rival)}`,
+        );
+      }
       const output = B_next(input, input.i, json ? openedText(json) : self, present);
       output.v = _var;
       return output;

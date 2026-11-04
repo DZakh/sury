@@ -98,6 +98,9 @@ export const parse = (input: Val): Val => {
       result.io = true;
     } else if (loopInput.io) {
       const to = loopInput.e.to!;
+      // Past a hand-off link only the target is left to compile, and the
+      // union case holding the link puts `g.o` back when it ends.
+      if (loopInput.e.flags & 32768) loopInput.g.o |= 32;
       result = loopInput.e.parser ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
       const maybeEncoder = loopInput.s.encoder;

@@ -93,6 +93,8 @@ const ONE_WAY: Record<string, string> = {
     "`S.json` is the document, not a rendering of one, so an entry's text has no decoder into it; encode passes a JSON value that already is a string straight through as the entry",
   "env/string":
     "a bare string target must say what a blank entry means, with `S.nonEmpty`, `S.minLength(0)` or `S.optional`; an encode writes no blank entry, so it has no question to ask",
+  "env/json-string-or-number":
+    "an entry's text that the number arm reads is also JSON text, so decode is refused rather than guess which arm takes \"42\" (codec-env-jsonstring-or-number); encode writes each arm's own text, so it has no question to ask",
   "env/file":
     "a `File`'s own encoder writes its text into any text target, an entry included, while an entry reads no `File` back - the converter the search params share keeps files out, and there they are refused both ways",
   "blob/file":

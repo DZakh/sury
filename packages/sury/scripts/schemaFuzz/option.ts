@@ -6,6 +6,8 @@
 //   some   any other value the item takes parses to Some of what the item
 //          decodes it to. Some(None) and deeper are ReScript's
 //          `{BS_PRIVATE_NESTED_SOME_NONE: n}`, one level deeper per option.
+//   peel   `S.Option.getOr(None)` takes one option back off: over the factory
+//          applied twice it answers every value as the factory applied once.
 
 import { show, structural } from "../unionFuzz/sample";
 import { type Ctx, type Family, reason } from "./context";
@@ -23,6 +25,15 @@ const some = (value: unknown): unknown => {
   if (value === undefined) return { [NESTED]: 0 };
   const depth = (value as Record<string, unknown> | null)?.[NESTED];
   return typeof depth === "number" ? { [NESTED]: depth + 1 } : value;
+};
+
+const settle = (op: Op, value: unknown) => {
+  try {
+    const result = op(value);
+    return { ok: true, value: result, show: show(result) };
+  } catch (error) {
+    return { ok: false, value: undefined, show: `a throw (${reason(error)})` };
+  }
 };
 
 const check = (ctx: Ctx): void => {
@@ -47,6 +58,21 @@ const check = (ctx: Ctx): void => {
           if (none !== undefined) report("none", `${factory}(${label}item) parsed ${show(empty)} to ${show(none)}, not None`);
         } catch (error) {
           report("none", `${factory}(${label}item) threw on ${show(empty)} - ${reason(error)}`);
+        }
+      }
+      const peeled = compile<Op>("peel", () =>
+        S.parseOrThrow(S.$Option_getOr(S[factory](S[factory](item)), undefined)),
+      );
+      if (peeled) {
+        for (const value of [...empties, ...inputs.map(([i]) => i)]) {
+          const once = settle(parse, value);
+          const twice = settle(peeled, value);
+          if (once.ok !== twice.ok || (once.ok && !structural(once.value, twice.value))) {
+            report(
+              "peel",
+              `getOr(${factory}(${factory}(${label}item)), None) read ${show(value)} as ${twice.show}, not ${once.show}`,
+            );
+          }
         }
       }
       if (!decode) continue;

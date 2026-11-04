@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(undefined).with(S.to, S.union(["a", "b"]))
+  input: undefined
+  output: '"a" | "b"'
+  instantiations: 5036
+jsonSchema:
+  input: Expected JSON, received undefined
+  output: '{ enum: ["a", "b"] }'
+isEqual:
+  input: alwaysEqual
+  output: strictEqual
+compare:
+  input: alwaysCompare
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i===void 0||e[0](i);for(;;){i="a";break}return i}catch(v0){e[1](v0)}}
+    examples:
+      missing:
+        input: undefined
+        output: '"a"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"&&i==="a"){i=void 0;break}if(typeof i==="string"&&i==="b"){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      a:
+        input: '"a"'
+        output: undefined

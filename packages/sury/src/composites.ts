@@ -227,13 +227,24 @@ const resolveAsyncFields = (val: Val): void => {
   }
 };
 
-export const completeObjectVal = (objectVal: Val): Val => {
+// The val holding a literal field's check, where the union's dispatch can test
+// it: the field's output, or, once a conversion left the output with none
+// (`S.literal("a").with(S.to, S.literal(0))`), the link that read the field.
+// Without it the first member took every tag.
+const literalRead = (output: Val, input: Val): Val => {
+  let val = output;
+  if (!val.vc) while (val.prev !== U && val.prev !== input) val = val.prev;
+  return val.prev === input ? val : output;
+};
+
+export const completeObjectVal = (objectVal: Val, inUnion?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
+  const joins = inUnion && keys.some((key) => objectVal.d![key]!.f & 1);
 
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
@@ -241,6 +252,11 @@ export const completeObjectVal = (objectVal: Val): Val => {
     if ((val.f & 1)) {
       promised.push(val);
       resolveAsyncFields(val);
+    } else if (joins) {
+      // The join builds the object inside its `.then`, after the union case
+      // assigned the promise to the var a field re-reads (`i.k`).
+      if (isLiteral(val.s) && !val.vc) val.i = B_inlineConst(val, val.s);
+      else val.v();
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -399,6 +415,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
       const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
       let itemOutput!: Val, output2!: Val;
       const collected = input.g.kj;
@@ -475,7 +492,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;
@@ -487,7 +504,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
@@ -660,7 +677,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
         return itemOutput;
       });
     }
-    output = completeObjectVal(objectVal);
+    output = completeObjectVal(objectVal, isUnion);
   } else {
     // Build a fixed-property object target (from a dict or object source).
     const properties = expectedSchema.properties!;
@@ -697,7 +714,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;
@@ -716,7 +733,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
 
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
@@ -902,10 +919,15 @@ const presentTarget = (s: Internal): Internal | undefined => {
 // rather than staying `undefined`. A ref may be optional behind its name, a
 // nested union holds its own `undefined` arm, and an `unknown` or `any` with
 // work to do reaches `undefined` before the plain arm.
+// An env var reads a missing one as unset, which its own link may default.
+const envDefaults = (s: Internal): boolean => s.format === "env" && s.to !== U;
+
 const readsAbsent = (s: Internal): boolean => {
+  if (envDefaults(s)) return true;
   if (!isOptional(s)) return s.type === refTag;
   if (s.to !== U || s.refiner !== U) return true;
   for (const arm of s.anyOf || [s]) {
+    if (envDefaults(arm)) return true;
     if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
     if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
       return true;
@@ -974,7 +996,7 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema)
+      i: isLiteral(schema) && !schema.openLiteral
         ? B_inlineConst(parent, schema)
         : parent.s.type === objectTag && location in Object.prototype
           ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${accessor}:void 0)`
@@ -1002,3 +1024,13 @@ export const valGet = (parent: Val, location: string): Val => {
     return item;
   }
 }
+
+// Field vals when a decoder made them: an async value is a promise itself. A
+// codec's output, resolved in a join, has none, so its fields are read off it.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d?.[key] || valGet(at, key), val);
+
+export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
+  const record = makeObjectVal(input);
+  fill((key, produce) => B_field(record, key, produce));
+  return B_markOutput(completeObjectVal(record));
+};

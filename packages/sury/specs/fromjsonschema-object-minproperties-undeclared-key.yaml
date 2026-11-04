@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], minProperties: 2 })'
+  input: "{ bar: string; }"
+  output: "{ bar: string; }"
+  instantiations: 2442
+jsonSchema:
+  input: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], minProperties: 2 }'
+  output: '{ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], minProperties: 2 }'
+isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);e[2](i)||e[6](i);e[3](i)||e[7](i);e[4](i)||e[8](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}return i}catch(v2){e[9](v2)}}
+    examples:
+      undeclared-key-counts:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1 }'
+      too-few:
+        input: '{ bar: "x" }'
+        error: Should have a property count within the JSON Schema bounds.
+  decode:
+    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    examples:
+      undeclared-key-counts:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1 }'
+  encode:
+    expression: i=>{try{e[0](i)||e[3](i);e[1](i)||e[4](i);e[2](i)||e[5](i);return i}catch(v1){e[6](v1)}}
+    examples:
+      undeclared-key-counts:
+        input: '{ bar: "x", foo: 1 }'
+        output: '{ bar: "x", foo: 1 }'

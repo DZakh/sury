@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union(["a", "b", "c"]).with(S.to, S.union(["a", "b"]))
+  input: '"a" | "b" | "c"'
+  output: '"a" | "b"'
+  instantiations: 5089
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  fromInputType: '"a" | "b"'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }, { not: {} }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "string", enum: ["a"] }, { type: "string", enum: ["b"] }, { not: {} }] }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="string"){for(;;){if(i==="a")break;if(i==="b")break;if(i==="c"){for(;;){throw e[0](i)}break}throw e[1](i)}}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      a:
+        input: '"a"'
+        output: '"a"'
+      c:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      b:
+        input: '"b"'
+        output: '"b"'
