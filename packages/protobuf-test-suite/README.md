@@ -60,7 +60,7 @@ pnpm protobuf:compliance bench      # encode/decode vs protobufjs
 pnpm protobuf:compliance hillclimb  # median of 7 on four workloads vs protobufjs
 ```
 
-Extensions, proto2 groups as declared fields, ProtoJSON, MessageSet and
+Extensions, proto2 groups as declared fields, MessageSet and
 retaining unknown fields through a round trip are listed as skipped. They are
 not in the public API.
 
@@ -73,7 +73,11 @@ checks the encode fails there: the error's path, walked from the value,
 reaches that leaf or key, and the reason shows it. Then it mutates the valid bytes (a bit
 flipped, a truncation, a slice repeated, a stray tag) and asks Sury and
 protobuf-es whether each is still a message, and where both say yes, whether
-they read the same one. A disagreement names the seed that replays it. The
+they read the same one. Every graph, well-known type and union oneof is
+also printed and read as ProtoJSON against protobuf-es's `toJson` and
+`fromJson`, and the JSON respelled (a number as a string, a 64-bit integer as a
+number, base64url, a field as null, a leaf of the wrong type, a key nobody
+declared) must be accepted by both or neither, and read as the same message. A disagreement names the seed that replays it. The
 ones known not to hold are listed in `fuzz.ts` with the reason, a
 disagreement only once Google's own parser has sided with Sury; the run fails on an unlisted one, and on a listed
 one a full run no longer finds. `--seeds=N` widens it, `--from=N` starts

@@ -54,9 +54,10 @@ import type { ProtobufType, WellKnownType } from "./protobufField";
 
 const bad = (type: string, value: unknown): never => fail(`Expected ${type}, received ${stringify(value)}`);
 
-// A number may arrive as a JSON string too, but not one padded with blanks.
+// A number may arrive as a JSON string too, in decimal: not padded with
+// blanks, and not the hex `Number` would also read.
 const numeric = (value: unknown): unknown =>
-  typeof value === "string" && value !== "" && value.trim() === value ? Number(value) : value;
+  typeof value === "string" && /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value) ? Number(value) : value;
 
 const int32 = (value: unknown, min: number, max: number, type: string): number => {
   const n = numeric(value);
@@ -90,10 +91,8 @@ const string = (value: unknown): string =>
 
 // Standard or URL-safe, padded or not.
 const bytes = (value: unknown): Uint8Array => {
-  if (typeof value !== "string" || !/^[A-Za-z0-9+/_-]*={0,2}$/.test(value) || value.length % 4 === 1 || (value.includes("=") && value.length % 4)) {
-    return bad("bytes", value);
-  }
-  const text = value.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+  const text = typeof value === "string" && /^[A-Za-z0-9+/_-]*=*$/.test(value) ? value.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/") : U;
+  if (text === U || text.length % 4 === 1) return bad("bytes", value);
   return stdCodec.toBytes(text + "===".slice((text.length + 3) % 4));
 };
 

@@ -9,27 +9,29 @@ const ident = (name: string): string => name.replace(/[^A-Za-z0-9_]/g, "_");
 // A field table already named is referred to by that name, which is what lets
 // a message contain itself: the reference `.proto` declares it once, flat,
 // like every other nested type here.
-const pbjsTypeName = (field: FieldDef, parent: string, names: Map<FieldDef[], string>): string => {
+// `E` where the source declares the enum, which only ProtoJSON tells from an
+// int32: the binary wire can't.
+const pbjsTypeName = (field: FieldDef, parent: string, names: Map<FieldDef[], string>, enums?: boolean): string => {
   if (field.type === "message") return names.get(field.fields!) ?? ident(`${parent}_${field.key}`);
-  if (field.type === "enum") return "int32";
+  if (field.type === "enum") return enums ? "E" : "int32";
   return field.type;
 };
 
 // Written from the case's own field table, so it stays a reference
 // independent of the codec; `printedProtobufjsType` is Sury's printer.
-const emitMessage = (name: string, fields: FieldDef[], names = new Map<FieldDef[], string>()): string => {
+const emitMessage = (name: string, fields: FieldDef[], names = new Map<FieldDef[], string>(), enums?: boolean): string => {
   names.set(fields, ident(name));
   const nested = fields
     .filter((field) => field.type === "message" && !(field.fields && names.has(field.fields)))
     .map((field) => {
       field.fields ??= [];
-      return emitMessage(pbjsTypeName(field, name, names), field.fields, names);
+      return emitMessage(pbjsTypeName(field, name, names, enums), field.fields, names, enums);
     });
   const oneofs = new Map<string, string[]>();
   const body: string[] = [];
   for (const field of fields) {
     const options = field.packed === false ? " [packed=false]" : "";
-    const typeName = pbjsTypeName(field, name, names);
+    const typeName = pbjsTypeName(field, name, names, enums);
     if (field.map) {
       body.push(`  map<${field.map}, ${typeName}> ${ident(field.key)} = ${field.number};`);
     } else if (field.oneof) {
@@ -45,7 +47,10 @@ const emitMessage = (name: string, fields: FieldDef[], names = new Map<FieldDef[
   return `${nested.join("\n")}\nmessage ${ident(name)} {\n${body.join("\n")}\n}\n`;
 };
 
-export const protoSource = (fields: FieldDef[]): string => `syntax = "proto3";\n${emitMessage("M", fields)}`;
+export const ENUM_NAMES = { E_ZERO: 0, E_ONE: 1, E_TWO: 2, E_NEG: -1 } as const;
+
+export const protoSource = (fields: FieldDef[], enums?: boolean): string =>
+  `syntax = "proto3";\n${enums ? `enum E {\n${Object.entries(ENUM_NAMES).map(([name, n]) => `  ${name} = ${n};`).join("\n")}\n}\n` : ""}${emitMessage("M", fields, new Map(), enums)}`;
 
 export const printedProtobufjsType = (schema: S.Schema<unknown, unknown>): protobuf.Type =>
   protobuf.parse(S.toProtoOrThrow(schema, { name: "M" })).root.lookupType("M");
@@ -198,7 +203,7 @@ export const decodeProtobufjs = (
 const esType = (source: string): DescMessage =>
   createFileRegistry(fileDescriptorOf(source)).getMessage("M") as DescMessage;
 
-export const protobufEsType = (fields: FieldDef[]): DescMessage => esType(protoSource(fields));
+export const protobufEsType = (fields: FieldDef[], enums?: boolean): DescMessage => esType(protoSource(fields, enums));
 
 export const printedProtobufEsType = (schema: S.Schema<unknown, unknown>): DescMessage =>
   esType(S.toProtoOrThrow(schema, { name: "M" }));

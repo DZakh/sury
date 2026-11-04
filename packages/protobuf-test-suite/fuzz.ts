@@ -21,13 +21,17 @@
 // a list item, a map value, a oneof arm): a refinement that passes leaves every
 // read as it was, one that refuses fails at the path it sits on. Each seed also
 // draws values for every well-known type, against protobuf-es's own, and an
-// enum spelled as a union of members each mapped to its number.
+// enum spelled as a union of members each mapped to its number. ProtoJSON is
+// held to protobuf-es's `toJson` and `fromJson` throughout: every graph
+// (`jsonFuzz.ts`, mutated JSON included), every well-known type, and every
+// oneof spelled as a union, keyed as the `.proto` Sury prints for it names it.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
-import { protobufEsType } from "./reference";
+import { canonical, jsonChecks } from "./jsonFuzz";
+import { printedProtobufEsType, protobufEsType } from "./reference";
 import { bytesOf, equalValue, runRoundTrip, show } from "./runner";
 
 type Random = () => number;
@@ -353,6 +357,10 @@ export type Finding = { kind: string; seed: number; detail: string; proto?: stri
 // with Sury on each.
 const ES_LENIENT = "protobuf-es reads on where Google's parser rejects the bytes as corrupt";
 const ES_STRICT = "protobuf-es rejects bytes Google's parser reads, as Sury does";
+// The ProtoJSON ones were put to Google's `json_format.Parse` on the JSON the
+// run printed.
+const ES_JSON_KEY = "protobuf-es skips a map entry whose value is an enum name it doesn't know before it reads the key, so a malformed key passes; Google's parser rejects the key";
+const ES_JSON_LENIENT = "protobuf-es reads a number written in hex (`Number`) or a 64-bit one padded with blanks (`BigInt`), which Google's parser rejects";
 const KNOWN: Record<string, string> = {
   "acceptance: only protobuf-es accepts (Truncated protobuf message)": ES_LENIENT,
   "acceptance: only protobuf-es accepts (Unmatched protobuf end group)": ES_LENIENT,
@@ -369,12 +377,25 @@ const KNOWN: Record<string, string> = {
   "acceptance: only sury accepts (cant skip wire type #)": ES_STRICT,
   "reencode: sury reads protobuf-es's re-encode as another value":
     "protobuf-es misreads a 32-bit varint written in more than five bytes, and writes back the value it misread",
+  "json acceptance: only protobuf-es accepts (Expected int#, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected uint#, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected sint#, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected fixed#, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected sfixed#, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected float, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected double, received S)": ES_JSON_LENIENT,
+  "json acceptance: only protobuf-es accepts (Expected int# key, received S)": ES_JSON_KEY,
+  "json acceptance: only protobuf-es accepts (Expected fixed# key, received S)": ES_JSON_KEY,
+  "json acceptance: only protobuf-es accepts (Expected sfixed# key, received S)": ES_JSON_KEY,
 };
 
 // Reached only by a sweep wider than the default, so a default run has no way
 // to tell one has started to hold: listed apart and never reported stale.
 const KNOWN_WIDE: Record<string, string> = {
   "acceptance: only sury accepts (The encoded data was not valid for encoding utf-#)": ES_STRICT,
+  "json acceptance: only protobuf-es accepts (Expected uint# key, received S)": ES_JSON_KEY,
+  "json acceptance: only protobuf-es accepts (Expected sint# key, received S)": ES_JSON_KEY,
+  "json acceptance: only protobuf-es accepts (Expected bool key, received S)": ES_JSON_KEY,
 };
 
 // Fewer seeds than the default can miss a listed case without it having
@@ -545,6 +566,8 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
   for (const c of wellKnownCases) {
     const encode = S.decodeOrThrow(c.schema, S.protobuf);
     const decode = S.decodeOrThrow(S.protobuf, c.schema);
+    const print = S.decodeOrThrow(c.schema, S.protobufJson);
+    const read = S.decodeOrThrow(S.protobufJson, c.schema);
     const key = c.key ?? ((value: unknown) => value);
     for (let i = 0; i < count; i++) {
       const value = c.gen(r);
@@ -561,6 +584,29 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
         }
         if (!equalValue(key(c.fromEs(fromBinary(c.es, sury) as never)), key(value))) {
           findings.push({ kind: `wkt: protobuf-es reads Sury's ${c.type} as another`, seed, detail: `value=${show(value)}` });
+        }
+        // ProtoJSON: printed as protobuf-es prints it, or refused where it
+        // refuses, and read back as what protobuf-es reads.
+        let esJson: unknown;
+        let suryJson: unknown;
+        let esError: unknown;
+        let suryError: unknown;
+        try {
+          esJson = toJson(c.es, fromBinary(c.es, es));
+        } catch (e) {
+          esError = e;
+        }
+        try {
+          suryJson = (print({ v: value }) as { v?: unknown }).v;
+        } catch (e) {
+          suryError = e;
+        }
+        if ((esError === undefined) !== (suryError === undefined)) {
+          findings.push({ kind: `wkt json: only ${esError === undefined ? "protobuf-es" : "Sury"} prints a ${c.type}`, seed, detail: `value=${show(value)} ${String((esError ?? suryError) as Error)}` });
+        } else if (esError === undefined && canonical(suryJson ?? null) !== canonical(esJson)) {
+          findings.push({ kind: `wkt json: Sury prints a ${c.type} protobuf-es does not`, seed, detail: `value=${show(value)} sury=${canonical(suryJson)} es=${canonical(esJson)}` });
+        } else if (esError === undefined && !equalValue(key((read({ v: esJson }) as { v: unknown }).v), key(c.fromEs(fromJson(c.es, esJson as never) as never)))) {
+          findings.push({ kind: `wkt json: Sury reads protobuf-es's ${c.type} as another`, seed, detail: `json=${canonical(esJson)}` });
         }
       } catch (e) {
         findings.push({ kind: `wkt: ${c.type} throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `value=${show(value)}` });
@@ -671,6 +717,9 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
   let flat: (value: unknown) => Uint8Array;
   let encode: (value: unknown) => Uint8Array;
   let decode: (bytes: Uint8Array) => unknown;
+  let print: (value: unknown) => unknown;
+  let read: (json: unknown) => unknown;
+  let printed: DescMessage;
   try {
     const properties = { ...(suryMessage(rest) as unknown as { properties: Record<string, S.Schema<unknown, unknown>> }).properties };
     const arms = members.map((def, idx) =>
@@ -682,6 +731,9 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
     flat = S.decodeOrThrow(suryMessage(fields), S.protobuf) as never;
     encode = S.decodeOrThrow(message, S.protobuf) as never;
     decode = S.decodeOrThrow(S.protobuf, message) as never;
+    print = S.decodeOrThrow(message, S.protobufJson) as never;
+    read = S.decodeOrThrow(S.protobufJson, message) as never;
+    printed = printedProtobufEsType(message);
   } catch (e) {
     if (spelling >= 5 && (e as Error).message.includes("can't tell its arms apart")) return 0;
     findings.push({ kind: `oneof: compile (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling}` });
@@ -732,6 +784,12 @@ const oneofChecks = (findings: Finding[], seed: number, fields: FieldDef[], valu
       const twice = new Uint8Array([...got, ...got]);
       if (!equalValue(decode(got), asUnion(flatDecode(want))) || !equalValue(decode(twice), asUnion(flatDecode(twice)))) {
         findings.push({ kind: "oneof: a union reads its member back as another value", seed, detail: `spelling=${spelling} value=${show(shaped)}` });
+        continue;
+      }
+      // ProtoJSON keys an arm by the name the printed .proto gives it.
+      const esJson = toJson(printed, fromBinary(printed, got));
+      if (canonical(print(shaped)) !== canonical(esJson) || !equalValue(read(esJson), decode(got))) {
+        findings.push({ kind: "oneof json: a union's ProtoJSON is not protobuf-es's for its printed .proto", seed, detail: `spelling=${spelling} sury=${canonical(print(shaped)).slice(0, 300)} es=${canonical(esJson).slice(0, 300)}` });
       }
     } catch (e) {
       findings.push({ kind: `oneof: throws (${(e as Error).message.replace(/\d+/g, "#")})`, seed, detail: `spelling=${spelling} value=${show(shaped)}` });
@@ -1002,6 +1060,8 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
     checks += oneofChecks(findings, seed, fields, values);
     checks += refineChecks(findings, seed, fields, values);
     checks += enumChecks(findings, seed, values);
+    const jr = rng(seed ^ 0x1b873593);
+    checks += jsonChecks(findings, jr, seed, fields, () => genValue(jr, fields, 0), values, mutants);
     for (let v = 0; v < values; v++) {
       const value = genValue(r, fields, 0);
       checks++;

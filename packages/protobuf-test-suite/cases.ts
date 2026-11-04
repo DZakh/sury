@@ -1505,10 +1505,13 @@ let recursiveNames = 0;
 // that reaches one again refers to it instead of building it forever. A
 // message built while one is open refers to it by a ref only its definer can
 // resolve, so it is not cached for use elsewhere.
+// `enumSchema` stands for every enum field: ProtoJSON reads and prints an enum
+// by the names one carries.
 export const suryMessage = (
   fields: FieldDef[],
   seen = new Map<FieldDef[], S.Schema<unknown, unknown>>(),
   open = new Map<FieldDef[], S.Schema<unknown, unknown>>(),
+  enumSchema?: S.Schema<unknown, unknown>,
 ): S.Schema<unknown, unknown> => {
   const cached = seen.get(fields) ?? open.get(fields);
   if (cached) return cached;
@@ -1516,7 +1519,9 @@ export const suryMessage = (
     const properties: Record<string, S.Schema<unknown, unknown>> = Object.create(null);
     for (const def of fields) {
       let property: S.Schema<unknown, unknown> =
-        def.type === "message" ? suryMessage(def.fields ?? [], seen, open) : scalarSchema(def.type);
+        def.type === "message" ? suryMessage(def.fields ?? [], seen, open, enumSchema)
+        : def.type === "enum" && enumSchema !== undefined ? enumSchema
+        : scalarSchema(def.type);
       if (def.repeated) property = S.array(property);
       else if (def.map) property = S.record(property);
       else if (def.optional || def.oneof) property = S.optional(property);

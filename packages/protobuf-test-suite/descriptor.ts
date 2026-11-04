@@ -125,6 +125,21 @@ const resolve = (declared: Declared, scope: string, reference: string): string =
   }
 };
 
+// What protoc writes into every field's `json_name`, which ProtoJSON keys the
+// field by: each underscore dropped and the letter after it capitalized.
+const jsonNameOf = (name: string): string => {
+  let out = "";
+  let upper = false;
+  for (const char of name) {
+    if (char === "_") upper = true;
+    else {
+      out += upper ? char.toUpperCase() : char;
+      upper = false;
+    }
+  }
+  return out;
+};
+
 const fieldOf = (
   field: AstField,
   declared: Declared,
@@ -135,6 +150,7 @@ const fieldOf = (
   const typeName = scalar === undefined ? resolve(declared, scope, field.type) : undefined;
   return create(FieldDescriptorProtoSchema, {
     name: field.name,
+    jsonName: jsonNameOf(field.name),
     number: field.tag,
     label,
     type: scalar ??
@@ -174,6 +190,7 @@ const messageOf = (
       out.nestedType.push(entryType);
       out.field.push(create(FieldDescriptorProtoSchema, {
         name: field.name,
+        jsonName: jsonNameOf(field.name),
         number: field.tag,
         label: FieldDescriptorProto_Label.REPEATED,
         type: FieldDescriptorProto_Type.MESSAGE,

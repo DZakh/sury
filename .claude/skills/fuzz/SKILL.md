@@ -18,7 +18,7 @@ correct its `FIXME: known bug` example.
 | equality, compare, defaults, containers, `reverse`, the Output type, the ReScript `S.option` family | `pnpm fuzz:schema` | **eq**: equivalence laws, `compare` antisymmetry and agreement with `isEqual`; **codec**: decode passes `isOutput`, encode passes `isInput`, round trips, encode = decode of reverse; **option**: `$option`, `$nullAsOption`, `$nullableAsOption` around the schema and around a coder from it to an optional read the empty value as None and the rest as Some |
 | `S.formData` | `pnpm fuzz:formdata` | every wrapper × leaf works both ways or neither, encode doesn't mutate, round trip, any client entry list is rejected or valid |
 | `S.to` links, pack/unpack | `pnpm fuzz:content` | every source × target × slot compiles both ways or neither, reverse mirrors, round trip, an ambiguous link refuses; any crash is a finding |
-| the protobuf codec | `pnpm protobuf:fuzz` | generated message graphs and mutated bytes against protobufjs and protobuf-es; one leaf or map key corrupted, and the encode error's path must walk from the value to it |
+| the protobuf codec, ProtoJSON | `pnpm protobuf:fuzz` | generated message graphs and mutated bytes against protobufjs and protobuf-es; one leaf or map key corrupted, and the encode error's path must walk from the value to it; ProtoJSON printed, read and respelled against protobuf-es's `toJson`/`fromJson` |
 | a format's regex or `escapeFree` | `pnpm fuzz:escfree` | a flagged format never needs JSON escaping |
 
 Unsure: run all six, a few minutes in total.
