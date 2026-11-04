@@ -3,7 +3,6 @@
 // Distinct from `operations.ts`, which compiles a schema into a callable.
 
 import {
-  anyOfTag,
   type AdditionalItems,
   baseSchema,
   type Builder,
@@ -18,6 +17,7 @@ import {
   panic,
   pathEmpty,
   refTag,
+  reversedKey,
   type SchemaErrorMessage,
   setHas,
   U,
@@ -29,7 +29,6 @@ import {
   type Path,
 } from "./base";
 import {
-  _var,
   B_embed,
   B_contentDiffers,
   B_contentNode,
@@ -48,11 +47,13 @@ import {
 import {
   objectDecoder
 } from "./composites";
+import { outputView } from "./factory";
 import {
  decodeOutput,
  getOutputSchema,
  nestedLoc,
  nestedOptionParser,
+ parse,
  reverse,
  setDefault
 } from "./parse";
@@ -63,7 +64,6 @@ import {
 } from "./primitives";
 import {
  unionFactory,
- unionPlaceEmpty,
  unionWrap
 } from "./union";
 
@@ -93,68 +93,65 @@ const nestedOption = (item: Internal): Internal => {
   });
 }
 
-export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
-  const out = getOutputSchema(item);
+const renest = (schema: Internal, nestedSchema: Internal, depth: number): Internal =>
+  updateOutput<Internal>(schema, (mut) => {
+    // copySchema, not a spread: a spread keeps the original's seq,
+    // and two schemas sharing a seq can collide in the seq-keyed
+    // operation caches.
+    const bumped = copySchema(nestedSchema);
+    bumped.const = depth;
+    const properties: Record<string, Internal> = {};
+    properties[nestedLoc] = bumped;
+    mut.properties = properties;
+  });
+
+// The schema read one option level deeper: an undefined it outputs is Some(None)
+// and a Some(None) marker counts one more Some. Recurses into output unions,
+// since a coder's input never reaches its output.
+export const someOf = (schema: Internal): Internal => {
+  const out = getOutputSchema(schema);
+  const nestedSchema = out.properties?.[nestedLoc];
   if (out.type === undefinedTag) {
-    return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === anyOfTag) {
-    const anyOf = out.anyOf;
-    const has = out.has;
-    return updateOutput<Internal>(item, (mut) => {
-      const schemas = anyOf!;
-      const mutHas = { ...has! };
-
-      const newAnyOf: Internal[] = [];
-      for (let idx = 0; idx < schemas.length; idx++) {
-        const schema = schemas[idx]!;
-        let toPush: Internal;
-        const schemaOut = getOutputSchema(schema);
-        if (schemaOut.type === undefinedTag) {
-          mutHas[unitSchema.type] = true;
-          newAnyOf.push(unitSchema);
-          toPush = nestedOption(schema);
-        } else if (schemaOut.properties !== U) {
-          const properties = schemaOut.properties;
-          const nestedSchema = properties[nestedLoc];
-          if (nestedSchema !== U) {
-            toPush = updateOutput<Internal>(schema, (mut) => {
-              // copySchema, not a spread: a spread keeps the original's seq,
-              // and two schemas sharing a seq can collide in the seq-keyed
-              // operation caches.
-              const bumped = copySchema(nestedSchema);
-              bumped.const = (nestedSchema.const as number) + 1;
-              const properties: Record<string, Internal> = {};
-              properties[nestedLoc] = bumped;
-              mut.properties = properties;
-            });
-          } else {
-            toPush = schema;
-          }
-        } else {
-          toPush = schema;
-        }
-        newAnyOf.push(toPush);
-      }
-
-      if (newAnyOf.length === schemas.length) {
-        mutHas[unitSchema.type] = true;
-        // The copy keeps the union's own `default`, which the arm it now goes
-        // ahead of was the one to apply.
-        if (unionPlaceEmpty(newAnyOf, unitSchema)) delete mut.default;
-      }
-
-      mut.anyOf = newAnyOf;
-      mut.has = mutHas;
+    return nestedOption(schema);
+  } else if (nestedSchema !== U) {
+    return renest(schema, nestedSchema, (nestedSchema.const as number) + 1);
+  } else if (out.anyOf !== U) {
+    return updateOutput<Internal>(schema, (mut) => {
+      mut.anyOf = out.anyOf!.map(someOf);
     });
   } else {
-    return unionWrap(item, [unitSchema]);
+    return schema;
   }
 }
 
-// @__NO_SIDE_EFFECTS__
-export const option = (item: Internal): Internal => {
-  return optionFactory(item, unit);
+// `someOf` taken back, for a default that peels one option off: the outer
+// Some(None) marker is the inner option's None again.
+const noneOf = (schema: Internal): Internal => {
+  const out = getOutputSchema(schema);
+  const nestedSchema = out.properties?.[nestedLoc];
+  if (nestedSchema === U) {
+    return out.anyOf === U
+      ? schema
+      : updateOutput<Internal>(schema, (mut) => {
+          mut.anyOf = out.anyOf!.map(noneOf);
+        });
+  }
+  const depth = nestedSchema.const as number;
+  if (depth) return renest(schema, nestedSchema, depth - 1);
+  // A bare marker is an arm of an earlier default's output union.
+  if (schema.to === U) return unit;
+  const root = copySchema(schema);
+  let mut = root;
+  while (mut.to!.to) mut = mut.to = copySchema(mut.to!);
+  // `delete`, not `= U`: unionIsTransparent counts a schema's keys.
+  delete mut.to;
+  delete mut.parser;
+  return root;
 }
+
+// @__NO_SIDE_EFFECTS__
+export const option = (item: Internal): Internal =>
+  unionWrap(someOf(item), [unit]);
 
 export type MetadataId = string;
 
@@ -396,6 +393,53 @@ export const linkTo = (
   return root;
 };
 
+export type Slot = Builder | boolean | undefined;
+
+
+// An output-seam coder claims the target as its result, so a target that
+// still converts on its own would have that conversion skipped. The junction
+// seam of `to` feeds the target's chain instead, so it stays legal there, as do
+// the slots that place no coder. A reading is exempt with `B_neverSlot`:
+// neither places a coder, so neither claims the target's result - the very case
+// a reading exists for is a target that converts on its own.
+// A coder's result is what the target's output claims (its view): the
+// target's own conversions, a field's coder among them, would run again over a
+// value already past them. An encode coder is handed the target's output, so
+// the link is to the view, and a decode with no coder runs the plain link's own
+// step into the target from where the seam's stands. A decode coder beside an
+// encode with none keeps the link to the target, which that encode converts
+// through, and checks its result against the view.
+export const seamTarget = (schema: Internal, target: Internal, decode: Slot, encode: Slot): Internal => {
+  const view =
+    (typeof decode === functionTag && decode !== B_neverSlot) || (typeof encode === functionTag && encode !== B_neverSlot)
+      ? target.to
+        ? panic(`The target already converts. Chain S.to instead of passing a custom codec`)
+        : outputView(target)
+      : target;
+  if (view === target) return codecTo(schema, target, decode, encode);
+  if (typeof encode === functionTag) {
+    return codecTo(schema, view, typeof decode === functionTag ? decode : seamStep(seamPlain(schema, target, decode as boolean | undefined)), encode);
+  }
+  return codecTo(schema, target, seamStep((input) => B_refine((decode as Builder)(input), view, U, view)), encode);
+};
+
+// The plain link's step into the target, from where the seam's link stands.
+const seamPlain = (schema: Internal, target: Internal, reading: boolean | undefined) => (input: Val): Val => {
+  let into = codecTo(schema, target, reading);
+  while (into.to!.to) into = into.to!;
+  const from = B_refine(input, into, U, into);
+  from.io = true;
+  return from;
+};
+
+// Runs `step` to its end, and hands the value on as the seam link's next node's
+// output, which it now is.
+const seamStep = (step: (input: Val) => Val): Builder => (input: Val) => {
+  const through = B_refine(parse(step(input)), U, U, input.e.to);
+  through.io = true;
+  return through;
+};
+
 // Not initSchema: that would stamp the self-reverse marker, and this codec's
 // reverse (unit -> null) must stay lazily derived — copySchema drops it.
 export const nullAsUnit: Internal = /* @__PURE__ */ copyTo(nullLiteral, unit);
@@ -406,23 +450,70 @@ export type OptionDefault =
   | { type: "value"; value: unknown }
   | { type: "callback"; callback: () => unknown };
 
+const readsNone = (output: Internal): boolean =>
+  output.type === undefinedTag ||
+  output.properties?.[nestedLoc] !== U ||
+  !!output.anyOf?.some(readsNone);
+
+// What ReScript's `getOr` does to the arms before it builds the default: it
+// peels one option off each, which JS, having no nested option, never asks
+// for. Returns U once it has finished the union itself.
+type Peel = (anyOf: Internal[], owner: Internal, default_: OptionDefault) => Internal[] | undefined;
+
+const peelArms: Peel = (anyOf, owner, default_) => {
+  let reached = false;
+  const items = anyOf.map((variant) => {
+    const output = getOutputSchema(variant);
+    if (output.type === undefinedTag) {
+      reached = true;
+      return variant;
+    }
+    // An earlier default, which never encodes, ahead of every `undefined` arm
+    // always wins. A None or a Some(None) it can still give would change under
+    // this default's peel, and the arm can't take that back. Only a chain of
+    // `getOr`s builds one: a wrapper puts its own empty arm first.
+    if (!reached && output.serializer === B_neverSlot && readsNone(output)) {
+      panic(
+        `Can't set default for ${inputExpression(owner)}: an earlier default already takes undefined. Set one default`
+      );
+    }
+    return noneOf(variant);
+  });
+  // `None` over a nested option: a peeled arm already reads the absent value
+  // as `None`, so there is nothing to replace, and a later default still sees
+  // a plain `undefined` arm to take.
+  if (
+    default_.type === "value" &&
+    default_.value === U &&
+    items.some((variant, idx) => variant !== anyOf[idx] && getOutputSchema(variant).type === undefinedTag)
+  ) {
+    owner.anyOf = items;
+    return U;
+  }
+  return items;
+};
+
 // Every undefined-producing variant converts to the item union, supplying the
 // default on decode and taking the never slot on encode so it yields to its
 // siblings there. Spelling the default as ordinary union arms is what lets the
 // planner treat it like any other variant.
-export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
+// An arm is empty by what it read before the peel: a peeled Some(None) reads
+// `undefined` too, but as the inner option's None.
+const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
     if (anyOf === U) {
       return panic(`Can't set default for ${inputExpression(mut)}`);
     }
+    const items = peel ? peel(anyOf, mut, default_) : anyOf;
+    if (items === U) return;
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
 
     for (let idx = 0; idx < anyOf.length; idx++) {
-      const variant = anyOf[idx]!;
-      const outputSchema = getOutputSchema(variant);
-      if (outputSchema.type !== undefinedTag) {
+      if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
+        const variant = items[idx]!;
+        const outputSchema = getOutputSchema(variant);
         // The default is read as the item on every decode, so an item that is
         // the definition being built would read the default as that definition,
         // find the same absent field in it, and read its default, without end.
@@ -468,12 +559,6 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         target,
         target
       );
-      if (default_.type === "value") {
-        // A constant inline is idempotent, so re-reads need no var. The
-        // callback form stays materializable, since re-reading it would call
-        // the callback twice.
-        output.v = _var;
-      }
       // The same seam B_conversion's `trusted` provides: `vc` checks emit at
       // the pre-transform slot, so the item's input refiners would run over
       // the absent value that came in rather than the default that replaced it.
@@ -483,20 +568,28 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       result.io = true;
       return result;
     };
-    mut.anyOf = anyOf.map((variant) =>
+    mut.anyOf = anyOf.map((variant, idx) =>
       getOutputSchema(variant).type === undefinedTag
         ? codecTo(variant, item, decodeB, B_neverSlot)
-        : variant
+        : items[idx]!
     );
   });
 };
 
 // @__NO_SIDE_EFFECTS__
 export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
-  Option_getWithDefault(schema, { type: "value", value: defaultValue });
+  getOrArms(schema, { type: "value", value: defaultValue }, peelArms);
 // @__NO_SIDE_EFFECTS__
 export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
-  Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
+  getOrArms(schema, { type: "callback", callback: defaultCb }, peelArms);
+
+export const emptyOr = (schema: Internal, or: unknown): Internal =>
+  getOrArms(
+    schema,
+    typeof or === functionTag
+      ? { type: "callback", callback: or as () => unknown }
+      : { type: "value", value: or }
+  );
 
 export type ObjectCtx = {
   // @as("f") - field

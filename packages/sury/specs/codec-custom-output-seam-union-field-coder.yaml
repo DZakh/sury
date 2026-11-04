@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.string.with((S as any).$to as typeof S.to, S.union([S.schema({ type: "a", n: S.string.with(S.to, S.int32, { decode: (x) => x.length, encode: (n) => "x".repeat(n) }) }), S.schema({ type: "b" })]), { decode: (v: string) => ({ type: "a" as const, n: v.length }), encode: (o: { n: number }) => "x".repeat(o.n) } as any)'
+  input: string
+  output: '{ type: "a"; n: number; } | { type: "b"; }'
+  instantiations: 8722
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ anyOf: [{ type: "object", properties: { type: { type: "string", const: "a" }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["type", "n"] }, { type: "object", properties: { type: { type: "string", const: "b" } }, required: ["type"] }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["a"] }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["type", "n"] }, { type: "object", properties: { type: { type: "string", enum: ["b"] } }, required: ["type"] }] }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||(a.type==="a"?b.type==="a"&&a.n===b.n:b.type==="b")
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { type: \"a\"; n: int32; } | { type: \"b\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}
+    examples:
+      coder-result-is-the-output:
+        input: '"abc"'
+        output: '{ type: "a", n: 3 }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-result-is-the-output:
+        input: '"abc"'
+        output: '{ type: "a", n: 3 }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-takes-the-output:
+        input: '{ type: "a", n: 3 }'
+        output: '"xxx"'

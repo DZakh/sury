@@ -10,7 +10,7 @@ jsonSchema:
 isEqual: strictEqual
 compare:
   input: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
-  output: "throws: [Sury] Can't compare string | null | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable

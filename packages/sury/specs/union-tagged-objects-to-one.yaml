@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: "a", v: S.string }), S.schema({ t: "b", v: S.string })]).with(S.to, S.schema({ t: "a", v: S.string }))'
+  input: '{ t: "a"; v: string; } | { t: "b"; v: string; }'
+  output: '{ t: "a"; v: string; }'
+  instantiations: 8180
+jsonSchema:
+  input: '{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }'
+  fromInputType: '{ t: "a"; v: string; }'
+  output: '{ type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { t: { type: "string", enum: ["a"] }, v: { type: "string" } }, required: ["t", "v"] }'
+    output: '{ type: "object", properties: { t: { type: "string", enum: ["a"] }, v: { type: "string" } }, required: ["t", "v"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&a.v===b.v:b.t==="b"&&a.v===b.v)
+  output: (a,b)=>a===b||a.v===b.v
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; v: string; } | { t: \"b\"; v: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { t: \"a\"; v: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Ambiguous { t: \"a\"; v: string; } | { t: \"b\"; v: string; } -> { t: \"a\"; v: string; }. { t: \"b\"; v: string; } isn't { t: \"a\"; v: string; }. Choose with S.to for { t: \"b\"; v: string; } -> { t: \"a\"; v: string; }, or S.never -> { t: \"b\"; v: string; }"
+  decode: eq-to-parse
+  encode: identity

@@ -17,12 +17,14 @@ import {
   inlinedObjectKey,
   inlinedProperty,
   inlinedValueFromString,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
   isOptional,
   isSchemaObject,
   noopDecoder,
+  nullTag,
   objectTag,
   pathConcat,
   pathEmpty,
@@ -196,19 +198,65 @@ export const makeArrayVal = (prev: Val): Val =>
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
-export const completeObjectVal = (objectVal: Val): Val => {
+// The join rebinds an async field's var to what its promise resolved to, so
+// every field under it is read off that value: a var from before the join may
+// still be a promise, and a field an earlier join rebound names that join's var.
+const resolveAsyncFields = (val: Val): void => {
+  const fields = val.d;
+  for (const k in fields) {
+    const field = fields[k]!;
+    const resolved: Val = {
+      ...field,
+      b: U,
+      v: _var,
+      i: val.i + inlinedProperty("", k, val.s.type === arrayTag),
+      prev: U,
+      f: 0,
+      d: field.d && Object.assign(Object.create(null), field.d),
+      cp: "",
+      fu: U,
+      fs: U,
+      hd: "",
+      vc: U,
+      k: U,
+      hn: U,
+      ha: U,
+    };
+    resolveAsyncFields(resolved);
+    fields[k] = resolved;
+  }
+};
+
+// The val holding a literal field's check, where the union's dispatch can test
+// it: the field's output, or, once a conversion left the output with none
+// (`S.literal("a").with(S.to, S.literal(0))`), the link that read the field.
+// Without it the first member took every tag.
+const literalRead = (output: Val, input: Val): Val => {
+  let val = output;
+  if (!val.vc) while (val.prev !== U && val.prev !== input) val = val.prev;
+  return val.prev === input ? val : output;
+};
+
+export const completeObjectVal = (objectVal: Val, inUnion?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   const promised: Val[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
+  const joins = inUnion && keys.some((key) => objectVal.d![key]!.f & 1);
 
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
       promised.push(val);
+      resolveAsyncFields(val);
+    } else if (joins) {
+      // The join builds the object inside its `.then`, after the union case
+      // assigned the promise to the var a field re-reads (`i.k`).
+      if (isLiteral(val.s) && !val.vc) val.i = B_inlineConst(val, val.s);
+      else val.v();
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -367,6 +415,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 
       const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
       let itemOutput!: Val, output2!: Val;
       const collected = input.g.kj;
@@ -443,7 +492,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;
@@ -455,7 +504,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
@@ -628,7 +677,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
         return itemOutput;
       });
     }
-    output = completeObjectVal(objectVal);
+    output = completeObjectVal(objectVal, isUnion);
   } else {
     // Build a fixed-property object target (from a dict or object source).
     const properties = expectedSchema.properties!;
@@ -643,23 +692,6 @@ export const objectDecoder = (unknownInput: Val): Val => {
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // A JSON-sourced object (`additionalItems` is json, set by jsonEncoderFn)
-    // coalesces its field reads with `??null`, because:
-    //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
-    //     `v===null`, JSON having no undefined,
-    //   - but `i[key]` for a missing key returns undefined, so the rewritten
-    //     arm would reject `{}` for `{foo: option<...>}`.
-    // FIXME: a shared JSON option representation would remove the sniff - an arm
-    // that accepts both spellings of empty, so nothing has to patch the read.
-    // Two things stand in the way:
-    //   - adding an `undefined` arm beside the `null` one makes ENCODE
-    //     ambiguous, since both produce the same output and only `null` is
-    //     writable to a document - which is why this rewrites rather than adds;
-    //   - loosening the arm's own narrow to `== null` instead means widening
-    //     what `typeCheckCond` emits for a tag, and a union group's shared
-    //     narrow stands in for its members' checks (see the cross-module
-    //     contract on `typeCheckCond`), so a case would start accepting more
-    //     than its acceptance mask claims.
     const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
@@ -670,8 +702,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
-        itemInput.i = `(${itemInput.i}??null)`;
+      if (isJsonParent && isOptional(schema)) {
+        itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
       if (fused !== U && !(isUnion && isLiteral(schema))) {
         B_addObjectField(objectVal, key, itemInput);
@@ -682,7 +714,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       B_field(objectVal, key, () => {
         const itemOutput = parse(itemInput);
         if (isUnion && isLiteral(schema)) {
-          B_hoistChildChecks(input, itemOutput, key);
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
           shouldRecreateInput = itemOutput.t!;
@@ -701,7 +733,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
 
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
@@ -805,19 +837,30 @@ const missingKeyEncoder: Encoder = (input, target) => {
   // key's presence is not asked here, and the item keeps its own check.
   const unsetIsInput = item.format === "env";
 
-  const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
-  const body = (source: Internal, u: boolean): string => {
+  // Final: each branch already runs the target's parser and `.to`.
+  const output = B_nextVarOutput(input, v, getOutputSchema(target));
+  const body = (source: Internal, u: boolean, e: Internal = target): string => {
     const scope = B_scope(input);
     scope.io = false;
     scope.s = source;
-    scope.e = target;
+    scope.e = e;
     scope.u = u;
+    B_narrowJsonSourcedJsonString(scope);
     const out = parse(scope);
     output.f |= out.f & 1;
     return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
   };
-  const presentBody = body(item, !unsetIsInput);
-  const absentBody = !unsetIsInput && readsAbsent(target) ? body(unknown, false) : "";
+  // JSON's `null` would bridge to the undefined arm; absence has its own branch.
+  const present = item.flags & 16 ? presentTarget(target) : target;
+  const presentBody = present
+    ? body(item, !unsetIsInput, present)
+    : B_failInvalidInput(input, target) + ";";
+  // `unit` tells `s.fieldOr` to answer with its default; a dispatching union
+  // would coerce it, so it reads `unknown`.
+  const absentBody =
+    !unsetIsInput && readsAbsent(target)
+      ? body(target.decoder === noopDecoder ? unit : unknown, false)
+      : "";
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   output.cp = absentBody
     ? presentBody === ""
@@ -835,14 +878,56 @@ const missingKeyEncoder: Encoder = (input, target) => {
   return output;
 };
 
+// A union stays one with a single arm left: its dispatch reads a string stored
+// apart (`S.jsonString`, bytes).
+const presentTarget = (s: Internal): Internal | undefined => {
+  const anyOf = s.anyOf;
+  if (anyOf === U || !s.has![undefinedTag]) return s;
+  let mut: Internal;
+  if (s.decoder === noopDecoder) {
+    const item = presentTarget(anyOf[0]!);
+    if (item === U) return U;
+    mut = item === anyOf[0] ? copySchema(item) : item;
+  } else {
+    // Only the top-level arm: encode writes a member's own `undefined` as `null`.
+    const arms = anyOf.filter((arm) => arm.type !== undefinedTag);
+    // `S.optional(S.void)`: only absence fills it.
+    if (!arms.length) return U;
+    mut = copySchema(s);
+    mut.anyOf = arms;
+    mut.has = {};
+    arms.forEach((arm) => setHas(mut.has!, arm));
+    const to = s.to;
+    if (to !== U && to.type === anyOfTag && (to.has![nullTag] || to.has![undefinedTag])) {
+      // Only absence reaches the `.to` arm the dropped one pairs with.
+      const toArms = to.anyOf!.filter(
+        (arm) => arm.type !== undefinedTag && (arm.type !== nullTag || mut.has![nullTag]),
+      );
+      if (!toArms.length) return s;
+      const toMut = copySchema(to);
+      toMut.anyOf = toArms;
+      toMut.has = {};
+      toArms.forEach((arm) => setHas(toMut.has!, arm));
+      mut.to = toMut;
+    }
+  }
+  mut.expression = () => inputExpression(s);
+  return mut;
+};
+
 // Whether an optional field's missing key goes through the field's own decode
 // rather than staying `undefined`. A ref may be optional behind its name, a
 // nested union holds its own `undefined` arm, and an `unknown` or `any` with
 // work to do reaches `undefined` before the plain arm.
+// An env var reads a missing one as unset, which its own link may default.
+const envDefaults = (s: Internal): boolean => s.format === "env" && s.to !== U;
+
 const readsAbsent = (s: Internal): boolean => {
+  if (envDefaults(s)) return true;
   if (!isOptional(s)) return s.type === refTag;
   if (s.to !== U || s.refiner !== U) return true;
   for (const arm of s.anyOf || [s]) {
+    if (envDefaults(arm)) return true;
     if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
     if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
       return true;
@@ -883,10 +968,8 @@ export const valGet = (parent: Val, location: string): Val => {
         const s = additionalItems;
         // A `dict<V>` read by a fixed key may be absent (dicts have no required
         // keys), so model it as `option<V>` and let the union coercion handle a
-        // missing key uniformly. Scoped to dict parents (objectTag) with a
-        // concrete value type - array->tuple rest reads (arrayTag) and
-        // json/unknown values read as-is. Light T|undefined wrap (not
-        // optionFactory) so this decoder SCC does not statically retain union.
+        // missing key uniformly. Light T|undefined wrap (not S.option) so this
+        // decoder SCC does not statically retain union.
         if (
           parent.s.type === objectTag &&
           s.type !== unknownTag &&
@@ -913,7 +996,7 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema)
+      i: isLiteral(schema) && !schema.openLiteral
         ? B_inlineConst(parent, schema)
         : parent.s.type === objectTag && location in Object.prototype
           ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${accessor}:void 0)`
@@ -941,3 +1024,13 @@ export const valGet = (parent: Val, location: string): Val => {
     return item;
   }
 }
+
+// Field vals when a decoder made them: an async value is a promise itself. A
+// codec's output, resolved in a join, has none, so its fields are read off it.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d?.[key] || valGet(at, key), val);
+
+export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
+  const record = makeObjectVal(input);
+  fill((key, produce) => B_field(record, key, produce));
+  return B_markOutput(completeObjectVal(record));
+};

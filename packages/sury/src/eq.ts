@@ -506,7 +506,19 @@ const identityKind = (ctx: Ctx, schema: Internal): number | undefined => {
   return U;
 };
 
-const unionExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
+// A value compares by what it is, so a union kept whole inside another (a
+// default's arm) is its members.
+const flatMembers = (members: Internal[], out: Internal[] = []): Internal[] => {
+  for (const member of members) {
+    if (tagFlags[member.type]! & 256) flatMembers(member.anyOf!, out);
+    else if (!out.includes(member)) out.push(member);
+  }
+  return out;
+};
+
+const unionExpr = (ctx: Ctx, nested: Internal, a: string, b: string): string => {
+  const flat = flatMembers(nested.anyOf!);
+  const schema = flat.length === nested.anyOf!.length ? nested : { ...nested, anyOf: flat };
   const members = schema.anyOf!;
   // Covers `S.optional`/`S.nullable` of a primitive, enums, and any union of
   // plain literals.
@@ -655,8 +667,9 @@ const refExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
 // "" means "always equal": a position that admits exactly one value contributes
 // no test at all, which is what keeps a literal field out of the emit.
 const eqExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string => {
-  // A literal, `S.nan` included: both values are the one the schema admits.
-  if (isLiteral(schema)) return "";
+  // A literal, `S.nan` included: both values are the one the schema admits. An
+  // open one (`openLiteral`) can hold another, and compares as its type.
+  if (isLiteral(schema) && !schema.openLiteral) return "";
   const tagFlag = tagFlags[schema.type]!;
   // string 2, number 4, boolean 8, undefined 16, null 32, bigint 1024, symbol 16384
   if (tagFlag & (2 | 4 | 8 | 16 | 32 | 1024 | 16384)) return ctx.k.prim(ctx, schema, a, b);

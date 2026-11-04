@@ -36,14 +36,20 @@ operations:
         input: '{ child: { n: 1 }, maybe: { id: "7" } }'
         output: new Uint8Array([10, 2, 8, 1, 18, 2, 8, 7])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.child,v2=v0.maybe;if(v2!==void 0){v2={id:""+v2.id};}return {child:v1,maybe:v2}}catch(v3){e[3](v3)}}
+    expression: i=>{try{let v0=void 0,v1=void 0;{let r,a0=-1,b0=0,x0,a1=-1,b1=0,x1,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;case 18:p=r.sub();if(a1<0){a1=r.pos;b1=r.limit}else x1=r.more(x1);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g;if(a1>=0){t=18;g=r.limit;a1<0?r.pos=g:(r.pos=a1,r.limit=b1);v1=m2(r,d+1,x1);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t);e[7](x)}}let v2={child:v0};if(v1!==void 0){v2.maybe=v1}return v2}catch(v3){e[8](v3)}}
     examples:
       absent-required-is-default-instance:
         input: new Uint8Array([])
-        output: "{ child: { n: 0 }, maybe: undefined }"
+        output: "{ child: { n: 0 } }"
       optional-present:
         input: new Uint8Array([18, 2, 8, 9])
         output: '{ child: { n: 0 }, maybe: { id: "9" } }'
       merge-repeated-occurrence:
         input: new Uint8Array([10, 2, 8, 1, 10, 2, 8, 2])
-        output: "{ child: { n: 2 }, maybe: undefined }"
+        output: "{ child: { n: 2 } }"
+      merge-across-other-fields:
+        input: new Uint8Array([10, 2, 8, 1, 18, 2, 8, 9, 10, 0, 40, 5, 10, 2, 8, 3])
+        output: '{ child: { n: 3 }, maybe: { id: "9" } }'
+      merge-fails-in-a-later-payload:
+        input: new Uint8Array([10, 2, 8, 1, 10, 1, 8])
+        error: "Failed at child.n: Truncated protobuf message"

@@ -7,7 +7,7 @@ open it.
 
 `B_contentDiffers` and `B_rejectUnsettled` in `src/builder.ts` are the two decisions
 below; the conversions themselves live on the carriers
-(`src/advanced/uint8Array.ts`, `src/advanced/file.ts`, `S.base64` in
+(`S.uint8Array` in `src/refinements.ts`, `src/advanced/file.ts`, `S.base64` in
 `src/refinements.ts`). `docs/js-usage.md` carries the user-facing version under
 "Content", and the `packages/sury/specs/` rows listed at the end snapshot the
 behavior.
@@ -198,6 +198,13 @@ Everything else already knows which it is. A string format (`S.email`), a
 literal, a number and a field of a document are values and store. An entry
 source (`S.env`, a form field), a parse from `unknown` and a carrier's opened
 text are representations and are read.
+
+An entry read into a JSON text arm beside a number, boolean or bigint arm has
+two readings of the same text, so it is refused when built:
+
+```ts
+S.env.with(S.to, S.union([S.jsonString, S.number])); // decode: Ambiguous, "42" is both (codec-env-jsonstring-or-number)
+```
 
 ## Never ambiguous
 

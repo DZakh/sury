@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.tuple([S.literal(1), S.string]), S.tuple([S.literal(2), S.string])]).with(S.to, S.tuple([S.literal(1), S.string]))
+  input: "[1, string] | [2, string]"
+  output: "[1, string]"
+  instantiations: 7669
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "string" }] }'
+  fromInputType: "[1, string]"
+  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "string" }] }'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "string" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "number", const: 1 }, { type: "string" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "string" }] } }'
+    fromInputType: "[string | 1, string | 1]"
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "number", enum: [1] }, { type: "string" }] } }'
+    fromOutputType: "[string | 1, string | 1]"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a[1]===b[1]
+compare:
+  input: "throws: [Sury] Can't compare [1, string] | [2, string]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:a[1]<b[1]?-1:a[1]>b[1]?1:0
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Ambiguous [1, string] | [2, string] -> [1, string]. [2, string] isn't [1, string]. Choose with S.to for [2, string] -> [1, string], or S.never -> [2, string]"
+  decode: eq-to-parse
+  encode: identity

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufAny.with(S.to, S.schema({ type: "other", value: S.protobufAny }))'
+  input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
+  output: '{ type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; }'
+  instantiations: 5794
+jsonSchema:
+  input: "Failed at value: Expected JSON, received Uint8Array"
+  output: "Failed at value.value: Expected JSON, received Uint8Array"
+isEqual:
+  input: (a,b)=>a===b||a.typeUrl===b.typeUrl&&e[0](a.value,b.value)
+  output: (a,b)=>a===b||a.value.typeUrl===b.value.typeUrl&&e[0](a.value.value,b.value.value)
+compare:
+  input: "throws: [Sury] Can't compare Any. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { type: \"other\"; value: Any; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.typeUrl,v1=i.value;typeof v0==="string"||e[0](v0);v1 instanceof e[1]||e[2](v1);let v2=v0;v2=v2.slice(v2.lastIndexOf("/")+1);let v3;let v4={typeUrl:v0,value:v1};v3={"type":"other","value":v4};return v3}catch(v5){e[4](v5)}}
+    examples:
+      other:
+        input: '{ typeUrl: "x/a.B", value: new Uint8Array([1]) }'
+        output: '{ type: "other", value: { typeUrl: "x/a.B", value: new Uint8Array([1]) } }'
+  decode:
+    expression: i=>{let v0=i.typeUrl;v0=v0.slice(v0.lastIndexOf("/")+1);let v1;let v2=i;v1={"type":"other","value":v2};return v1}
+    examples:
+      other:
+        input: '{ typeUrl: "x/a.B", value: new Uint8Array([1]) }'
+        output: '{ type: "other", value: { typeUrl: "x/a.B", value: new Uint8Array([1]) } }'
+  encode:
+    expression: i=>{let v0=i.value;return v0}
+    examples:
+      other:
+        input: '{ type: "other", value: { typeUrl: "x/a.B", value: new Uint8Array([1]) } }'
+        output: '{ typeUrl: "x/a.B", value: new Uint8Array([1]) }'

@@ -98,6 +98,9 @@ export const parse = (input: Val): Val => {
       result.io = true;
     } else if (loopInput.io) {
       const to = loopInput.e.to!;
+      // Past a hand-off link only the target is left to compile, and the
+      // union case holding the link puts `g.o` back when it ends.
+      if (loopInput.e.flags & 32768) loopInput.g.o |= 32;
       result = loopInput.e.parser ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
       const maybeEncoder = loopInput.s.encoder;
@@ -508,9 +511,9 @@ Object.defineProperty(schemaPrototype, reversedKey, {
     }
 
     // defineProperty (slower, once per schema) keeps the cache non-enumerable:
-    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign,
-    // optionFactory-style spreads, and unionIsTransparent's field count all walk
-    // enumerable fields and must not see it.
+    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign
+    // and unionIsTransparent's field count walk enumerable fields and must not
+    // see it.
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
