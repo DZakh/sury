@@ -20,21 +20,12 @@ operations:
       string:
         input: '"a"'
         output: '"a"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous string -> boolean | number | string. Should boolean be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> boolean
       number:
         input: "1"
         output: "1"
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous string -> boolean | number | string. Should boolean be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> boolean
       boolean:
         input: "true"
         output: "true"
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous string -> boolean | number | string. Should boolean be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> boolean
       nan-rejected:
         input: NaN
         error: Expected string | number | boolean, received NaN

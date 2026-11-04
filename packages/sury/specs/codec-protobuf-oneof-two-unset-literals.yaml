@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema("x"), S.schema("y")]) }).with(S.to, S.protobuf)'
+  input: '{ c: { case: "a"; value: number; } | "x" | "y"; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8138
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "string", const: "x" }, { type: "string", const: "y" }] } }, required: ["c"] }'
+  output: "[Sury] S.protobuf: oneof \"c\" has two arms for no member set, which a decode can't choose between. Keep one"
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["a"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "string", enum: ["x"] }, { type: "string", enum: ["y"] }] } }, required: ["c"] }'
+isEqual:
+  input: (a,b)=>a===b||!!(typeof a.c==="object"&&a.c&&!Array.isArray(a.c)?typeof b.c==="object"&&b.c&&!Array.isArray(b.c)&&a.c.value===b.c.value:a.c==="x"?b.c==="x":b.c==="y")
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { case: \"a\"; value: int32; } | \"x\" | \"y\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" has two arms for no member set, which a decode can't choose between. Keep one"
+  decode: eq-to-parse
+  encode: eq-to-parse

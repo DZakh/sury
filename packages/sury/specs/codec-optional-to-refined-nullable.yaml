@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.nullable(S.string).with(S.refine, (v) => v !== "x"))
+  input: string | undefined
+  output: string | null
+  instantiations: 5260
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }, { type: "null" }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "string" }, { type: "string", enum: ["undefined"] }, { enum: [null] }] }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0=i;e[0](v0)||e[1](v0);break}if(i===void 0){for(;;){i="undefined";break}e[2](i)||e[3](i);break}throw e[4](i)}return i}catch(v1){e[5](v1)}}
+    examples:
+      # FIXME: a refinement makes the target union opaque, so the missing value goes to
+      # its first member, S.string, as text, where the unrefined union bridges it to null.
+      missing:
+        input: undefined
+        output: '"undefined"'
+      string:
+        input: '"y"'
+        output: '"y"'
+      refused:
+        input: '"x"'
+        error: Refinement failed
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string"){e[0](i)||e[1](i);break}if(i===null){e[0](i)||e[2](i);i=void 0;break}throw e[3](i)}return i}catch(v0){e[4](v0)}}
+    examples:
+      "null":
+        input: "null"
+        output: undefined
+      refused:
+        input: '"x"'
+        error: Refinement failed

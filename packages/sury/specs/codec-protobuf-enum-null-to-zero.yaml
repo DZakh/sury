@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ k: S.protobufField(S.literal(null).with(S.to, S.literal(0)), { number: 1, type: "enum" }) })'
+  input: "{ k: null; }"
+  output: "{ k: 0; }"
+  instantiations: 5926
+jsonSchema:
+  input: '{ type: "object", properties: { k: { type: "null" } }, required: ["k"] }'
+  output: '{ type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { k: { enum: [null] } }, required: ["k"] }'
+    output: '{ type: "object", properties: { k: { type: "number", enum: [0] } }, required: ["k"] }'
+isEqual:
+  input: alwaysEqual
+  output: (a,b)=>a===b||a.k===b.k
+compare:
+  input: "throws: [Sury] Can't compare { k: null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { k: 0; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.k;v0===null||e[0](v0);return {k:0}}catch(v1){e[2](v1)}}
+    examples:
+      null-value:
+        input: "{ k: null }"
+        output: "{ k: 0 }"
+      one:
+        input: "{ k: 1 }"
+        error: "Failed at k: Expected null, received 1"
+  decode:
+    expression: i=>{return {k:0}}
+    examples:
+      null-value:
+        input: "{ k: null }"
+        output: "{ k: 0 }"
+  encode:
+    expression: i=>{return {k:null}}
+    examples:
+      zero:
+        input: "{ k: 0 }"
+        output: "{ k: null }"

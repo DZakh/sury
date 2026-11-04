@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.object((s) => ({ f: s.fieldOr("f", S.jsonString.with(S.to, S.number), 5) })))'
+  input: JSON
+  output: "{ f: number; }"
+  instantiations: 5142
+jsonSchema:
+  # FIXME: under S.json `s.fieldOr` renders its item's output (`number`) rather
+  # than the JSON text the document holds, and keeps the defaulted key
+  # `required`; a plain `S.jsonString` field renders a string.
+  input: '{ type: "object", properties: { f: { type: "number" } }, additionalProperties: false, required: ["f"] }'
+  fromInputType: "{ f: number; }"
+  output: '{ type: "object", properties: { f: { type: "number" } }, required: ["f"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.f;if(v0!==void 0){typeof v0==="string"||e[2](v0);let v1;try{v1=JSON.parse(v0)}catch(t){e[0](v0)}typeof v1==="number"&&v1==v1||e[1](v1);v0=v1;}else{v0=5;}return {f:v0}}catch(v2){e[4](v2)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: 5 }"
+        divergence:
+          reason: the input document keeps a defaulted key required
+          ajv: "input: data must have required property 'f'"
+      present:
+        input: '{ f: "1" }'
+        output: "{ f: 1 }"
+        divergence:
+          reason: the input document describes the item's number, not its JSON text
+          ajv: "input: data/f must be number"
+      not-json-text:
+        input: '{ f: "x" }'
+        error: 'Failed at f: Expected JSON string, received "x"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.f;return {f:(Number.isFinite(v0)?""+v0:e[0](v0))}}catch(v1){e[1](v1)}}
+    examples:
+      value:
+        input: "{ f: 1 }"
+        output: '{ f: "1" }'

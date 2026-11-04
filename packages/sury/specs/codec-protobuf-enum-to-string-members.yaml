@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ k: S.protobufField(S.union([0, 1]), { number: 1, type: "enum" }).with(S.to, S.union([S.literal(0).with(S.to, S.literal("a")), S.literal(1).with(S.to, S.literal("b"))])) }).with(S.to, S.protobuf)'
+  input: "{ k: 0 | 1; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 7716
+jsonSchema:
+  input: '{ type: "object", properties: { k: { enum: [0, 1] } }, required: ["k"] }'
+  output: "[Sury] S.protobuf: field \"k\" is an enum holding \"a\", which isn't a number. Map it to one with S.to, such as S.literal(\"a\").with(S.to, S.literal(0))"
+isEqual:
+  input: (a,b)=>a===b||a.k===b.k
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { k: 0 | 1; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobuf: field \"k\" is an enum holding \"a\", which isn't a number. Map it to one with S.to, such as S.literal(\"a\").with(S.to, S.literal(0))"
+  decode: eq-to-parse
+  encode: eq-to-parse

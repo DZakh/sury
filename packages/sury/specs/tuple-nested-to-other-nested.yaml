@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([S.tuple([S.literal("a")]), S.string]).with(S.to, S.union([S.tuple([S.tuple([S.literal("b")]), S.string]), S.tuple([S.tuple([S.literal("c")]), S.string])]))
+  input: '[["a"], string]'
+  output: '[["b"], string] | [["c"], string]'
+  instantiations: 10710
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "a" }] }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "b" }] }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "c" }] }, { type: "string" }] }] }'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "array", minItems: 1, maxItems: 1, prefixItems: [{ type: "string", const: "a" }] }, { type: "string" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "array", minItems: 1, maxItems: 1, prefixItems: [{ type: "string", const: "b" }] }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "array", minItems: 1, maxItems: 1, prefixItems: [{ type: "string", const: "c" }] }, { type: "string" }] }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "array", minItems: 1, maxItems: 1, items: { anyOf: [{ type: "string", enum: ["a"] }] } }, { type: "string" }] } }'
+    fromInputType: '[string | ["a"], string | ["a"]]'
+    output: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "array", minItems: 1, maxItems: 1, items: { anyOf: [{ type: "string", enum: ["b"] }] } }, { type: "string" }] } }, { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "array", minItems: 1, maxItems: 1, items: { anyOf: [{ type: "string", enum: ["c"] }] } }, { type: "string" }] } }] }'
+    fromOutputType: '[string | ["b"], string | ["b"]] | [string | ["c"], string | ["c"]]'
+isEqual:
+  input: (a,b)=>a===b||a[1]===b[1]
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: (a,b)=>a===b?0:a[1]<b[1]?-1:a[1]>b[1]?1:0
+  output: "throws: [Sury] Can't compare [[\"b\"], string] | [[\"c\"], string]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode [[\"a\"], string] -> [[\"b\"], string] | [[\"c\"], string]: it holds a value none of them does. Choose one with S.to, such as [[\"a\"], string] -> [[\"b\"], string]"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){l7:{if(Array.isArray(i)){for(;;){if(i.length===2){l2:{let v0=i[0],v3=i[1];if(!(Array.isArray(v0)&&v0.length===1&&v0[0]==="b")){v1=[v1,e[0],v0];break l2}if(!(typeof v3==="string")){v1=[v1,e[1],v3];break l2}i=[["a"],v3];break}l5:{let v4=i[0],v6=i[1];if(!(Array.isArray(v4)&&v4.length===1&&v4[0]==="c")){v1=[v1,e[2],v4];break l5}if(!(typeof v6==="string")){v1=[v1,e[3],v6];break l5}i=[["a"],v6];break}}break l7}break}}throw e[4](i,v1)}return i}catch(v8){e[5](v8)}}
+    examples:
+      b:
+        input: '[["b"], "x"]'
+        output: '[["a"], "x"]'

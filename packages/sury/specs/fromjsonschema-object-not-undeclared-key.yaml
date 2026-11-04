@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ type: "object", properties: { bar: { type: "string" } }, required: ["bar"], not: { properties: { foo: { type: "number" } } } })'
+  input: "{ bar: string; }"
+  output: "{ bar: string; }"
+  instantiations: 2469
+jsonSchema:
+  input: '{ type: "object", properties: { bar: { type: "string" }, foo: {} }, required: ["bar"], not: { properties: { foo: { type: "number" } } } }'
+  output: '{ type: "object", properties: { bar: { type: "string" }, foo: {} }, required: ["bar"], not: { properties: { foo: { type: "number" } } } }'
+isEqual: (a,b)=>a===b||a.bar===b.bar&&e[0](a.foo,b.foo)
+compare: "throws: [Sury] Can't compare { bar: string; foo: JSON | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);e[5](i)||e[7](i);let v0=i.bar,v1=i.foo;typeof v0==="string"||e[0](v0);let v3;for(;;){if(v1===void 0)break;try{try{e[1](v1);}catch(v2){e[2](v2,["foo"])}break}catch(x){v3=[v3,e[3](x)]}throw e[4](v1,v3)}return {bar:v0,foo:v1}}catch(v4){e[8](v4)}}
+    examples:
+      undeclared-key-not-number:
+        input: '{ bar: "x", foo: "y" }'
+        output: '{ bar: "x", foo: "y" }'
+      undeclared-key-number:
+        input: '{ bar: "x", foo: 1 }'
+        error: Should NOT be valid against schema in the not property.
+  decode:
+    expression: i=>{try{e[4](i)||e[5](i);let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}return i}catch(v3){e[6](v3)}}
+    examples:
+      undeclared-key-not-number:
+        input: '{ bar: "x", foo: "y" }'
+        output: '{ bar: "x", foo: "y" }'
+  encode:
+    expression: i=>{try{let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}e[4](i)||e[5](i);return i}catch(v3){e[6](v3)}}
+    examples:
+      undeclared-key-not-number:
+        input: '{ bar: "x", foo: "y" }'
+        output: '{ bar: "x", foo: "y" }'
