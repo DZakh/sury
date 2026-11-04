@@ -10,22 +10,28 @@ import {
   type Check,
   type Encoder,
   type ErrorDetails,
+  type Path,
   globalConfig,
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedObjectKey,
   inlinedProperty,
   inlinedValueFromString,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
   isOptional,
   isSchemaObject,
   noopDecoder,
+  nullTag,
   objectTag,
   pathConcat,
+  pathEmpty,
+  refTag,
   setHas,
   stringify,
+  toError,
   tagFlags,
   U,
   undefinedTag,
@@ -41,17 +47,26 @@ import {
   B_addKey,
   B_addObjectField,
   B_asyncVal,
+  B_child,
+  B_collects,
   B_dynamicScope,
-  B_embedInvalidInput,
-  B_failWithArg,
+  B_field,
+  B_detached,
+  B_sink,
+  B_fail,
+  B_block,
+  B_failInvalidInput,
   B_hoistChildChecks,
   B_hoistDecl,
+  B_join,
+  B_settle,
+  B_let,
   B_inlineConst,
   B_markOutput,
   B_merge,
-  B_mergeWithPathPrepend,
   B_next,
   B_nextVarOutput,
+  B_pathSnap,
   B_refine,
   B_scope,
   B_unsupportedDecode,
@@ -61,7 +76,6 @@ import {
 import {
   getOutputSchema,
   parse,
-  parseDynamic,
 } from "./parse";
 import {
  isArrayCond,
@@ -84,29 +98,40 @@ export const B_unrecognizedKeys = (
   keys: string[],
   keyVar: string,
   decl: string,
+  container?: Val,
 ): string => {
-  const fail = B_failWithArg(
-    input,
-    (key: string) =>
-      ({
-        code: "unrecognized_key",
-        path: input.path,
-        reason: `Unrecognized key ${stringify(key)}`,
-        key,
-      }) as ErrorDetails,
-    keyVar,
-  );
+  const snap = B_pathSnap(input);
+  let fail = "";
+  const emit = () => {
+    fail = B_fail(
+      input,
+      (key: string, path?: Path) =>
+        toError({
+          code: "unrecognized_key",
+          path: path ?? snap ?? pathEmpty,
+          reason: `Unrecognized key ${stringify(key)}`,
+          key,
+        }) as unknown as ErrorDetails,
+      keyVar,
+    );
+  };
+  const collected = input.g.kj;
+  const wrap = container && B_collects(input.g) ? B_child(input.g, emit) : (emit(), U);
   let cond = "";
   for (let idx = 0; idx < keys.length; idx++) {
     if (idx) cond += "&&";
     cond += `${keyVar}!==${inlinedValueFromString(keys[idx]!)}`;
   }
-  return `for(${decl}${keyVar} in ${input.v()})` + (cond ? `if(${cond})` : "") + fail + ";";
+  const body = (cond ? `if(${cond})` : "") + fail;
+  if (!wrap) return `for(${decl}${keyVar} in ${input.v()})${body};`;
+  const code = wrap(body, input);
+  if (input.g.kj !== collected) container!.k = true;
+  return `for(${decl}${keyVar} in ${input.v()})${code === body ? body + ";" : code}`;
 };
 
 // A `.to` target that builds its document piecewise (jsonString) can take a
-// container raw: its `fz` hook (installed in advanced/json.ts) hands back the
-// container schema marked `uv` when validation can be left to the aggregate,
+// container raw: its `fuse` hook (installed in advanced/json.ts) hands back the
+// container schema marked fused when validation can be left to the aggregate,
 // which does it inside the same pass that renders. For a dynamic container
 // (`item` given) that is the whole item loop; for a fixed one every field is
 // left raw except a union member's literals, whose discriminant has to be
@@ -114,7 +139,7 @@ export const B_unrecognizedKeys = (
 // a bundle without jsonString ships no decision.
 const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Internal | undefined => {
   const to = expectedSchema.to;
-  return to !== U && to.fz !== U ? to.fz(input, expectedSchema, item) : U;
+  return to !== U && to.fuse !== U ? to.fuse(input, expectedSchema, item) : U;
 };
 
 // The wire form of a nested json-format string is an escaped string value, not
@@ -125,7 +150,7 @@ const B_fused = (input: Val, expectedSchema: Internal, item?: Internal): Interna
 // on encode, and would hand a declared payload (CONTENT_CODEC_SPEC.md rule 3)
 // the text it had just escaped instead of parsing it.
 const B_narrowJsonSourcedJsonString = (itemInput: Val): void => {
-  if (itemInput.s.isJson && itemInput.e.format === "json") {
+  if (itemInput.s.flags & 16 && itemInput.e.format === "json") {
     itemInput.s = unknown;
   }
 };
@@ -143,6 +168,8 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
   d: Object.create(null),
   fv: U,
   cp: "",
+  fu: U,
+  fs: U,
   hd: "",
   fz: U,
   vc: U,
@@ -156,6 +183,7 @@ const B_makeContainerVal = (prev: Val, schema: Internal): Val => ({
 export const makeObjectVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: objectTag,
+    flags: 0,
     required: [],
     properties: Object.create(null),
     additionalItems: "strict",
@@ -165,23 +193,70 @@ export const makeObjectVal = (prev: Val): Val =>
 export const makeArrayVal = (prev: Val): Val =>
   B_makeContainerVal(prev, {
     type: arrayTag,
+    flags: 0,
     items: [],
     additionalItems: "strict",
     decoder: arrayDecoder,
   } as Internal);
-export const completeObjectVal = (objectVal: Val): Val => {
+// The join rebinds an async field's var to what its promise resolved to, so
+// every field under it is read off that value: a var from before the join may
+// still be a promise, and a field an earlier join rebound names that join's var.
+const resolveAsyncFields = (val: Val): void => {
+  const fields = val.d;
+  for (const k in fields) {
+    const field = fields[k]!;
+    const resolved: Val = {
+      ...field,
+      b: U,
+      v: _var,
+      i: val.i + inlinedProperty("", k, val.s.type === arrayTag),
+      prev: U,
+      f: 0,
+      d: field.d && Object.assign(Object.create(null), field.d),
+      cp: "",
+      fu: U,
+      fs: U,
+      hd: "",
+      vc: U,
+      k: U,
+      hn: U,
+      ha: U,
+    };
+    resolveAsyncFields(resolved);
+    fields[k] = resolved;
+  }
+};
+
+// The val holding a literal field's check, where the union's dispatch can test
+// it: the field's output, or, once a conversion left the output with none
+// (`S.literal("a").with(S.to, S.literal(0))`), the link that read the field.
+// Without it the first member took every tag.
+const literalRead = (output: Val, input: Val): Val => {
+  let val = output;
+  if (!val.vc) while (val.prev !== U && val.prev !== input) val = val.prev;
+  return val.prev === input ? val : output;
+};
+
+export const completeObjectVal = (objectVal: Val, inUnion?: boolean): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
-  let promiseAllContent = "";
+  const promised: Val[] = [];
   let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
+  const joins = inUnion && keys.some((key) => objectVal.d![key]!.f & 1);
 
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
     if ((val.f & 1)) {
-      promiseAllContent += val.i + ",";
+      promised.push(val);
+      resolveAsyncFields(val);
+    } else if (joins) {
+      // The join builds the object inside its `.then`, after the union case
+      // assigned the promise to the var a field re-reads (`i.k`).
+      if (isLiteral(val.s) && !val.vc) val.i = B_inlineConst(val, val.s);
+      else val.v();
     }
     if (val.o) {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
@@ -203,33 +278,47 @@ export const completeObjectVal = (objectVal: Val): Val => {
 
   objectVal.i = isArray ? "[" + inline.slice(0, -1) + "]" : "{" + inline.slice(0, -1) + "}";
 
-  if (promiseAllContent) {
-    promiseAllContent = promiseAllContent.slice(0, -1);
+  if (promised.length) {
+    const promiseAllContent = promised.map((val) => val.i).join(",");
+    const g = objectVal.g;
+    const collects = B_collects(g) && g.k;
+    const joinCode = collects ? B_join(objectVal, `[${promiseAllContent}]`) : "";
     const operationInput = B_scope(objectVal);
     operationInput.io = true;
-    const operationOutput = parse(operationInput);
-    let operationCode = B_merge(operationOutput);
-    let result = operationOutput.i;
+    let result = "";
+    let operationCode = B_detached(objectVal.g, () => {
+      const operationOutput = parse(operationInput);
+      let code = B_merge(operationOutput);
+      result = operationOutput.i;
+      objectVal.s = operationOutput.s;
+      objectVal.e = operationOutput.e;
+      // Inside the `.then`, where the fields the optional ones read are bound:
+      // the sync branch below appends the same code after the literal, and
+      // leaving it off here dropped every optional field of an object that had
+      // any async one.
+      if (optionalSettingCode !== U) {
+        const objectVar = B_varWithoutAllocation(objectVal.g);
+        code += B_let(objectVal.g, objectVar, result) + optionalSettingCode(objectVar);
+        result = objectVar;
+      }
+      return code;
+    });
 
-    // Inside the `.then`, where the fields the optional ones read are bound:
-    // the sync branch below appends the same code after the literal, and
-    // leaving it off here dropped every optional field of an object that had
-    // any async one.
-    if (optionalSettingCode !== U) {
-      const objectVar = B_varWithoutAllocation(objectVal.g);
-      operationCode =
-        operationCode + `let ${objectVar}=${result};` + optionalSettingCode(objectVar);
-      result = objectVar;
-    }
-
-    if (operationCode === "" && promiseAllContent === result) {
+    if (operationCode === "" && promiseAllContent === result && !collects) {
       objectVal.i = result;
     } else {
-      objectVal.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${result}})`;
+      objectVal.i = `Promise.all([${
+        collects
+          ? promised
+              // A field whose sync part failed never made its promise; the
+              // collected failure already fails the join, so its slot only
+              // has to not be read.
+              .map((val) => B_settle(objectVal, val, true))
+              .join(",")
+          : promiseAllContent
+      }]).then(([${promiseAllContent}])=>{${joinCode}${operationCode}return ${result}})`;
     }
     objectVal.f |= 1;
-    objectVal.s = operationOutput.s;
-    objectVal.e = operationOutput.e;
     objectVal.io = true;
     return objectVal;
   } else {
@@ -324,23 +413,37 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
-      const raiseCountBefore = input.g.t;
+      const failCountBefore = input.g.t + input.g.j;
       const itemInput = B_dynamicScope(input, iteratorVar);
+      itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parseDynamic(itemInput);
+      let itemOutput!: Val, output2!: Val;
+      const collected = input.g.kj;
+      const itemCode = B_sink(input.g, () => {
+        let itemMerge = "", settles = false;
+        const collects = B_collects(input.g);
+        const emit = () => {
+          itemOutput = parse(itemInput);
+          output2 = itemOutput.t!
+            ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
+              B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
+            : B_refine(input, expectedSchema);
+          settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k);
+          if (settles) itemOutput.fs?.(itemOutput, true);
+          itemMerge = B_merge(itemOutput);
+        };
+        const wrap = collects ? B_child(input.g, emit) : (emit(), U);
+        const code = itemOutput.t!
+          ? itemMerge +
+            (settles
+              ? `${output2.v()}[${iteratorVar}]=${B_settle(output2, itemOutput)}`
+              : B_addKey(output2, iteratorVar, itemOutput))
+          : input.g.t + input.g.j === failCountBefore
+            ? ""
+            : itemMerge;
+        return wrap ? wrap(code, itemOutput) : code;
+      });
       const hasTransform = itemOutput.t!;
-      const output2 = hasTransform
-        ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
-          B_next(input, `new Array(${inputVar}.length)`, arrayFactory(itemOutput.s))
-        : B_refine(input, expectedSchema);
-
-      const itemCode = B_mergeWithPathPrepend(
-        itemOutput,
-        input,
-        iteratorVar,
-        hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
-        hasTransform ? U : raiseCountBefore,
-      );
 
       if (hasTransform || itemCode !== "") {
         output2.cp =
@@ -348,8 +451,15 @@ export const arrayDecoder = (unknownInput: Val): Val => {
           `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
       }
 
+      if (input.g.kj !== collected) output2.k = true;
       if ((itemOutput.f & 1)) {
-        output = B_asyncVal(output2, `Promise.all(${output2.i})`);
+        const g = input.g, k = B_collects(g) && g.k;
+        let all = `Promise.all(${output2.i})`;
+        if (k) {
+          const items = B_varWithoutAllocation(g);
+          all += `.then(${items}=>{${B_join(output2, items)}return ${items}})`;
+        }
+        output = B_asyncVal(output2, all);
       } else {
         output = output2;
       }
@@ -379,29 +489,31 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         continue;
       }
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parse(itemInput);
-
-      if (isUnion && isLiteral(schema)) {
-        B_hoistChildChecks(input, itemOutput, key);
-      }
-
-      B_addObjectField(objectVal, key, itemOutput);
-      if (!shouldRecreateInput) {
-        shouldRecreateInput = itemOutput.t!;
-      }
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
+        if (isUnion && isLiteral(schema)) {
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
+        }
+        if (!shouldRecreateInput) {
+          shouldRecreateInput = itemOutput.t!;
+        }
+        return itemOutput;
+      });
     }
 
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // Same stale-schema class as #284/#252: carry expectedSchema, not
       // input.schema (which may be a minimal union dispatch narrow), so a
       // pending `.to(json)` conversion routes through the fixed-items path
       const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
+      if (objectVal.hn) o.hn = objectVal.hn;
       o.d = objectVal.d;
+      o.k = objectVal.k;
       output = o;
     }
   }
@@ -414,6 +526,21 @@ export const arrayDecoder = (unknownInput: Val): Val => {
 const objectTypeCheck: Check = {
   c: objectTagCond,
   f: failInvalidType,
+};
+
+const keepAbsent = (union: Internal, to: Internal): Internal => {
+  const target = copySchema(union);
+  target.anyOf = union.anyOf!.map((variant) =>
+    variant.type === undefinedTag
+      ? variant
+      : isOptional(variant) && variant.to === U
+        ? keepAbsent(variant, to)
+        : updateOutput<Internal>(variant, (mut) => {
+            mut.to = to;
+          })
+  );
+  target.flags |= 64;
+  return target;
 };
 
 export const objectDecoder = (unknownInput: Val): Val => {
@@ -466,28 +593,41 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
-    const raiseCountBefore = input.g.t;
+    const failCountBefore = input.g.t + input.g.j;
     const itemInput = B_dynamicScope(input, keyVar);
     B_narrowJsonSourcedJsonString(itemInput);
-    const itemOutput = parseDynamic(itemInput);
-
+    let itemOutput!: Val, output2!: Val;
+    const collected = input.g.kj;
+    const itemCode = B_sink(input.g, () => {
+      let itemMerge = "", settles = false;
+      const collects = B_collects(input.g);
+      const emit = () => {
+        itemOutput = parse(itemInput);
+        output2 = itemOutput.t!
+          ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
+            B_next(input, "{}", dictFactory(itemOutput.s))
+          : B_refine(input, expectedSchema);
+        settles = !!(itemOutput.t && itemOutput.f & 1 && collects && input.g.k);
+        if (settles) itemOutput.fs?.(itemOutput, true);
+        itemMerge = B_merge(itemOutput);
+      };
+      const wrap = collects ? B_child(input.g, emit) : (emit(), U);
+      const code = itemOutput.t!
+        ? itemMerge +
+          (settles
+            ? `${output2.v()}[${keyVar}]=${B_settle(output2, itemOutput)}`
+            : B_addKey(output2, keyVar, itemOutput))
+        : input.g.t + input.g.j === failCountBefore
+          ? ""
+          : itemMerge;
+      return wrap ? wrap(code, itemOutput) : code;
+    });
     const hasTransform = itemOutput.t!;
-    const output2 = hasTransform
-      ? // The next `.to` segment decodes from this schema - item-output, not expectedSchema (#284)
-        B_next(input, "{}", dictFactory(itemOutput.s))
-      : B_refine(input, expectedSchema);
-
-    const itemCode = B_mergeWithPathPrepend(
-      itemOutput,
-      input,
-      keyVar,
-      hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
-      hasTransform ? U : raiseCountBefore,
-    );
 
     if (hasTransform || itemCode !== "") {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
     }
+    if (input.g.kj !== collected) output2.k = true;
 
     if ((itemOutput.f & 1)) {
       const resolveVar = B_varWithoutAllocation(output2.g);
@@ -495,12 +635,15 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const asyncParseResultVar = B_varWithoutAllocation(output2.g);
       const counterVar = B_varWithoutAllocation(output2.g);
       const outputVar = output2.v();
-      output = B_asyncVal(
-        output2,
-        // `if(!counter)` first: with no keys the loop never runs, so nothing
-        // would ever resolve the promise.
-        `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;if(!${counterVar}){${resolveVar}(${outputVar})}for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
-      );
+      const g = input.g, k = B_collects(g) && g.k;
+      // `if(!counter)` first: with no keys the loop never runs, so nothing
+      // would ever resolve the promise.
+      let all = `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;if(!${counterVar}){${resolveVar}(${outputVar})}for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`;
+      if (k) {
+        const entries = B_varWithoutAllocation(g);
+        all += `.then(${entries}=>{${B_join(output2, `Object.values(${entries})`)}return ${entries}})`;
+      }
+      output = B_asyncVal(output2, all);
     } else {
       output = output2;
     }
@@ -524,28 +667,17 @@ export const objectDecoder = (unknownInput: Val): Val => {
         source.has![undefinedTag] &&
         !(tagFlags[itemSchema.type]! & (1 | 16 | 32 | 256 | 512)) &&
         itemSchema.format !== "json";
-      if (absent) {
-        const target = copySchema(source);
-        target.anyOf = source.anyOf!.map((variant) =>
-          variant.type === undefinedTag
-            ? variant
-            : updateOutput<Internal>(variant, (mut) => {
-                mut.to = itemSchema;
-              })
-        );
-        target.perVariant = true;
-        itemInput.e = target;
-      } else {
-        itemInput.e = itemSchema;
-      }
+      itemInput.e = absent ? keepAbsent(source, itemSchema) : itemSchema;
       itemInput.io = false;
       itemInput.u = isUnion;
       B_narrowJsonSourcedJsonString(itemInput);
-      const itemOutput = parse(itemInput);
-      if (absent) itemOutput.o = true;
-      B_addObjectField(objectVal, key, itemOutput);
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
+        if (absent) itemOutput.o = true;
+        return itemOutput;
+      });
     }
-    output = completeObjectVal(objectVal);
+    output = completeObjectVal(objectVal, isUnion);
   } else {
     // Build a fixed-property object target (from a dict or object source).
     const properties = expectedSchema.properties!;
@@ -560,24 +692,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       ai !== "strict" &&
       (ai !== "strip" || sourceIsDict || Object.keys(input.s.properties!).length !== keysCount);
 
-    // A JSON-sourced object (`additionalItems` is json, set by jsonEncoderFn)
-    // coalesces its field reads with `??null`, because:
-    //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
-    //     `v===null`, JSON having no undefined,
-    //   - but `i[key]` for a missing key returns undefined, so the rewritten
-    //     arm would reject `{}` for `{foo: option<...>}`.
-    // FIXME: a shared JSON option representation would remove the sniff - an arm
-    // that accepts both spellings of empty, so nothing has to patch the read.
-    // Two things stand in the way:
-    //   - adding an `undefined` arm beside the `null` one makes ENCODE
-    //     ambiguous, since both produce the same output and only `null` is
-    //     writable to a document - which is why this rewrites rather than adds;
-    //   - loosening the arm's own narrow to `== null` instead means widening
-    //     what `typeCheckCond` emits for a tag, and a union group's shared
-    //     narrow stands in for its members' checks (see the cross-module
-    //     contract on `typeCheckCond`), so a case would start accepting more
-    //     than its acceptance mask claims.
-    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.isJson;
+    const isJsonParent = isItemSchema(inputAdditionalItems) && inputAdditionalItems.flags & 16;
 
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
@@ -587,8 +702,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
-        itemInput.i = `(${itemInput.i}??null)`;
+      if (isJsonParent && isOptional(schema)) {
+        itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
       if (fused !== U && !(isUnion && isLiteral(schema))) {
         B_addObjectField(objectVal, key, itemInput);
@@ -596,16 +711,16 @@ export const objectDecoder = (unknownInput: Val): Val => {
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
-      const itemOutput = parse(itemInput);
-
-      if (isUnion && isLiteral(schema)) {
-        B_hoistChildChecks(input, itemOutput, key);
-      }
-
-      B_addObjectField(objectVal, key, itemOutput);
-      if (!shouldRecreateInput) {
-        shouldRecreateInput = itemOutput.t!;
-      }
+      B_field(objectVal, key, () => {
+        const itemOutput = parse(itemInput);
+        if (isUnion && isLiteral(schema)) {
+          B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
+        }
+        if (!shouldRecreateInput) {
+          shouldRecreateInput = itemOutput.t!;
+        }
+        return itemOutput;
+      });
     }
 
     // A fused object's scan is emitted by the aggregate, after the field
@@ -614,11 +729,11 @@ export const objectDecoder = (unknownInput: Val): Val => {
     if (ai === "strict" && isItemSchema(inputAdditionalItems) && fused === U) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "");
+      objectVal.cp += B_unrecognizedKeys(input, keys, keyVar, "", objectVal);
     }
 
     if (shouldRecreateInput) {
-      output = completeObjectVal(objectVal);
+      output = completeObjectVal(objectVal, isUnion);
     } else {
       // The value was just validated against expectedSchema - carry it as
       // the val's schema instead of input.schema, which may be a minimal
@@ -627,7 +742,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       // into the dict path, which rejects undefined optional fields (#252)
       const o = B_refine(input, fused || expectedSchema);
       o.cp = objectVal.cp;
+      if (objectVal.hn) o.hn = objectVal.hn;
       o.d = objectVal.d;
+      o.k = objectVal.k;
       output = o;
     }
   }
@@ -709,44 +826,123 @@ export const traverseDefinition = (
 }
 
 // Dict-missing-key as `T | undefined` without unionFactory, so valGet does
-// not put the union compiler on the objectDecoder/arrayDecoder SCC. A missing
-// key against an optional target stays absent (None); against a required
-// target it fails - not the string `"undefined"`.
+// not put the union compiler on the objectDecoder/arrayDecoder SCC. The key's
+// presence is asked before the item's decode, which would otherwise coerce a
+// missing key into the string `"undefined"`.
 const missingKeyEncoder: Encoder = (input, target) => {
   const item = input.s.anyOf![0]!;
   const v = input.v();
+  // An env var's unset state is the item's own `undefined` input, which its
+  // converter reads as the target's absent arm or rejects itself, so the
+  // key's presence is not asked here, and the item keeps its own check.
+  const unsetIsInput = item.format === "env";
 
-  const presentIn = B_scope(input);
-  presentIn.io = false;
-  presentIn.s = item;
-  presentIn.e = target;
-  presentIn.u = true;
-  const presentOut = parse(presentIn);
-  const presentCode = B_merge(presentOut);
-  const presentAssign = presentOut.i === v ? "" : `${v}=${presentOut.i};`;
-
-  // Optional field: leave `undefined` as-is (None). Required field: reject.
-  const absentCode = isOptional(target) ? "" : B_embedInvalidInput(input, target);
-  const output = B_nextVarOutput(input, v, getOutputSchema(target), target);
-  const presentBody = presentCode + presentAssign;
-  output.cp =
-    presentBody === ""
-      ? absentCode === ""
+  // Final: each branch already runs the target's parser and `.to`.
+  const output = B_nextVarOutput(input, v, getOutputSchema(target));
+  const body = (source: Internal, u: boolean, e: Internal = target): string => {
+    const scope = B_scope(input);
+    scope.io = false;
+    scope.s = source;
+    scope.e = e;
+    scope.u = u;
+    B_narrowJsonSourcedJsonString(scope);
+    const out = parse(scope);
+    output.f |= out.f & 1;
+    return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
+  };
+  // JSON's `null` would bridge to the undefined arm; absence has its own branch.
+  const present = item.flags & 16 ? presentTarget(target) : target;
+  const presentBody = present
+    ? body(item, !unsetIsInput, present)
+    : B_failInvalidInput(input, target) + ";";
+  // `unit` tells `s.fieldOr` to answer with its default; a dispatching union
+  // would coerce it, so it reads `unknown`.
+  const absentBody =
+    !unsetIsInput && readsAbsent(target)
+      ? body(target.decoder === noopDecoder ? unit : unknown, false)
+      : "";
+  const noAbsentCheck = isOptional(target) || unsetIsInput;
+  output.cp = absentBody
+    ? presentBody === ""
+      ? `if(${v}===void 0){${absentBody}}`
+      : `if(${v}!==void 0){${presentBody}}else{${absentBody}}`
+    : presentBody === ""
+      ? noAbsentCheck
         ? ""
-        : `${v}!==void 0||${absentCode};`
-      : absentCode === ""
-        ? `if(${v}!==void 0){${presentBody}}`
-        : `if(${v}!==void 0){${presentBody}}else{${absentCode}}`;
+        : B_failInvalidInput(input, target, `${v}!==void 0`)
+      : unsetIsInput
+        ? presentBody
+        : noAbsentCheck
+          ? `if(${v}!==void 0){${presentBody}}`
+          : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
   return output;
+};
+
+// A union stays one with a single arm left: its dispatch reads a string stored
+// apart (`S.jsonString`, bytes).
+const presentTarget = (s: Internal): Internal | undefined => {
+  const anyOf = s.anyOf;
+  if (anyOf === U || !s.has![undefinedTag]) return s;
+  let mut: Internal;
+  if (s.decoder === noopDecoder) {
+    const item = presentTarget(anyOf[0]!);
+    if (item === U) return U;
+    mut = item === anyOf[0] ? copySchema(item) : item;
+  } else {
+    // Only the top-level arm: encode writes a member's own `undefined` as `null`.
+    const arms = anyOf.filter((arm) => arm.type !== undefinedTag);
+    // `S.optional(S.void)`: only absence fills it.
+    if (!arms.length) return U;
+    mut = copySchema(s);
+    mut.anyOf = arms;
+    mut.has = {};
+    arms.forEach((arm) => setHas(mut.has!, arm));
+    const to = s.to;
+    if (to !== U && to.type === anyOfTag && (to.has![nullTag] || to.has![undefinedTag])) {
+      // Only absence reaches the `.to` arm the dropped one pairs with.
+      const toArms = to.anyOf!.filter(
+        (arm) => arm.type !== undefinedTag && (arm.type !== nullTag || mut.has![nullTag]),
+      );
+      if (!toArms.length) return s;
+      const toMut = copySchema(to);
+      toMut.anyOf = toArms;
+      toMut.has = {};
+      toArms.forEach((arm) => setHas(toMut.has!, arm));
+      mut.to = toMut;
+    }
+  }
+  mut.expression = () => inputExpression(s);
+  return mut;
+};
+
+// Whether an optional field's missing key goes through the field's own decode
+// rather than staying `undefined`. A ref may be optional behind its name, a
+// nested union holds its own `undefined` arm, and an `unknown` or `any` with
+// work to do reaches `undefined` before the plain arm.
+// An env var reads a missing one as unset, which its own link may default.
+const envDefaults = (s: Internal): boolean => s.format === "env" && s.to !== U;
+
+const readsAbsent = (s: Internal): boolean => {
+  if (envDefaults(s)) return true;
+  if (!isOptional(s)) return s.type === refTag;
+  if (s.to !== U || s.refiner !== U) return true;
+  for (const arm of s.anyOf || [s]) {
+    if (envDefaults(arm)) return true;
+    if (arm.type === undefinedTag) return arm.to !== U || arm.refiner !== U;
+    if (isOptional(arm) || (arm.type === unknownTag && (arm.to !== U || arm.parser !== U || arm.refiner !== U))) {
+      return true;
+    }
+  }
+  return true;
 };
 
 const wrapDictMissingKeyLight = (s: Internal): Internal => {
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [s, unit];
   mut.has = { [undefinedTag]: true };
-  setHas(mut.has, s.type);
+  setHas(mut.has, s);
   mut.encoder = missingKeyEncoder;
-  mut.perVariant = true;
+  mut.flags = 64;
   return mut;
 };
 
@@ -772,10 +968,8 @@ export const valGet = (parent: Val, location: string): Val => {
         const s = additionalItems;
         // A `dict<V>` read by a fixed key may be absent (dicts have no required
         // keys), so model it as `option<V>` and let the union coercion handle a
-        // missing key uniformly. Scoped to dict parents (objectTag) with a
-        // concrete value type - array->tuple rest reads (arrayTag) and
-        // json/unknown values read as-is. Light T|undefined wrap (not
-        // optionFactory) so this decoder SCC does not statically retain union.
+        // missing key uniformly. Light T|undefined wrap (not S.option) so this
+        // decoder SCC does not statically retain union.
         if (
           parent.s.type === objectTag &&
           s.type !== unknownTag &&
@@ -802,7 +996,7 @@ export const valGet = (parent: Val, location: string): Val => {
       b: U,
       p: parent,
       v: _notVarAtParent,
-      i: isLiteral(schema)
+      i: isLiteral(schema) && !schema.openLiteral
         ? B_inlineConst(parent, schema)
         : parent.s.type === objectTag && location in Object.prototype
           ? `(Object.hasOwn(${parent.v()},${inlinedValueFromString(location)})?${parent.v()}${accessor}:void 0)`
@@ -815,6 +1009,8 @@ export const valGet = (parent: Val, location: string): Val => {
       d: U,
       fv: U,
       cp: "",
+      fu: U,
+      fs: U,
       hd: "",
       fz: U,
       vc: U,
@@ -828,3 +1024,13 @@ export const valGet = (parent: Val, location: string): Val => {
     return item;
   }
 }
+
+// Field vals when a decoder made them: an async value is a promise itself. A
+// codec's output, resolved in a join, has none, so its fields are read off it.
+export const valAt = (val: Val, path: readonly string[]): Val => path.reduce((at, key) => at.d?.[key] || valGet(at, key), val);
+
+export const B_record = (input: Val, fill: (field: (key: string, produce: () => Val) => void) => void): Val => {
+  const record = makeObjectVal(input);
+  fill((key, produce) => B_field(record, key, produce));
+  return B_markOutput(completeObjectVal(record));
+};

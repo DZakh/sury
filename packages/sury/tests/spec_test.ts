@@ -197,8 +197,8 @@ test("summarize renders ranked metric moves and behavior changes", () => {
       never   254 → 100  -60.6%
     operations.expression:
       string.parse:
-        chars  42 → 4  -90.5%
-        before  i=>{typeof i==="string"||e[0](i);return i}
+        chars  66 → 4  -93.9%
+        before  i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
         after   i=>i
     bundleSize:
       total  20000 → 20690  +3.5%
@@ -249,7 +249,7 @@ test("summarize renders creation-error flips and message drift", () => {
 // nothing but a manual run, so a divergence in any of them reached main with
 // the whole suite green. There is one answer to "what is wrong with this
 // spec", and this is where CI asks for it.
-describe.each(specs)("spec: $id", ({ id, file }) => {
+describe.concurrent.each(specs)("spec: $id", ({ id, file }) => {
   test("passes `pnpm spec check`", async () => {
     const raw = readFileSync(file, "utf8");
     const errs = await checkSpec(id, readSpec(file), raw);

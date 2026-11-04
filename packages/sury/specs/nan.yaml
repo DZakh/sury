@@ -8,11 +8,12 @@ jsonSchema:
   input: Expected JSON, received NaN
   output: Expected JSON, received NaN
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.nan()
 operations:
   parse:
-    expression: i=>{Number.isNaN(i)||e[0](i);return i}
+    expression: i=>{try{Number.isNaN(i)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: NaN

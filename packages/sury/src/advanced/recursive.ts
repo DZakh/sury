@@ -1,22 +1,23 @@
-// `S.recursive` - a schema that refers to itself. The decoder compiles the
-// body once and routes every self-reference back through it by `$ref`.
-
 import {
   baseSchema,
   type Builder,
   defsPath,
-  globalConfig,
   type Internal,
+  panic,
+  pathExpr,
   refTag,
   U,
   type Val
 } from "../base";
 import {
+  B_asyncTry,
+  B_let,
   B_embed,
   B_invalidOperation,
   B_mergeWithPathPrepend,
   B_nextVar,
-  B_refine
+  B_refine,
+  rethrowWithPath
 } from "../builder";
 import {
  addOpNode,
@@ -29,19 +30,12 @@ import {
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
 
-  const schemaRef = expectedSchema["$ref"]!;
-  const defs = input.g.d;
-  // Ignore #/$defs/
-  const identifier = schemaRef.slice(8);
-  // A ref whose definition this compilation was never handed. The JSON Schema
-  // emit reaches one: it compiles a reversed SUB-schema to see what the output
-  // side serializes to, and the `$defs` hangs off the root that sub-schema was
-  // cut out of. Raised rather than left to read `undefined`, because the caller
-  // there already swallows a Sury error and falls back to describing the value
-  // it could not represent - which a TypeError escaped, taking the diagnostic
-  // with it.
+  // Nothing to compile while the definer runs: a default checked inside it
+  // reaches the ref first, and `invalid_operation` is what `decodeOutput`
+  // (parse.ts) reads as nothing to check.
   const def =
-    defs?.[identifier] ?? B_invalidOperation(input, `Missing definition for ${schemaRef}`);
+    expectedSchema.definition!() ||
+    B_invalidOperation(input, `${expectedSchema.name} is used before S.recursive returns its definition`);
   // What the definition hands back, for a definition that CONVERTS. A ref names
   // the definition, not a side of it, so a value the definition just produced
   // is spelled exactly like one still waiting to be decoded - and a `.to` stage
@@ -70,7 +64,14 @@ export const recursiveDecoder: Builder = (input) => {
   // a bare value, and its failure a synchronous throw.
   const key = flag & 1 ? flag | 8192 : flag;
 
-  const inputSchema = input.s.seq === expectedSchema.seq ? def : input.s;
+  // A ref source stands for its definition: converting from it means
+  // converting from what it names, and a ref is opaque to every decoder below.
+  // Not when `S.json` is either side (flag 16): the document converts whole, and
+  // reading its definition would plan from a union where it plans from an
+  // opaque value.
+  const inputSchema =
+    ((input.s.flags | expectedSchema.flags) & 16 ? U : input.s.definition?.()) ||
+    (input.s.seq === expectedSchema.seq ? def : input.s);
 
   let recOperation = "";
 
@@ -110,7 +111,7 @@ export const recursiveDecoder: Builder = (input) => {
         node.v = 0;
 
         // `compileDecoder` overwrites both with what it actually built.
-        node.v = compileDecoder(inputSchema, def, flag, defs, node);
+        node.v = compileDecoder(inputSchema, def, flag, node);
 
         if (node.t !== assumedHasTransform || node.y !== assumedIsAsync) {
           // Wrong assumption - update and recompile
@@ -140,15 +141,19 @@ export const recursiveDecoder: Builder = (input) => {
   let output: Val;
   if (hasTransform || isAsync) {
     output = B_nextVar(input, defOutput, expectedSchema);
-    outputDecl = `let ${output.i};`;
-
-    output.cp = `${output.i}=${recOperation}(${input.i});`;
-
+    const call = `${recOperation}(${input.i})`;
     if (isAsync) {
       output.f |= 1;
+      // B_asyncTry's own `try` prefixes a sync throw too, so the merge below
+      // has nothing to add.
+      if (input.path.length) {
+        B_asyncTry(output, call, B_embed(output, rethrowWithPath), `,${pathExpr(input.path)}`);
+        return output;
+      }
     }
+    outputDecl = B_let(input.g, output.i);
+    output.cp = `${output.i}=${call};`;
   } else {
-    // No transform: call for validation but don't capture result
     output = B_refine(input, defOutput, U, expectedSchema);
     output.cp = `${recOperation}(${input.i});`;
   }
@@ -166,44 +171,29 @@ export const recursiveDecoder: Builder = (input) => {
 
 // @__NO_SIDE_EFFECTS__
 export const recursive = (name: string, fn: (schema: Internal) => Internal): Internal => {
-  const ref = `${defsPath}${name}`;
-  const refSchema = baseSchema(refTag, false, recursiveDecoder);
-  refSchema["$ref"] = ref;
-  refSchema.name = name;
-
-  // This is for mutual recursion
-  const isNestedRec = !!globalConfig.d;
-  if (!isNestedRec) {
-    // Null prototype: the caller names the definition, so one named `__proto__`
-    // would set this object's prototype instead of taking a key.
-    globalConfig.d = Object.create(null);
-  }
-  let def: Internal;
-  // A definer that throws must not leave the accumulator behind: every later
-  // top-level `recursive` would then see itself as nested and return a ref
-  // with no `$defs`. A nested one leaves it to the outer call, whose definer
-  // may catch and carry on.
-  try {
-    def = fn(refSchema);
-  } catch (e) {
-    if (!isNestedRec) globalConfig.d = U;
-    throw e;
-  }
-  if (def.name) {
-    refSchema.name = def.name;
-  }
-  globalConfig.d![name] = def;
-
-  if (isNestedRec) {
-    return refSchema;
-  } else {
+  let def: Internal | undefined;
+  const definition = () => def;
+  const ref = (): Internal => {
     const schema = baseSchema(refTag, false, recursiveDecoder);
-    schema.name = refSchema.name;
-    schema["$ref"] = ref;
-    schema["$defs"] = globalConfig.d;
-
-    globalConfig.d = U;
-
+    schema.name = def?.name || name;
+    schema["$ref"] = `${defsPath}${name}`;
+    schema.definition = definition;
     return schema;
+  };
+  const self = ref();
+  def = fn(self);
+  // union.ts `refDefinition` follows refs unbounded on the strength of this.
+  for (let named: Internal | undefined = def; named?.type === refTag; named = named.definition!()) {
+    if (named.definition === definition) {
+      return panic(`${name} is defined as itself. Build a schema around the reference, such as S.array(self)`);
+    }
   }
+  if (def.name) self.name = def.name;
+  const schema = ref();
+  // Null prototype: the caller names the definition, so one named `__proto__`
+  // would set this object's prototype instead of taking a key.
+  const defs: Record<string, Internal> = Object.create(null);
+  defs[name] = def;
+  schema["$defs"] = defs;
+  return schema;
 }

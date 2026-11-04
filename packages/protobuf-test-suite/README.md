@@ -14,7 +14,12 @@ and output, `RepeatedScalarMessageMerge`, `ValidDataMap` for every key/value
 pair, `ValidDataOneof`, every `PrematureEof*` position, `IllegalZeroFieldNum`,
 `BadTag_*`, `UnknownWireType`, the unmatched-group family and
 `RejectInvalidUtf8`, using the field numbers of `TestAllTypesProto3`, so a case
-id names the conformance test it stands for. `wire.ts` holds the byte builders
+id names the conformance test it stands for. A message that contains itself is
+the one shape the table cannot describe - a field names a nested type by the
+fields it carries, and a self-reference carries the ones being declared - so
+recursion is proved in `packages/protobuf-conformance` instead, where
+`TestAllTypesProto3` declares `recursive_message` and `NestedMessage.corecursive`
+and Google's own runner reads what we write. `wire.ts` holds the byte builders
 of `binary_wireformat.h`. The wire-format assertions of protobuf.js's own test
 suite (writer/reader vectors, packed writers, decoder bounds, map entry layout,
 oneof semantics) are in the corpus too, and protobuf.js decodes what Sury
@@ -40,7 +45,7 @@ BOM from a string field, and loses a map entry keyed `__proto__`.
 
 Google's `conformance_test_runner` itself lives in
 [`packages/protobuf-conformance`](../protobuf-conformance), which runs the real
-suite - cases generated inside the binary - and scores 692/698 on the binary
+suite - cases generated inside the binary - and scores 696/698 on the binary
 proto3 families. This package is the readable half: it says what broke, that
 one says whether we are right. Keep both.
 
@@ -59,6 +64,21 @@ Extensions, proto2 groups as declared fields, ProtoJSON, MessageSet and
 retaining unknown fields through a round trip are listed as skipped. They are
 not in the public API.
 
+`pnpm protobuf:fuzz` generates the graphs the table can't name - a map of a
+message holding a oneof, a message that reaches itself two fields down, packed
+beside unpacked - with edge values in every scalar, and holds each one to the
+round trip every corpus case gets. It swaps one leaf of each value for one
+its writer refuses (`2 ** 40` in an int32, `"x"` as an int64 map key) and
+checks the encode fails there: the error's path, walked from the value,
+reaches that leaf or key, and the reason shows it. Then it mutates the valid bytes (a bit
+flipped, a truncation, a slice repeated, a stray tag) and asks Sury and
+protobuf-es whether each is still a message, and where both say yes, whether
+they read the same one. A disagreement names the seed that replays it. The
+ones known not to hold are listed in `fuzz.ts` with the reason, a
+disagreement only once Google's own parser has sided with Sury; the run fails on an unlisted one, and on a listed
+one a full run no longer finds. `--seeds=N` widens it, `--from=N` starts
+elsewhere.
+
 `check` fails on drift in either direction. An improvement lands its golden
 update in the same PR.
 
@@ -68,9 +88,10 @@ numbers move enough to mislead.
 
 `bench` runs Sury against every codec a JS project would reach for:
 protobufjs reflection and `pbjs` static codegen, protobuf-es
-(`@bufbuild/protobuf`) and pbf, on five workloads (tiny, typical, large,
-protobuf.js's `bench/cases/common` message, and a vector-tile shaped message
-dominated by packed geometry), best of 7 samples, on the same bytes and values, each
+(`@bufbuild/protobuf`) and pbf, on six workloads (tiny, typical, large,
+protobuf.js's `bench/cases/common` message, a vector-tile shaped message
+dominated by packed geometry, and `oneof-any`: a Timestamp, an Any and a list of
+oneof items, which pbf sits out for want of an Any), best of 7 samples, on the same bytes and values, each
 library driven the way its README shows. `hillclimb` is the frozen Sury-vs-
 protobufjs ruler the perf commits on this branch quote. Neither snapshots a
 number. Sury-vs-Sury encode/decode regressions are `spec check --perf`

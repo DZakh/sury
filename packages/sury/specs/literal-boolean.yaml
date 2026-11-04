@@ -13,11 +13,12 @@ jsonSchema:
     input: '{ type: "boolean", enum: [true] }'
     output: '{ type: "boolean", enum: [true] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.literal(true)
 operations:
   parse:
-    expression: i=>{i===true||e[0](i);return i}
+    expression: i=>{try{i===true||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: "true"

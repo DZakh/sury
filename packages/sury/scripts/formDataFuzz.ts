@@ -32,6 +32,7 @@
 // cross grows on its own.
 
 import * as S from "../index.mjs";
+import { catalog, compile, copy, same, show } from "./fuzzKit";
 
 type Leaf = { schema: unknown; values: unknown[]; list?: boolean };
 
@@ -183,88 +184,15 @@ const KNOWN: Record<string, string> = {
 
 const MUTATES: Record<string, string> = {};
 
-// The key that covers a case: its own, or one naming `*` for the wrapper or
-// the leaf. Returned rather than the reason, so two entries that share a
-// wording are still tracked apart.
-const keyFor = (
-  list: Record<string, string>,
-  wrapper: string,
-  leaf: string,
-  value?: string,
-): string | undefined => {
-  const tail = value === undefined ? "" : ` <- ${value}`;
-  return [`${wrapper}/${leaf}${tail}`, `*/${leaf}${tail}`, `${wrapper}/*${tail}`].find(
-    (key) => list[key] !== undefined,
-  );
-};
-
-// Blob identity is not object identity: `append` renames a bare Blob to "blob"
-// and reads it back as a File, so bytes - and a File's name - are what must
-// survive.
-const same = (a: unknown, b: unknown): boolean => {
-  if (a instanceof Blob && b instanceof Blob) {
-    return a.size === b.size && (a instanceof File && b instanceof File ? a.name === b.name : true);
-  }
-  if (a instanceof Date && b instanceof Date) return Object.is(+a, +b);
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((item, index) => same(item, b[index]));
-  }
-  if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
-    const keys = Object.keys(a);
-    return (
-      keys.length === Object.keys(b).length &&
-      keys.every((key) => same((a as never)[key], (b as never)[key]))
-    );
-  }
-  return Object.is(a, b) || (typeof a === "number" && isNaN(a) && isNaN(b as number));
-};
-
-// Blobs and Dates are handed over as they are: neither has an index an encode
-// could write into, and one that mutated a Blob would be a different finding.
-const copy = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(copy);
-  if (
-    value !== null &&
-    typeof value === "object" &&
-    !(value instanceof Blob) &&
-    !(value instanceof Date)
-  ) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, copy(item)]));
-  }
-  return value;
-};
-
 const wireText = (entries: [string, unknown][]): string =>
   entries.length ? entries.map(([key, value]) => `${key}=${show(value)}`).join("&") : "nothing";
 
-const show = (value: unknown): string => {
-  if (value instanceof File) return `File(${value.name})`;
-  if (value instanceof Blob) return `Blob(${value.size})`;
-  if (value instanceof Date) return `Date(${value.toJSON() ?? "invalid"})`;
-  if (typeof value === "bigint") return `${value}n`;
-  if (Array.isArray(value)) return `[${value.map(show).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.entries(value)
-      .map(([key, item]) => `${key}:${show(item)}`)
-      .join(",")}}`;
-  }
-  return typeof value === "string" ? `'${value}'` : String(value);
-};
-
-// A Sury rejection is an answer; anything else is the compiler falling over.
-const compile = (build: () => unknown): { fn?: unknown; rejected?: string; crash?: string } => {
-  try {
-    return { fn: build() };
-  } catch (error) {
-    const err = error as Error;
-    return err instanceof S.Error
-      ? { rejected: err.message.split("\n")[0] }
-      : { crash: `${err.constructor.name}: ${err.message}` };
-  }
-};
-
-const findings: string[] = [];
-const used = new Set<string>();
+const known = catalog({
+  ONE_WAY: { label: "one-way fields", cases: ONE_WAY },
+  KNOWN: { label: "pairs the wire cannot tell apart", cases: KNOWN },
+  MUTATES: { label: "encodes that write into their input", cases: MUTATES },
+});
+const { findings } = known;
 // Every field that works, for one schema of them all: a field on its own can't
 // show a name the compiler hands out twice, a declaration hoisted after the
 // code that reads it, or a read that answers another field's entry.
@@ -274,21 +202,6 @@ const wire: [string, unknown][] = [];
 let checked = 0;
 let wires = 0;
 let rejected = 0;
-
-// Listed with a reason, which is what keeps a pass from being silent.
-const excused = (
-  list: Record<string, string>,
-  wrapper: string,
-  leaf: string,
-  value?: string,
-): boolean => {
-  const key = keyFor(list, wrapper, leaf, value);
-  if (key === undefined) {
-    return false;
-  }
-  used.add(key);
-  return true;
-};
 
 for (const [wrapperName, wrap] of Object.entries(WRAPPERS)) {
   for (const [leafName, leaf] of Object.entries(LEAVES)) {
@@ -315,11 +228,9 @@ for (const [wrapperName, wrap] of Object.entries(WRAPPERS)) {
     }
     if (!decode.rejected !== !encode.rejected) {
       const shape = decode.rejected ? "encodes but does not decode" : "decodes but does not encode";
-      if (!excused(ONE_WAY, wrapperName, leafName)) {
-        findings.push(`${id}: ${shape} - ${decode.rejected ?? encode.rejected}`);
-      }
-    } else if (!decode.rejected && keyFor(ONE_WAY, wrapperName, leafName) !== undefined) {
-      findings.push(`${id}: listed in ONE_WAY but works in both directions - delete the entry`);
+      known.miss("ONE_WAY", wrapperName, leafName, `${id}: ${shape} - ${decode.rejected ?? encode.rejected}`);
+    } else if (!decode.rejected) {
+      known.hold("ONE_WAY", wrapperName, leafName, id);
     }
     if (decode.rejected || encode.rejected || decode.crash || encode.crash) {
       rejected += 1;
@@ -364,27 +275,21 @@ for (const [wrapperName, wrap] of Object.entries(WRAPPERS)) {
           (encode.fn as (value: unknown) => FormData)({ a: value }),
         ).a;
       } catch (error) {
-        if (!excused(KNOWN, wrapperName, leafName, printed)) {
-          findings.push(`${key}: round-trip threw - ${(error as Error).message.split("\n")[0]}`);
-        }
+        known.miss("KNOWN", wrapperName, leafName, `${key}: round-trip threw - ${(error as Error).message.split("\n")[0]}`, printed);
         continue;
       }
       if (!same(before, value)) {
         mutated = true;
-        if (!excused(MUTATES, wrapperName, leafName)) {
-          findings.push(`${key}: the encode wrote into its input, leaving ${show(value)}`);
-        }
+        known.miss("MUTATES", wrapperName, leafName, `${key}: the encode wrote into its input, leaving ${show(value)}`);
       }
       if (same(before, back)) {
-        if (keyFor(KNOWN, wrapperName, leafName, printed) !== undefined) {
-          findings.push(`${key}: listed in KNOWN but round-trips - delete the entry`);
-        }
-      } else if (!excused(KNOWN, wrapperName, leafName, printed)) {
-        findings.push(`${key}: read back as ${show(back)}`);
+        known.hold("KNOWN", wrapperName, leafName, key, printed);
+      } else {
+        known.miss("KNOWN", wrapperName, leafName, `${key}: read back as ${show(back)}`, printed);
       }
     }
-    if (!mutated && keyFor(MUTATES, wrapperName, leafName) !== undefined) {
-      findings.push(`${id}: listed in MUTATES but leaves its input alone - delete the entry`);
+    if (!mutated) {
+      known.hold("MUTATES", wrapperName, leafName, id);
     }
   }
 }
@@ -420,41 +325,6 @@ if (combinedDecode.fn) {
   }
 }
 
-for (const [name, list] of [
-  ["ONE_WAY", ONE_WAY],
-  ["KNOWN", KNOWN],
-  ["MUTATES", MUTATES],
-] as const) {
-  for (const key of Object.keys(list)) {
-    if (!used.has(key)) {
-      findings.push(`${key}: listed in ${name} but no such case ran - the catalog moved under it`);
-    }
-  }
-}
-
-if (process.argv.includes("--show-known")) {
-  for (const [name, list] of [
-    ["one-way fields", ONE_WAY],
-    ["pairs the wire cannot tell apart", KNOWN],
-    ["encodes that write into their input", MUTATES],
-  ] as const) {
-    console.log(`\n${name}:`);
-    for (const [key, reason] of Object.entries(list)) {
-      console.log(`  ${key}\n    ${reason}`);
-    }
-  }
-  console.log("");
-}
-
-console.log(
+known.finish(
   `${checked} round-trips and ${wires} entry lists read over ${Object.keys(WRAPPERS).length}x${Object.keys(LEAVES).length} fields (${rejected} rejected in both directions), ${Object.keys(together).length} of them compiled together`,
 );
-if (findings.length) {
-  console.log(`\n${findings.length} finding(s):`);
-  for (const finding of findings) {
-    console.log(`  ${finding}`);
-  }
-  process.exitCode = 1;
-} else {
-  console.log("No findings.");
-}

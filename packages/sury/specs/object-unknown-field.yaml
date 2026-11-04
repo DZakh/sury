@@ -10,12 +10,13 @@ jsonSchema:
   output: '{ type: "object", properties: { v: {} }, required: ["v"] }'
   fromOutputType: "{ v: JSON; }"
 isEqual: (a,b)=>a===b||e[0](a.v,b.v)
+compare: "throws: [Sury] Can't compare { v: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {v:i.v}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {v:i.v}}catch(v0){e[1](v0)}}
     examples:
       value:
         input: "{ v: { x: 1 } }"

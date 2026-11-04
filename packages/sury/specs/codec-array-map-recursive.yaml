@@ -14,12 +14,13 @@ jsonSchema:
     input: '{ $ref: "#/$defs/Node", $defs: { Node: { items: { type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string" }, { $ref: "#/$defs/Node" }] } }, type: "array" } } }'
     fromInputType: "[string | [string | [string | [string | [string | [string | [string | [string | [string | [string | [string | ..., string | ...][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]][], string | [...][]]..."
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{let v0;v0=e[0](i);return v0}
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       nested:
         input: '[["a", [["b", []]]]]'

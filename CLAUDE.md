@@ -6,11 +6,27 @@ code it constrains - this file can't be kept honest against a refactor.
 ## Goals (priority order on conflict)
 
 1. **DX** - intuitive public API and error messages.
-2. **Performance** - generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** - `bundleSize.yaml` measures what ships.
+2. **Not a hacky implementation** - the library may be unreadable; what a
+   consumer sees, types against or debugs may not. A trick that moves part of an
+   answer out of the place it is supposed to come from is hacky even when it
+   measures better.
+3. **Positive flow performance** - the valid path through a compiled operation;
+   avoid extra vars, allocations, double validation; inline over indirect.
+4. **Negative flow performance** - the failing path, same rules, second call.
+5. **Schema and operation creation performance** - paid once per schema, not per
+   value.
+6. **Bundle size** - `bundleSize.yaml` measures what ships. Between two spellings
+   that cost the same everywhere above, shrink the *generated* code: it ships per
+   schema, the library ships once.
 
-Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
-ships per-schema, library ships once).
+Two goldens hold that last number, and `spec check` knows only one: a change that
+moves bundle size needs `pnpm benchmarks --write` as well, or CI fails on
+`packages/benchmarks/goldens/` with a green `spec check` behind it.
+
+## Workflow
+
+`/ship <task>` drives a task to production ready without stopping to ask,
+calling `spec` and `fuzz` as it goes. It runs only when invoked.
 
 ## Use the spec skill
 
@@ -56,6 +72,15 @@ base → builder → primitives → parse → union → composites → factory
   `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
+- The protobuf well-known types are the exception, written by protoc-gen-sury
+  and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
+  second entry that imports only `"sury"`), and its ReScript binding
+  `S.Protobuf`, the `@generated` region at the end of `S.res`. That region is
+  types and `external`s only. An external is inlined into the module that
+  names it, while a `let` there would build every well-known type at startup
+  for every ReScript user, since `S.res.mjs` is in `sideEffects`. An external
+  is also an unchecked cast, so each type spells the value the TS schema
+  holds, and `tests/S_Protobuf_wkt_test.res` holds it to that.
 
 ## Writing code
 
@@ -137,55 +162,59 @@ of the keyword set (`JSONSchemaT` in `src/jsonschema.ts`, `JSONSchema.res`).
 
 `tests/treeShaking_test.ts` guards the first two; `bundleSize.yaml` can't.
 
-## Changing the union compiler
+## Fuzzers
 
-Which member a value dispatches to is invisible in a golden until someone writes
-the spec for exactly that permutation. `pnpm --filter=sury fuzz:union` compares
-the compiler to a sequential try of each variant's own parser/encoder (grouping
-is codegen, not semantics). It exits non-zero on `acceptance` /
-`exception-kind`; `reasons` / `message` are error detail. `--ref` is an optional
-changelog against a git commit, not the gate. `--seed=N` widens the search.
+Run the one that covers what you touched (the `fuzz` skill has the table, what
+each holds and how to read a finding); CI runs all of them with the same
+command. Rules that bind whichever you run:
 
-## Changing the equality compiler
+- `packages/sury/scripts/knownBugs.ts` is the one list of fuzzer-found bugs
+  nobody has fixed, and of limitations a property can't tell from a bug. The
+  form and content fuzzers keep their own catalogs (`formDataFuzz.ts`,
+  `contentFuzz.ts`), each case with a reason written by hand.
+- A gate fails on an unlisted finding *and* on an entry it no longer reaches, so
+  an entry can neither hide a new bug nor outlive its own.
+- A new finding is fixed, or listed together with its spec in the same change.
+  A bug entry names a spec with a `FIXME: known bug <id>` beside the example
+  that records the wrong answer; `tests/knownBugs_test.ts` holds both sides.
+- Entries are written against the parsed shape (`scripts/unionFuzz/shape.ts`),
+  never a substring of a printed id. Never widen a predicate past the one root
+  cause its summary names.
+- A property a single schema can be held to belongs in a family under
+  `scripts/schemaFuzz/`, not in a new runner.
+- A `protobuf:fuzz` disagreement that is the other library's goes into its
+  `KNOWN` list only once Google's own parser has sided with Sury on the bytes.
 
-A spec pins the comparator's code and its answers for the values that spec
-writes down, and says nothing about the branch no spec reaches.
-`pnpm --filter=sury fuzz:eq` samples values out of generated schemas and holds
-the answers to the properties an equivalence has whatever the emit chose: a
-value equals a separately built copy of itself, `eq(a,b)` is `eq(b,a)`, equal to
-the same value means equal to each other, the answer matches a schema-blind
-structural walk, `isEqualInput(schema)` is `isEqualOutput(reverse(schema))`, and
-two inputs the Input side calls equal decode to two outputs the Output side
-calls equal. Cases known not to hold are listed in the script with the reason
-written by hand, and the run fails on an unlisted one *and* on a listed one that
-has started to hold. `--seeds=N` widens the search and `--cases=N` deepens each
-stream; reach for the first, since the grammar branches on every draw and a
-sweep of short streams covers what one long stream does not. A case it turns up
-becomes a spec.
+## Equality and compare
 
-The harness asks the same question from the other end: every example pair it
-already compares for itself goes to `isEqual*` too, and a disagreement with its
-own oracle is a finding. So the whole spec corpus is the comparator's test
-suite, and neither side is the one being trusted.
+`compare` is defined only for schemas that have an order - a primitive, a
+`Date`, a `URL`, and a tuple of those - and every other schema refuses when its
+comparator is compiled. Widening that set is adding an emit for the shape, not
+relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
+`compare(a,b)` is `-compare(b,a)`.
 
-## Changing the form codec
+## Changing protoc-gen-sury
 
-A field's reading depends on its wrapper as much as its type, and a spec covers
-one schema. `pnpm --filter=sury fuzz:formdata` crosses every wrapper with every
-leaf and checks four properties: a field works in both directions or is rejected
-in both, an encode does not write into the value it was handed, `decode(encode(v))`
-is `v`, and every entry list a client could send is either rejected or read as a
-value the schema's own output type accepts - the half a round-trip can't reach,
-since a repeated key or a file where text belongs is nothing an encode would
-produce. It then compiles every field that works into one schema, which is where
-a name handed out twice or a declaration hoisted after its reader shows.
+Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
+regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
+order: that the descriptor decoding equals protobuf-es's, the committed goldens
+(the corpus, `src/protobuf/wkt`, `S.Protobuf`), that the bin over stdin and over
+`--descriptor_set_in` writes what `generate()` does, every option and refusal,
+that the TypeScript and ReScript compile, that every type equals protoc-gen-es's
+once the differences `docs/js-protobuf.md` lists are normalized, that values and
+typed Anys round-trip through both libraries in both directions byte for byte
+from both targets, that `S.toProtoOrThrow` reprints every message's fields, and
+that importing one message keeps none of its siblings in a Rollup 4 bundle.
+`SEED=N` widens the value search. `update` rewrites the goldens.
+`pnpm protobuf:conformance:generated` runs Google's suite over the generated
+`TestAllTypesProto3`.
 
-Each property has a list in the script of the cases known not to hold, keyed by
-what the run prints, and the reason is written by hand - the run fails on an
-unexplained one *and* on a listed one that has started to hold. It is exhaustive,
-so there is no seed. A case it turns up becomes a spec, or a test where an
-example can't hold it.
+A codec change a generated shape needs lands in `packages/sury/src` with its
+spec first, like any other.
+
+## Codecs
 
 `CODEC_SPEC.md` is the normative statement of what conversions are legal,
 built-in and custom alike; `CONTENT_CODEC_SPEC.md` covers the carrier/format
-pairs where two built-in readings exist (pack/unpack).
+pairs where two built-in readings exist (pack/unpack). A change to either
+behaviour changes the document in the same PR.

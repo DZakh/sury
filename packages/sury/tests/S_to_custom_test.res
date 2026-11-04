@@ -312,7 +312,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[3](v1)}}`,
   )
 })
 
@@ -328,7 +328,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}catch(v1){return Promise.reject(v1)}}`,
+    `i=>{try{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1==0||e[3](i);let v0;try{v0=e[2](e[0](i),void 0,e[1])}catch(x){e[1](x)}return v0.catch(e[4])}catch(v1){return e[5](v1)}}`,
   )
 })
 
@@ -344,7 +344,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}`,
   )
 })
 
@@ -369,7 +369,7 @@ test("Compiled serialize code snapshot with two custom codecs", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0)}catch(x){e[3](x)}return v1}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;try{v1=e[2](v0)}catch(x){e[3](x)}return v1}catch(v2){e[4](v2)}}`,
   )
 })
 
@@ -414,7 +414,7 @@ test("Refines the coder's result, not what went into it", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}e[2].test(v0)||e[3](v0);return v0}catch(v1){e[4](v1)}}`,
   )
   t->Assert.deepEqual(
     {"id": "6d8d3a9a-1e0a-4f6a-9a4a-0f2d3f4a5b6c", "name": "John"}->S.convertOrThrow(
@@ -447,4 +447,21 @@ test("Picks a reading for a content link the way the ambiguity report says to", 
     () => "aGk="->S.parseOrThrow(~to=S.base64->S.to(S.jsonString))->ignore,
     `Ambiguous base64 -> JSON string. Should the bytes be packed or unpacked? Choose with S.to and "pack" or "unpack"`,
   )
+})
+
+test("A target's field coder doesn't run again over the coder's result", t => {
+  let bang = S.string->S.to(
+    S.string,
+    ~custom={decode: Sync(s => s ++ "!"), encode: Sync(s => s->String.slice(~start=0, ~end=-1))},
+  )
+  let target = S.schema(s => {"name": s.matches(bang)})
+  let schema = S.string->S.to(
+    target,
+    ~custom={
+      decode: Sync(s => {"name": s ++ "!"}),
+      encode: Sync(o => o["name"]->String.slice(~start=0, ~end=-1)),
+    },
+  )
+  t->Assert.deepEqual("x"->S.parseOrThrow(~to=schema), {"name": "x!"})
+  t->Assert.deepEqual({"name": "x!"}->S.convertOrThrow(~from=schema, ~to=S.string), "x")
 })

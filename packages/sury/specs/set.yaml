@@ -8,11 +8,12 @@ jsonSchema:
   input: Expected JSON, received Set<string>
   output: Expected JSON, received Set<string>
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Set<string>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.set(z.string())
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);let v1=0;for(let v0 of i){try{typeof v0==="string"||e[0](v0);v1++;}catch(v2){v2.path=[v1,...v2.path];throw v2}}return i}
+    expression: i=>{try{i instanceof e[1]||e[2](i);let v1=0;for(let v0 of i){typeof v0==="string"||e[0](v0,[v1]);v1++;}return i}catch(v2){e[3](v2)}}
     examples:
       valid:
         input: new Set(["foo"])
@@ -23,6 +24,12 @@ operations:
       invalid-item:
         input: new Set(["foo", 1])
         error: "Failed at [1]: Expected string, received 1"
+      every-invalid-item-is-collected:
+        input: new Set([1, "foo", 2])
+        error: "Failed at [0]: Expected string, received 1"
+        issues:
+          - "Failed at [0]: Expected string, received 1"
+          - "Failed at [2]: Expected string, received 2"
       array-is-not-a-set:
         input: '["foo"]'
         error: Expected Set<string>, received ["foo"]

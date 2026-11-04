@@ -10,6 +10,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
@@ -18,7 +21,7 @@ operations:
     creationError: "SuryError: Can't decode FormData -> { a: string; } with S.strict. A browser adds entries no schema declares, so use S.strip"
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=new e[0]();v0.append("a",i.a);return v0}
+    expression: i=>{try{let v0=new e[0]();v0.append("a",i.a);return v0}catch(v1){e[1](v1)}}
     examples:
       built:
         input: '{ a: "x" }'

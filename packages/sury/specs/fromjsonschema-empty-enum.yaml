@@ -8,11 +8,12 @@ jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare never. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.never()
 operations:
   parse:
-    expression: i=>{e[0](i);return i}
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       rejects-string:
         input: '"anything"'

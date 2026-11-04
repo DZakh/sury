@@ -13,33 +13,36 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||+a===+b
+compare:
+  input: strictCompare
+  output: (a,b)=>a===b?0:+a<+b?-1:+a>+b?1:+a===+b?0:1
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'
         output: new Date("2024-01-01T00:00:00.000Z")
       padded:
         input: '" 2024-01-01T00:00:00.000Z "'
-        error: Expected Date, received invalid Date
+        error: Expected Date, received " 2024-01-01T00:00:00.000Z "
       not-a-date-text:
         input: '"nope"'
-        error: Expected Date, received invalid Date
+        error: Expected Date, received "nope"
       not-a-string:
         input: "0"
         error: Expected string, received 0
   decode:
-    expression: i=>{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);return v0}
+    expression: i=>{try{let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: '"2024-01-01T00:00:00.000Z"'
         output: new Date("2024-01-01T00:00:00.000Z")
   encode:
-    expression: i=>{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}return v0}
+    expression: i=>{try{let v0;try{v0=i.toISOString()}catch(_){e[0](i)}return v0}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: new Date("2024-01-01T00:00:00.000Z")

@@ -59,8 +59,6 @@
   - [`jsonString`](#jsonstring)
   - [Content](#content)
   - [Protocol Buffers](#protocol-buffers)
-  - [`meta`](#meta)
-  - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
 - [Refinements](#refinements)
   - [`refine`](#refine)
@@ -451,6 +449,24 @@ let schema = S.option(S.string)
 
 The `S.option` schema represents a data of a specific type that might be undefined.
 
+`undefined` is always the outer `None`, even when the item already reads to an `option`:
+
+```rescript
+let blankToNone = S.string->S.to(
+  S.option(S.string),
+  ~custom={
+    decode: Sync(s => s == "" ? None : Some(s)),
+    encode: Sync(o => o->Option.getOr("")),
+  },
+)
+let schema = S.option(blankToNone)
+
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
+// None
+""->S.parseOrThrow(~to=schema)
+// Some(None)
+```
+
 ### **`Option.getOr`**
 
 `(S.t<option<'value>>, 'value) => S.t<'value>`
@@ -467,6 +483,19 @@ let schema = S.option(S.string)->S.Option.getOr("Hello World!")
 The `Option.getOr` augments a schema to add transformation logic for default values, which are applied when the input is undefined.
 
 > 🧠 If you want to set a default value for an object field, there's a more convenient `fieldOr` method on `Object.s` type.
+
+When the item is an option itself, `None` is a default too. With `blankToNone` from above:
+
+```rescript
+let schema = S.option(blankToNone)->S.Option.getOr(None)
+
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
+// None
+""->S.parseOrThrow(~to=schema)
+// None
+"a"->S.parseOrThrow(~to=schema)
+// Some("a")
+```
 
 ### **`Option.getOrWith`**
 
@@ -1104,7 +1133,7 @@ Set.fromArray(["Hello", "World"])->S.parseOrThrow(~to=schema)
 ```
 
 Validates a `Set` and every item in it. A `Set` isn't JSON, so its wire form is
-an array — `S.to` decodes one into a `Set`, and the same schema reversed encodes
+an array. `S.to` decodes one into a `Set`, and the same schema reversed encodes
 it back:
 
 ```rescript
@@ -1491,6 +1520,20 @@ S.uint8Array->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
 // decode pack, encode unpack
 ```
 
+#### The string is JSON text
+
+```rescript
+S.string->S.to(userSchema, ~custom={decode: Unpack, encode: Pack})
+// the text is read as userSchema
+```
+
+#### The JSON string holds the string
+
+```rescript
+S.string->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack})
+// "hi" is stored as "\"hi\""
+```
+
 #### If you omit Pack or Unpack
 
 Sury does not guess when both conversions exist.
@@ -1512,163 +1555,22 @@ S.base64->S.to(S.string) // widens
 
 ### **Protocol Buffers**
 
-`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
-format. Number every field of a message with `S.protobufField`, convert to
-`S.protobuf`, and you have an encoder and a decoder for that message. No
-`.proto` file, no code generation step, and the schema still parses, infers
-types and converts to JSON Schema.
+`S.protobuf` encodes and decodes the [Protocol Buffers](https://protobuf.dev)
+binary format, with no `.proto` file or code generation step:
 
 ```rescript
-type address = {street: string}
-type user = {id: int, name: string, tags: array<string>, home: option<address>, kind: int}
-
-let addressSchema = S.schema(s => {street: s.matches(S.string->S.protobufField(1))})
+type user = {id: int, name: string}
 
 let userSchema = S.schema(s => {
   id: s.matches(S.int->S.protobufField(1)),
   name: s.matches(S.string->S.protobufField(2)),
-  tags: s.matches(S.array(S.string)->S.protobufField(3)),
-  home: s.matches(S.option(addressSchema)->S.protobufField(4)),
-  kind: s.matches(S.enum([1, 2])->S.protobufField(5, ~type_=#enum)),
-})->S.meta({name: "User"})
+})
 
-let value = {id: 150, name: "Ada", tags: ["ml"], home: Some({street: "Main"}), kind: 2}
-
-let bytes = value->S.convertOrThrow(~from=userSchema, ~to=S.protobuf) // 22 bytes
-bytes->S.convertOrThrow(~from=S.protobuf, ~to=userSchema) // back to `value`
+{id: 150, name: "Ada"}->S.convertOrThrow(~from=userSchema, ~to=S.protobuf)
 ```
 
-Hoist the operation when you run it more than once, the way you would any
-other:
-
-```rescript
-let decode = S.compileConvertOrThrow(~from=S.protobuf, ~to=userSchema)
-```
-
-`S.protobuf->S.to(userSchema)` is the same codec as one schema, so it parses
-straight from an `unknown` - the bytes are checked to be a `Uint8Array` before
-anything is read:
-
-```rescript
-body->S.parseOrThrow(~to=S.protobuf->S.to(userSchema))
-```
-
-#### Build a message with `S.schema`, not `S.object`
-
-`S.object` names JS fields and builds a ReScript value out of them, which is a
-conversion: the message is the thing on the far side of it, and a *nested*
-message field has nowhere to put one.
-
-```rescript
-S.object(s => {street: s.field("street", S.string->S.protobufField(1))})
-// as a field of another message, throws: field "home" is a message that
-// converts further with S.to, which a nested field can't
-```
-
-`S.schema` matches the record's own fields, so the message is the schema
-itself and nests freely. Use `S.object` only for a root message, where the
-conversion has somewhere to go.
-
-#### The wire type
-
-It is inferred from the schema: `S.string` is `string`, `S.bool` is `bool`,
-`S.uint8Array` is `bytes`, `S.int` is `int32`, `S.float` is `double`,
-`S.bigint` is `int64`, `S.enum` of ints is an `enum`, a message schema is a
-nested `message`, `S.array` is `repeated` and `S.dict` is a `map`. Pass
-`~type_` to pick any of the fifteen scalar types yourself, which also lets the
-ReScript type differ from the wire type - Sury converts through the schema.
-
-```rescript
-S.string->S.protobufField(1, ~type_=#uint32) // "150" <=> varint 150
-S.int->S.protobufField(2, ~type_=#sint32) // zigzag
-S.bigint->S.protobufField(3, ~type_=#fixed64)
-S.float->S.protobufField(4, ~type_=#float)
-```
-
-The rest of `S.protobufField` is protobuf's own vocabulary. `~key` is the K of
-a `map<K, V>` for an `S.dict` field, `string` unless you say otherwise;
-`~packed=false` writes a repeated scalar expanded, a tag per item, where the
-default packs them into one run (decoding accepts both); `~oneof` puts the
-field in a `oneof` block, where at most one member is ever set: decoding one
-clears the others, and encoding a value with two of them set is refused.
-
-```rescript
-S.dict(S.string)->S.protobufField(5, ~key=#int64)
-S.array(S.int)->S.protobufField(6, ~packed=false)
-S.option(S.string)->S.protobufField(7, ~oneof="choice")
-```
-
-#### Unknown fields
-
-Skipped, the way every proto3 reader skips them, which is what lets a sender
-add a field without breaking you. Skipped, not kept: a decode followed by an
-encode writes back only the fields the schema declares. `S.strict` on the
-message rejects an unknown field instead, which is worth having on an internal
-wire where an unexpected number means a version skew you would rather hear
-about.
-
-A wire failure names where it hit, the way an object parse error names a path:
-the field, its number, and the wire type the bytes claimed, with each
-enclosing message in front of it.
-
-```rescript
-%raw(`new Uint8Array([8, 1, 34, 3, 10, 1, 255])`)->S.convertOrThrow(
-  ~from=S.protobuf,
-  ~to=userSchema,
-)
-// throws: protobuf string is not valid UTF-8 at home.street (field 1, wire type 2)
-```
-
-#### `toProtoOrThrow`
-
-`(S.t<'value>, ~name: string=?, ~package: string=?) => string`
-
-The proto3 source describing the wire a message schema speaks, for the other
-side of the connection. A schema's `name` meta names the message, otherwise
-`~name` does, otherwise it is `Message`. camelCase field names print
-snake_case, because that is proto3's style guide and what `buf lint` checks;
-the wire is unaffected, since a field is its number, and every generator turns
-the name back into the one its own language would use.
-
-```rescript
-userSchema->S.toProtoOrThrow(~package="acme.v1")
-```
-
-```proto
-syntax = "proto3";
-
-package acme.v1;
-
-message User {
-  message Home {
-    string street = 1;
-  }
-  enum Kind {
-    KIND_UNSPECIFIED = 0;
-    KIND_1 = 1;
-    KIND_2 = 2;
-  }
-
-  int32 id = 1;
-  string name = 2;
-  repeated string tags = 3;
-  optional Home home = 4;
-  Kind kind = 5;
-}
-```
-
-`description` meta prints as a comment and `deprecated` as the option. An
-enum's zero member prints as `<NAME>_UNSPECIFIED`, and one is prepended to an
-enum whose values lack `0`, which proto3 requires and the schema itself
-rejects. It throws on anything that cannot be a message: a field with no
-number, two fields sharing one, a recursive message, a schema that is not an
-object.
-
-See [Protocol Buffers in the JS guide](./js-usage.md#protocol-buffers) for the
-wire-level detail the two languages share, including what the conformance
-suite covers, and
-[Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
-for the measured numbers.
+Oneofs as variants, well-known types, `toProtoOrThrow` and generating modules
+from `.proto`: [Protocol Buffers](./rescript-protobuf.md).
 
 ### **`meta`**
 
@@ -1962,7 +1864,7 @@ S.Error.make(
 | Convert  |                                                      |                                                        | `parse*`, `convert*` |
 | Make     |                                                      | `make*`                                                |                      |
 | Validate | `isInput`                                            | `isOutput`                                             |                      |
-| Compare  |                                                      | `isEqual`                                              |                      |
+| Compare  |                                                      | `isEqual`, `compare`                                   |                      |
 | Assert   | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                      |
 | Describe | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                      |
 
@@ -2010,7 +1912,7 @@ let apiUserSchema = S.schema(s =>
 
 Every operation is named `[compile]` + verb + outcome, and the names match the JS ones apart from two deliberate divergences: `S.t<'value>` names the **output** type, so what JS spells `encode*` is `convert*` here, and what it spells `makeOutput*` is just `make*`.
 
-`parse`, `convert` and `make` each take four outcomes:
+`parse`, `convert` and `make` each take six outcomes:
 
 | Suffix | Returns |
 | --- | --- |
@@ -2018,6 +1920,8 @@ Every operation is named `[compile]` + verb + outcome, and the names match the J
 | `AsResult` | `result<'value, S.error>` |
 | `AsPromiseOrReject` | `promise<'value>` - rejects, never throws synchronously |
 | `AsResultPromise` | `promise<result<'value, S.error>>` |
+| `AsStandardResult` | `StandardSchema.Result.t<'value>` - every issue, not only the first |
+| `AsStandardResultPromise` | `promise<StandardSchema.Result.t<'value>>` |
 
 The result outcomes are compiled, not wrapped: ReScript's `result` is a second tail the same compiler emits, so nothing pays for a closure per call.
 
@@ -2027,15 +1931,15 @@ ReScript has no overloads, so where the JS surface reads the call shape at runti
 
 The `compile` prefix returns the operation as a function to call repeatedly - the fastest way to run one schema many times. Every outcome has one except `assert*`, which has nothing to hand back and so nothing to keep.
 
-`parse*` and `convert*` take `~to` (and `~from`/`~via`): they convert a value into that target. `assert*`, `is*` and `make*` take `~schema` instead - the value is checked against it and either handed back as it stands or answered about, never converted into it.
+`parse*` and `convert*` take `~to` (and `~from`/`~via`): they convert a value into that target. `assert*`, `is*`, `isEqual`, `compare` and `make*` take `~schema` instead - the value is checked against it and either handed back as it stands or answered about, never converted into it.
 
 There is no promisable outcome here, though the JS surface has one (`parseAsPromisableResult`): telling `result` from `promise<result>` needs a runtime probe that ReScript's untagged variants can't express over a variant payload, and a boxed `Sync | Async` would cost the allocation the outcome exists to avoid.
 
 | Verb        | Throws                                             | Result                                             |
 | ----------- | -------------------------------------------------- | -------------------------------------------------- |
-| **parse**   | `parseOrThrow`, `parseAsPromiseOrReject`           | `parseAsResult`, `parseAsResultPromise`            |
-| **convert** | `convertOrThrow`, `convertAsPromiseOrReject`       | `convertAsResult`, `convertAsResultPromise`        |
-| **make**    | `makeOrThrow`, `makeAsPromiseOrReject`             | `makeAsResult`, `makeAsResultPromise`              |
+| **parse**   | `parseOrThrow`, `parseAsPromiseOrReject`           | `parseAsResult`, `parseAsResultPromise`, `parseAsStandardResult`, `parseAsStandardResultPromise` |
+| **convert** | `convertOrThrow`, `convertAsPromiseOrReject`       | `convertAsResult`, `convertAsResultPromise`, `convertAsStandardResult`, `convertAsStandardResultPromise` |
+| **make**    | `makeOrThrow`, `makeAsPromiseOrReject`             | `makeAsResult`, `makeAsResultPromise`, `makeAsStandardResult`, `makeAsStandardResultPromise` |
 | **assert**  | `assertInputOrThrow`, `assertInputAsPromiseOrReject` (and the `Output` twins) | |
 | **is**      | | `isInput`, `isOutput` - a `bool`, not a `result` |
 
@@ -2052,6 +1956,10 @@ S.compileParseOrThrow: (~to: S.t<'value>) => 'any => 'value
 S.compileParseAsResult: (~to: S.t<'value>) => 'any => result<'value, S.error>
 S.compileParseAsPromiseOrReject: (~to: S.t<'value>) => 'any => promise<'value>
 S.compileParseAsResultPromise: (~to: S.t<'value>) => 'any => promise<result<'value, S.error>>
+S.parseAsStandardResult: ('any, ~to: S.t<'value>) => StandardSchema.Result.t<'value>
+S.parseAsStandardResultPromise: ('any, ~to: S.t<'value>) => promise<StandardSchema.Result.t<'value>>
+S.compileParseAsStandardResult: (~to: S.t<'value>) => 'any => StandardSchema.Result.t<'value>
+S.compileParseAsStandardResultPromise: (~to: S.t<'value>) => 'any => promise<StandardSchema.Result.t<'value>>
 ```
 
 ```rescript
@@ -2064,6 +1972,25 @@ switch data->S.parseAsResult(~to=schema) {
 }
 ```
 
+`AsStandardResult` reports every issue, which is what a form needs:
+
+```rescript
+let signup = S.object(s =>
+  {
+    "name": s.field("name", S.string),
+    "age": s.field("age", S.int),
+  }
+)
+
+switch {"name": 1, "age": "x"}->S.parseAsStandardResult(~to=signup) {
+| {issues} => issues->Array.forEach(issue => Console.log(issue.message))
+// "Expected string, received 1"
+// "Expected int32, received \"x\""
+| {value} => Console.log(value)
+| _ => ()
+}
+```
+
 **Converting** transforms a value from one schema's output type to another's. The input isn't validated - `~from` is trusted, and the type is derived from it. Pass `~via` to route through an intermediate schema:
 
 ```
@@ -2071,6 +1998,8 @@ S.convertOrThrow: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) =
 S.convertAsResult: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => result<'to, S.error>
 S.convertAsPromiseOrReject: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<'to>
 S.convertAsResultPromise: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<result<'to, S.error>>
+S.convertAsStandardResult: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => StandardSchema.Result.t<'to>
+S.convertAsStandardResultPromise: ('from, ~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => promise<StandardSchema.Result.t<'to>>
 S.compileConvertOrThrow: (~from: S.t<'from>, ~via: S.t<'via>=?, ~to: S.t<'to>) => 'from => 'to
 ```
 
@@ -2116,17 +2045,22 @@ S.compileIsInput: (~schema: S.t<'value>) => 'any => bool
 S.compileIsOutput: (~schema: S.t<'value>) => 'any => bool
 ```
 
-**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so this is the JS `isEqualOutput`:
+**Comparing** answers whether two values of the schema's type are the same value, by the schema's own structure: fields and elements by their own schemas, a `Date` by its time, a variant by the case each value lands in, and a literal not at all. `compare` is the same walk answering `-1 | 0 | 1` ascending, for `Array.sort` - 0 exactly when `isEqual` would be true. `isEqual` takes any schema; `compare` takes the schemas that have an order (a primitive, a `Date`, a `Url`, a literal, an option of one of those, and a tuple of any of them) and raises for the rest. Both values are assumed to have the type already, so nothing is validated. `S.t<'value>` names the output type, so these are the JS `isEqualOutput` / `compareOutput`:
 
 ```
 S.isEqual: ('value, 'value, ~schema: S.t<'value>) => bool
 S.compileIsEqual: (~schema: S.t<'value>) => ('value, 'value) => bool
+S.compare: ('value, 'value, ~schema: S.t<'value>) => int
+S.compileCompare: (~schema: S.t<'value>) => ('value, 'value) => int
 ```
 
 ```rescript
 let isSameFilm = S.compileIsEqual(~schema=filmSchema)
-
 isSameFilm(a, b)
+
+// A film has no order of its own, so sort by the fields that do.
+let ascByTitle = S.compileCompare(~schema=S.tuple(s => (s.item(0, S.string), s.item(1, S.float))))
+films->Array.sort((a, b) => ascByTitle((a.title, a.id), (b.title, b.id)))
 ```
 
 **Making** checks a value you built in code rather than received from the wire. Every check the schema carries runs - types, the conversion, refinements - and the value itself comes back, not a decoded copy, so an entity the schema has no way to encode fails at construction rather than at the point it's sent. `S.t<'value>` names the output type, so this is the JS `makeOutputOrThrow`:
@@ -2136,6 +2070,8 @@ S.makeOrThrow: ('value, ~schema: S.t<'value>) => 'value
 S.makeAsResult: ('value, ~schema: S.t<'value>) => result<'value, S.error>
 S.makeAsPromiseOrReject: ('value, ~schema: S.t<'value>) => promise<'value>
 S.makeAsResultPromise: ('value, ~schema: S.t<'value>) => promise<result<'value, S.error>>
+S.makeAsStandardResult: ('value, ~schema: S.t<'value>) => StandardSchema.Result.t<'value>
+S.makeAsStandardResultPromise: ('value, ~schema: S.t<'value>) => promise<StandardSchema.Result.t<'value>>
 S.compileMakeOrThrow: (~schema: S.t<'value>) => 'value => 'value
 ```
 

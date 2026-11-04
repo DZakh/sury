@@ -11,12 +11,13 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
     output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { kind: { type: "string", enum: ["k0"] } }, required: ["kind"] }] }'
 isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof b==="object"&&b&&!Array.isArray(b))
+compare: "throws: [Sury] Can't compare JSON string | { kind: \"k0\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)};break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k0"){i={kind:i.kind};break}e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i.kind==="k0"){i={kind:i.kind};break}throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       json-number:
         input: '"1"'

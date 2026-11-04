@@ -758,6 +758,25 @@ export const nestedCases: RoundTripCase[] = [
     },
   },
   {
+    id: "nested/three-byte-length",
+    fields: [
+      field("inner", 1, "message", { fields: [field("data", 1, "bytes")] }),
+      field("tail", 2, "string"),
+    ],
+    value: { inner: { data: new Uint8Array(20000).fill(7) }, tail: "end" },
+  },
+  // A length is written after its payload, into a one-byte hole the payload
+  // slides forward to widen: each side of the two- and three-byte boundaries,
+  // with the message around it crossing one too.
+  ...[16380, 16381, 2097147, 2097148].map((size) => ({
+    id: `nested/payload-of-${size + 3 + (size >= 16384 ? 1 : 0)}-bytes`,
+    fields: [
+      field("mid", 1, "message", { fields: [field("inner", 1, "message", { fields: [field("data", 1, "bytes")] })] }),
+      field("tail", 2, "string"),
+    ],
+    value: { mid: { inner: { data: new Uint8Array(size).fill(3) } }, tail: "end" },
+  })),
+  {
     id: "nested/larger-than-a-slab",
     fields: [
       field("items", 1, "message", { repeated: true, fields: [field("blob", 1, "bytes"), field("n", 2, "int32")] }),
@@ -1107,7 +1126,7 @@ export const mapMergeCases: DecodeOnlyCase[] = [
       ...len(71, len(1), len(2, len(2, wireField(2, 0, varint(1)), wireField(31, 0, varint(1))))),
     ],
     value: {
-      map: { "": { a: 0, corecursive: { optional_int32: 1, optional_int64: 1n, optional_uint32: 0, repeated_int32: [1, 1] } } },
+      map: { "": { a: 0, corecursive: { optional_int32: 0, optional_int64: 1n, optional_uint32: 0, repeated_int32: [1] } } },
     },
   },
   {
@@ -1452,26 +1471,52 @@ const scalarSchema = (type: S.ProtobufType): S.Schema<unknown, unknown> => {
   ) {
     return S.bigint;
   }
-  if (type === "float" || type === "double") return S.number;
+  // A double holds NaN, which S.number refuses, so the suite spells it the way
+  // protoc-gen-sury does.
+  if (type === "float" || type === "double") return S.union([S.number, S.schema(NaN)]);
   if (type === "int32" || type === "sint32" || type === "sfixed32" || type === "enum") {
     return S.int32;
   }
   return S.integer;
 };
 
-export const suryMessage = (fields: FieldDef[], seen = new Map<FieldDef[], S.Schema<unknown, unknown>>()): S.Schema<unknown, unknown> => {
-  const cached = seen.get(fields);
+// Whether `fields` is reachable from one of its own message fields, which is
+// what `S.recursive` is for: a field table that contains itself, directly or
+// through another, is one message the fuzzer can describe and a tree can't.
+const reachesItself = (fields: FieldDef[]): boolean => {
+  const seen = new Set<FieldDef[]>();
+  const walk = (at: FieldDef[]): boolean =>
+    at.some((def) => {
+      const nested = def.fields;
+      if (def.type !== "message" || nested === undefined) return false;
+      if (nested === fields) return true;
+      if (seen.has(nested)) return false;
+      seen.add(nested);
+      return walk(nested);
+    });
+  return walk(fields);
+};
+
+// Every recursive message gets a name of its own: two definitions sharing one
+// inside a single `S.recursive` tree would be one definition.
+let recursiveNames = 0;
+
+// `open` holds the refs of the recursive messages being defined, so a field
+// that reaches one again refers to it instead of building it forever. A
+// message built while one is open refers to it by a ref only its definer can
+// resolve, so it is not cached for use elsewhere.
+export const suryMessage = (
+  fields: FieldDef[],
+  seen = new Map<FieldDef[], S.Schema<unknown, unknown>>(),
+  open = new Map<FieldDef[], S.Schema<unknown, unknown>>(),
+): S.Schema<unknown, unknown> => {
+  const cached = seen.get(fields) ?? open.get(fields);
   if (cached) return cached;
-  let schema: S.Schema<unknown, unknown> | undefined;
   const build = () => {
     const properties: Record<string, S.Schema<unknown, unknown>> = Object.create(null);
     for (const def of fields) {
       let property: S.Schema<unknown, unknown> =
-        def.type === "message"
-          ? def.fields === fields
-            ? S.recursive("Self", () => schema!)
-            : suryMessage(def.fields ?? [], seen)
-          : scalarSchema(def.type);
+        def.type === "message" ? suryMessage(def.fields ?? [], seen, open) : scalarSchema(def.type);
       if (def.repeated) property = S.array(property);
       else if (def.map) property = S.record(property);
       else if (def.optional || def.oneof) property = S.optional(property);
@@ -1483,7 +1528,17 @@ export const suryMessage = (fields: FieldDef[], seen = new Map<FieldDef[], S.Sch
     }
     return S.schema(properties);
   };
-  schema = build();
-  seen.set(fields, schema);
+  const outer = open.size;
+  const schema = reachesItself(fields)
+    ? (S.recursive(`R${recursiveNames++}`, (self) => {
+        open.set(fields, self as S.Schema<unknown, unknown>);
+        try {
+          return build() as never;
+        } finally {
+          open.delete(fields);
+        }
+      }) as S.Schema<unknown, unknown>)
+    : build();
+  if (outer === 0) seen.set(fields, schema);
   return schema;
 };

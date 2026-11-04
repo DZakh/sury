@@ -15,12 +15,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i][0]===b[i][0]&&a[i][1]===b[i][1]))return false;return true}
   output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare [string, number][]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Map<string, number>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{Array.isArray(i)||e[3](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1);let v2=v1[0],v3=v1[1];typeof v2==="string"||e[0](v2);typeof v3==="number"&&v3==v3||e[1](v3);}catch(v4){v4.path=[v0,...v4.path];throw v4}}return new Map(i)}
+    expression: i=>{try{Array.isArray(i)||e[3](i);for(let v0=0;v0<i.length;++v0){let v1=i[v0];Array.isArray(v1)&&v1.length===2||e[2](v1,[v0]);let v2=v1[0],v3=v1[1];typeof v2==="string"||e[0](v2,[v0,"0"]);typeof v3==="number"&&v3==v3||e[1](v3,[v0,"1"]);}return new Map(i)}catch(v6){e[4](v6)}}
     examples:
       valid:
         input: '[["a", 1], ["b", 2]]'

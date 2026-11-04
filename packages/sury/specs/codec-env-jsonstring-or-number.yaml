@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.union([S.jsonString, S.number]))
+  input: string | undefined
+  output: string | number
+  instantiations: 5394
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "number" }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0
+  output: "throws: [Sury] Can't compare JSON string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Ambiguous env -> JSON string | number. Its text is also JSON text. Choose one with S.to for env -> number, or S.never -> number"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
+    examples:
+      the-document-is-the-entry:
+        input: '"{\"a\":1}"'
+        output: '"{\"a\":1}"'
+      a-number:
+        input: "42"
+        output: '"42"'

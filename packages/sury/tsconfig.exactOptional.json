@@ -1,0 +1,9 @@
+// Under exactOptionalPropertyTypes a `~standard` match in index.d.ts has to
+// spell Standard Schema's `types?: ... | undefined`, or every Output/Input
+// infers never. index.d.ts still typechecks without it; only a use site shows it.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "exactOptionalPropertyTypes": true },
+  "include": [],
+  "files": ["tests/S_test.ts", "tests/operations_test.ts"]
+}

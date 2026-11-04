@@ -19,9 +19,7 @@ import {
   initSchema,
   inputExpression,
   type Internal,
-  isOptional,
   nullTag,
-  pathConcat,
   tagFlags,
   U,
   undefinedTag,
@@ -30,16 +28,16 @@ import {
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _var,
-  B_addObjectField,
+  B_slot,
   B_dynamicScope,
+  B_failInvalidInput,
   B_embed,
-  B_embedInvalidInput,
   B_hoistDecl,
-  B_markOutput,
   B_refine,
   B_merge,
-  B_mergeWithPathPrepend,
   B_invalidOperation,
   B_next,
   B_nextConst,
@@ -48,9 +46,8 @@ import {
   B_varWithoutAllocation
 } from "../builder";
 import {
+  B_record,
   arrayFactory,
-  completeObjectVal,
-  makeObjectVal,
   valGet
 } from "../composites";
 import {
@@ -68,7 +65,7 @@ import {
   asList,
   asText,
   decidesBlank,
-  isAbsent,
+  keepsUndefined,
   presentArm,
   readWrapped
 } from "./entries";
@@ -159,7 +156,7 @@ const readCheckbox = (input: Val, target: Internal): Val => {
   const v = input.i;
   if (target.const !== U) {
     const output = B_nextConst(input, target);
-    output.cp = `${target.const ? `${v}==="on"||${v}==="true"` : `${v}==="false"||!${v}`}||${B_embedInvalidInput(input, target)};`;
+    output.cp = B_failInvalidInput(input, target, target.const ? `${v}==="on"||${v}==="true"` : `${v}==="false"||!${v}`);
     return output;
   }
   // Into a var of its own, not the entry's: a later check fails on the
@@ -167,7 +164,7 @@ const readCheckbox = (input: Val, target: Internal): Val => {
   const out = B_varWithoutAllocation(input.g);
   const output = B_next(input, out, bool, target);
   output.v = _var;
-  output.cp = `let ${out}=${v}==="on"||${v}==="true"||(${v}==="false"||!${v}?false:${B_embedInvalidInput(input, target)});`;
+  output.cp = `${B_let(input.g, out, `${v}==="on"||${v}==="true"`)}${B_failInvalidInput(input, target, `${out}||${v}==="false"||!${v}`)}`;
   return output;
 };
 
@@ -179,7 +176,7 @@ const assertListItems = (val: Val, schema: Internal): void => {
     if (isCheckbox(item)) {
       unsupported(`A checkbox group sends the value of each checked box, so read it as string[]`);
     }
-    if (isAbsent(item)) {
+    if (absentArm(item)) {
       unsupported(`A repeated key is positional, so every item needs an entry`);
     }
     if (item.type === arrayTag) {
@@ -198,7 +195,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     if (schema.const !== U) {
       return schema.const ? `${fdVar}.append(${keyText},"on");` : "";
     }
-    return isAbsent(schema)
+    return absentArm(schema)
       ? `if(${val.i}!=null){${fdVar}.append(${keyText},${val.i}?"on":"false")}`
       : `if(${val.i}){${fdVar}.append(${keyText},"on")}`;
   }
@@ -209,33 +206,24 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
       let code = "";
       for (let idx = 0; idx < slots.length; idx++) {
         const slot = valGet(val, `${idx}`);
-        code += B_mergeWithPathPrepend(slot, val, U, () =>
-          appendValue(B_scope(slot), fdVar, keyText, true),
-        );
+        code += B_merge(slot) + appendValue(B_scope(slot), fdVar, keyText, true);
       }
       return code;
     }
     const arrayVar = val.v();
     const iterVar = B_varWithoutAllocation(val.g);
-    const raiseCountBefore = val.g.t;
     val.e = schema;
     const itemVal = B_dynamicScope(val, iterVar);
-    // Built before the merge, not inside its callback: `B_mergeWithCatch` runs
-    // the merge first, so a var this materializes on the item afterwards would
-    // have its `let` dropped. On a scope of the item, not the item: the same
-    // val in both would emit a union's dispatch `let` twice.
-    const appendCode = appendValue(B_scope(itemVal), fdVar, keyText, true);
-    const itemCode = B_mergeWithPathPrepend(
-      itemVal,
-      val,
-      iterVar,
-      () => appendCode,
-      raiseCountBefore,
-    );
+    // On a scope of the item, not the item: the same val in both would emit a
+    // union's dispatch `let` twice.
+    const itemCode = B_sink(val.g, () => {
+      const appendCode = appendValue(B_scope(itemVal), fdVar, keyText, true);
+      return B_merge(itemVal) + appendCode;
+    });
     return `for(let ${iterVar}=0;${iterVar}<${arrayVar}.length;++${iterVar}){${itemCode}}`;
   }
   const present = presentArm(schema);
-  if (isAbsent(schema) && present.type !== unknownTag) {
+  if (absentArm(schema) && present.type !== unknownTag) {
     if (present === schema) {
       return "";
     }
@@ -247,7 +235,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
   }
   if (present.type === unknownTag) {
     const v = val.v();
-    return `if(${v}!=null){typeof ${v}==="string"||${v} instanceof ${B_embed(val, globalThis.Blob)}||${B_embedInvalidInput(val, formDataEntry)};${fdVar}.append(${keyText},${v});}`;
+    return `if(${v}!=null){${B_failInvalidInput(val, formDataEntry, `typeof ${v}==="string"||${v} instanceof ${B_embed(val, globalThis.Blob)}`)}${fdVar}.append(${keyText},${v});}`;
   }
   if ((tagFlag & 2) || ((tagFlag & 8192) && isBlobClass(schema.class))) {
     return `${fdVar}.append(${keyText},${val.i});`;
@@ -264,7 +252,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
     detached.prev = U;
     detached.io = false;
     const converted = parse(detached);
-    return `let ${tmp}=${val.i};` + B_merge(converted) + `${fdVar}.append(${keyText},${converted.i});`;
+    return B_let(val.g, tmp, val.i) + B_merge(converted) + `${fdVar}.append(${keyText},${converted.i});`;
   }
   val.io = false;
   val.e = string;
@@ -275,7 +263,7 @@ const appendValue = (val: Val, fdVar: string, keyText: string, inList?: boolean)
 const objectToFormData = (input: Val): Val => {
   const fdVar = B_varWithoutAllocation(input.g);
   const properties = input.s.properties!;
-  let code = `let ${fdVar}=new ${B_embed(input, input.e.class)}();`;
+  let code = B_let(input.g, fdVar, `new ${B_embed(input, input.e.class)}()`);
   for (const key in properties) {
     const field = valGet(input, key);
     code += appendValue(field, fdVar, inlinedValueFromString(key));
@@ -296,73 +284,47 @@ const formDataToObject = (input: Val, target: Internal): Val => {
       `Can't decode FormData -> ${inputExpression(target)} with S.strict. A browser adds entries no schema declares, so use S.strip`,
     );
   }
-  const objectVal = makeObjectVal(input);
-
   const entriesVar = B_varWithoutAllocation(input.g);
-  B_hoistDecl(input, `${entriesVar}=${B_embed(input, readEntries)}(${input.v()})`);
+  B_hoistDecl(input, entriesVar, `${B_embed(input, readEntries)}(${input.v()})`);
   const properties = target.properties!;
   let listRead = "";
-  for (const key in properties) {
-    const schema = properties[key]!;
-    const keyText = inlinedValueFromString(key);
-    const present = presentArm(schema);
-    const absent = isAbsent(schema);
-    const list = present.type === arrayTag;
-    const folds = absent && !list && !admitsBlank(present);
-    const readVar = B_varWithoutAllocation(input.g);
-    const slot = `${entriesVar}.get(${keyText})`;
-    B_hoistDecl(
-      input,
-      list
-        ? `${readVar}=${(listRead ||= B_embed(input, asList))}(${slot})`
-        : `${readVar}=${slot}${folds && isOptional(schema) && absentArm(schema).to === U ? "||void 0" : ""}`,
-    );
+  return B_record(input, (field) => {
+    for (const key in properties) {
+      const schema = properties[key]!;
+      const keyText = inlinedValueFromString(key);
+      const present = presentArm(schema);
+      const absent = absentArm(schema);
+      const list = present.type === arrayTag;
+      const folds = absent && !list && !admitsBlank(present);
+      const readVar = B_varWithoutAllocation(input.g);
+      const slot = `${entriesVar}.get(${keyText})`;
+      B_hoistDecl(
+        input,
+        readVar,
+        list
+          ? `${(listRead ||= B_embed(input, asList))}(${slot})`
+          : `${slot}${folds && keepsUndefined(absent!) ? "||void 0" : ""}`,
+      );
 
-    // Canonical Val field order (see B_operationArg in builder.ts). Hung off
-    // the parent rather than chained through `prev`, so each field's merge
-    // emits its own read.
-    const item: Val = {
-      b: U,
-      p: input,
-      v: _var,
-      i: readVar,
-      s: list ? formDataList : folds ? formDataValue : formDataEntry,
-      io: U,
-      e: schema,
-      prev: U,
-      f: 0,
-      d: U,
-      fv: U,
-      cp: "",
-      hd: "",
-      fz: U,
-      vc: U,
-      u: U,
-      t: true,
-      path: pathConcat(input.path, [key]),
-      g: input.g,
-      o: U,
-    };
+      const item = B_slot(input, readVar, list ? formDataList : folds ? formDataValue : formDataEntry, schema, [key]);
 
-    if (list) {
-      assertListItems(item, present);
-      if (absent && absentArm(schema).to !== U) {
-        B_invalidOperation(
-          item,
-          `Can't decode form field -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
-        );
+      if (list) {
+        assertListItems(item, present);
+        if (absent && absent.to !== U) {
+          B_invalidOperation(
+            item,
+            `Can't decode form field -> ${inputExpression(present)} with a default. No entries is the empty list, so the default is never read`,
+          );
+        }
       }
-    } else if (present.type === unknownTag) {
-      item.cp = `Array.isArray(${readVar})&&${B_embedInvalidInput(item, formDataEntry)};`;
+      field(key, () => {
+        if (!list && present.type === unknownTag) {
+          item.cp = B_failInvalidInput(item, formDataEntry, `!Array.isArray(${readVar})`);
+        }
+        return absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item);
+      });
     }
-    B_addObjectField(
-      objectVal,
-      key,
-      absent ? readWrapped(item, schema, present, list ? U : folds) : parse(item),
-    );
-  }
-
-  return B_markOutput(completeObjectVal(objectVal), input);
+  });
 };
 
 export const formData: Internal = /* @__PURE__ */ initSchema(

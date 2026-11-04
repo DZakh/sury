@@ -10,11 +10,12 @@ jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string" } }, additionalProperties: false, required: ["foo"] }'
 isEqual: (a,b)=>a===b||a.foo===b.foo
+compare: "throws: [Sury] Can't compare { foo: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.strictObject({ foo: z.string() })"
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foo,v1;typeof v0==="string"||e[0](v0);for(v1 in i)if(v1!=="foo")e[1](v1);return i}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.foo,v1;typeof v0==="string"||e[0](v0);for(v1 in i)if(v1!=="foo")e[1](v1);return i}catch(v2){e[3](v2)}}
     examples:
       valid:
         input: '{ foo: "bar" }'
@@ -22,5 +23,12 @@ operations:
       excess-field:
         input: '{ foo: "bar", bar: true }'
         error: Unrecognized key "bar"
+      excess-fields-and-invalid-field:
+        input: "{ foo: 1, bar: true, baz: 2 }"
+        error: "Failed at foo: Expected string, received 1"
+        issues:
+          - "Failed at foo: Expected string, received 1"
+          - Unrecognized key "bar"
+          - Unrecognized key "baz"
   decode: identity
   encode: identity

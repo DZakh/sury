@@ -27,6 +27,7 @@ import {
   identityViolations,
   buildOps,
   deriveIsEqual,
+  deriveCompare,
   scaffoldJsonSchema,
   scaffoldOperations,
   deriveTypeInfo,
@@ -212,6 +213,7 @@ const cmdNew = async (): Promise<void> => {
     },
     jsonSchema: await scaffoldJsonSchema(schema, typeInfo, ts),
     isEqual: deriveIsEqual(schema),
+    compare: deriveCompare(schema),
     // `vs` is a required dimension but can't be derived - scaffold a `todo`
     // skip (a placeholder, not a claim of no-equivalent) and prompt the author
     // (below) to replace it with the real Zod equivalent.

@@ -30,9 +30,6 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
   // Was `{}` while an array of optional items had no JSON form at all. Now that
   // None decodes to null the whole shape is describable: bigint by its string
   // form, unknown by the empty schema, the items as number-or-null.
-  // FIXME: the item's `maximum: 1` is dropped - a variant converted through
-  // `.to(json)` reports the target's type without the source's refinements.
-  // See specs/codec-json-array-optional-bounded.yaml.
   t->Assert.deepEqual(
     S.json->S.to(nonJsonableSchema)->S.toInputJSONSchemaOrThrow,
     %raw(`{
@@ -40,7 +37,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "properties": {
         "id": {"type": "string"},
         "data": {},
-        "items": {"type": "array", "items": {"anyOf": [{"type": "number"}, {"type": "null"}]}}
+        "items": {"type": "array", "items": {"anyOf": [{"type": "number", "maximum": 1}, {"type": "null"}]}}
       },
       "additionalProperties": false,
       "required": ["id", "data", "items"]
@@ -589,7 +586,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
 test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.toInputJSONSchemaOrThrow,
-    `Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }`,
+    `Expected JSON, received string | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | undefined`,
   )
 })
 
@@ -663,6 +660,40 @@ test("Transformed schema schema uses default with correct type", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
+    }`),
+  )
+})
+
+test("An option around a defaulted option advertises no default", t => {
+  let schema = S.object(s => s.field("darkMode", S.option(S.option(S.bool)->S.Option.getOr(false))))
+
+  t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(
+    schema->S.toInputJSONSchemaOrThrow,
+    %raw(`{
+      "type": "object",
+      "properties": {"darkMode": {"type": "boolean"}},
+    }`),
+  )
+})
+
+test("A null-as-option around a nullable default keeps the default on its arm", t => {
+  let schema = S.object(s => s.field("seen", S.nullAsOption(S.nullAsOption(S.bool)->S.Option.getOr(false))))
+
+  t->Assert.deepEqual(%raw(`{"seen": null}`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(
+    schema->S.toInputJSONSchemaOrThrow,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "seen": {
+          "anyOf": [
+            {"anyOf": [{"type": "boolean"}, {"type": "null"}], "default": false},
+            {"type": "null"},
+          ],
+        },
+      },
+      "required": ["seen"],
     }`),
   )
 })
@@ -865,7 +896,7 @@ test("Fails to create schema for schemas with optional items", t => {
   )
   t->U.assertThrowsMessage(
     () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.toInputJSONSchemaOrThrow,
-    "Expected JSON, received string | undefined | null",
+    "Expected JSON, received string | null | undefined",
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toInputJSONSchemaOrThrow,

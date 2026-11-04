@@ -48,11 +48,18 @@ type Ast = { syntax: number; package: string | null; messages: AstMessage[]; enu
 // message's field is not confused with its parent's.
 const optionalFields = (source: string): Set<string> => {
   const found = new Set<string>();
-  const stack: string[] = [];
+  // A `oneof` opens a block too, and its closing brace must not close the
+  // message around it: an `optional` field declared after one would be
+  // recorded under the wrong scope and read back as implicit.
+  const stack: (string | undefined)[] = [];
   for (const line of source.split("\n")) {
     const opens = /^\s*message\s+([A-Za-z_]\w*)/.exec(line);
     if (opens) {
       stack.push(opens[1]!);
+      continue;
+    }
+    if (/\{\s*$/.test(line)) {
+      stack.push(undefined);
       continue;
     }
     if (/^\s*}/.test(line)) {
@@ -60,7 +67,7 @@ const optionalFields = (source: string): Set<string> => {
       continue;
     }
     const field = /^\s*optional\s+[\w.]+\s+([A-Za-z_]\w*)\s*=/.exec(line);
-    if (field) found.add(`${stack.join(".")}.${field[1]!}`);
+    if (field) found.add(`${stack.filter((name) => name !== undefined).join(".")}.${field[1]!}`);
   }
   return found;
 };

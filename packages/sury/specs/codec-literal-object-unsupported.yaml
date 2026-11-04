@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema("x").with(S.to, S.schema({ a: S.number }))'
+  input: '"x"'
+  output: "{ a: number; }"
+  instantiations: 5547
+jsonSchema:
+  input: '{ type: "string", const: "x" }'
+  output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'
+  openapi-3.0:
+    input: '{ type: "string", enum: ["x"] }'
+isEqual:
+  input: alwaysEqual
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: alwaysCompare
+  output: "throws: [Sury] Can't compare { a: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode \"x\" -> { a: number; }. Define custom codec with S.to"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode { a: number; } -> \"x\". Define custom codec with S.to"

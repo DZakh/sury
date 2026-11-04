@@ -20,25 +20,29 @@ test("Doesn't compile to noop when primitive converted to json string", t => {
 })
 
 test("JsonString output with Async mode", t => {
-  let fn = S.compileConvertAsPromiseOrReject(~from=S.string, ~to=S.jsonString)
+  // A plain string into a JSON string has to say which reading it takes.
+  let fn = S.compileConvertAsPromiseOrReject(
+    ~from=S.string,
+    ~to=S.string->S.to(S.jsonString, ~custom={decode: Pack, encode: Unpack}),
+  )
   t->assertCode(fn, `i=>{return Promise.resolve(e[0](i))}`)
 })
 
 test("TypeValidation=false works with assert output", t => {
   let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=S.string->S.to(S.literal()->S.noValidation(true)))
-  t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return void 0}`)
+  t->assertCode(fn, `i=>{try{typeof i==="string"||e[0](i);return void 0}catch(v0){e[1](v0)}}`)
   let fn = S.compileConvertOrThrow(~from=S.string, ~to=S.string->S.to(S.literal()->S.noValidation(true)))
   t->assertCode(fn, `i=>{return void 0}`)
 })
 
 test("Assert output with Async mode", t => {
   let fn = S.compileConvertAsPromiseOrReject(~from=S.unknown, ~to=S.string->S.to(S.literal()->S.noValidation(true)))
-  t->assertCode(fn, `i=>{try{typeof i==="string"||e[0](i);return Promise.resolve(void 0)}catch(v0){return Promise.reject(v0)}}`)
+  t->assertCode(fn, `i=>{try{typeof i==="string"||e[0](i);return Promise.resolve(void 0)}catch(v0){return e[1](v0)}}`)
 })
 
 test("Immitate assert returning true with S.to and literal", t => {
   let fn = S.compileConvertOrThrow(~from=S.unknown, ~to=S.string->S.to(S.literal(true)->S.noValidation(true)))
-  t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return true}`)
+  t->assertCode(fn, `i=>{try{typeof i==="string"||e[0](i);return true}catch(v0){e[1](v0)}}`)
 })
 
 test("compileConvertOrThrow with ~via chains through the middle schema", t => {

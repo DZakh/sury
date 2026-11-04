@@ -304,14 +304,17 @@ const performance = (): Table => ({
 // text `JSON.stringify` would have produced, and if reading that text back
 // gives the value that went in. The corpus is the places an encoder that
 // splices values into a literal is most likely to get it wrong.
+const document = S.jsonString.with(S.to, S.string);
 const AGREEMENT: { schema: S.Schema<unknown, unknown>; value: unknown }[] = [
   { schema: S.schema({ n: S.number }) as never, value: { n: 0 } },
   { schema: S.schema({ n: S.number }) as never, value: { n: -1.5e-7 } },
-  { schema: S.string as never, value: "" },
-  { schema: S.string as never, value: 'quote " backslash \\ newline \n tab \t' },
-  { schema: S.string as never, value: "\u0000\u001f\u007f" },
-  { schema: S.string as never, value: "emoji \u{1f9ec} and \u{1d11e} outside the BMP" },
-  { schema: S.string as never, value: "</script><!-- and & entities" },
+  // A document holding a string: a bare `S.string` into `S.jsonString` is
+  // the pair that has to say pack or unpack (CONTENT_CODEC_SPEC.md).
+  { schema: document as never, value: "" },
+  { schema: document as never, value: 'quote " backslash \\ newline \n tab \t' },
+  { schema: document as never, value: "\u0000\u001f\u007f" },
+  { schema: document as never, value: "emoji \u{1f9ec} and \u{1d11e} outside the BMP" },
+  { schema: document as never, value: "</script><!-- and & entities" },
   { schema: S.array(S.number) as never, value: [] },
   { schema: S.array(S.array(S.number)) as never, value: [[], [1], [2, 3]] },
   { schema: S.record(S.number) as never, value: {} },

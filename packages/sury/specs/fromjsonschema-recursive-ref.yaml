@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
   output: '{ $ref: "#/$defs/node", $defs: { node: { type: "object", properties: { value: { type: "string" }, children: { items: { $ref: "#/$defs/node" }, type: "array" } }, required: ["value"] } } }'
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{let v0;v0=e[0](i);return v0}
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       tree:
         input: '{ value: "root", children: [{ value: "leaf" }] }'
@@ -33,5 +34,27 @@ operations:
       not-matching-the-ref:
         input: '"any json"'
         error: 'Expected { value: string; children: node[] | undefined; }, received "any json"'
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf" }] }'
+      leaf:
+        input: '{ value: "leaf", children: undefined }'
+        output: '{ value: "leaf", children: undefined }'
+      deeply-nested:
+        input: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+        output: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      tree:
+        input: '{ value: "root", children: [{ value: "leaf" }] }'
+        output: '{ value: "root", children: [{ value: "leaf" }] }'
+      leaf:
+        input: '{ value: "leaf", children: undefined }'
+        output: '{ value: "leaf", children: undefined }'
+      deeply-nested:
+        input: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'
+        output: '{ value: "a", children: [{ value: "b", children: [{ value: "c" }] }] }'

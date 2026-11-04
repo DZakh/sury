@@ -56,7 +56,9 @@ const suryShape = (stored: {
 }): string => {
   if (stored.map) return `map<${stored.key}, ?>`;
   const packed = stored.repeated && !stored.packed ? " [packed=false]" : "";
-  return `${stored.repeated ? "repeated " : ""}${stored.type}${packed}`;
+  // A well-known type is a message on the wire, whatever value it is read into.
+  const type = stored.type.startsWith("google.protobuf.") ? "message" : stored.type;
+  return `${stored.repeated ? "repeated " : ""}${type}${packed}`;
 };
 
 // The field metadata `S.protobufField` stored, keyed by number. Read off the
@@ -64,8 +66,16 @@ const suryShape = (stored: {
 // do.
 const declared = (): Map<number, { name: string; shape: string }> => {
   const out = new Map<number, { name: string; shape: string }>();
-  const properties = (testAllTypesProto3 as unknown as { properties: Record<string, unknown> })
-    .properties;
+  // The message is recursive, so what is exported is a `$ref` to its definition.
+  const root = testAllTypesProto3 as unknown as {
+    $ref?: string;
+    $defs?: Record<string, { properties: Record<string, unknown> }>;
+    properties?: Record<string, unknown>;
+  };
+  const properties =
+    root.$ref === undefined
+      ? root.properties!
+      : root.$defs![root.$ref.slice("#/$defs/".length)]!.properties;
   for (const key of Object.keys(properties)) {
     let schema = properties[key] as
       | { protobufField?: unknown; to?: unknown; anyOf?: unknown[] }

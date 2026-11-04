@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufField(S.union(["a", "b"]).with(S.to, S.union([0, 1])), { number: 1, type: "enum" })'
+  input: '"a" | "b"'
+  output: 0 | 1
+  instantiations: 5354
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  output: "{ enum: [0, 1] }"
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Ambiguous "a" | "b" -> 0 | 1. Should "a" be decoded or ignored? Choose with S.to for "a" -> 0, or S.never -> "a"'
+  decode: eq-to-parse
+  encode:
+    creationError: 'SuryError: Ambiguous 0 | 1 -> "a" | "b". Should 0 be decoded or ignored? Choose with S.to for 0 -> "a", or S.never -> 0'

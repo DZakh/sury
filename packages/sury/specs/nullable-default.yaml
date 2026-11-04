@@ -10,11 +10,14 @@ jsonSchema:
   openapi-3.0:
     input: '{ default: "bar", type: "string", nullable: true }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod: z.string().nullable().transform((value) => value ?? "bar")
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i="bar";break}e[0](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(i===null){i="bar";break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"foo"'
@@ -27,7 +30,7 @@ operations:
         error: Expected string | null, received undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"foo"'

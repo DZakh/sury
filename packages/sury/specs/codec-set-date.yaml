@@ -8,12 +8,15 @@ jsonSchema:
   input: Expected JSON, received Set<date-time>
   output: Expected JSON, received Set<Date>
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Set<date-time>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Set<Date>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[4]||e[5](i);let v1=new Set;let v2=0;for(let v0 of i){try{typeof v0==="string"||e[3](v0);e[1](v0)||e[2](v0);let v3=new Date(v0);!Number.isNaN(v3.getTime())||e[0](v3);v1.add(v3);v2++;}catch(v4){v4.path=[v2,...v4.path];throw v4}}return v1}
+    expression: i=>{try{i instanceof e[4]||e[5](i);let v3=new Set;let v1=0;for(let v0 of i){typeof v0==="string"||e[3](v0,[v1]);e[1](v0)||e[2](v0,[v1]);let v2=new Date(v0);!Number.isNaN(v2.getTime())||e[0](v0,[v1]);v3.add(v2);v1++;}return v3}catch(v4){e[6](v4)}}
     examples:
       valid:
         input: new Set(["1970-01-01T00:00:00.000Z"])
@@ -25,13 +28,13 @@ operations:
         input: '["1970-01-01T00:00:00.000Z"]'
         error: Expected Set<date-time>, received ["1970-01-01T00:00:00.000Z"]
   decode:
-    expression: i=>{let v1=new Set;let v2=0;for(let v0 of i){try{e[1](v0)||e[2](v0);let v3=new Date(v0);!Number.isNaN(v3.getTime())||e[0](v3);v1.add(v3);v2++;}catch(v4){v4.path=[v2,...v4.path];throw v4}}return v1}
+    expression: i=>{try{let v3=new Set;let v1=0;for(let v0 of i){e[1](v0)||e[2](v0,[v1]);let v2=new Date(v0);!Number.isNaN(v2.getTime())||e[0](v0,[v1]);v3.add(v2);v1++;}return v3}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: new Set(["1970-01-01T00:00:00.000Z"])
         output: new Set([new Date("1970-01-01T00:00:00.000Z")])
   encode:
-    expression: i=>{let v2=new Set;let v3=0;for(let v0 of i){try{let v1;try{v1=v0.toISOString()}catch(_){e[0](v0)}e[1](v1)||e[2](v1);v2.add(v1);v3++;}catch(v4){v4.path=[v3,...v4.path];throw v4}}return v2}
+    expression: i=>{try{let v3=new Set;let v1=0;for(let v0 of i){let v2;try{v2=v0.toISOString()}catch(_){e[0](v0,[v1])}e[1](v2)||e[2](v2,[v1]);v3.add(v2);v1++;}return v3}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: new Set([new Date("1970-01-01T00:00:00.000Z")])

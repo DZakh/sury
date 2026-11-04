@@ -8,11 +8,12 @@ jsonSchema:
   input: "Expected JSON, received { a: boolean; } | undefined"
   output: "Expected JSON, received { a: boolean; } | undefined"
 isEqual: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&a.a===b.a)
+compare: "throws: [Sury] Can't compare { a: boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: "z.object({ a: z.boolean() }).optional()"
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===void 0)break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.a;typeof v0==="boolean"||e[0](v0);i={a:v0};break}if(i===void 0)break;throw e[1](i)}return i}catch(v1){e[2](v1)}}
     examples:
       object:
         input: "{ a: true }"

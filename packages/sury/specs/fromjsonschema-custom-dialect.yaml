@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       ignored-sibling:
         input: '"a"'

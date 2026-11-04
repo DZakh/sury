@@ -63,6 +63,8 @@ const EFFECTFUL: Record<string, string> = {
   isOutputAsPromise: "the immediate call forms validate",
   isEqualInput: "an operation, and operations are not annotated",
   isEqualOutput: "an operation, and operations are not annotated",
+  compareInput: "an operation, and operations are not annotated",
+  compareOutput: "an operation, and operations are not annotated",
   assertInputOrThrow: "the immediate call forms validate",
   assertOutputOrThrow: "the immediate call forms validate",
   assertInputAsPromiseOrReject: "the immediate call forms validate",

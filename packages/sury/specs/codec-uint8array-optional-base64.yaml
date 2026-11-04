@@ -13,12 +13,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;return i}
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;return i}catch(v1){e[5](v1)}}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
@@ -30,13 +33,13 @@ operations:
         input: new Uint8Array([])
         output: '""'
   decode:
-    expression: i=>{let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;return i}
+    expression: i=>{try{let v0=e[0](i);e[1](v0)||e[2](v0);i=v0;return i}catch(v1){e[3](v1)}}
     examples:
       base64-legal-ascii:
         input: new Uint8Array([97, 98, 99, 100])
         output: '"YWJjZA=="'
   encode:
-    expression: i=>{if(typeof i==="string"){e[1](i)||e[2](i);i=e[0](i)}else{e[3](i)}return i}
+    expression: i=>{try{if(typeof i==="string"){e[1](i)||e[2](i);i=e[0](i);}else{throw e[3](i)}return i}catch(v0){e[4](v0)}}
     examples:
       base64-legal-ascii:
         input: '"YWJjZA=="'

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobuf.with(S.to, S.schema({ m: S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x + "!" } }, encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1) }).with(S.protobufField, 1), many: S.array(S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x + "!" } }, encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1) })).with(S.protobufField, 2) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ m: { a: string; }; many: { a: string; }[]; }"
+  instantiations: 9248
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { m: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, many: { items: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, type: "array" } }, required: ["m", "many"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.m.a===b.m.a&&e[0](a.many,b.many)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { m: { a: string; }; many: { a: string; }[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[10]||e[11](i);let v0=void 0,v1=[];{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;case 18:p=r.sub();v1.push(m2(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g;r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t,k,v1);e[7](x)}}let v2=e[8](v0,["m"]);let v3=e[9](v1,["many"]);return Promise.all([v2,v3]).then(([v2,v3])=>{return {m:v2,many:v3}}).catch(e[12])}catch(v4){return e[13](v4)}}
+    examples:
+      nested:
+        input: new Uint8Array([10, 3, 10, 1, 120, 18, 3, 10, 1, 121, 18, 3, 10, 1, 122])
+        output: '{ m: { a: "x!" }, many: [{ a: "y!" }, { a: "z!" }] }'
+      absent-message-is-its-default:
+        input: new Uint8Array([])
+        output: '{ m: { a: "!" }, many: [] }'
+      rejected-in-a-message:
+        input: new Uint8Array([10, 5, 10, 3, 98, 97, 100])
+        error: "Failed at m.a: rejected"
+      rejected-in-a-list:
+        input: new Uint8Array([18, 3, 10, 1, 121, 18, 5, 10, 3, 98, 97, 100])
+        error: "Failed at many[1].a: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v0=void 0,v1=[];{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2],m2=e[3];try{r=e[5].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;case 18:p=r.sub();v1.push(m2(r,d+1));r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g;r.busy=false}catch(x){r&&(r.busy=false);x=e[6](x,e[4],t,k,v1);e[7](x)}}let v2=e[8](v0,["m"]);let v3=e[9](v1,["many"]);return Promise.all([v2,v3]).then(([v2,v3])=>{return {m:v2,many:v3}}).catch(e[10])}catch(v4){return e[11](v4)}}
+    examples:
+      nested:
+        input: new Uint8Array([10, 3, 10, 1, 120, 18, 3, 10, 1, 121])
+        output: '{ m: { a: "x!" }, many: [{ a: "y!" }] }'
+  encode:
+    expression: i=>{try{let v0=i.m,v2=i.many;let v1;try{v1=e[0](v0.a)}catch(x){e[1](x)}typeof v1==="string"||e[2](v1);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4=v2[v3];let v5;try{v5=e[3](v4.a)}catch(x){e[4](x,["many",v3,"a"])}typeof v5==="string"||e[5](v5,["many",v3,"a"]);v6[v3]={a:v5}}let v7;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[10].acquire();f=0;v={a:v1};if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};f=1;v=v6;n=v.length;if(n){j=0;while(j<n){w.pos<w.buf.length?w.buf[w.pos++]=18:w.varint32(18);h=w.begin();e[7](w,v[j++]);w.end(h)}};v7=w.finish()}catch(x){w&&(w.busy=false);x=e[8](x,e[9],f,j,a);e[11](x)}}return v7}catch(v8){e[12](v8)}}
+    examples:
+      nested:
+        input: '{ m: { a: "x!" }, many: [{ a: "y!" }] }'
+        output: new Uint8Array([10, 3, 10, 1, 120, 18, 3, 10, 1, 121])

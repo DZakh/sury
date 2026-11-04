@@ -8,7 +8,7 @@ export const show = (value: unknown): string => {
   if (value instanceof Date) return `Date(${value.getTime()})`;
   if (value instanceof URL) return `URL(${value.href})`;
   if (value instanceof Error) return `${value.name}(${value.message})`;
-  if (value instanceof Uint8Array) return `Uint8Array(${value.length})`;
+  if (value instanceof Uint8Array) return `Uint8Array([${value.join(", ")}])`;
   if (typeof Blob !== "undefined" && value instanceof Blob) {
     return `Blob(${value.size})`;
   }

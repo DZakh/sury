@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.literal(new Date(0)), S.string])
+  input: "string | { toString: () => string; toDateString: () => string; toTimeString: () => string; toLocaleString: { (): string; (locales?: string | string[] | undefined, options?: DateTimeFormatOptions | undefined): string; (locales?: LocalesArgument, options?: DateTimeFormatOptions | undefined): string; }; ... 40 more ......"
+  output: "string | { toString: () => string; toDateString: () => string; toTimeString: () => string; toLocaleString: { (): string; (locales?: string | string[] | undefined, options?: DateTimeFormatOptions | undefined): string; (locales?: LocalesArgument, options?: DateTimeFormatOptions | undefined): string; }; ... 40 more ......"
+  instantiations: 3516
+jsonSchema:
+  input: Expected JSON, received Date | string
+  output: Expected JSON, received Date | string
+isEqual: strictEqual
+compare: "throws: [Sury] Can't compare Date | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{(i instanceof e[1]&&i===e[0]||typeof i==="string")||e[2](i);return i}catch(v0){e[3](v0)}}
+    examples:
+      an-equal-date-is-another-instance:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        error: Expected Date | string, received Date
+      a-string:
+        input: '"a"'
+        output: '"a"'
+  decode: identity
+  encode: identity

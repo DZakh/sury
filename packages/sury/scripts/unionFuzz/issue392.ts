@@ -1,3 +1,4 @@
+import { node } from "./shape";
 import type { MemberSpec } from "./generate";
 import type { Sury } from "./types";
 
@@ -8,19 +9,22 @@ export type Issue392Case = {
   readonly allWitnesses: readonly { label: string; value: unknown }[];
 };
 
+const tagged = (inner: string) => node("tagged", node(inner));
+
 export const issue392Case = (S: Sury): Issue392Case => {
   const payload = S.schema({
     a: S.string,
     kind: S.union([S.schema("A"), S.schema("B")]),
   });
   const members: MemberSpec[] = [
-    { id: '{TAG:"One",_0:string}', schema: S.schema({ TAG: "One", _0: S.string }) },
-    { id: '{TAG:"Two",_0:string}', schema: S.schema({ TAG: "Two", _0: S.string }) },
+    { id: '{TAG:"One",_0:string}', schema: S.schema({ TAG: "One", _0: S.string }), shape: tagged("string") },
+    { id: '{TAG:"Two",_0:string}', schema: S.schema({ TAG: "Two", _0: S.string }), shape: tagged("string") },
     {
       id: '{TAG:"Three",_0:{a,kind:"A"|"B"}}',
       schema: S.schema({ TAG: "Three", _0: payload }),
+      shape: tagged("payload"),
     },
-    { id: '{TAG:"Four",_0:string}', schema: S.schema({ TAG: "Four", _0: S.string }) },
+    { id: '{TAG:"Four",_0:string}', schema: S.schema({ TAG: "Four", _0: S.string }), shape: tagged("string") },
   ];
   return {
     id: "issue-392",

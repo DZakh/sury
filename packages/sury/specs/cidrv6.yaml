@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.cidrv6()
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid:
         input: '"2001:db8::/32"'
@@ -42,7 +43,7 @@ operations:
         input: "42"
         error: Expected cidrv6, received 42
   decode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"2001:db8::/32"'
@@ -51,7 +52,7 @@ operations:
         input: '"2001:db8::/129"'
         error: Expected cidrv6, received "2001:db8::/129"
   encode:
-    expression: i=>{e[0].test(i)||e[1](i);return i}
+    expression: i=>{try{e[0].test(i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid:
         input: '"2001:db8::/32"'

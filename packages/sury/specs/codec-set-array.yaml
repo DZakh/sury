@@ -10,12 +10,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare Set<string>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[1]||e[2](i);let v1=0;for(let v0 of i){try{typeof v0==="string"||e[0](v0);v1++;}catch(v2){v2.path=[v1,...v2.path];throw v2}}let v3=Array.from(i);return v3}
+    expression: i=>{try{i instanceof e[1]||e[2](i);let v1=0;for(let v0 of i){typeof v0==="string"||e[0](v0,[v1]);v1++;}let v2=Array.from(i);return v2}catch(v4){e[3](v4)}}
     examples:
       valid:
         input: new Set(["a", "b"])

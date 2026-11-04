@@ -8,12 +8,15 @@ jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } } }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
 isEqual: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.a;typeof v0==="string"||e[0](v0);return {a:v0}}catch(v1){e[2](v1)}}
     examples:
       present:
         input: '{ a: "x" }'
@@ -25,7 +28,7 @@ operations:
         input: "{ a: undefined }"
         error: "Failed at a: Expected string, received undefined"
   decode:
-    expression: i=>{let v0=i.a;typeof v0==="string"||e[0](v0);return i}
+    expression: i=>{try{let v0=i.a;typeof v0==="string"||e[0](v0);return i}catch(v1){e[1](v1)}}
     examples:
       present:
         input: '{ a: "x" }'

@@ -35,6 +35,8 @@ export default defineConfig({
         // spec_perf_test.ts covers the statistics and the target derivation,
         // which is the part a test can hold still.
         `${specDir}/benchChild.ts`,
+        // Runs on the harness's worker threads, where this coverage can't see it.
+        `${specDir}/typeProbe.ts`,
         `${specDir}/.bench-cache/**`,
         `${specDir}/node_modules/**`,
       ],

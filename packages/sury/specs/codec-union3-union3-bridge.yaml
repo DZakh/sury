@@ -8,34 +8,28 @@ jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received bigint | number | undefined
 isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare bigint | number | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare bigint | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i==i)break;if(i===null){i=void 0;break}e[0](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i==i)break;if(i===null){i=void 0;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       bigint:
         input: 123n
         output: 123n
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous bigint -> bigint | number | undefined. Should number be decoded or ignored? Choose with S.to for bigint -> number, or S.never -> number
       number:
         input: "123.12"
         output: "123.12"
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous bigint -> bigint | number | undefined. Should number be decoded or ignored? Choose with S.to for bigint -> number, or S.never -> number
       null-bridges-to-undefined:
         input: "null"
         output: undefined
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous bigint -> bigint | number | undefined. Should number be decoded or ignored? Choose with S.to for bigint -> number, or S.never -> number
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i==i)break;if(i===void 0){i=null;break}e[0](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="bigint")break;if(typeof i==="number"&&i==i)break;if(i===void 0){i=null;break}throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       undefined-bridges-to-null:
         input: undefined

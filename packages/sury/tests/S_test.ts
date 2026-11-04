@@ -199,9 +199,9 @@ test("A reading joins the link key; a coder opts out", (t) => {
 
   // `S.trim` reshapes its own result after building it, so it stays unshared
   // for a second reason - and the content marker it stamps onto its tail must
-  // not reach the shared `string` singleton. `content` is internal, hence the cast.
+  // not reach the shared `string` singleton. The kind bits are internal, hence the cast.
   t.expect(S.base64.with(S.trim)).not.toBe(S.base64.with(S.trim));
-  t.expect((S.string as unknown as { content?: unknown }).content).toBe(undefined);
+  t.expect(((S.string as unknown as { flags?: number }).flags ?? 0) & 3).toBe(0);
 });
 
 test("The link cache lands on the argument that dies first", (t) => {
@@ -449,6 +449,13 @@ test("Successfully parses nullable string with dynamic default", (t) => {
   expectTypeOf(value1).toEqualTypeOf<string>();
 });
 
+test("Nullish default can't be null", (t) => {
+  t.expect(() =>
+    // @ts-expect-error
+    S.nullish(S.string, null)
+  ).toThrow("Invalid default for string | null | undefined: Expected string, received null");
+});
+
 test("Pattern match on schema", (t) => {
   const schema = S.int32;
 
@@ -570,12 +577,10 @@ test("Custom codecs type their coders against the junction, and stay assignable"
 test("An output-seam codec rejects a target that already converts", (t) => {
   const target = S.string.with(S.to, S.number);
 
-  // Only the ReScript adapter can reach this seam, and only it is restricted:
-  // the JS pair feeds the target's chain instead of replacing it.
   t.expect(() =>
-    (S.to as any)(S.string, target, {
-      decodeToOutput: (value: string) => value.length,
-      encodeFromOutput: (value: number) => String(value),
+    (S as any).$to(S.string, target, {
+      decode: (value: string) => value.length,
+      encode: (value: number) => String(value),
     }),
   ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
 
@@ -782,12 +787,14 @@ test("Successfully parses and returns result", (t) => {
       readonly success: true;
       readonly value: string;
       readonly error?: undefined;
+      readonly issues?: undefined;
     }>();
   } else {
     expectTypeOf(value).toEqualTypeOf<{
       readonly success: false;
       readonly error: S.DataError;
       readonly value?: undefined;
+      readonly issues: readonly S.StandardSchemaV1.Issue[];
     }>();
   }
 });
@@ -803,12 +810,14 @@ test("Successfully reverse converts and returns result", (t) => {
       readonly success: true;
       readonly value: string;
       readonly error?: undefined;
+      readonly issues?: undefined;
     }>();
   } else {
     expectTypeOf(value).toEqualTypeOf<{
       readonly success: false;
       readonly error: S.DataError;
       readonly value?: undefined;
+      readonly issues: readonly S.StandardSchemaV1.Issue[];
     }>();
   }
 });
@@ -929,7 +938,8 @@ test("Standard schema", (t) => {
 
   t.expect(schema["~standard"]["vendor"]).toEqual("sury");
   t.expect(schema["~standard"]["version"]).toEqual(1);
-  t.expect(schema["~standard"]["validate"](undefined)).toEqual({
+  t.expect(schema["~standard"]["validate"](undefined)).toMatchObject({
+    success: false,
     issues: [
       {
         message: "Expected string | null, received undefined",
@@ -938,9 +948,11 @@ test("Standard schema", (t) => {
     ],
   });
   t.expect(schema["~standard"]["validate"]("foo")).toEqual({
+    success: true,
     value: "foo",
   });
   t.expect(schema["~standard"]["validate"](null)).toEqual({
+    success: true,
     value: null,
   });
 
@@ -970,6 +982,7 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
     t.expect(S.isInput(schema)({ a: "1" })).toBe(true);
     t.expect(S.isInput(schema)({ a: 1 })).toBe(false);
     t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
+      success: true,
       value: { a: 2 },
     });
   }
@@ -982,18 +995,19 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
 
   const standard = S.number["~standard"];
   const nanRejected = {
+    success: false,
     issues: [{ message: "Expected number, received NaN", path: undefined }],
   };
-  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  t.expect(standard.validate(NaN)).toMatchObject(nanRejected);
   try {
     S.global({ disableNanNumberValidation: true });
     t.expect(S.isInput(S.number)(NaN)).toBe(true);
-    t.expect(standard.validate(NaN)).toEqual({ value: NaN });
+    t.expect(standard.validate(NaN)).toEqual({ success: true, value: NaN });
   } finally {
     S.global({});
   }
   t.expect(S.isInput(S.number)(NaN)).toBe(false);
-  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  t.expect(standard.validate(NaN)).toMatchObject(nanRejected);
 });
 
 // A conversion rejected at operation creation fails for every input, so it
@@ -1012,8 +1026,9 @@ test("A conversion rejected at operation creation throws from validate, on every
   // Only the compile is promoted: an input that fails validation is still a
   // result, not an exception.
   const schema = S.schema({ id: S.string });
-  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
-  t.expect(schema["~standard"].validate({ id: 1 })).toEqual({
+  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ success: true, value: { id: "a" } });
+  t.expect(schema["~standard"].validate({ id: 1 })).toMatchObject({
+    success: false,
     issues: [{ message: "Expected string, received 1", path: ["id"] }],
   });
 });
@@ -1032,15 +1047,16 @@ test("~standard.validate returns a promise for a schema with an async codec", as
   for (let i = 0; i < 2; i++) {
     const valid = standard.validate({ id: "abc" });
     t.expect(valid).toBeInstanceOf(Promise);
-    await t.expect(valid).resolves.toEqual({ value: { id: 3 } });
-    await t.expect(standard.validate({ id: 1 })).resolves.toEqual({
+    await t.expect(valid).resolves.toEqual({ success: true, value: { id: 3 } });
+    await t.expect(standard.validate({ id: 1 })).resolves.toMatchObject({
+      success: false,
       issues: [{ message: "Expected string, received 1", path: ["id"] }],
     });
   }
 
   // A sync schema keeps answering synchronously - a consumer that can't
   // await must not start getting promises.
-  t.expect(S.string["~standard"].validate("a")).toEqual({ value: "a" });
+  t.expect(S.string["~standard"].validate("a")).toEqual({ success: true, value: "a" });
 
   // A conversion rejected at operation creation still throws, on the async
   // retry rather than being read as an async schema.
@@ -1049,22 +1065,14 @@ test("~standard.validate returns a promise for a schema with an async codec", as
   );
 });
 
-// A foreign exception (not a Sury error) keeps going up from `~standard.validate`
-// of a sync schema, and keeps doing so after a Result operation has installed
-// the operation tail emitter - which must not wrap the Standard Schema body in
-// a second `try` that turns the rethrow into a rejection. A test file rather
-// than a spec: what's under test is an order dependency between two
-// operations, which a per-schema golden can't express.
-// A foreign exception - a getter here - is a failure of THIS value, so it is
-// an issue rather than a throw, and the same issue whichever operation was
-// compiled first (the Result emitter is registered on first use).
-test("~standard.validate answers a foreign exception as an issue regardless of which operation compiled first", (t) => {
+test("~standard.validate answers a foreign exception as an issue", (t) => {
   const foreign = new Proxy({}, { get() { throw new Error("foreign"); } });
-  t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toEqual({
+  t.expect(S.schema({ id: S.string })["~standard"].validate(foreign)).toMatchObject({
+    success: false,
     issues: [{ message: "foreign", path: undefined }],
   });
-  S.parseAsResult(S.string, "a");
-  t.expect(S.schema({ id: S.string, n: S.number })["~standard"].validate(foreign)).toEqual({
+  t.expect(S.schema({ id: S.string, n: S.number })["~standard"].validate(foreign)).toMatchObject({
+    success: false,
     issues: [{ message: "foreign", path: undefined }],
   });
 });
@@ -1074,7 +1082,8 @@ test("~standard.validate answers a foreign exception as an issue regardless of w
 test("~standard.validate forwards a symbol path segment", (t) => {
   const tag = Symbol("tag");
   const schema = S.string.with(S.refine, () => false, { error: "User error", path: [tag] });
-  t.expect(schema["~standard"].validate("a")).toEqual({
+  t.expect(schema["~standard"].validate("a")).toMatchObject({
+    success: false,
     issues: [{ message: "User error", path: [tag] }],
   });
   t.expect(S.pathToText([tag, "a"])).toBe("[Symbol(tag)].a");
@@ -1459,11 +1468,101 @@ test("a number compares with SameValueZero once NaN can reach it", (t) => {
   }
 });
 
+test("compare dispatch: the schema is found first or last, and its absence panics", (t) => {
+  const schema = S.tuple([S.string]);
+  const a: [string] = ["u1"];
+  const b: [string] = ["u1"];
+
+  t.expect(typeof S.compareOutput(schema)).toBe("function");
+  t.expect(S.compareOutput(S.void, undefined, undefined)).toBe(0);
+
+  t.expect(S.compareOutput(schema)(a, b)).toBe(0);
+  t.expect(S.compareOutput(schema, a, b)).toBe(0);
+  t.expect(S.compareOutput(a, b, schema)).toBe(0);
+  t.expect(S.compareInput(a, b, schema)).toBe(0);
+  t.expect(S.compareOutput(a, ["u2"], schema)).toBe(-1);
+  t.expect(S.compareOutput(["u2"], a, schema)).toBe(1);
+
+  const foreign = {
+    "~standard": { version: 1, vendor: "other", validate: (v: unknown) => ({ value: v }) },
+  };
+  t.expect(() => (S.compareOutput as (a: unknown) => unknown)(foreign)).toThrow(
+    "Expected a Sury schema",
+  );
+  t.expect(() =>
+    (S.compareInput as (a: unknown, b: unknown, c: unknown) => unknown)("x", "x", foreign),
+  ).toThrow("Expected a Sury schema");
+});
+
+// Every schema's own refusal is a spec golden. What a spec can't hold is the
+// message itself, which is one text for the whole corpus.
+test("compare refuses a schema with no order, and says what has one", (t) => {
+  t.expect(() => S.compareOutput(S.schema({ id: S.string }))).toThrow(
+    "[Sury] Can't compare { id: string; }. Only primitives, Date, URL and tuples of them " +
+      "are orderable. Use isEqual for equality",
+  );
+  // The offending part is named, not the schema the caller passed.
+  t.expect(() => S.compareOutput(S.tuple([S.string, S.unknown]))).toThrow(
+    "Can't compare unknown.",
+  );
+  // isEqual keeps answering for all of them.
+  t.expect(S.isEqualOutput(S.schema({ id: S.string }), { id: "u1" }, { id: "u1" })).toBe(true);
+  t.expect(S.isEqualOutput(S.unknown, { a: [1] }, { a: [1] })).toBe(true);
+});
+
+test("compare orders primitives, dates and optionals, and tuples of them", (t) => {
+  t.expect(S.compareOutput(S.string, "a", "a")).toBe(0);
+  t.expect(S.compareOutput(S.string, "a", "b")).toBe(-1);
+  t.expect(S.compareOutput(S.string, "b", "a")).toBe(1);
+  t.expect(S.compareOutput(S.number, 1, 2)).toBe(-1);
+  t.expect(S.compareOutput(S.number, 2, 1)).toBe(1);
+  t.expect(S.compareOutput(S.number, 0, -0)).toBe(0);
+  t.expect(S.compareOutput(S.boolean, false, true)).toBe(-1);
+  t.expect(S.compareOutput(S.bigint, 1n, 2n)).toBe(-1);
+
+  const row = S.tuple([S.string, S.number]);
+  t.expect(S.compareOutput(row, ["a", 2], ["b", 1])).toBe(-1);
+  t.expect(S.compareOutput(row, ["a", 1], ["a", 2])).toBe(-1);
+  t.expect(S.compareOutput(row, ["a", 1], ["a", 1])).toBe(0);
+
+  const maybe = S.optional(S.string);
+  t.expect(S.compareOutput(maybe, undefined, "a")).toBe(-1);
+  t.expect(S.compareOutput(maybe, "a", undefined)).toBe(1);
+  t.expect(S.compareOutput(maybe, "a", "b")).toBe(-1);
+  t.expect(S.compareOutput(maybe, undefined, undefined)).toBe(0);
+
+  const at = new Date("2026-01-01");
+  const later = new Date("2026-01-02");
+  t.expect(S.compareOutput(S.date, at, new Date("2026-01-01"))).toBe(0);
+  t.expect(S.compareOutput(S.date, at, later)).toBe(-1);
+  t.expect(S.compareOutput(S.date, later, at)).toBe(1);
+
+  // Hand to sort, the case the API exists for.
+  const rows: [string, number][] = [["b", 1], ["a", 2], ["a", 1]];
+  t.expect(rows.slice().sort(S.compareOutput(row))).toEqual([["a", 1], ["a", 2], ["b", 1]]);
+});
+
+test("a number's compare uses the SameValueZero zero-case once NaN can reach it", (t) => {
+  try {
+    S.global({ disableNanNumberValidation: true });
+    t.expect(S.compareOutput(S.number, NaN, NaN)).toBe(0);
+    t.expect(S.compareOutput(S.number, 0, -0)).toBe(0);
+    t.expect(S.compareOutput(S.number, 1, 2)).toBe(-1);
+    t.expect(S.compareOutput(S.number, NaN, 1)).toBe(-1);
+    t.expect(S.compareOutput(S.number, 1, NaN)).toBe(1);
+    const nested = S.tuple([S.number]);
+    t.expect(S.compareOutput(nested, [NaN], [NaN])).toBe(0);
+    t.expect(S.compareOutput(nested, [NaN], [1])).toBe(-1);
+  } finally {
+    S.global({});
+  }
+});
+
 test("Every construction path keeps a schema recognizable to operation dispatch", (t) => {
   // `S.assertInputOrThrow(data, schema)` only finds the schema in the second slot when
   // the schema still has one of the two schema prototypes, so every way of
   // making a schema has to preserve it.
-  type Node = { id: string; next?: Node };
+  type Node = { id: string; next?: Node | undefined };
   const recursed = S.recursive<Node, Node>("Node", (self) =>
     S.schema({ id: S.string, next: S.optional(self) }),
   );
@@ -1647,7 +1746,7 @@ test("Parse to literal with no validation to emulate assert", async (t) => {
   expectTypeOf(fn).toEqualTypeOf<(data: unknown) => true>();
   t.expect(fn({ foo: "bar" })).toEqual(true);
   t.expect(fn.toString()).toEqual(
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="string"||e[0](v0);return true}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.foo;typeof v0==="string"||e[0](v0);return true}catch(v1){e[2](v1)}}`,
   );
 });
 
@@ -2209,10 +2308,10 @@ test("fromJSONSchemaOrThrow: composition keywords constrain in addition to the b
   const parse = S.parseOrThrow(schema) as (d: unknown) => unknown;
 
   const input = { bar: 2, foo: "x" };
-  t.expect(parse(input)).toEqual({ bar: 2 });
+  t.expect(parse(input)).toEqual({ bar: 2, foo: "x" });
   // Fails the base shape.
   t.expect(caught(() => parse({ bar: "no", foo: "x" }))).toBeDefined();
-  // Fails only the allOf branch - the base shape alone used to win.
+  // Fails only the allOf branch.
   t.expect(caught(() => parse({ bar: 2 }))).toBeDefined();
 });
 
@@ -2312,7 +2411,10 @@ test("Compile types", async (t) => {
   t.expect(fn6("hello")).toEqual("hello");
   t.expect(fn6(undefined)).toEqual(null);
 
-  const fn7 = S.encodeOrThrow(schema, S.jsonString);
+  // A plain string into a JSON string has to say which way
+  // (CONTENT_CODEC_SPEC.md), in the operation form too.
+  t.expect(() => S.encodeOrThrow(schema, S.jsonString)).toThrow("Ambiguous string -> JSON string");
+  const fn7 = S.encodeOrThrow(schema, S.nullable(S.string).with(S.to, S.jsonString, "pack"));
   expectTypeOf(fn7).toEqualTypeOf<(input: string | undefined) => string>();
   t.expect(fn7("hello")).toEqual(`"hello"`);
   t.expect(fn7(undefined)).toEqual("null");
@@ -2366,7 +2468,7 @@ test("Preprocess nested fields", (t) => {
 
   t.expect(fn.toString()).toEqual(
     // The junction seam validates each coder's result against its target.
-    `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}`,
+    `i=>{try{i===void 0||e[6](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {nested:{tag:v0,numberTag:v1}}}catch(v2){e[7](v2)}}`,
   );
 
   const value = fn(undefined);
@@ -3148,3 +3250,33 @@ test("schemaOf: leaves inference alone", () => {
     S.Schema<[string, number], [string, number]>
   >();
 });
+
+test("isEqual walks a recursive schema, including mutual recursion, and compare refuses one", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({ v: S.string, kids: S.array(self) }),
+  );
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+  // Depth is where a recursive comparator differs from a shallow one.
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("p")])]))).toBe(true);
+  t.expect(S.isEqualInput(node, tree("a", [tree("x", [tree("p")])]), tree("a", [tree("x", [tree("q")])]))).toBe(false);
+
+  // A def compiles to a call rather than an inlined chain of ordered tests,
+  // which is the shape `compare` answers for.
+  t.expect(() => S.compareInput(node, tree("a"), tree("b"))).toThrow(
+    "[Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality",
+  );
+
+  type Branch = { n: number; leaf: { kids: Branch[] } };
+  const branch = S.recursive<Branch>("Branch", (self) =>
+    S.schema({ n: S.number, leaf: S.recursive("Leaf", () => S.schema({ kids: S.array(self) })) }),
+  );
+  const b = (n: number, kids: Branch[] = []): Branch => ({ n, leaf: { kids } });
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(2)]))).toBe(true);
+  t.expect(S.isEqualInput(branch, b(1, [b(2)]), b(1, [b(3)]))).toBe(false);
+  t.expect(() => S.compareInput(branch, b(1), b(2))).toThrow("Can't compare Branch");
+});
+

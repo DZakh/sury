@@ -8,11 +8,12 @@ jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.bigint()
 operations:
   parse:
-    expression: i=>{typeof i==="bigint"||e[0](i);return i}
+    expression: i=>{try{typeof i==="bigint"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: 42n

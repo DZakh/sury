@@ -8,11 +8,12 @@ jsonSchema:
   input: Expected JSON, received Map<string, number>
   output: Expected JSON, received Map<string, number>
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Map<string, number>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.map(z.string(), z.number())
 operations:
   parse:
-    expression: i=>{i instanceof e[2]||e[3](i);for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];typeof v1==="number"&&v1==v1||e[0](v1);}catch(v3){v3.path=[v0[0],...v3.path];throw v3}}return i}
+    expression: i=>{try{i instanceof e[2]||e[3](i);for(let v0 of i){let v1=v0[0];typeof v1==="string"||e[0](v1,[v0[0]]);let v2=v0[1];typeof v2==="number"&&v2==v2||e[1](v2,[v0[0]]);}return i}catch(v3){e[4](v3)}}
     examples:
       valid:
         input: new Map([["a", 1]])
@@ -26,6 +27,19 @@ operations:
       invalid-key:
         input: new Map([[1, 1]])
         error: "Failed at [1]: Expected string, received 1"
+      every-invalid-entry-is-collected:
+        input: new Map([["a", "1"], ["b", 2], [1, 1], ["c", null]])
+        error: 'Failed at a: Expected number, received "1"'
+        issues:
+          - 'Failed at a: Expected number, received "1"'
+          - "Failed at [1]: Expected string, received 1"
+          - "Failed at c: Expected number, received null"
+      bad-key-and-bad-value-of-one-entry-are-both-collected:
+        input: new Map([[1, "x"]])
+        error: "Failed at [1]: Expected string, received 1"
+        issues:
+          - "Failed at [1]: Expected string, received 1"
+          - 'Failed at [1]: Expected number, received "x"'
       set-is-not-a-map:
         input: new Set(["a"])
         error: Expected Map<string, number>, received Set

@@ -105,6 +105,25 @@ test("Record schema with optional fields", t => {
 })
 
 @schema
+type flagWithDefault = @s.default(false) bool
+@schema
+type recordWithOptionalDefaulted = {darkMode?: flagWithDefault}
+test("Optional field of a type with a default keeps a missing value as None", t => {
+  t->Assert.deepEqual(
+    %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalDefaultedSchema),
+    {darkMode: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"darkMode":true}`)->S.parseOrThrow(~to=recordWithOptionalDefaultedSchema),
+    {darkMode: true},
+  )
+  t->Assert.deepEqual(
+    {darkMode: ?None}->S.convertOrThrow(~from=recordWithOptionalDefaultedSchema, ~to=S.unknown),
+    %raw(`{}`),
+  )
+})
+
+@schema
 type emptyRecord = {}
 test("Empty record schema", t => {
   t->Assert.deepEqual(

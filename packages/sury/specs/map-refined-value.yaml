@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.map(S.string, S.number.with(S.lt, 100))
+  input: Map<string, number>
+  output: Map<string, number>
+  instantiations: 1179
+jsonSchema:
+  input: Expected JSON, received Map<string, number < 100>
+  output: Expected JSON, received Map<string, number < 100>
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Map<string, number < 100>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[3]||e[4](i);for(let v0 of i){let v1=v0[0];typeof v1==="string"||e[0](v1,[v0[0]]);let v2=v0[1];typeof v2==="number"&&v2==v2||e[2](v2,[v0[0]]);v2<100||e[1](v2,[v0[0]]);}return i}catch(v3){e[5](v3)}}
+    examples:
+      valid:
+        input: new Map([["a", 1]])
+        output: new Map([["a", 1]])
+      value-out-of-range-is-located-by-its-key:
+        input: new Map([["a", 100]])
+        error: "Failed at a: Expected number < 100, received 100"
+  decode:
+    expression: i=>{try{for(let v0 of i){let v1=v0[1];v1<100||e[0](v1,[v0[0]]);}return i}catch(v2){e[1](v2)}}
+    examples:
+      valid:
+        input: new Map([["a", 1]])
+        output: new Map([["a", 1]])
+  encode:
+    expression: i=>{try{for(let v0 of i){let v1=v0[1];v1<100||e[0](v1,[v0[0]]);}return i}catch(v2){e[1](v2)}}
+    examples:
+      value-check-reads-the-value-not-the-key:
+        input: new Map([["y", 2]])
+        output: new Map([["y", 2]])
+      value-out-of-range:
+        input: new Map([["y", 100]])
+        error: "Failed at y: Expected number < 100, received 100"

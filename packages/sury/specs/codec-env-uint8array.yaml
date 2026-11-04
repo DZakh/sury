@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.uint8Array)
+  input: string | undefined
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 4419
+jsonSchema:
+  input: '{ type: "string" }'
+  fromInputType: string
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: strictEqual
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: (a,b)=>a===b?0:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[1](i);return e[0](i)}catch(v0){e[2](v0)}}
+    examples:
+      utf8-text:
+        input: '"hi"'
+        output: new Uint8Array([104, 105])
+      non-ascii:
+        input: '"€"'
+        output: new Uint8Array([226, 130, 172])
+      unset:
+        input: undefined
+        error: Expected env, received undefined
+      blank:
+        input: '""'
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{i!==void 0||e[1](i);return e[0](i)}catch(v0){e[2](v0)}}
+    examples:
+      utf8-text:
+        input: '"hi"'
+        output: new Uint8Array([104, 105])
+      unset:
+        input: undefined
+        error: Expected Uint8Array, received undefined
+  encode:
+    expression: i=>{try{let v0=e[0].decode(i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      utf8-text:
+        input: new Uint8Array([104, 105])
+        output: '"hi"'

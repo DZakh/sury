@@ -7,7 +7,6 @@ import {
   copySchema,
   inputExpression,
   type Internal,
-  isOptional,
   nullTag,
   setHas,
   tagFlags,
@@ -20,7 +19,7 @@ import {
 } from "../base";
 import {
   _var,
-  B_embedInvalidInput,
+  B_failInvalidInput,
   B_invalidOperation,
   B_markOutput,
   B_merge,
@@ -34,6 +33,7 @@ import {
   parse
 } from "../parse";
 import {
+  openedText,
   string
 } from "../primitives";
 
@@ -46,7 +46,7 @@ export const presentArm = (schema: Internal): Internal => {
   for (const variant of schema.anyOf!) {
     if (variant.type !== undefinedTag && variant.type !== nullTag) {
       present.push(variant);
-      setHas(has, variant.type);
+      setHas(has, variant);
     }
   }
   if (present.length < 2) {
@@ -75,10 +75,21 @@ export const admitsBlank = (schema: Internal): boolean =>
   schema.const === "" ||
   (schema.type === anyOfTag && schema.anyOf!.some(admitsBlank));
 
-export const isAbsent = (schema: Internal): boolean =>
-  isOptional(schema) ||
-  schema.type === nullTag ||
-  (schema.type === anyOfTag && !!schema.has![nullTag]);
+// Direct arms, not `has`: a nested union reads its own empty arm, with the
+// default or conversion an entry reader would skip.
+export const absentArm = (schema: Internal): Internal | undefined => {
+  const arms = schema.anyOf || [schema];
+  return arms.find((arm) => arm.type === undefinedTag) || arms.find((arm) => arm.type === nullTag);
+};
+
+// An entry with no absent arm of its own: a nested union that reads the
+// missing value itself, with its own default. Not one with a text arm, which
+// could keep a blank entry, so what a blank one means stays the question.
+const absentOrNested = (schema: Internal): Internal | undefined =>
+  absentArm(schema) ||
+  schema.anyOf?.find(
+    (arm) => arm.type === anyOfTag && absentArm(arm) !== U && !arm.anyOf!.some((member) => tagFlags[member.type]! & 2),
+  );
 
 export const beforeTo = (schema: Internal): Internal => {
   if (schema.to === U) {
@@ -99,7 +110,7 @@ export const asList = (value: unknown): unknown[] =>
 export const asText = (input: Val, target: Internal): Val => {
   const output = B_next(input, input.i, string, target);
   output.v = _var;
-  output.cp = `typeof ${input.i}==="string"||${B_embedInvalidInput(input, target)};`;
+  output.cp = B_failInvalidInput(input, target, `typeof ${input.i}==="string"`);
   return output;
 };
 
@@ -125,17 +136,16 @@ export const armCode = (item: Val, source: Internal, target: Internal): string =
   return B_merge(armOut) + `${item.i}=${armOut.i};`;
 };
 
-export const absentArm = (schema: Internal): Internal =>
-  schema.anyOf?.find(
-    (variant) => variant.type === (isOptional(schema) ? undefinedTag : nullTag),
-  ) || schema;
+export const keepsUndefined = (absent: Internal): boolean => absent.type === undefinedTag && absent.to === U;
 
-export const absentCode = (item: Val, schema: Internal): string => {
-  const absent = absentArm(schema);
+export const absentCode = (item: Val, absent: Internal): string => {
   if (absent.to !== U) {
     return armCode(item, absent, absent);
   }
-  if (isOptional(schema)) {
+  if (absent.type === anyOfTag) {
+    return armCode(item, absentArm(absent)!, absent);
+  }
+  if (absent.type === undefinedTag) {
     return "";
   }
   rebinds(item);
@@ -149,10 +159,13 @@ export const readWrapped = (
   folds: boolean | undefined,
 ): Val => {
   const v = item.i;
-  const presentCode = armCode(item, item.s, present);
+  // The entry's text is known to be a representation, so a document format
+  // among the arms is handed it as such rather than as a plain string, which
+  // it would have to be told to read (CONTENT_CODEC_SPEC.md rule 4).
+  const presentCode = armCode(item, present.format === "json" ? openedText(present) : item.s, present);
   let code = presentCode;
   if (folds !== U) {
-    const absent = absentCode(item, schema);
+    const absent = absentCode(item, absentOrNested(schema)!);
     code = presentCode
       ? `if(${folds ? v : `${v}!==void 0`}){${presentCode}}${absent && `else{${absent}}`}`
       : absent
@@ -175,20 +188,21 @@ export const convertTextEntry = (
   self: Internal,
   blank?: boolean,
 ): Val => {
-  const present = isAbsent(target) ? presentArm(target) : target;
+  const absent = absentOrNested(target);
+  const present = absent ? presentArm(target) : target;
   // Same split as a form field: a required `S.string` must choose, an
   // optional/nullable one reads `""` as absent - unless its present arm keeps
   // the blank entry, and then only a missing one is. Either way the arm runs
   // behind the test, never on the entry that is not there. `self` is the
   // no-blank converter so the present arm does not re-enter this check.
-  if (blank && isAbsent(target)) {
+  if (blank && absent) {
     // Chained, not scoped: a parse checked the text on `input`, and only a
     // `prev` walk emits it.
     const item = B_next(input, input.i, self, target);
     item.v = _var;
     // The form loop does `||void 0` before this wrap. Env fields are already
     // in the object, so `""` would otherwise survive an optional with no else.
-    if (!admitsBlank(present) && isOptional(target) && absentArm(target).to === U) {
+    if (!admitsBlank(present) && keepsUndefined(absent)) {
       item.cp = `${item.i}=${item.i}||void 0;`;
       rebinds(item);
     }
@@ -204,19 +218,36 @@ export const convertTextEntry = (
   const textUnion = (flag & 256) && present.anyOf!.every((variant) => tagFlags[variant.type]! & 2);
   if ((flag & 256) && !textUnion) {
     if (self !== input.s) {
-      const output = B_next(input, input.i, self, present);
+      // Handed to the union as the text it is. An entry's text is a
+      // representation, so a JSON arm reads it rather than being told to by a
+      // slot the entry has no way to take (CONTENT_CODEC_SPEC.md rule 4).
+      const json = present.anyOf!.find((variant) => variant.format === "json");
+      // An entry's text that a number, boolean or bigint arm reads is JSON
+      // text too, so beside a JSON arm the value could come back as either.
+      const rival = json && present.anyOf!.find((variant) => tagFlags[variant.type]! & (4 | 8 | 1024));
+      if (rival) {
+        B_invalidOperation(
+          input,
+          `Ambiguous ${inputExpression(input.s)} -> ${inputExpression(present)}. Its text is also JSON text. Choose one with S.to for ${inputExpression(input.s)} -> ${inputExpression(rival)}, or S.never -> ${inputExpression(rival)}`,
+        );
+      }
+      const output = B_next(input, input.i, json ? openedText(json) : self, present);
       output.v = _var;
       return output;
     }
     return B_unsupportedDecode(input, input.s, present);
   }
-  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date) {
+  // An entry is text, so an instance reads it only where text converts to one:
+  // a `Date`, or bytes taken as its UTF-8, as `S.string.with(S.to,
+  // S.uint8Array)` does. A `File` stays the form codec's, which reads it as an
+  // entry of its own.
+  if ((flag & (64 | 128 | 512 | 8192)) && present.class !== Date && present.class !== Uint8Array) {
     return B_unsupportedDecode(input, input.s, present);
   }
   // A source that is already text (`S.env`) keeps its type instead of being
-  // checked again. Not for a jsonString target, which reads the text as its
-  // document only from an unknown source: a string is a value it would escape
-  // (CONTENT_CODEC_SPEC.md).
+  // checked again. Not for a jsonString target: an entry's text is a
+  // representation, which the format reads from an unknown source, where a
+  // plain string would have to say (CONTENT_CODEC_SPEC.md rule 4).
   if ((tagFlags[input.s.type]! & 2) && present.format !== "json") {
     return B_refine(input, string, U, present);
   }

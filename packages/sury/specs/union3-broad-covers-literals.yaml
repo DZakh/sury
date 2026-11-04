@@ -11,11 +11,12 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
     output: '{ anyOf: [{ type: "string", enum: ["apple"] }, { type: "string" }, { type: "string", enum: ["banana"] }] }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       covered-literal:
         input: '"apple"'

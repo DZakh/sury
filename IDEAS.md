@@ -11,7 +11,7 @@
   moment later. Two halves, and the second is what makes the first worth doing:
   - `S.jsonString.with(S.to, S.uint8Array)` (and the reverse) as a declared
     target, so the wire type is bytes and the codec owns the encoding. Today the
-    same thing spells as two hops through `advanced/uint8Array.ts`. It is
+    same thing spells as two hops through `S.uint8Array`. It is
     UTF-8, as `S.uint8Array <-> S.string` is, and must stay so - bytes in a
     *value* position are base64, and this is not one.
   - A native encoder for the aggregate: reuse one module-level `TextEncoder`
@@ -42,7 +42,14 @@
   `composites.ts`), materializing the parent var even when the passthrough
   case never uses the child - `{let v0=i["VAL"];break}` in
   `S_union_test.res`'s issue-101 golden. Eliminating it means making
-  field-val inline strings lazy, a cross-cutting builder change.
+  field-val inline strings lazy, a cross-cutting builder change. The same
+  read shows wherever an object converts to another object of the same shape:
+  `decodeOrThrow(a, b)` for two copies of `{ tags: S.array(S.string) }` emits
+  `let v0=i.tags;return i`, and every `S.protobuf` decode with a repeated or
+  nested field carries one per such field (the raw message converting to the
+  normalized one). An array fast path keyed on the source's item schema being
+  the target's is not enough: a decode still runs the item's refinements, so
+  only the compiled item says whether the loop is empty.
 - Add `promise` type and `S.promise` (instead of async flag internally)
 - Async output refiner runs on the Promise wrapper, not the resolved value.
   When a decoder result is async (e.g. a union with an async member) and the
@@ -50,6 +57,54 @@
   Promise var instead of inside `.then()` on the resolved value. Fix must run
   the output checks inside the async continuation without adding the ~40 bytes
   per-schema the naive fix cost (B_markOutput is on every schema's hot path).
+- **Sort keys for `compare`.** `compare` orders primitives, Date, URL and tuples
+  of them, so sorting a list of records has no first-class answer: you project
+  to a tuple and compare that. A selector closes it, and takes the direction
+  per key, which argument order can't express (`ORDER BY at DESC, path ASC`):
+
+  ```ts
+  const byRecency = S.compareOutput(eventSchema, (v) => [{ desc: v.at }, { asc: v.path }]);
+  events.sort(byRecency);
+  ```
+
+  ```rescript
+  let byRecency = S.compileCompare(~schema=eventSchema, ~by=v => [Desc({desc: v.at}), Asc({asc: v.path})])
+  films->Array.sort(byRecency)
+  ```
+
+  The selector runs against `proxifyShapedSchema` (`factory.ts`), the same proxy
+  `S.shape` uses, so each read carries its path and the schema at that path:
+  nested keys (`v.user.id`) and tuple indices work for free, a typo panics with
+  the proxy's own message, and a key with no order is refused naming the schema
+  rather than a string path. The same "dummy proxy, no runtime logic" rule as
+  `S.shape` applies.
+
+  Descending flips the operands at the position rather than negating, so the
+  emit stays one inlined chain:
+
+  ```js
+  // (desc at, asc path)
+  (a,b)=>a===b?0:+b.at<+a.at?-1:+b.at>+a.at?1:a.path<b.path?-1:a.path>b.path?1:0
+  ```
+
+  Three things that make this cheaper than it looks:
+  - No new export. `pairDispatch` takes arity 1 or 3 and panics otherwise
+    (`operations.ts`), so arity 2 is free: 1 compiled, 2 compiled by selector,
+    3 immediate. A ReScript `~by=?` would pass `undefined` and still read as
+    arity 2, so the no-`by` form stays its own external.
+  - No `S.desc` helper. `{desc: v.at}` is data the compiler reads at build time
+    and nothing at runtime, where a function would be bytes and a call.
+  - One runtime shape for both languages. ReScript needs a GADT for the array
+    to be homogeneous (`type rec key = Desc({desc: 'a}): key | Asc({asc: 'a}): key`,
+    verified against rescript 12.2), and an inline record payload emits
+    `{TAG: "Desc", desc: x}`, so reading `.desc`/`.asc` and ignoring `TAG`
+    serves both. Without the inline record it is `_0` and `S.res` has to
+    translate.
+
+  The existential erases the key's type, so neither language rejects an
+  unorderable key at compile time; the refusal is the compiler's, as it is for
+  the whole-value form. TS can take a bare leaf as the ascending shorthand
+  (`v => v.at`); ReScript can't, since a `Date.t` is not a `key`.
 
 TODO:
 
@@ -144,7 +199,7 @@ of a form-data story. What they were built to make cheap, roughly in order:
 - ~~**Widen `S.minSize` to the other containers.**~~ Done: `S.set(item)` and
   `S.map(key, value)` are instance schemas of their own, so the bounds are
   discoverable rather than reachable only through `S.instance`. What is still
-  open is a JSON Schema emit for either — both are unrepresentable today, where
+  open is a JSON Schema emit for either. Both are unrepresentable today, where
   a `Set` could plausibly emit `{ type: "array", uniqueItems: true }` for its
   wire form, and a `Map` `{ type: "array", items: { … } }` for its entries.
 - **Objects, under `minProperties`/`maxProperties`.** The one container whose
@@ -157,7 +212,7 @@ of a form-data story. What they were built to make cheap, roughly in order:
   and `S.to(S.uint8Array)` (via `.arrayBuffer()`) are async in the decode
   direction and sync in the encode one (`new File([i], name)`), so they need
   `B_asyncVal` and the `flagAsync` guard that already makes a sync `S.decode`
-  fail with `invalid_operation`. `advanced/uint8Array.ts` is the shape to copy.
+  fail with `invalid_operation`. `S.uint8Array` (in `src/refinements.ts`) is the shape to copy.
   The payoff is `S.file.with(S.to, S.jsonString.with(S.to, configSchema))` -
   parse an upload into a typed value, and reverse it to *build* the upload.
 - **`S.urlSearchParams` and `S.queryString`**, now that `S.formData` has shipped.
@@ -265,8 +320,8 @@ of a form-data story. What they were built to make cheap, roughly in order:
   value has to be fed to the chain's input. The slots that place no coder are
   exempt - `Auto`, `Never`, and the `Pack`/`Unpack` readings
   (`tests/S_to_custom_test.res` carries `S.uint8Array->S.to(S.jsonString->S.to(S.string),
-  ~custom={decode: Unpack, encode: Pack})`), the guard is the `outputSeam`
-  branch of `to` in `src/entry.ts`. JS has no such limit: its `{decode,
+  ~custom={decode: Unpack, encode: Pack})`), the guard is `seamTarget`, behind
+  `$to` in `src/entry.ts`. JS has no such limit: its `{decode,
   encode}` pair lands at the chain head and the whole chain runs after it. So
   the runtime is already there and only the ReScript type is missing:
   `t<'value>` names the output, so a chain's input type has no name to write,
@@ -292,6 +347,177 @@ of a form-data story. What they were built to make cheap, roughly in order:
   the surviving item, so its mask adds nothing and the check falls out), and
   extend trusted case compilation past field-discriminated members, so a lone
   object member validates as little as a typed object does.
+
+### Failure exit follow-ups
+
+A failed check hands its record to `BGlobal.x` and runs the statement it gets
+back - `return false` for `is*`, the failure Result for `*AsResult`, record and
+`break` for a union case a later one may accept - and raises only where no exit
+is set. What is left on the table:
+
+- **A refiner's own throw still raises.** `S.refine` wraps the user check in an
+  embed that turns an exception into `invalid_conversion` by `B_throw`, so the
+  body reads `e[0](i)||e[1](i)` and a union case holding one keeps its `try` and
+  the `caught` bookkeeping behind it. If the embed answered the failure instead
+  of throwing it (`true`, or the record), the case could jump like any other
+  check. With `B_conversion` already jumping, most union cases would then need no
+  `try` at all, and the raise tracking in `emitChain` would matter only for
+  opaque embeds (a recursive schema's operation, `S.json`'s walk) and async
+  cases.
+- **A validation-only operation still builds the value it throws away.** `is*`,
+  `assert*` and `make*` end in `assertResult`, yet a union case still rebuilds
+  its object (`i={kind:i.kind,v:v0}`) and an array still allocates
+  `new Array(n)` to store each item's union output. Measured, 20-item array of
+  a two-member union, every item accepted by the first member: 167ns against
+  95ns with the writes removed. Wants the union to know its output is unread
+  (a val flag set where the chain ends in `assertResult`, or the output val's
+  inline materialized lazily the way object fields already are).
+- **A deferred union failure still allocates its path.** A case that falls
+  through links a node onto the union's list (`v1=[v1,e[0],v0]`), and inside a
+  loop the node carries a fresh path, `v1=[v1,e[1],v4,["result",v3]]`, per
+  failing item. `parseOrThrow` over a 20-item array of a two-member union where
+  every other item falls through: ~450ns, against ~170ns for `isInput`, which
+  records nothing. Linking only the dynamic segments (the loop var) and letting
+  the builder concat the static part would close most of it.
+- **`parseOrThrow`'s failing path is the stack capture.** ~4.7us of a ~5us
+  failure is `Error.captureStackTrace` at the operation boundary; the throw
+  itself is noise next to it. Nothing to do with the exit, but it is now what
+  every remaining raise costs.
+- **A jump spells its condition as `if(!(cond))`.** A check's `c` is written to
+  read `cond||raise`, so the jump form negates it whole: `if(!(typeof
+  v0==="string"))return false`, and `if(!((a||b)))` where the union fused a
+  group. A check that could also hand over its negation (`typeof v0!=="string"`)
+  would shorten every jump by three characters. One cosmetic wart rides along:
+  `{…;break l1};break` where a union arm's body ends in a jump, since `attempt`
+  can't tell that closing brace from an object literal's (`i={…}`) and adds the
+  `;` either way.
+- **Only some embeds know they can't raise.** Every `B_embed` counts toward the
+  `try` a union case keeps; `instanceof` a class without its own
+  `Symbol.hasInstance` and the built-in formats' tests are now `B_embedPure`,
+  and a union of them keeps none. `S.pattern` still counts (a user's `RegExp`
+  can be a subclass whose `exec` throws), as does every constant a literal
+  embeds. An embed that states what it is (callable, and whether it is ours)
+  rather than the call site choosing would make the rest follow.
+- **An async operation's union throws its failure whenever a case may fall
+  through.** Whether the dispatch ends up in an `(async(i)=>{…})(i)` wrapper is
+  known only once the cases are compiled, but the exit they fail to is chosen
+  before, so `unionEmit` assumes the wrapper for any async operation with a
+  falling group (`outer = g.o & 1 && awaitAsync ? U : g.x`).
+  `S.union([{k:"a",n:number}, {k:"a",s:string}, string])` answers
+  `parseAsResult` with a `return`, but `parseAsResultPromise` and
+  `isInputAsPromise` with a `throw` their tail catches - the cost the sync
+  outcomes no longer pay. Deciding it from the members' own async-ness (a
+  schema walk like `unionTraits`) before compiling them would let the common
+  all-sync union jump in async operations too.
+- **Union compiles are still 5-13% slower than main** (`spec check
+  --perf=only --against origin/main`: 13 create+compile targets, every other
+  one unchanged or faster; worst `union2-refine-throws`). Most of the first
+  round's 12-30% was generated code up to 30% longer, which the linked failure
+  record and the dropped `try`s won back. What is left is compiler work spread
+  thin - `enter`/`leave` build a closure and a label holder per case, `settle`
+  rescans the chain for its drop rule, `attempt` re-checks what follows a
+  terminal case, and `B_fail` builds a record thunk per failed check - with no
+  single hotspot in a profile. A per-union label counter and a `settle` that
+  keeps its last live case would be the next cuts; measure each, the noise
+  floor is 3-5%.
+- **`B_detached` is a convention, not a guarantee.** Every builder that emits
+  code into a callback (a `.then`, `Promise.all(...).then`, an async dispatch)
+  has to run both the parse and the merge of that code with the exit cleared,
+  or a jump lands in a function it can't leave - which is exactly what
+  `completeObjectVal` got wrong
+  (specs/codec-async-object-then-custom.yaml). One helper that parses and merges
+  a continuation, used by parse.ts, composites.ts and B_markOutput alike, would
+  leave nowhere to forget it.
+- **`fuzz:union` generates no async member.** Its `outcome` class holds every
+  answering outcome to `parseOrThrow` (and over seeds 2-8 it catches the
+  getter/`try` regression tests/operations_test.ts pins), but over sync members
+  only, so the async-object bug (specs/codec-async-object-then-custom.yaml)
+  would still get past it. An async coder in the generator, and the `AsPromise`
+  outcomes awaited in the loop, would close that.
+
+### Every issue at once: follow-ups
+
+The JS Result and `~standard.validate` report a failure per field, item and
+entry: each container child is a labelled block its failures leave, declared
+through `B_let`/`B_sink` so the block scopes nothing a sibling reads. What is
+left on the table:
+
+- **A value reports one failure.** `S.string.with(S.minLength, 8).with(S.pattern, re)`
+  reports the length and stops. Zod and Valibot report both; the checks after
+  a type check could record and fall through instead of leaving the child.
+- **An object refine waits for every field.** A refine reads the value it
+  refines, so it runs only when every field passed - the password-mismatch
+  message appears once the password is long enough. Valibot's `partialCheck`
+  is the spelling for a refine over the fields that did pass.
+- **A union is one failure.** A case a later case may still accept fails
+  fast, so a union whose members overlap reports the union's aggregate. A case
+  only its own dispatch reaches already collects.
+- **A recursive schema reports one failure per recursive call.** The nested
+  compile raises, and the call site records that one raise.
+- **A throwing getter on a field ends collection.** A child gets its `catch`
+  only where its code counted a raise; a getter reads as a plain property.
+- **An async join settles every child with an extra `.then`.** Measured at
+  +100-200ns per async field on the valid path of a collecting operation. The
+  child's own last `.then` could take the settling arm instead.
+- **Result code grows with the labels.** `{k=[k,e[1],v];break c3}` per failure
+  and a label per child; a child whose only failure is its last statement needs
+  neither the break nor the label.
+
+- **`S.compactColumns` rows report one failure.** Its fields are compiled by
+  its own loop, not through `B_field`, so a row stops at its first failing
+  field. Consistent across outcomes; routing its fields through `B_field` is
+  what would make it collect.
+- **A tuple's issue path spells its index as a string** (`["0"]`) where an
+  array's is a number (`[0]`). Pre-existing, now visible because a tuple
+  reports every slot.
+- **An async coder's failure inside a union case has no path** (`{ message:
+  "taken" }` rather than `path: ["a"]`). Same on main.
+- **The collecting code is snapshotted by one inline test.** Specs pin the
+  throwing expression, so a regression in the labelled emit shows as an
+  `issues:` diff, never as code.
+
+### Pre-existing bugs surfaced by the failure exit work
+
+- **A throwing async operation leaves a started child's rejection unhandled.**
+  `S.parseAsPromiseOrReject(S.schema({ a: asyncCoder, n: S.number }), { a: "t", n: "x" })`
+  starts `a`'s promise, then rejects with `n`'s failure; `a`'s rejection has
+  no handler and Node reports an unhandled rejection. Same on main 36d3848.
+  The collecting outcomes wait for every child, so only the throwing ones do
+  this. Wants a spec example once fixed (the spec harness crashes on it
+  today, which is why `object-async-fields-collect` puts `n` first).
+- **Encoding a nullable refined `url` into `jsonString` fails to compile.**
+  `S.encodeOrThrow(S.schema({ f: S.nullable(S.url.with(S.refine, check)) }).with(S.to, S.jsonString), '{"f":null}')`
+  throws `Cannot read properties of undefined (reading 't')` from `B_merge`.
+  The listed `jsonstring-fieldor-refined-url-encode` names the `fieldOr`
+  spelling the issues fuzzer draws; this one needs no `fieldOr`.
+- **`fieldOr` over an optional nullable `hostname` into `jsonString` emits
+  invalid code.** `S.parseOrThrow(S.object((s) => ({ f: s.fieldOr("f", S.optional(S.nullable(S.hostname), null), "example.com") })).with(S.to, S.jsonString), { f: "a.com" })`
+  throws `SyntaxError: Invalid left-hand side in assignment` while compiling.
+- **A flattened refined object runs its refine twice on the valid path**
+  (`e[1](v1)||e[2](v1);e[3](v1)||e[4](v1)` in
+  `specs/flatten-refined-collect.yaml`). Same on main.
+- **`fuzz:union --seed=3` reports an unlisted `acceptance` diff.**
+  `S.union([record(R3{head:xid,next?:R3}), {TAG:T2,…}, instance(Error)])`
+  answers `Error(e)` for an `Error`, where the sequential reference lets the
+  record take it first and answers `{}`: instance members dispatch ahead of
+  their position (specs/union3-instance-priority-order.yaml). Same on main
+  3a04716. Either the reference learns the priority rule or `knownBugs.ts`
+  lists it as a limitation; CI only runs seed 1, so nothing gates it today.
+- **`fuzz:union --ref=<commit>` crashes before it prints a changelog.** The
+  ref build throws `Cannot read properties of undefined (reading 'name')` from
+  `inputExpression` inside the `message` getter of a failure it compiled
+  (`scripts/unionFuzz/reference.ts` `compiledParse`). Same on main 3a04716, so
+  the changelog the union-compiler workflow suggests can't run at all.
+  Probably the two library instances meeting (the ref's compile reading a
+  schema the current build made); unverified.
+- **`S.env.with(S.maxLength, n)` throws a `TypeError` on `undefined`.**
+  `S.parseOrThrow(S.env.with(S.maxLength, 3), undefined)` raises `Cannot read
+  properties of undefined (reading 'length')` instead of a Sury failure, alone
+  and as a union member, array item or object field; `S.length` does the same.
+  The length check reads a value `env`'s blank handling let through. Same on
+  16de5d3, and it is what `fuzz:union --seed=5` fails on (an `acceptance` diff
+  against a reference that accepts `undefined`). Wants a spec example once
+  fixed.
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
@@ -477,45 +703,6 @@ s.fn(s.arg(0, S.string))
   structure (today `not` is an opaque refinement), and note upstream
   `json-schema-to-ts` gets the `allOf`-sibling variant wrong - pin whatever
   behavior lands in a spec.
-
-## Recursive protobuf messages
-
-`S.protobuf` rejects a message that refers to itself, directly or through
-another message. It costs four cases of the conformance suite
-(`NestedMessage.corecursive` is `TestAllTypesProto3` itself, so the field is
-left undeclared and rides through as an unknown field), and it is why
-`Struct`, `Value` and `ListValue` - the three recursive well-known types - are
-undeclared in `packages/protobuf-conformance/testMessages.ts`. Outside the
-suite it is the shape of every tree and every linked list.
-
-A spike got the encode direction compiling and found what the rest needs, so
-this is a scoped piece of work rather than an open question:
-
-- `inferType` (protobufField.ts) has no case for `refTag`, which is what a
-  recursive schema is until it is resolved. One line: a ref can only be a
-  message on the wire.
-- `firstObject` has to dereference. The `$defs` map lives on the root schema
-  alone, so it threads down through `compileMessage`. The decode direction is
-  the awkward one: it reaches the object through `objectSchemaOf(input)`,
-  which has no root to read `$defs` from.
-- `compileMessage` ties the cycle by caching on the object it is compiling and
-  allocating `raw`/`schema` before the field loop instead of after, so a field
-  can refer to the message that contains it. This part worked as written.
-- The encode path splices the *root* message's body inline rather than
-  emitting it as a function, so a self-reference has no callee - the spike got
-  as far as `ReferenceError: m0 is not defined`. A recursive root has to be
-  emitted as a function and called.
-- Not reached, and the reason this is not a small change: `message.schema` is
-  the decode's output schema, and tying the cycle makes it a *cyclic object*.
-  The rest of the library expects recursion spelled as `refTag` + `$defs` -
-  the JSON Schema emit and the equality compiler both walk that schema and
-  neither would terminate. Either the normalized side keeps the user's own ref
-  schema for a recursive field, or the compiler learns to emit ref-shaped
-  normalized schemas.
-
-Unknown-field *retention* is the other conformance gap (two cases) and is not
-this: it is a deliberate decision, documented under "Unknown fields" in
-`docs/js-usage.md`.
 
 ## Articles
 

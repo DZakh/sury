@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0",
+  "version": "11.1.0",
   "private": true,
   "description": "🧬 Schema for everything - faster than hand-written code",
   "keywords": [
@@ -42,6 +42,10 @@
       "types": "./index.d.ts",
       "import": "./index.mjs"
     },
+    "./protobuf/wkt": {
+      "types": "./src/protobuf/wkt/index.ts",
+      "import": "./protobuf/wkt/index.mjs"
+    },
     "./src/*": "./src/*",
     "./S.gen.js": {
       "types": "./src/S.gen.d.ts"
@@ -52,8 +56,9 @@
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
-    "fuzz:eq": "tsx ./scripts/eqFuzz.ts",
+    "fuzz:schema": "tsx ./scripts/schemaFuzz.ts",
     "fuzz:formdata": "tsx ./scripts/formDataFuzz.ts",
+    "fuzz:content": "tsx ./scripts/contentFuzz.ts",
     "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "fuzz:escfree": "pnpm build:entry && tsx ./scripts/escFreeFuzz.ts",
     "bench:jsonstring": "pnpm build:entry && tsx ./scripts/jsonStringifyBench.ts",
@@ -61,7 +66,7 @@
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
     "test": "pnpm build && vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json && vitest run --typecheck.only",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.exactOptional.json && vitest run --typecheck.only",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
     "prepublishOnly": "node -e \"console.error('Publish from ./artifacts (pnpm build), not the dev package.'); process.exit(1)\""
   },

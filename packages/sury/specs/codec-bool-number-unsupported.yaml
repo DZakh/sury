@@ -8,6 +8,7 @@ jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod:
     _skip: not-applicable

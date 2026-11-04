@@ -8,12 +8,15 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "number" }'
 isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);i=v0;break}if(typeof i==="number"&&i==i)break;e[3](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="string"){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0==v0||e[2](v0);i=v0;break}if(typeof i==="number"&&i==i)break;throw e[3](i)}return i}catch(v1){e[4](v1)}}
     examples:
       custom-arm:
         input: '"12"'

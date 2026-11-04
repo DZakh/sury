@@ -6,16 +6,19 @@ ts:
   instantiations: 6456
 jsonSchema:
   input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
-  output: Expected JSON, received undefined | string
+  output: Expected JSON, received string | undefined
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)
   output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare never | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    creationError: "SuryError: Ambiguous never | string -> undefined | string. Should undefined be decoded or ignored? Choose with S.to for string -> undefined, or S.never -> undefined"
+    creationError: "SuryError: Ambiguous never | string -> string | undefined. Should undefined be decoded or ignored? Choose with S.to for string -> undefined, or S.never -> undefined"
   decode: eq-to-parse
   encode:
-    creationError: "SuryError: Ambiguous undefined | string -> null | string. Should undefined be decoded or ignored? Choose with S.to for undefined -> string, or S.never -> undefined"
+    creationError: "SuryError: Ambiguous string | undefined -> string | null. Should undefined be decoded or ignored? Choose with S.to for undefined -> string, or S.never -> undefined"

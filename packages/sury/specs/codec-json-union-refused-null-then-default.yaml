@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.literal(null).with(S.refine, () => false), S.optional(S.string, "d"), S.literal(null).with(S.refine, () => true)]))
+  input: JSON
+  output: string | null
+  instantiations: 6340
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  fromInputType: string | null
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  openapi-3.0:
+    input: '{ type: "string", nullable: true }'
+    output: '{ type: "string", nullable: true }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(i===null){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[5](x)]}}}l2:{for(;;){if(typeof i==="string")break;if(i===null){i="d";break}v0=[v0,e[2](i)];break l2}break}if(i===null){l3:{try{if(!(e[3](i))){v0=[v0,e[4],i];break l3}break}catch(x){v0=[v0,e[5](x)]}}}throw e[6](i,v0)}return i}catch(v4){e[7](v4)}}
+    examples:
+      null-reaches-the-default:
+        input: "null"
+        output: '"d"'
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){l3:{if(i===null){for(;;){l1:{try{if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}catch(x){v0=[v0,e[4](x)]}}l2:{try{if(!(e[2](i))){v0=[v0,e[3],i];break l2}break}catch(x){v0=[v0,e[4](x)]}}break l3}break}if(typeof i==="string")break;}throw e[5](i,v0)}return i}catch(v4){e[6](v4)}}
+    examples:
+      string:
+        input: '"s"'
+        output: '"s"'

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((S as any).$to as typeof S.to)(S.jsonString, S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decode: "unpack", encode: (o: { name: string }) => JSON.stringify(o) } as any)'
+  input: string
+  output: "{ name: string; }"
+  instantiations: 5668
+jsonSchema:
+  input: '{ type: "string", contentMediaType: "application/json" }'
+  output: '{ type: "object", properties: { name: { type: "string" } }, required: ["name"] }'
+  draft-2020-12:
+    input: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "string" }'
+isEqual:
+  input: strictEqual
+  output: (a,b)=>a===b||a.name===b.name
+compare:
+  input: strictCompare
+  output: "throws: [Sury] Can't compare { name: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[7](i);try{JSON.parse(i)}catch(t){e[0](i)}let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.name;typeof v2==="string"||e[5](v2);let v1;try{v1=e[2](v2)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return {name:v1}}catch(v3){e[8](v3)}}
+    examples:
+      unpack-converts-the-target:
+        input: '"{\"name\":\"x\"}"'
+        output: '{ name: "x!" }'
+  decode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v2=v0.name;typeof v2==="string"||e[4](v2);let v1;try{v1=e[1](v2)}catch(x){e[2](x)}typeof v1==="string"||e[3](v1);return {name:v1}}catch(v3){e[6](v3)}}
+    examples:
+      unpack-converts-the-target:
+        input: '"{\"name\":\"x\"}"'
+        output: '{ name: "x!" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-takes-the-output:
+        input: '{ name: "x!" }'
+        output: '"{\"name\":\"x!\"}"'

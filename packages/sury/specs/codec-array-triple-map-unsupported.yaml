@@ -15,6 +15,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i][0]===b[i][0]&&a[i][1]===b[i][1]&&a[i][2]===b[i][2]))return false;return true}
   output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare [string, number, boolean][]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Map<string, number>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable

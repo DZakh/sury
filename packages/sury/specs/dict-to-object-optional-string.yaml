@@ -10,12 +10,15 @@ jsonSchema:
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(a[k]===b[k]))return false;n++}for(const k in b)n--;return !n}
   output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare { [key: string]: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=[v0,...v2.path];throw v2}}let v3=i.a;return {a:v3}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){let v1=i[v0];typeof v1==="string"||e[0](v1,[v0]);}let v2=i.a;return {a:v2}}catch(v3){e[2](v3)}}
     examples:
       present:
         input: '{ a: "x" }'
@@ -33,7 +36,7 @@ operations:
         input: '{ a: "x" }'
         output: '{ a: "x" }'
   encode:
-    expression: i=>{let v0=i.a;(typeof v0==="string"||v0===void 0)||e[0](v0);let v1={};if(v0!==void 0){v1.a=v0}return v1}
+    expression: i=>{try{let v0=i.a;(typeof v0==="string"||v0===void 0)||e[0](v0);let v1={};if(v0!==void 0){v1.a=v0}return v1}catch(v2){e[1](v2)}}
     examples:
       present:
         input: '{ a: "x" }'

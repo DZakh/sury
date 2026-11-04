@@ -13,11 +13,12 @@ jsonSchema:
     input: '{ type: "string", enum: ["tuna"] }'
     output: '{ type: "string", enum: ["tuna"] }'
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.literal("tuna")
 operations:
   parse:
-    expression: i=>{i==="tuna"||e[0](i);return i}
+    expression: i=>{try{i==="tuna"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: '"tuna"'

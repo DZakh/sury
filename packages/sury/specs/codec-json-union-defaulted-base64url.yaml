@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.nullable(S.base64url, "aGk"), S.literal(1)]))
+  input: JSON
+  output: string | 1
+  instantiations: 5662
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", contentEncoding: "base64url" }, { type: "number", const: 1 }] }'
+  fromInputType: string | 1
+  output: '{ anyOf: [{ type: "string", contentEncoding: "base64url" }, { type: "number", const: 1 }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "string", format: "base64url" }, { type: "number", enum: [1] }] }'
+    output: '{ anyOf: [{ type: "string", format: "base64url" }, { type: "number", enum: [1] }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare base64url | 1. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    # FIXME: JSON -> base64url is refused alone and in S.union([S.base64url, S.literal(1)]); a default on the member skips that refusal, so this should be the creationError "Can't decode JSON -> base64url | 1 | null"
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i&&i===1)break;l1:{for(;;){if(typeof i==="string"){if(!(e[0](i))){v0=[v0,e[1],i];break l1}break}if(i===null){i="aGk";break}v0=[v0,e[2](i)];break l1}break}throw e[3](i,v0)}return i}catch(v2){e[4](v2)}}
+    examples:
+      empty-string:
+        input: '""'
+        output: '""'
+      "null":
+        input: "null"
+        output: '"aGk"'
+        divergence:
+          reason: the default member's null arm decodes although the published document has no null; goes away with the refusal above
+          ajv: "input: data must be string, data must be number, data must be equal to constant, data must match a schema in anyOf"
+      one:
+        input: "1"
+        output: "1"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(typeof i==="number"&&i==i&&i===1)break;l1:{if(typeof i==="string"){if(!(e[0](i))){v0=[v0,e[1],i];break l1}}else{v0=[v0,e[2](i)];break l1}break}throw e[3](i,v0)}return i}catch(v2){e[4](v2)}}
+    examples:
+      one:
+        input: "1"
+        output: "1"

@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
   output: '{ anyOf: [{ type: "string", minLength: 2 }, { type: "number", minimum: 10 }] }'
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{e[0](i)||e[2](i);(typeof i==="string"||typeof i==="number"&&i==i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[2](i);(typeof i==="string"||typeof i==="number"&&i==i)||e[1](i);return i}catch(v0){e[3](v0)}}
     examples:
       valid-string:
         input: '"ab"'
@@ -31,13 +32,13 @@ operations:
         input: "true"
         error: Should pass at least one schema according to the anyOf property.
   decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid-string:
         input: '"ab"'
         output: '"ab"'
   encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v0){e[2](v0)}}
     examples:
       valid-number:
         input: "10"

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.optional(S.optional(S.string, "tuna"), "salmon"), b: S.optional(S.optional(S.string, "tuna")), c: S.optional(S.nullable(S.boolean, false), true), d: S.nullable(S.optional(S.string, "t"), "n") })'
+  input: "{ a?: string | undefined; b?: string | undefined; c?: boolean | null | undefined; d?: string | null | undefined; }"
+  output: "{ a: string; c: boolean; d: string; b?: string | undefined; }"
+  instantiations: 3956
+jsonSchema:
+  input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, anyOf: [{ type: "boolean" }, { type: "null" }] }, d: { anyOf: [{ default: "t", type: "string" }, { type: "null" }] } } }'
+  output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "boolean" }, d: { type: "string" } }, required: ["a", "c", "d"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, type: "boolean", nullable: true }, d: { default: "t", type: "string", nullable: true } } }'
+isEqual: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; b: string | undefined; c: boolean | null | undefined; d: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; b: string | undefined; c: boolean; d: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v0=i.a,v3=i.b,v6=i.c,v9=i.d;let v1;for(;;){if(v0===void 0){v0="salmon";break}l2:{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="tuna";break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}let v4;for(;;){if(v3===void 0)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="tuna";break}v4=[v4,e[2](v3)];break l5}break}throw e[3](v3,v4)}let v7;for(;;){if(v6===void 0){v6=true;break}l8:{for(;;){if(typeof v6==="boolean")break;if(v6===null){v6=false;break}v7=[v7,e[4](v6)];break l8}break}throw e[5](v6,v7)}let v10;for(;;){if(v9===null){v9="n";break}l11:{for(;;){if(typeof v9==="string")break;if(v9===void 0){v9="t";break}v10=[v10,e[6](v9)];break l11}break}throw e[7](v9,v10)}return {a:v0,b:v3,c:v6,d:v9}}catch(v12){e[9](v12)}}
+    examples:
+      absent:
+        input: "{}"
+        output: '{ a: "salmon", b: undefined, c: true, d: "t" }'
+      nulls:
+        input: "{ a: undefined, b: undefined, c: null, d: null }"
+        output: '{ a: "salmon", b: undefined, c: false, d: "n" }'
+      present:
+        input: '{ a: "x", b: "y", c: false, d: "z" }'
+        output: '{ a: "x", b: "y", c: false, d: "z" }'
+  decode:
+    expression: i=>{try{let v0=i.a,v3=i.b,v6=i.c,v9=i.d;let v1;for(;;){if(v0===void 0){v0="salmon";break}l2:{for(;;){if(typeof v0==="string")break;if(v0===void 0){v0="tuna";break}v1=[v1,e[0](v0)];break l2}break}throw e[1](v0,v1)}let v4;for(;;){if(v3===void 0)break;l5:{for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="tuna";break}v4=[v4,e[2](v3)];break l5}break}throw e[3](v3,v4)}let v7;for(;;){if(v6===void 0){v6=true;break}l8:{for(;;){if(typeof v6==="boolean")break;if(v6===null){v6=false;break}v7=[v7,e[4](v6)];break l8}break}throw e[5](v6,v7)}let v10;for(;;){if(v9===null){v9="n";break}l11:{for(;;){if(typeof v9==="string")break;if(v9===void 0){v9="t";break}v10=[v10,e[6](v9)];break l11}break}throw e[7](v9,v10)}return {a:v0,b:v3,c:v6,d:v9}}catch(v12){e[8](v12)}}
+    examples:
+      absent:
+        input: "{}"
+        output: '{ a: "salmon", b: undefined, c: true, d: "t" }'
+  encode:
+    expression: i=>{try{let v0=i.a,v1=i.b,v2=i.c,v3=i.d;typeof v0==="string"||e[0](v0);(v1===void 0||typeof v1==="string")||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="string"||e[3](v3);return i}catch(v4){e[4](v4)}}
+    examples:
+      present:
+        input: '{ a: "x", c: false, d: "z" }'
+        output: '{ a: "x", c: false, d: "z" }'
+      b-absent:
+        input: '{ a: "x", b: undefined, c: true, d: "z" }'
+        output: '{ a: "x", b: undefined, c: true, d: "z" }'

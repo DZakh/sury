@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.formData.with(S.to, S.schema({ a: S.union([S.nullable(S.string), S.optional(S.number, 1)]) }))"
+  input: FormData
+  output: "{ a: string | number | null; }"
+  instantiations: 6700
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }] } }, required: ["a"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "number" }, { enum: [null] }] } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string | number | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[4]||e[5](i);let v0=e[0](i),v1=v0.get("a");if(v1){let v2;for(;;){if(typeof v1==="string")break;l3:{if(!(typeof v1==="string")){v2=[v2,e[1],v1];break l3}let v4=+v1;if(!(v4==v4&&(v4||v1.trim()))){v2=[v2,e[2],v1];break l3}v1=v4;break}throw e[3](v1,v2)}}else{v1=null}return {a:v1}}catch(v5){e[6](v5)}}
+    examples:
+      empty:
+        input: new FormData()
+        output: "{ a: null }"
+      text:
+        input: ((f) => (f.append("a", "x"), f))(new FormData())
+        output: '{ a: "x" }'
+  decode:
+    expression: i=>{try{let v0=e[0](i),v1=v0.get("a");if(v1){let v2;for(;;){if(typeof v1==="string")break;l3:{if(!(typeof v1==="string")){v2=[v2,e[1],v1];break l3}let v4=+v1;if(!(v4==v4&&(v4||v1.trim()))){v2=[v2,e[2],v1];break l3}v1=v4;break}throw e[3](v1,v2)}}else{v1=null}return {a:v1}}catch(v5){e[4](v5)}}
+    examples:
+      empty:
+        input: new FormData()
+        output: "{ a: null }"
+      text:
+        input: ((f) => (f.append("a", "x"), f))(new FormData())
+        output: '{ a: "x" }'
+  encode:
+    creationError: "SuryError: Failed at a: Ambiguous string | number -> string. Should number be decoded or ignored? Choose with S.to for number -> string, or S.never -> number"

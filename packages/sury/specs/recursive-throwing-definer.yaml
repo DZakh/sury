@@ -10,15 +10,26 @@ jsonSchema:
   output: '{ $ref: "#/$defs/Ok", $defs: { Ok: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Ok" } }, required: ["v"] } } }'
   fromOutputType: "{ v: string; next?: ... | undefined; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Ok. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{let v0;v0=e[0](i);return v0}
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       chain:
         input: '{ v: "x", next: { v: "y" } }'
         output: '{ v: "x", next: { v: "y", next: undefined } }'
-  decode: eq-to-parse
-  encode: eq-to-parse
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ v: "x", next: { v: "y" } }'
+        output: '{ v: "x", next: { v: "y" } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      chain:
+        input: '{ v: "x", next: { v: "y" } }'
+        output: '{ v: "x", next: { v: "y" } }'

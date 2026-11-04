@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.boolean()
 operations:
   parse:
-    expression: i=>{typeof i==="boolean"||e[0](i);return i}
+    expression: i=>{try{typeof i==="boolean"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid-true:
         input: "true"

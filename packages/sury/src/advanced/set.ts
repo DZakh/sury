@@ -13,17 +13,22 @@ import {
 } from "../base";
 import {
   _var,
+  B_child,
   B_collectAsync,
+  B_collects,
+  B_countCopy,
   B_forOf,
   B_iterScope,
   B_markOutput,
-  B_mergeWithPathPrepend,
+  B_merge,
   B_next,
   B_refine,
+  B_settle,
+  B_sink,
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayFactory, definitionToSchema } from "../composites";
-import { iterableSource, parse, parseDynamic } from "../parse";
+import { iterableSource, parse } from "../parse";
 
 // The item lives on `additionalItems`, where an array's does, so that
 // `reverse` reverses it without knowing this schema exists. The rendering,
@@ -42,53 +47,61 @@ const setDecoder = (input: Val): Val => {
   const expected = input.e;
   const isArraySource = !!(tagFlags[input.s.type]! & 128);
   const source = iterableSource(input, unknownSet, true);
+  const g = source.g;
 
   const sourceVar = source.v();
-  const itemVar = B_varWithoutAllocation(source.g);
-  const raiseCountBefore = source.g.t;
-  const itemInput = B_iterScope(source, itemVar, itemOf(source.s), itemOf(expected));
+  const itemVar = B_varWithoutAllocation(g);
+  // A Set item has no key to be located by, so a failing one is located by its
+  // position, which is well defined since iteration follows insertion order.
+  const indexVar = B_varWithoutAllocation(g);
+  const failCountBefore = g.t + g.j;
+  const itemInput = B_iterScope(source, itemVar, itemOf(source.s), itemOf(expected), indexVar);
   // The item expression is already a variable, the loop's, so reading it must
   // not copy it into a second one the way a dynamic member read would.
   itemInput.v = _var;
-  const itemOutput = parseDynamic(itemInput);
-  const isAsync = !!(itemOutput.f & 1);
-  const hasTransform = itemOutput.t === true;
-  // An async item can't be `add`ed as it arrives, so it accumulates into an
-  // array that `Promise.all` resolves.
-  const rebuild = isArraySource || hasTransform || isAsync;
-  // Nothing to do per item: the constructor does the whole rebuild, and the
-  // loop is left to whatever validation the items still need.
-  const fromSource = rebuild && !hasTransform && !isAsync;
-
-  const outSchema = setFactory(itemOutput.s);
-  const out = rebuild
-    ? B_next(
-        source,
-        fromSource ? `new Set(${sourceVar})` : isAsync ? "[]" : "new Set",
-        isAsync ? arrayFactory(itemOutput.s) : outSchema,
-      )
-    : B_refine(source, expected);
-  const outVar = rebuild && !fromSource ? out.v() : "";
-  // Lazy: merging the item can rename the val it produces (materialization) and
-  // can wrap an async one in a `.catch`, both after this is decided.
-  const add = (): string =>
-    outVar ? `${outVar}.${isAsync ? "push" : "add"}(${itemOutput.i});` : "";
-
-  // A Set item has no key to be located by, so a failing one is located by its
-  // position, which is well defined since iteration follows insertion order.
-  // The counter is only worth keeping when the body can fail, which is what
-  // B_mergeWithCatch's `pureSince` answers.
-  const indexVar = B_varWithoutAllocation(source.g);
-  const counterVar = isAsync ? B_varWithoutAllocation(source.g) : indexVar;
-  const canThrow = (): boolean => source.g.t !== raiseCountBefore;
-  const body = B_mergeWithPathPrepend(
-    itemOutput,
-    source,
-    indexVar,
-    () => `${add()}${canThrow() && !isAsync ? `${indexVar}++;` : ""}`,
-    raiseCountBefore,
-  );
-  B_forOf(out, itemVar, sourceVar, body, canThrow(), indexVar, counterVar);
+  let itemOutput!: Val, out!: Val, outSchema!: Internal, isAsync = false, counted = false;
+  let counterVar = indexVar;
+  const collected = g.kj;
+  const body = B_sink(g, () => {
+    let itemMerge = "", settles = false, add = false;
+    const collects = B_collects(g);
+    const emit = () => {
+      itemOutput = parse(itemInput);
+      isAsync = !!(itemOutput.f & 1);
+      // An async item can't be `add`ed as it arrives, so it accumulates into an
+      // array that `Promise.all` resolves. With nothing to do per item the
+      // constructor does the whole rebuild, and the loop is left to whatever
+      // validation the items still need.
+      add = itemOutput.t === true || isAsync;
+      outSchema = setFactory(itemOutput.s);
+      out =
+        isArraySource || add
+          ? B_next(
+              source,
+              add ? (isAsync ? "[]" : "new Set") : `new Set(${sourceVar})`,
+              isAsync ? arrayFactory(itemOutput.s) : outSchema,
+            )
+          : B_refine(source, expected);
+      settles = isAsync && collects && !!g.k;
+      if (settles) itemOutput.fs?.(itemOutput, true);
+      itemMerge = B_merge(itemOutput);
+    };
+    const wrap = collects ? B_child(g, emit) : (emit(), U);
+    const code = add
+      ? `${itemMerge}${out.v()}.${isAsync ? "push" : "add"}(${
+          settles ? B_settle(out, itemOutput) : itemOutput.i
+        });`
+      : g.t + g.j === failCountBefore
+        ? ""
+        : itemMerge;
+    counted = g.t + g.j !== failCountBefore;
+    const copy = counted && isAsync
+      ? B_countCopy(g, indexVar, (counterVar = B_varWithoutAllocation(g)))
+      : "";
+    return copy + (wrap ? wrap(code, itemOutput) : code);
+  });
+  if (g.kj !== collected) out.k = true;
+  B_forOf(out, itemVar, sourceVar, body, counted ? counterVar : U, counted && !isAsync);
 
   // `source`, not `input`: see iterableSource.
   return B_markOutput(isAsync ? B_collectAsync(out, "Set", outSchema) : out, source);

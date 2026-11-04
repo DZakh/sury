@@ -114,7 +114,7 @@ export const protobuf: Source = {
   blurb:
     "`S.protobuf` encodes and decodes the Protocol Buffers binary format from an ordinary Sury schema: no `.proto` file, no code generation step, and the same schema still parses, infers types and converts to JSON Schema.",
   versions: benchVersions,
-  performanceNote: "<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, and `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for.</sub>",
+  performanceNote: "<sub>Best of seven samples per cell, since a sample landing on a GC pause reads double and which library pays it is luck of the draw. `tiny` and `typical` are this suite's own shapes, `common` is protobuf.js's own benchmark message, `tile` is a Mapbox vector tile: almost entirely packed varints, which is what pbf is built for, and `oneof-any` is a Timestamp, an Any and a list of oneof items, each library packing and unpacking the Any its own way inside the timing. pbf has no Any.</sub>",
   bundleSize,
   features: () => Promise.resolve(buildFeatures(COLUMNS, FEATURES)),
   conformance,

@@ -10,12 +10,13 @@ jsonSchema:
   output: '{ $ref: "#/$defs/Outer", $defs: { Outer: { type: "object", properties: { inner: { $ref: "#/$defs/Inner" }, next: { $ref: "#/$defs/Outer" } }, required: ["inner"] }, Inner: { type: "object", properties: { v: { type: "string" }, next: { $ref: "#/$defs/Inner" } }, required: ["v"] } } }'
   fromOutputType: "{ inner: { v: string; next?: ... | undefined; }; next?: ... | undefined; }"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Outer. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{let v0;v0=e[0](i);return v0}
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
     examples:
       flat:
         input: '{ inner: { v: "a" } }'
@@ -25,8 +26,22 @@ operations:
         output: '{ inner: { v: "a", next: { v: "b", next: undefined } }, next: { inner: { v: "c", next: undefined }, next: undefined } }'
       inner-wrong-type-at-depth:
         input: '{ inner: { v: "a", next: { v: 1 } } }'
-        error: |-
-          Failed at inner.next: Expected Inner | undefined, received { v: 1; }
-          - At next.v: Expected string, received 1
-  decode: eq-to-parse
-  encode: eq-to-parse
+        error: "Failed at inner.next.v: Expected string, received 1"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      flat:
+        input: '{ inner: { v: "a", next: undefined }, next: undefined }'
+        output: '{ inner: { v: "a", next: undefined }, next: undefined }'
+      both-recursions:
+        input: '{ inner: { v: "a", next: { v: "b" } }, next: { inner: { v: "c" } } }'
+        output: '{ inner: { v: "a", next: { v: "b" } }, next: { inner: { v: "c" } } }'
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      flat:
+        input: '{ inner: { v: "a", next: undefined }, next: undefined }'
+        output: '{ inner: { v: "a", next: undefined }, next: undefined }'
+      both-recursions:
+        input: '{ inner: { v: "a", next: { v: "b" } }, next: { inner: { v: "c" } } }'
+        output: '{ inner: { v: "a", next: { v: "b" } }, next: { inner: { v: "c" } } }'

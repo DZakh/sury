@@ -17,22 +17,31 @@ export type Flag = number;
 // Bit-flag literals (esbuild does not inline named consts).
 //
 // Compile semantics (`g.o` / op flag), 127 and below - what the generated code
-// itself does: 0 none, 1 async, 2 disableNaN, 4 union-transform-context (custom
-// transform inside a union case preserves the original exception so dispatch
-// can distinguish Sury failures from foreign ones), 64 flatten.
+// itself does: 0 none, 1 async, 2 disableNaN, 4 union-case-context (a file
+// read inside a union case lets its failure escape raw rather than count as
+// the case not matching; a coder's or a protobuf wire failure never does), 32
+// handed (the target a source union's member is converted into, set past its
+// hand-off link, schema flag 32768, until the case ends: a const or shape none
+// of a target union's members take fails as a value there, the other members
+// still converting, where met on its own it is refused), 64 flatten. 4 covers
+// every case of every union, the member's own pipeline included, 32 only the
+// target it is handed to, so neither stands for the other.
 //
 // Return modes, 128 and above - what the operation hands back, read only by the
-// operation tail (parse.ts, operations.ts): 128 JS Result
-// (`{success, value, error}`), 256 ReScript Result (`{TAG, _0}`), 512
-// promisable (1 without lifting a synchronous result into a promise), 1024
-// Standard Schema (`{value}` / `{issues}`), 2048 yield the operation's input
-// rather than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
+// operation's outcome (parse.ts `outcomeOf`): 128 JS Result
+// (`{success, value, error, issues}`, also what `~standard.validate` answers),
+// 256 ReScript Result (`{TAG, _0}`), 512 promisable (1 without lifting a
+// synchronous result into a promise), 2048 yield the operation's input rather
+// than its output (`makeInput`/`makeOutput`), 4096 answer a boolean
 // (`isInput`/`isOutput`).
+//
+// 1024 the chain closes on a tail passed past the `n` counted schemas
+// (parse.ts `getOp`). Not a return mode: `outcomeOf` never reads it.
 //
 // Bit 1 permits async, it does not assert it: codegen may read `g.o & 1` as
 // "a promise MAY appear here" (json.ts declines to fuse), never as "one will".
 // An async operation also rejects rather than throwing when its value fails
-// before the first await - decided by the operation tail (operations.ts), from
+// before the first await - decided by the operation's outcome (parse.ts), from
 // whether the compile is nested, not by a flag of its own.
 //
 // The split at 128 is load-bearing: a nested operation compiled inside another
@@ -49,18 +58,30 @@ export type Flag = number;
 
 // ── path ──────────────────────────────────────────────────────────────────────
 
-// Root-first. Static segments are strings; an index captured from a runtime
-// variable in generated code is a number. "[]" marks "some element" for
-// locations without a concrete value (JSON Schema conversion, dynamic parse).
+// Root-first. Static segments are strings; a runtime loop index or dict key is
+// a PathDyn `{e}` (the JS expression), not the string "[]". Baking "[]" into
+// Path would collide with a field actually named "[]". compilePath projects
+// PathDyn to "[]" for compile-time throws and JSON Schema; pathExpr splices
+// `e` into generated fail calls so the runtime error carries the real index
+// without a per-item try/catch.
 //
 // Never mutated: details objects, codegen closures and retained user errors
 // share instances, so every prepend/concat allocates. A symbol only ever
 // arrives from a user-written `path` (`S.refine`): every key codegen turns into
 // a segment comes from `Object.keys` or a generated `for-in`, which skip them.
 export type Path = readonly (string | number | symbol)[];
+// A codegen path segment whose value is a generated JS expression (loop index,
+// `for-in` key). The only object that appears in a CodePath.
+export type PathDyn = { e: string };
+export type CodePath = readonly (string | number | symbol | PathDyn)[];
 
 export const pathEmpty: Path = [];
 export const pathDynamic: Path = ["[]"];
+
+export const hasPathDyn = (path: CodePath): boolean => {
+  for (let i = 0; i < path.length; i++) if (typeof path[i] === "object") return true;
+  return false;
+};
 
 // Everything a raw splice into a double-quoted JS literal can't carry: the
 // quote itself, `\` (an accidental escape reads as a different string), and
@@ -90,8 +111,38 @@ export const inlinedProperty = (obj: string, key: string, numeric?: boolean): st
       : `${obj}.${key}`;
 
 // @__NO_SIDE_EFFECTS__
-export const pathConcat = (path: Path, concatedPath: Path): Path =>
-  path.length ? (concatedPath.length ? path.concat(concatedPath) : path) : concatedPath;
+export function pathConcat(path: Path, concatedPath: Path): Path;
+export function pathConcat(path: CodePath, concatedPath: CodePath): CodePath;
+export function pathConcat(path: CodePath, concatedPath: CodePath): CodePath {
+  return path.length ? (concatedPath.length ? path.concat(concatedPath) : path) : concatedPath;
+}
+
+export const pathExpr = (path: CodePath, rest?: string): string => {
+  let out = "[";
+  for (let i = 0; i < path.length; i++) {
+    if (i) out += ",";
+    const s = path[i]!;
+    out +=
+      typeof s === "object"
+        ? s.e
+        : typeof s === "string"
+          ? inlinedValueFromString(s)
+          : (s as number);
+  }
+  if (rest) out += (path.length ? "," : "") + rest;
+  return out + "]";
+};
+
+// Compile-time throw: a PathDyn has no value yet, so it becomes "[]".
+export const compilePath = (path: CodePath): Path => {
+  if (!hasPathDyn(path)) return path as Path;
+  const out: (string | number | symbol)[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const s = path[i]!;
+    out.push(typeof s === "object" ? "[]" : s);
+  }
+  return out;
+};
 
 // `user.tags[2]`, `["my key"]`. A non-string segment goes through `String`
 // rather than the regexes: this runs inside the `message` getter, where a
@@ -353,50 +404,90 @@ export type Internal = {
   examples?: unknown[];
   default?: unknown;
   format?: Format;
-  // The content axis (CONTENT_CODEC_SPEC.md): the schema this value's payload
-  // is stored as inside a JSON document - base64 text for bytes, the JSON value
-  // itself for a JSON document. Two schemas that agree on it carry the same
-  // kind of payload, so a link between them is a plain transfer; two that
-  // disagree have two readings of it (store the value, or open it) and the
-  // conversion asks instead of guessing. Absent means the value carries no
-  // payload of its own.
-  // On a string source it is a claim, and `format` is its verification: a
-  // carrier's opened text (`openedText`) and a union's per-member narrow both
-  // carry the marker without the format, and a decoder handed that pair must
-  // check the text, never escape it as a value - `S.jsonString` inside
-  // `S.optional` used to serialize `"a"` to `"\"a\""` for exactly that reason.
-  // Written only through `setContent` (below), which keeps it non-enumerable.
-  content?: Internal;
-  // Bytes-as-text codec on a format singleton (`S.base64`, `S.base64url`).
-  // Presence is the payload *kind* `B_contentDiffers` uses, so the two alphabets
-  // are one family without importing either format into builder.ts - which holds
-  // only while both sides of that comparison are content markers: a format's own
-  // schema also carries `bc`, so passing one there reads as "same kind" against
-  // any bytes marker. Carriers look it up off `content.bc`. Copies of a format
-  // keep `bc` so alphabet recoding still sees it, `S.trim`'s tail included.
-  bc?: BytesCodec;
-  // The reading of the content link that converts INTO this schema
-  // (CONTENT_CODEC_SPEC.md): `true` opens the source and hands its payload
-  // over, `false` stores its value. One field for one link: the encode
-  // reading is its negation, so `reverse` writes each node's from its forward
-  // successor's rather than carrying a second slot.
-  // Written by a slot the caller gave (rule 1), by a payload gaining a `.to`
-  // (rule 3, materialized by `codecTo` and `compileChain` the moment it
-  // becomes true, since `reverse` re-points `.to` and would lose it), and by
-  // the document piece a field is stored into (rule 2, `jsonPiece`). Absent on
-  // a link between two payloads of different kinds is therefore rule 4, and
-  // the payload schemas reject it while compiling (`B_rejectUnsettled`).
-  opens?: boolean;
-  // Properties of every value a string schema admits, which let generated code
-  // skip work: 1 escape-free (no `"`, `\`, controls or lone surrogates, so
-  // jsonString splices it between bare quotes with no escaping). Set the bit
-  // only where that is proven - a pattern whose range excludes the characters,
-  // or a conversion that manufactures the string - and re-run
-  // `pnpm --filter=sury fuzz:escfree`, because getting it wrong emits broken
-  // JSON rather than merely over-escaped JSON. `noValidation` voids the proof;
-  // the read sites handle that.
-  formatFlag?: number;
+  // Every compile-time marker on a schema, as bits. Consumers print schemas,
+  // so one number holds what would otherwise be a field per fact:
+  //   1 the value carries a bytes payload · 2 a JSON payload. The content kind
+  //     (CONTENT_CODEC_SPEC.md): two schemas that agree carry the same kind of
+  //     payload, so a link between them is a plain transfer; two that disagree
+  //     have two readings of it, and the conversion asks instead of guessing.
+  //     On a string it is a claim, and `format` is its verification: a
+  //     carrier's opened text (`openedText`) and a union's per-member narrow
+  //     carry the kind without the format, and a decoder handed that pair
+  //     checks the text, never escapes it as a value.
+  //   4 the link INTO this node opens its source · 8 it stores its source. The
+  //     content reading, one per link: the encode reading is the other bit,
+  //     so `reverse` swaps them. Written by a slot (rule 1), by a payload
+  //     gaining a `.to` (rule 3, materialized by `codecTo` and `compileChain`
+  //     the moment it becomes true, since `reverse` re-points `.to`), and by
+  //     the document piece a field is stored into (rule 2). Neither, on a link
+  //     between two payload kinds or from a plain string (`B_isText`, both a
+  //     value and text) into a JSON text format, is rule 4, rejected while
+  //     compiling - `B_rejectUnsettled`, and the jsonString decoder for the
+  //     string pair.
+  //   16 the document itself, `S.json` and every copy of one: whether this is
+  //     the whole document rather than a rendering of one. `name` and `$ref`
+  //     are forgeable (`S.recursive("JSON", …)` builds the same `$ref`), and
+  //     the decoder's identity is unreachable from `parse`, `composites` and
+  //     `modifiers`, which sit above `advanced/json`.
+  //   32 escape-free text: no `"`, `\`, controls or lone surrogates, so
+  //     jsonString splices it between bare quotes. Set only where proven - a
+  //     pattern whose range excludes them, or a conversion that manufactures
+  //     the string - and re-run `pnpm --filter=sury fuzz:escfree`: a wrong bit
+  //     emits broken JSON, not over-escaped JSON. `noValidation` voids the
+  //     proof; the read sites handle that.
+  //   64 per-variant union, Sury's own "this read may be absent" union - a
+  //     dict value read by a fixed key, `V | undefined`. Rules 2-4 don't apply:
+  //     it isn't a user-written widening whose intent could be ambiguous, so
+  //     each variant converts to the target, and one with no decoder to it
+  //     drops out with its error reported per value.
+  //   128 trusted narrow, and `unionRewrite` (union.ts) is the ONLY producer:
+  //     the variants were rewritten from those of the union the value was
+  //     already typed as, so a dispatched case may convert from its own
+  //     variant instead of re-validating it. Set anywhere else it licenses
+  //     skipping checks the value never passed.
+  //   256 `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
+  //     than by the codec's encoder, which would drag the codec into a
+  //     `toProtoOrThrow`-only bundle.
+  //   512 · 1024 a per-operation copy (`fuse` below) whose container decoder
+  //     left its contents to jsonStringAggregate, which walks them once inside
+  //     its own serialize pass: 512 UNVALIDATED, the aggregate parses each
+  //     from unknown; 1024 typed, from the type each claims, so a trusted
+  //     source is not re-checked. Either means the decoder emitted no walk,
+  //     which the whole-value JSON.stringify paths must not assume. On the
+  //     schema, not the val, to survive the parse loop's per-segment B_refine.
+  //   2048 lower inclusive · 4096 upper inclusive · 8192 lower exclusive ·
+  //     16384 upper exclusive: which bounds the caller wrote. int32 and port
+  //     put their own range in minimum/maximum, so the values can't tell a
+  //     caller's bound from a format's; only the bound constructors set these.
+  //     A schema bounds one of its value, length or size, so one set covers
+  //     minimum/minLength/minItems/minSize alike.
+  //   32768 a hand-off link: a source union member's output link, copied for
+  //     that union alone, whose `.to` is the target it converts into
+  //     (union.ts `unionHand`). The parse loop sets `g.o` 32 on following it.
+  // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
+  // a schema a union could hold: `unionIsTransparent` counts own fields, and
+  // the key alone would stop every union from flattening. The two container
+  // vals the compiler builds as object literals are the exception - they
+  // never reach the prototype, and no union holds them.
+  flags: number;
+  // A bytes carrier (`S.uint8Array`, `S.file`): the schema its payload is
+  // stored as inside a JSON document, base64 text. A format that IS its
+  // document form (`S.base64`, `S.json`) says so with the kind bits alone.
+  storedAs?: Internal;
+  // On a schema with a payload kind: the reading its reversed neighbour takes
+  // (`B_reverseReading`). On the schema rather than in `reverse` so a bundle
+  // with no content schema ships none of the decision.
+  reverseReading?: (mut: Internal, next?: Internal) => number;
+  // Bytes-as-text codec of `S.base64` / `S.base64url` and their copies, so
+  // alphabet recoding still sees it after `S.trim`. A carrier packing into a
+  // bytes target looks the codec up off its `storedAs`.
+  bytesCodec?: BytesCodec;
+  // Every tag the union may take, through nested unions, so `undefined` behind
+  // one still makes it optional. A ref counts as `unknown`.
   has?: Partial<Record<Tag, boolean>>;
+  // Try order, not the type's: a wrapper puts its own empty arm ahead of any
+  // arm that would change it (`unionWrap`), so what prints the type lists
+  // `null` and `undefined` last.
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
@@ -404,19 +495,6 @@ export type Internal = {
   properties?: Record<string, Internal>;
 
   noValidation?: boolean;
-  // Sury's own "this read may be absent" union - a dict value read by a fixed
-  // key, modelled as `V | undefined`. The conversion rules (2-4) don't apply to
-  // it: it isn't a user-written widening whose intent could be ambiguous, so
-  // each variant converts to whatever the target is, and a variant with no
-  // decoder to that target drops out with its error reported per value.
-  perVariant?: boolean;
-  // Which bounds the caller actually wrote. int32 and port put their own
-  // range in the fields below, so the values can't tell a caller's bound from
-  // a format's - this can, and only the bound constructors ever set it.
-  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
-  // exclusive. A schema bounds exactly one of its value, its length or its
-  // size, so one pair of bits covers minimum/minLength/minItems/minSize alike.
-  bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
   // S.gt/S.lt always land here and S.gte/S.lte always land on
@@ -436,49 +514,39 @@ export type Internal = {
   pattern?: RegExp;
   errorMessage?: SchemaErrorMessage;
   space?: number;
-  // Marks `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
-  // than by the codec's encoder, which would drag the codec into a
-  // `toProtoOrThrow`-only bundle.
-  protobufWire?: true;
   // What `S.protobufField` stored (`StoredField` in advanced/protobufField.ts).
   protobufField?: unknown;
-  // Compile-time only, set on a per-operation schema copy by `fz` below: the
-  // container's dynamic items, or a fixed container's non-literal fields, are
-  // typed but UNVALIDATED - the decoder skipped them because
-  // jsonStringAggregate parses each from unknown inside its own serialize
-  // pass. Carried on the schema (not the val) so it survives the parse loop's
-  // per-segment B_refine.
-  uv?: boolean;
+  // A literal a property read never inlines (`valGet`), because its value can
+  // be another: a one-value protobuf enum (`google.protobuf.NullValue`) reads an
+  // unknown number as it is, so a trusted decode of 5 must write 5 back, not 0.
+  // `S.protobufField` sets it on every number-valued literal link of an enum
+  // field's chain. Which spellings keep an unknown number is shown in
+  // CODEC_SPEC.md, "Protobuf enum".
+  openLiteral?: true;
+  protobufTypeName?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema
-  // marked `uv` when the aggregate may validate it, or undefined to validate
+  // marked 512 or 1024 when the aggregate may validate it, or undefined to validate
   // here as usual. Lives on the target so a bundle without it ships nothing
   // of the decision.
-  fz?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
-  // Compile-time only, and `unionRewrite` (union.ts) is the ONLY producer: this
-  // union's variants were rewritten from the variants of the union the value
-  // was already typed as, so a dispatched case may convert from its own variant
-  // instead of re-validating it. Spelling it `true` anywhere else licenses
-  // skipping checks the value never passed - the rewrite is what makes it true,
-  // because it drops the val's source to `unknown` and would otherwise lose the
-  // guarantee the source union carried.
-  tr?: boolean;
+  fuse?: (input: Val, container: Internal, item?: Internal) => Internal | undefined;
   "$ref"?: string;
+  // Published for whoever reads the schema; nothing resolves a `$ref` through
+  // it (see `definition`). Its presence marks a root ref to the union planner
+  // (union.ts `unionRefDef`).
   "$defs"?: Record<string, Internal>;
-  // `S.json` and every copy of one: the marker that answers "is this the whole
-  // document rather than a rendering of one", which several structural
-  // decisions turn on. Nothing already on the schema answers it. Identity and
-  // `content === schema` both fail because a chain node that IS json is a
-  // `copySchema` of it; `name` and `$ref` are forgeable, since
-  // `S.recursive("JSON", …)` builds the same `$ref`; and the decoder's
-  // identity, which would need no field at all, is unreachable from `parse`,
-  // `composites` and `modifiers` - all three read this and all three sit above
-  // `advanced/json`, whose `S.json` is built at module init from `dictFactory`,
-  // so inverting that import leaves the factory in TDZ.
-  // Enumerable, so `Object.assign` carries it onto a copy; nothing public
-  // writes it.
-  isJson?: boolean;
+  // A name is a label: two `S.recursive` schemas may share one, and one may sit
+  // inside the other, so every consumer resolves a ref by this and never by
+  // `$ref`.
+  //
+  // A function because the ref exists before its definition does - a definer
+  // receives it, and may copy it (`n.with(S.refine, ...)`) before returning, so
+  // a value written after the fact would miss every copy. It answers
+  // `undefined` while that definer runs, which is how `S.optional`'s default
+  // tells the definition being built. Always the same object once it answers,
+  // since compiled operations are cached on it.
+  definition?: () => Internal | undefined;
   "~standard"?: unknown;
   // Overrides how inputExpression renders this schema. Only for a schema whose
   // expression its tag can't produce - compactColumns, whose columns live on
@@ -509,8 +577,6 @@ export type BGlobal = {
   o: number;
   // @as("e") - embeded
   e: unknown[];
-  // @as("d") - defs
-  d?: Record<string, Internal>;
   // @as("t") - throwCounter. Bumped by every helper that emits a raise into
   // generated code, so a builder can bracket a stretch of emission and learn
   // whether what it produced can throw. Read the difference, never the value.
@@ -522,7 +588,55 @@ export type BGlobal = {
   // @as("js") - the operation's asJsonString embed accessor, cached by
   // B_embedJsonStr (advanced/json.ts) on first use.
   js?: string;
+  // @as("f") - the compiled operation, stored by `compileDecoder` once it
+  // exists. The throw boundary's stack capture cuts the trace at it, and the
+  // emitter that needs it runs first, so it is read through this rather than
+  // closed over.
+  f?: unknown;
+  // @as("x") - exit. Where a failed check goes when the code around it can be
+  // left by a jump rather than a raise: handed the failure's record (a thunk,
+  // so a context that needs no reason embeds no builder), it answers the
+  // statement to run - `return false` for a boolean operation, `return` of the
+  // failure for one that answers with a Result, record-and-break for a union
+  // case a later case may still accept - or nothing, for the raise a failure is
+  // by default. Absent means raise everywhere.
+  //
+  // The statement is `return …`, `break l`, or one `{…}` block holding more
+  // than one, so a caller can take a block for the braces it would add.
+  //
+  // A jump can't leave a function, so whatever emits code into a callback
+  // clears it for that stretch: `B_detached` around a `.then`, and a union
+  // whose dispatch may be wrapped in an async function keeps its own failure
+  // from jumping out of it (union.ts, `outer`).
+  x?: (record?: Failure) => string | undefined;
+  // @as("j") - jump counter, `t`'s twin: bumped by every failed check that
+  // took `x`. Read the difference, never the value.
+  j: number;
+  // @as("k") - the var of the failure list an operation that reports every
+  // failure collects into (parse.ts `outcomeOf`).
+  k?: string;
+  // @as("kj") - how many failures children collected, `j`'s twin: read the
+  // difference. Unset, nothing can be on the list and the operation reads as
+  // if it answered the first failure.
+  kj?: number;
+  // @as("y") - where code that must not run after a container's children
+  // collected goes instead: out of the innermost collecting child, or out of
+  // the operation. Not `x()`: inside a union case `x` is the case's exit, and
+  // leaving by it would fail the union a second time.
+  y?: () => string;
+  // @as("l") - the declaration sink of the scope code lands in (`B_let`): the
+  // operation body, an item loop's, a callback's. `c` counts the collecting
+  // children open around the code being emitted.
+  l?: string[];
+  c?: number;
 }
+
+// A failure's record, as the expression that builds it - or, asked `unbuilt`,
+// as the builder and its arguments (the value, then the path only where it is
+// dynamic), for an exit that keeps the record and may never read it
+// (union.ts). An expression with no builder to split off answers the same
+// either way. Union's aggregate tells the three shapes apart by count.
+export type Failure = (unbuilt?: boolean) => string;
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every
@@ -530,9 +644,13 @@ export type BGlobal = {
 export type Check = {
   // @as("c") - cond
   c: (inputVar: string) => string;
-  // @as("f") - fail
-  f: (input: Val) => (value: unknown) => ErrorDetails;
+  // @as("f") - fail. Answers the failure as a record already (`errorAt`,
+  // `toError`), never a plain object: a jump embeds the builder itself and
+  // hands on whatever it returns.
+  f: (input: Val) => (value: unknown, path?: Path) => ErrorDetails;
 }
+
+export type Continuation = (settle?: string) => string;
 
 export type Val = {
   // We might have the same value, but different instances of the val
@@ -561,14 +679,35 @@ export type Val = {
   fv?: Val[];
   // @as("cp") - codeFromPrev
   cp: string;
+  // Set by `B_asyncTry`. Given `ok`, rewrites `cp` from `then(void 0, H)` to
+  // `then(ok, H)`, still inside the same `try`, one promise hop fewer.
+  // Equivalent only because H always throws: a `.then` second argument never
+  // sees a throw from the first. The native `then`, not the answer's own
+  // (builder.ts `fusedThen`). Returns
+  // false, leaving `cp` alone, once `cp` has changed or been emitted. Never
+  // copied onto a refined val: it rebuilds this val's `cp`, not theirs.
+  // @as("fu") - fuse
+  fu?: (ok: Continuation, same?: boolean) => boolean;
+  // Set by `B_asyncTry`. `fs(val, true)`, before the merge, moves a collecting
+  // join's `settle` into the `then` `fu` built; `fs(val)` answers whether it
+  // did, so `B_settle` adds none. Only for an `ok` returning its own argument
+  // (`same`): any other value could be a promise whose rejection the `then`
+  // adopts past the `try`. Keyed to `i`, not this val, so parse.ts may copy it
+  // onto a refined val.
+  // @as("fs") - fuseSettle
+  fs?: (val: Val, apply?: boolean) => boolean;
   // Comma-joined `let` declarations hoisted onto this val by descendants
-  // that couldn't own them. Emitted after this val's checks in `merge` (the
-  // old varsAllocation slot). @as("hd") - hoistedDecls
+  // that couldn't own them. Emitted after this val's checks in `merge`.
+  // @as("hd") - hoistedDecls
   hd: string;
   // Set by `merge` once this val's code is emitted, so a later cached-bond
   // materialization re-reads inline instead of hoisting onto it (#240).
   // @as("fz") - finalized
   fz?: boolean;
+  // How many `S.shape` placements read this value, itself or inside a placed
+  // object. A union converting one read more than once writes its own var.
+  // @as("sp") - shapePlacements
+  sp?: number;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can
   // test presence with a plain truthy check instead of length.
   // @as("vc") - checks
@@ -578,12 +717,29 @@ export type Val = {
   // Whether the chain starting from the root prev has a transformation.
   // @as("t") - hasTransform
   t?: boolean;
-  path: Path;
+  path: CodePath;
   // @as("g") - global
   g: BGlobal;
   // This is to mark an object field as optional. Fields like this should be
   // skipped when the value is undefined. @as("o") - optional
   o?: boolean;
+  // @as("k") - a container whose children collected a failure: it has no
+  // value for what follows it to read (builder.ts `B_merge`).
+  k?: boolean;
+  // @as("hn") - names this val's own code assigns but leaves to a sink to
+  // declare (`B_let`). Routed when the val merges rather than when the var was
+  // materialized: a late `.v()` runs in whatever stretch reads the value, not
+  // the one its code lands in.
+  hn?: string[];
+  // @as("ha") - `hd`'s routed half: hoisted assignments whose names went to a
+  // sink.
+  ha?: string;
+  // @as("w") - a union case's input for a literal member, whose check is the
+  // case's dispatch condition. It reads the value the union was handed, which
+  // was assigned before the union runs, so the check lifts off it even where
+  // that value counts as converted, such as a codec's slot (`B_slot`). Left
+  // inline, the first literal member took every value.
+  w?: boolean;
 }
 
 // Shared `undefined` for every value-position use across the implementation:
@@ -720,17 +876,12 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     // on rendered text rather than identity means members which genuinely differ
     // but render alike - two distinct classes both named Foo - collapse, so this
     // is not a member count.
-    const anyOf = schema.anyOf;
     const seen = new Set<string>();
-    let body = "";
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      const expression = inputExpression(anyOf[idx]!);
-      if (!seen.has(expression)) {
-        seen.add(expression);
-        body += (body ? " | " : "") + expression;
-      }
-    }
-    return body;
+    const add = (s: Internal): unknown =>
+      s.anyOf !== U && !s.name && !s.expression ? s.anyOf.forEach(add) : seen.add(inputExpression(s));
+    schema.anyOf.forEach(add);
+    for (const e of ["null", "undefined"]) seen.delete(e) && seen.add(e);
+    return [...seen].join(" | ");
   } else if (schema.type === objectTag) {
     // Properties and an index signature share one accumulator: no factory
     // produces both at once today, but the shape is representable, and the
@@ -753,7 +904,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
       // A bound or divisor reads as part of the item, not the array:
       // `int32 > 5[]` parses as an array-typed bound and `number % 2[]` as an
       // array-typed divisor, the same ambiguity a union has.
-      return (item.type === anyOfTag || item.bounds !== U || item.multipleOf !== U
+      return (item.type === anyOfTag || item.flags & 30720 || item.multipleOf !== U
         ? `(${itemName})`
         : itemName) + "[]";
     }
@@ -789,6 +940,11 @@ Object.defineProperty(schemaPrototype, "with", {
     return fn(this, ...args);
   },
 });
+// Every schema reads `flags` as a number without carrying a key for it: the
+// default lives here, writable so a schema that sets a bit still creates an
+// own property, and non-enumerable so `unionIsTransparent`'s field count and
+// a consumer's `console.log` see only what a schema actually claims.
+Object.defineProperty(schemaPrototype, "flags", { value: 0, writable: true });
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 
@@ -846,10 +1002,28 @@ export const __setExnId = (id: unknown): void => {
   exnId = id;
 }
 
+// What `SuryError`'s constructor built (`new S.Error`, a subclass). A compiled
+// failure record never goes through it. builder.ts `B_prefixPath` wraps these
+// as `cause` instead of copying them, and parse.ts `captureStackAt` leaves their
+// stack alone. An own `stack` can't tell the two apart: V8 puts one on every
+// instance, SpiderMonkey puts it on `Error.prototype`.
+export const constructed: WeakSet<object> = new WeakSet();
+
+// The public `S.Error`: what a refiner constructs to throw a failure of its
+// own, so `super()` gives it a stack the way any hand-written throw has one.
+// The library never builds a failure this way - see `toError`.
+//
+// It also makes own properties of everything it is handed, where a compiled
+// failure keeps what its check settled on a shared prototype (`errorSite`). So
+// the two print differently - a hand-built error shows its `expected` and
+// `received`, a compiled one does not. That is the constructor's contract
+// rather than an oversight: it is handed a bag of fields and has nothing to
+// share them with.
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
     Object.assign(this, params);
+    constructed.add(this);
   }
   get message(): string {
     return formatErrorMessage(this as unknown as SuryErrorRecord);
@@ -861,8 +1035,177 @@ export class SuryError extends Error {
     return exnId;
   }
 }
-Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
-Object.defineProperty(SuryError.prototype, "s", { value: s });
+const errorPrototype = SuryError.prototype;
+Object.defineProperty(errorPrototype, "name", { value: "SuryError" });
+Object.defineProperty(errorPrototype, "s", { value: s });
+
+// A failure is a record first and an exception second. Capturing a stack is
+// what `new SuryError` spends nearly all of its time on, and most failures
+// never reach a throw anyone sees: a union tries each member and discards the
+// losers, a Result outcome hands the record back, `is*` reads only that one
+// exists. So the library reparents the details object it has already built and
+// leaves `stack` unset. parse.ts attaches one at the two boundaries a failure
+// can cross into user code - the compiled operation, and the compile itself -
+// which is also where it can attach a better one, since only a boundary knows
+// which frame to cut the trace at.
+//
+// Every failure the compiler raises goes through here, whether the operation is
+// being built or run. `new SuryError` is the public constructor, for user code
+// building a failure of its own to throw.
+//
+// Idempotent, and that is load-bearing rather than tidy: `B_throw` is handed a
+// user's own error back when there is no path to prepend, and reparenting an
+// instance someone else built and retained would rewrite it in place - a
+// no-op for a SuryError, but a subclass would lose its identity for good.
+export const toError = (details: ErrorDetails | Record<string, unknown>): SuryErrorRecord =>
+  ((details as { s?: symbol }).s === s
+    ? details
+    : Object.setPrototypeOf(details, errorPrototype)) as SuryErrorRecord;
+
+// The sentence a failure reads back as, given the expected schema already
+// rendered. Written once for both readers below.
+//
+// `Expected Date, received Date` names the type twice and says nothing: the
+// type is right and the value is not (an Invalid Date, an Error carrying the
+// wrong payload). Saying `received invalid Date` is the only part of the
+// message that carries information in that case.
+const renderReason = (error: SuryErrorRecord, expectedExpression: string): string => {
+  const receivedExpression = stringify(error.input);
+  let reason = `Expected ${expectedExpression}, received ${
+    expectedExpression === receivedExpression ? "invalid " : ""
+  }${receivedExpression}`;
+  const unionErrors = error.unionErrors as SuryErrorRecord[] | undefined;
+  if (unionErrors) {
+    const seenReasons = new Set<string>();
+    for (let idx = 0; idx < unionErrors.length; idx++) {
+      const caseError = unionErrors[idx]!;
+      const line = `\n- ${caseError.path.length ? `At ${pathToText(caseError.path)}: ` : ""}${caseError.reason.split("\n").join("\n  ")}`;
+      if (!seenReasons.has(line)) {
+        seenReasons.add(line);
+        reason += line;
+      }
+    }
+  }
+  return reason;
+};
+
+// `new S.Error({ reason })` assigns through the prototype, and an accessor with
+// no setter makes that a TypeError rather than an error carrying the reason it
+// was handed. Writing an own property is what an explicit reason means anyway -
+// it shadows the renderer from then on. It must stay an own enumerable data
+// property: `B_prefixPath` (builder.ts) copies a failure with `Object.assign`,
+// which writes an own `reason` through here.
+const reasonSet = function (this: SuryErrorRecord, reason: string): void {
+  Object.defineProperty(this, "reason", {
+    value: reason,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+};
+
+// `reason` is rendered on demand. It costs an `inputExpression` walk over the
+// expected schema and a `stringify` of the received value, and it is also what
+// puts a megabyte of request body inside an error message - all for a string
+// nothing reads until someone asks for `message`. The fallback for an error
+// nobody compiled: one the caller built with `new S.Error`, or a code that
+// writes its own `reason` (every code but `invalid_input` has the words in
+// hand). A compiled failure uses its check's renderer instead - see
+// `errorSite`, which knows the expected schema and can render it once.
+Object.defineProperty(errorPrototype, "reason", {
+  configurable: true,
+  set: reasonSet,
+  get(this: SuryErrorRecord): string {
+    return renderReason(this, inputExpression(this.expected as Internal));
+  },
+});
+
+// One getter for every compiled failure, not one per check. Defining it per
+// site cost an `Object.defineProperty` on every check the compiler emits, which
+// measured as most of a compile; and a getter written in as many places as
+// there are checks never settles into a monomorphic read. The per-site half is
+// the memo, which is a plain field on the site the getter reaches through
+// `this`.
+const sitePrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(sitePrototype, "reason", {
+  configurable: true,
+  set: reasonSet,
+  get(this: SuryErrorRecord): string {
+    let site = Object.getPrototypeOf(this) as SuryErrorRecord;
+    // A failure wrapping a caller's record (builder.ts `B_prefixPath`) has that
+    // record as its prototype and as its own `cause`; the site is one further,
+    // and the memo must not land on the record it promises to leave untouched.
+    if (Object.hasOwn(this, "cause") && this.cause === site) site = Object.getPrototypeOf(site) as SuryErrorRecord;
+    return renderReason(
+      this,
+      (site.expectedExpression ??= inputExpression(site.expected as Internal)) as string
+    );
+  },
+});
+
+// The prototype every failure of ONE check shares. `expected`, `received` and -
+// where the check names its own message - the reason itself are settled the
+// moment the check is compiled, so they are built once here instead of per
+// failure. An instance enumerates only its own properties, so this is also what
+// stops two schema objects filling every `console.log(error)`; `error.expected`
+// still reads.
+//
+// The memo above is what the prototype-wide renderer cannot have: the expected
+// schema's expression is the same for every failure of this check AND for every
+// re-read of `message`, which the fallback getter pays for again each time.
+export const errorSite = (
+  expected: Internal,
+  received: Internal,
+  reasonOverride?: string
+): object => {
+  const site = Object.create(sitePrototype) as SuryErrorRecord;
+  site.expected = expected;
+  site.received = received;
+  if (reasonOverride !== U) site.reason = reasonOverride;
+  return site;
+};
+
+// The same, for an `invalid_conversion`: `from` and `to` are the two schemas
+// the conversion sits between, settled where the coder is compiled.
+//
+// `reason` here reads off whatever was thrown, so each failure writes its own.
+// The data property below is what lets it: a plain assignment walks the
+// prototype chain looking for a setter, and the one on `errorPrototype` would
+// make every write an `Object.defineProperty`. Shared for the same reason the
+// getter above is.
+const conversionPrototype = Object.create(errorPrototype) as SuryErrorRecord;
+Object.defineProperty(conversionPrototype, "reason", {
+  value: U,
+  writable: true,
+  enumerable: true,
+});
+
+export const conversionSite = (from: Internal, to: Internal): object => {
+  const site = Object.create(conversionPrototype) as SuryErrorRecord;
+  site.from = from;
+  site.to = to;
+  return site;
+};
+
+// One failure of the check `site` describes: only what the value decided. The
+// keys are written rather than passed to `Object.create` because a data
+// property is what the rest of the compiler expects - generated loop code
+// assigns `error.path` on the way out to prepend a segment.
+export const errorAt = (
+  site: object,
+  path: Path,
+  input: unknown,
+  unionErrors?: SuryErrorRecord[]
+): ErrorDetails => {
+  const error = Object.create(site) as SuryErrorRecord;
+  error.code = "invalid_input";
+  error.path = path;
+  error.input = input;
+  // Absent rather than `undefined` on the failures that have none: what a
+  // shared hidden class used to buy is the site prototype's job now.
+  if (unionErrors) error.unionErrors = unionErrors;
+  return error as unknown as ErrorDetails;
+};
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) return exn as SuryErrorRecord;
@@ -882,8 +1225,6 @@ const formatErrorMessage = (error: SuryErrorRecord): string =>
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  m: (error: SuryErrorRecord) => string; // messageFormatter
-  d?: Record<string, Internal>; // defsAccumulator
   a: AdditionalItems; // defaultAdditionalItems
   f: Flag; // defaultFlag
 }
@@ -896,8 +1237,6 @@ export type GlobalConfigOverride = {
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = 0;
 export const globalConfig: GlobalConfig = {
-  m: formatErrorMessage,
-  d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,
 };
@@ -954,10 +1293,6 @@ export const unknown: Internal = baseSchema(unknownTag, true, noopDecoder);
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new (Schema as unknown as SchemaClass)(), schema);
   c.seq = seq++;
-  // `content` is non-enumerable, so Object.assign skips it - carried by hand
-  // here, which is also the only place that pays for it.
-  if (schema.content !== U) setContent(c, schema.content);
-  if (schema.bc !== U) setBytesCodec(c, schema.bc);
   return c;
 };
 
@@ -966,20 +1301,6 @@ export const copyTo = (from: Internal, to: Internal): Internal => {
   mut.to = to;
   return mut;
 };
-
-// `S.base64` and `S.json` are their own content, and an enumerable
-// self-reference makes `JSON.stringify(schema)` - and every error that embeds
-// one - throw on a cycle. Non-enumerable everywhere rather than only there, so
-// a carrier and its copies agree on the field count `unionIsTransparent` walks.
-export const setContent = (schema: Internal, content: Internal): void => {
-  valueOptions[valKey] = content;
-  Object.defineProperty(schema, "content", valueOptions as PropertyDescriptor);
-}
-
-export const setBytesCodec = (schema: Internal, codec: BytesCodec): void => {
-  valueOptions[valKey] = codec;
-  Object.defineProperty(schema, "bc", valueOptions as PropertyDescriptor);
-}
 
 export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) => void): TValue => {
   const root = copySchema(schema);
@@ -994,8 +1315,9 @@ export const updateOutput = <TValue>(schema: Internal, fn: (schema: Internal) =>
   return root as unknown as TValue;
 }
 
-export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[(tagFlags[tag]! & (256 | 512)) ? unknownTag : tag] = true;
+export const setHas = (has: Partial<Record<Tag, boolean>>, member: Internal): void => {
+  if (member.has) Object.assign(has, member.has);
+  else has[(tagFlags[member.type]! & (256 | 512)) ? unknownTag : member.type] = true;
 }
 
 // The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:

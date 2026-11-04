@@ -43,6 +43,6 @@ test("Union dispatch still works when a case has noValidation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}`,
+    `i=>{try{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}catch(v0){e[1](v0)}}`,
   )
 })

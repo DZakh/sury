@@ -11,12 +11,13 @@ jsonSchema:
     input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }] }'
     output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }] }'
 isEqual: strictEqual
+compare: "throws: [Sury] Can't compare JSON string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}i.length>2||e[1](i);break}if(typeof i==="number"&&i==i)break;e[2](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="string"){try{JSON.parse(i)}catch(t){e[0](i)}i.length>2||e[1](i);break}if(typeof i==="number"&&i==i)break;throw e[2](i)}return i}catch(v0){e[3](v0)}}
     examples:
       json-number:
         input: '"1"'

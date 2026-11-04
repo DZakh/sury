@@ -8,12 +8,13 @@ jsonSchema:
   input: "Expected JSON, received Map<{ id: number; }, string>"
   output: "Expected JSON, received Map<{ id: number; }, string>"
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Map<{ id: number; }, string>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);let v4=new Map;let v1=0;for(let v0 of i){try{let v2=v0[0];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2);let v3=v2.id;typeof v3==="number"&&v3==v3||e[0](v3);let v5=v0[1];typeof v5==="string"||e[1](v5);v4.set({id:v3},v5);v1++;}catch(v6){v6.path=[v1,...v6.path];throw v6}}return v4}
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v5=new Map;let v1=0;for(let v0 of i){let v2=v0[0];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[1](v2,[v1]);let v3=v2.id;typeof v3==="number"&&v3==v3||e[0](v3,[v1,"id"]);let v4=v0[1];typeof v4==="string"||e[2](v4,[v1]);v5.set({id:v3},v4);v1++;}return v5}catch(v6){e[5](v6)}}
     examples:
       valid:
         input: 'new Map([[{ id: 1 }, "a"]])'
@@ -24,5 +25,11 @@ operations:
       invalid-key-is-located-by-position:
         input: 'new Map([[{ id: "x" }, "a"]])'
         error: 'Failed at [0].id: Expected number, received "x"'
+      every-invalid-entry-is-collected-by-position:
+        input: 'new Map([[{ id: "x" }, "a"], [{ id: 2 }, "b"], [{ id: 3 }, 4]])'
+        error: 'Failed at [0].id: Expected number, received "x"'
+        issues:
+          - 'Failed at [0].id: Expected number, received "x"'
+          - "Failed at [2]: Expected string, received 4"
   decode: identity
   encode: identity

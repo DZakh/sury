@@ -11,20 +11,23 @@ import {
   instanceTag,
   type Internal,
   openApi30,
-  setContent,
   tagFlags,
   U,
   type Val
 } from "../base";
 import {
+  B_asyncTry,
   B_computed,
   B_embed,
-  B_makeInvalidConversionDetails,
+  B_conversionFail,
   B_markAsync,
   B_next,
+  B_nextVar,
+  B_pathArg,
+  B_raiser,
   B_readOnce,
-  B_throw,
   B_rejectUnsettled,
+  B_reverseReading,
   B_unsupportedDecode
 } from "../builder";
 import type { JSONSchemaT } from "../jsonschema";
@@ -63,29 +66,24 @@ const fromArrayBuffer =
 // that is what makes `.`'s precedence a non-question, where a val handed over as
 // a ternary would otherwise have the method read off the wrong branch.
 const read = (input: Val, call: string, schema: Internal): Val => {
-  // Caught the way `B_conversion` catches a coder's failure, both halves: the
-  // call itself throws on a value an operation trusted rather than checked, and
-  // the promise rejects when the read fails (the backing file moved, say). A
-  // `TypeError` or `DOMException` escaping either way hands the enclosing array
-  // or dict a plain Error to stamp a path onto.
+  // The call throws on a value an operation trusted rather than checked, and
+  // the promise rejects when the read fails (the backing file moved, say);
+  // uncaught, either escapes as a `TypeError` or `DOMException`.
   //
-  // Bare inside a union, for `B_conversion`'s reason: a read that fails is not
-  // a case that didn't match, and classifying it as one let the dispatch fall
-  // through to a sibling and hand back the container unread. The cost is the
-  // convention's: a Sury error is what an enclosing object stamps a path onto,
-  // so a rejection under `S.optional(…)` arrives raw where the same field
-  // required arrives at `["a"]`. Wrapping it back is what the fall-through was.
-  const failFn = input.g.o & 4
-    ? U
-    : B_embed(input, (cause: unknown) => {
-        B_throw(B_makeInvalidConversionDetails(input, schema, cause));
-      });
-  const output = B_computed(
-    input,
-    `${input.v()}${call}${failFn === U ? `` : `.catch(${failFn})`}`,
-    schema,
-    failFn === U ? U : `${failFn}(x)`,
-  );
+  // Bare inside a union (flag 4): a read that fails is not a case that didn't
+  // match, and classifying it as one would let the dispatch fall through to a
+  // sibling and hand back the container unread. The cost is
+  // the convention's: a Sury error is what an enclosing object stamps a path
+  // onto, so a rejection under `S.optional(…)` arrives raw where the same field
+  // required arrives at `["a"]`.
+  let output: Val;
+  if (input.g.o & 4) output = B_computed(input, `${input.v()}${call}`, schema);
+  else {
+    const raise = B_raiser(input, B_conversionFail(input, schema));
+    const path = B_pathArg(input);
+    const code = `${input.v()}${call}`;
+    B_asyncTry((output = B_nextVar(input, schema, input.e)), code, raise, path);
+  }
   B_markAsync(input, output);
   return output;
 };
@@ -105,7 +103,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // `v()` inside each branch that uses it: materializing the var up
       // front left a dead `let vN = …` on the two paths below, which take the
       // value as it stands.
-      const toBytes = source.content?.bc?.toBytes;
+      const toBytes = (source.bytesCodec ?? source.storedAs?.bytesCodec)?.toBytes;
       const parts = (sourceTagFlag & 2)
         ? toBytes
           ? `${B_embed(input, toBytes)}(${input.v()})`
@@ -135,7 +133,9 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
       // landed in Node 18 and `File` in Node 20, and a bare one would throw at
       // import.
       s.class = (globalThis as unknown as Record<string, unknown>)[global];
-      setContent(s, base64Content);
+      s.flags = 1;
+      s.reverseReading = B_reverseReading;
+      s.storedAs = base64Content;
       s.jsonSchema = binaryJSONSchema;
       if (s.class === U) {
         unsupportedInstance(s, name);
@@ -168,7 +168,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A value position (or base64 itself) stores the bytes as base64;
         // anything else after a string wants the text they spell, which is also
         // what a format opened by rule 3 is handed.
-        if (target.content !== U && (target.content.bc || !target.opens)) {
+        if (target.flags & 1 || (target.flags & 2 && !(target.flags & 4))) {
           const { format: asFormat, fromBytes } = bytesTarget(target, base64Content);
           const output = read(
             input,
@@ -184,7 +184,7 @@ const binarySchema = (name: string, global: string, nameArg: string): Internal =
         // A format being opened (rule 3) is handed its own document, so it
         // parses the text instead of escaping it.
         return (targetTagFlag & 2)
-          ? read(input, `.text()`, target.content !== U ? openedText(target) : string)
+          ? read(input, `.text()`, target.flags & 3 ? openedText(target) : string)
           : input;
       };
     },

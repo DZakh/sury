@@ -1,12 +1,14 @@
 import {
+  type BGlobal,
   anyOfTag,
   baseSchema,
   type Builder,
   configurableValueOptions,
+  constructed,
   copySchema,
+  getOrRethrow,
   type Encoder,
   type Flag,
-  getOrRethrow,
   globalConfig,
   initSchema,
   inputExpression,
@@ -17,13 +19,12 @@ import {
   numberTag,
   objectTag,
   panic,
-  pathConcat,
-  pathDynamic,
-  pathEmpty,
   reversedKey,
   s,
   schemaPrototype,
   setHas,
+  stringTag,
+  type SuryErrorRecord,
   tagFlags,
   U,
   unknown,
@@ -35,16 +36,21 @@ import {
   valueOptions
 } from "./base";
 import {
-  B_embedInvalidInput,
+  B_detached,
+  B_failInvalidInput,
   B_embedPure,
   B_errorOf,
   B_inlineConst,
+  B_let,
   B_markOutput,
   B_merge,
   B_next,
+  B_then,
   B_operationArg,
   B_refine,
   B_scope,
+  type Settled,
+  settledTag,
   B_unsupportedDecode,
   B_varWithoutAllocation,
   failInvalidType,
@@ -71,35 +77,30 @@ export const parse = (input: Val): Val => {
 
     if (++loopCount > 50) panic("Loop count exceeded 50");
 
-    const defs = loopInput.e["$defs"];
-    if (defs) loopInput.g.d ? Object.assign(loopInput.g.d, defs) : (loopInput.g.d = defs);
-
-    // The val is a promise, so the rest of the chain has to run inside a
-    // `.then`. The flag alone is the right guard: a second condition could only
-    // have been "and there is something to wrap", which is not knowable before
-    // parsing the remainder - so the decision lives below, where the recursive
-    // parse has already answered it, and an empty remainder refines instead of
-    // wrapping. Across the spec corpus the no-wrap arm is reached by exactly one
-    // shape, `S.file.with(S.to, S.uint8Array)`, where reading the file IS the
-    // whole operation.
+    // A promise: the rest of the chain runs inside a `.then`, unless it is
+    // empty or the val takes it into its own (`fu`).
     if (loopInput.f & 1) {
       const operationInputVar = loopInput.v();
       const operationInput = B_scope(loopInput);
-      const operationOutput = parse(operationInput);
-      const operationCode = B_merge(operationOutput);
-      result =
-        operationInput.i !== operationOutput.i || operationCode !== ""
-          ? B_next(
-              loopInput,
-              `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
-              operationOutput.s,
-              operationOutput.e,
-            )
-          : B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+      let operationOutput!: Val;
+      const operationCode = B_detached(loopInput.g, () =>
+        B_merge((operationOutput = parse(operationInput))),
+      );
+      const then = B_then(operationInputVar, operationCode, operationOutput.i);
+      if (
+        (operationInput.i === operationOutput.i && operationCode === "") ||
+        loopInput.fu?.(then, !operationOutput.t && !(operationOutput.f & 1))
+      ) {
+        result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
+        result.fs = loopInput.fs;
+      } else result = B_next(loopInput, `${operationInputVar}.then(${then()})`, operationOutput.s, operationOutput.e);
       result.f |= 1;
       result.io = true;
     } else if (loopInput.io) {
       const to = loopInput.e.to!;
+      // Past a hand-off link only the target is left to compile, and the
+      // union case holding the link puts `g.o` back when it ends.
+      if (loopInput.e.flags & 32768) loopInput.g.o |= 32;
       result = loopInput.e.parser ? loopInput.e.parser(loopInput) : B_refine(result, U, U, to);
     } else {
       const maybeEncoder = loopInput.s.encoder;
@@ -113,7 +114,7 @@ export const parse = (input: Val): Val => {
         // when the operation discards it anyway (S.assertInputOrThrow's `undefined` result
         // sentinel). Every other such target still gets its conversion:
         // `noValidation` drops the checks, not the re-representation.
-        !(loopInput.e.noValidation && (loopInput.e.isJson || loopInput.e.type === undefinedTag))
+        !(loopInput.e.noValidation && (loopInput.e.flags & 16 || loopInput.e.type === undefinedTag))
       ) {
         result = maybeEncoder(loopInput, loopInput.e);
       }
@@ -132,87 +133,275 @@ export const parse = (input: Val): Val => {
 
   return result;
 }
-export const parseDynamic = (input: Val): Val => {
-  try {
-    return parse(input);
-  } catch (exn) {
-    const error = getOrRethrow(exn);
-    // For the case parent must always be present
-    error.path = pathConcat(
-      input.p ? input.p.path : pathEmpty,
-      pathConcat(pathConcat(input.path, pathDynamic), error.path),
-    );
-    throw error;
-  }
-}
 
-// How a compiled operation's body ends. `undefined` means "no body at all" -
-// the operation is the identity, and the caller hands back `noopOperation`.
+// A Sury failure is a record until it crosses into user code, and there are
+// exactly three places where it does: the compiled operation, the promise an
+// async one hands back (`rejectionBoundary`), and the compile itself. All three
+// attach the stack here.
 //
-// A mutable binding rather than a branch on the flag: `compileDecoder` is in
-// every bundle, and the Result modes' emitter (operations.ts) must not be. The
-// throw tail below is the default, and reaching a Result operation is what
-// swaps in the emitter that knows both. Registration happens inside that
-// operation, not at its module's top level, which would be a side effect that
-// survives the same shaking.
-export type Tail = (
+// `cut` is the frame the trace starts *after* - the operation for a raise while
+// it runs, `getOp` for one while it is built. Without it the top frames are the
+// compiler walking down to the value or the schema that failed, which is ten of
+// them at the build boundary: more than `Error.stackTraceLimit` allows, so the
+// line the caller actually wrote falls off the end of its own stack trace.
+//
+// Only what Sury built. A foreign exception, or one user code built with `new
+// S.Error` and threw, already points at a better line than this; asking by
+// ownership rather than `"stack" in` keeps that true on SpiderMonkey, whose
+// accessor on `Error.prototype` answers for every error, and never reads (and
+// formats) a stack to decide. A frozen one is left as it is: a user who froze
+// what they throw at the root gets it back unchanged rather than a TypeError
+// from the write.
+//
+// `captureStackTrace` is V8's, and `cut` is the whole reason to prefer it: only
+// it can drop the frames between the raise and the caller. Every other engine
+// gets the stack a throwaway `Error` was born with, which is the same trace
+// with this function and the boundary's own frames still on top - worse than
+// V8's.
+// Counting those frames off would couple this to the call depth of whichever
+// boundary reaches it, so they stay.
+//
+// `defineProperty` rather than an assignment, because `stack` is not part of
+// what a failure reads back as: V8 writes a non-enumerable one, and a plain
+// write here would put it in `Object.keys(error)` on those engines alone.
+//
+// Hands back what it was given, so each boundary reads as the one expression
+// it rethrows or rejects with.
+const captureStackAt = (thrown: SuryErrorRecord, cut: unknown): SuryErrorRecord => {
+  if (thrown && thrown.s === s && !Object.hasOwn(thrown, "stack") && !constructed.has(thrown) && Object.isExtensible(thrown)) {
+    const capture = (
+      Error as unknown as { captureStackTrace?: (target: object, cut: unknown) => void }
+    ).captureStackTrace;
+    if (capture) capture(thrown, cut);
+    else
+      Object.defineProperty(thrown, "stack", {
+        value: new Error().stack,
+        configurable: true,
+        writable: true,
+      });
+  }
+  return thrown;
+};
+
+// A failure an async operation reaches after its first await rejects the
+// promise the operation handed back, out of reach of the `try` it runs in. This
+// is that promise's handler, and its own cut. A microtask calls it, so all that
+// sits below is the runtime's microtask pump, then the caller as a frame V8
+// threads back through its `await`. A caller that chained a bare `.catch` has
+// no such frame, and its stack names nothing it wrote - but it still has one,
+// as every failure that reaches user code by a throw or a rejection does.
+const rejectionBoundary = (thrown: SuryErrorRecord): never => {
+  throw captureStackAt(thrown, rejectionBoundary);
+};
+
+// The throwing outcomes: the value, a promise of it, or a raise. `undefined`
+// means no body at all - the operation is the identity, and the caller hands
+// back `noopOperation`.
+const throwTail = (
   input: Val,
   code: string,
   out: string,
   isAsync: boolean,
   flag: Flag,
-  hasDefs: boolean,
-) => string | undefined;
-
-// Throw mode, plus the Standard Schema tail (mode bit 1024). The Standard
-// Schema arm is here rather than behind the `__setTail` hook because the
-// `~standard` prototype getter can never be tree-shaken (standard.ts), so a
-// registration from it would drag the whole emitter into every consumer bundle
-// - the very thing the hook exists to prevent. Keeping the one shape that
-// getter needs here costs a branch; the JS and ReScript Result shapes stay
-// behind the hook (operations.ts).
-export const throwTail: Tail = (input, code, out, isAsync, flag, hasDefs) => {
-  if (flag & 1024) {
-    // `path` is omitted at the root, which is what Standard Schema consumers
-    // expect. Built by an embedded function rather than inline: the failure
-    // path reads the error three times, and the same closure serves the
-    // sync catch and the promise's rejection handler.
-    const errorOf = B_errorOf(input);
-    const issues = B_embedPure(input, (e: unknown) => {
-      const error = errorOf(e);
-      return { issues: [{ message: error.reason, path: error.path.length ? error.path : U }] };
-    });
-    const v = isAsync ? B_varWithoutAllocation(input.g) : "";
-    const body = isAsync
-      ? `${code}return ${out}.then(${v}=>({value:${v}}),${issues})`
-      : `${code}return {value:${out}}`;
-    // The raise counter: when nothing merged can throw, no `try`. An async
-    // operation answers with a promise either way, so a failure the sync
-    // phase raises comes back in the same shape as one after the await.
-    if (!input.g.t) return body;
-    const e = B_varWithoutAllocation(input.g);
-    return `try{${body}}catch(${e}){return ${
-      isAsync ? `Promise.resolve(${issues}(${e}))` : `${issues}(${e})`
-    }}`;
-  }
-  return code === "" && out === operationArgVar && !(flag & 1)
-    ? U
-    : `${code}return ${(flag & 1) && !isAsync && !hasDefs ? `Promise.resolve(${out})` : out}`;
+  nested: boolean,
+): string | undefined => {
+  if (code === "" && out === operationArgVar && !(flag & 1)) return U;
+  // An appended hop rather than a second argument to whatever `.then` built the
+  // value: that argument would never see a failure raised inside the `.then`
+  // itself, which is where an async value's own checks run.
+  const body = `${code}return ${
+    (flag & 1) && !isAsync && !nested
+      ? `Promise.resolve(${out})`
+      : isAsync && !nested && input.g.t
+        ? `${out}.catch(${B_embedPure(input, rejectionBoundary)})`
+        : out
+  }`;
+  // The run boundary, cutting at the operation itself so the caller's line ends
+  // up on top instead of five frames of library. Only where something can raise
+  // at all (`g.t`) - or, for a promise-returning operation, wherever the body
+  // reads the value, since a getter's throw has to reject too - and never for a
+  // nested compile (recursive.ts), whose throw is generated code's own business
+  // and is caught and re-raised by the operation around it.
+  //
+  // The sync phase only. What an async operation raises after its first await
+  // is `rejectionBoundary`'s.
+  if (!(input.g.t || (flag & 1 && !(flag & 512) && code)) || nested) return body;
+  const g = input.g;
+  const e = B_varWithoutAllocation(g);
+  // A promise-returning operation must not throw synchronously: a value that
+  // fails before the first await rejects the same way one that fails after it
+  // does, so `OrReject` is the whole story its name tells. The promisable mode
+  // (512) answers in the value's own shape instead, and throws. Lifted in this
+  // one `catch`, with the stack taken on the way, rather than rethrown for a
+  // second `try` around it to catch.
+  return `try{${body}}catch(${e}){${
+    flag & 1 && !(flag & 512)
+      ? `return ${B_embedPure(input, (thrown: SuryErrorRecord) =>
+          Promise.reject(captureStackAt(thrown, g.f)),
+        )}`
+      : B_embedPure(input, (thrown: SuryErrorRecord): never => {
+          throw captureStackAt(thrown, g.f);
+        })
+  }(${e})}`;
 };
 
-let emitTail: Tail = throwTail;
-export const __setTail = (fn: Tail): void => {
-  emitTail = fn;
+// The answering outcomes: 128 the JS `Result`, 256 ReScript's
+// `result<'value, S.error>`, 4096 `is`'s boolean. `~standard.validate` is the
+// promisable JS Result (1|128|512) - a Result IS a Standard Schema result, so
+// there is one shape to keep, not two.
+//
+// The JS pair carries the same keys in the same order - `void 0` in the slot
+// the branch doesn't use - so the two branches share one hidden class and a
+// consumer's `.success`/`.value` reads stay monomorphic. It is also what makes
+// `const { value, error } = result` narrow on the TS side (the `?: undefined`
+// sibling fields in `Result`): one decision, both halves.
+//
+// `issues` is the fourth of those keys, and the one that makes a Result a
+// Standard Schema result. It is free where a consumer branches on the Result at
+// the call site, which is most of them: nothing outlives the frame, so V8 drops
+// the object and the key with it. It costs a store only where the Result is
+// kept, and taking it off the success branch to save that splits the hidden
+// class and hands the same nanosecond back on the reads. Both halves are in
+// specs/scenarios.yaml - `parse-as-result-consumed` against
+// `parse-as-result-compiled`, and `result-read`.
+const okResult = (flag: Flag, value: string): string =>
+  flag & 256
+    ? `{TAG:"Ok",_0:${value}}`
+    : flag & 128
+      ? `{success:true,value:${value},error:void 0,issues:void 0}`
+      : value;
+
+// The JS Result reports every failure the body found. They sit on a linked
+// list, newest first, each node led by the one before it - `[, record]`, or
+// `[, builder, value, path?]` built only now that it is read (union.ts links
+// its members' failures the same way). A raise that ended the body comes last.
+//
+// `message` is the error's `reason` and not its formatted `message`: the
+// location is in `path`, which is omitted at the root, as Standard Schema
+// consumers expect - a consumer that renders both would say it twice.
+const failureOf =
+  (errorOf: (e: unknown) => SuryErrorRecord, lift: { a?: boolean }) =>
+  (list: unknown[] | undefined, raised?: 1, thrown?: unknown): unknown => {
+    // What async children found comes after what the sync phase did, in the
+    // order the joins list them (builder.ts `B_join`).
+    const late = raised ? ((thrown as Settled | undefined)?.t === settledTag ? (thrown as Settled).l : [thrown]) : [];
+    let size = late.length;
+    for (let n = list; n; n = n[0] as unknown[] | undefined) size++;
+    const issues = new Array(size);
+    let error!: SuryErrorRecord;
+    const add = (e: SuryErrorRecord) => {
+      issues[--size] = { message: e.reason, path: e.path.length ? e.path : U };
+      error = e;
+    };
+    for (let idx = late.length; idx--; ) add(errorOf(late[idx]));
+    for (let n = list; n; n = n[0] as unknown[] | undefined)
+      add((n.length < 3 ? n[1] : (n[1] as Function)(n[2], n[3])) as SuryErrorRecord);
+    const result = { success: false, value: U, error, issues };
+    return lift.a ? Promise.resolve(result) : result;
+  };
+
+// How one compile of an operation answers: `x` is where a failure the body
+// finds goes (`BGlobal.x`), asked before the body is emitted; `t` ends the body
+// once it is known.
+type Outcome = {
+  x: BGlobal["x"];
+  t: (code: string, out: string, isAsync: boolean) => string | undefined;
+};
+
+const outcomeOf = (input: Val, flag: Flag, nested: boolean): Outcome => {
+  const g = input.g;
+  // 2048 (`makeInput`/`makeOutput`) hands back the value it was given. The
+  // operation's parameter still is that value unless the body assigned to it
+  // (`g.r`: a union rebinds it while dispatching, and `return i` would answer
+  // with the encoded form), in which case it is bound before the body.
+  const given = (code: string): [string, string] => {
+    if (!g.r) return [code, operationArgVar];
+    const value = B_varWithoutAllocation(g);
+    return [B_let(g, value, operationArgVar) + code, value];
+  };
+  // A nested compile (recursive.ts) answers with its value, so it raises.
+  if (!(flag & (128 | 256 | 4096)) || nested)
+    return {
+      x: U,
+      t: (code, out, isAsync) => {
+        if (flag & 2048) {
+          const [body, value] = given(code);
+          return throwTail(input, body, isAsync ? `${out}.then(()=>${value})` : value, isAsync, flag, nested);
+        }
+        return throwTail(input, code, out, isAsync, flag, nested);
+      },
+    };
+  // A failure the sync phase finds comes back in the shape the success path
+  // uses, so an async operation's answer is a promise either way. The
+  // promisable mode (512) answers in the body's own shape, known only once the
+  // body is, so the JS Result's builder reads it off `lift` when it runs.
+  const lift: { a?: boolean } = {};
+  const lifted = (value: string) => (flag & 1 && !(flag & 512) ? `Promise.resolve(${value})` : value);
+  let x: NonNullable<BGlobal["x"]> & { k?: 1 }, failure: string, list: string | undefined;
+  let named = false;
+  if (flag & 128) {
+    list = g.k = B_varWithoutAllocation(g);
+    g.l = [];
+    failure = B_embedPure(input, failureOf(B_errorOf(input), lift));
+    // Always onto the list: an exit emitted before a collecting child can
+    // still run after it, the next time round a loop.
+    x = (record) => ((named = true), `return ${failure}(${record ? `[${list},${record(true)}]` : list})`);
+    // Tagged so a container knows its children collect (builder.ts `B_field`).
+    x.k = 1;
+    g.y = () => `return ${failure}(${list})`;
+  } else if (flag & 4096) {
+    failure = "false";
+    const no = `return ${lifted(failure)}`;
+    x = () => no;
+  } else {
+    const errorOf = B_errorOf(input);
+    failure = B_embedPure(input, (e: unknown) => ({ TAG: "Error", _0: errorOf(e) }));
+    x = (record) => `return ${lifted(`${failure}(${record!()})`)}`;
+  }
+  const failOf = (e?: string): string =>
+    list
+      ? `${failure}(${g.kj ? list : 0}${e ? `,1,${e}` : ""})`
+      : flag & 4096
+        ? failure
+        : `${failure}(${e})`;
+  // What the sync phase collected fails the operation after all, async or
+  // not - it is only read once the body is done.
+  const done = (success: string): string => (g.kj ? `${list}?${failOf()}:${success}` : success);
+  return {
+    x,
+    t: (code, out, isAsync) => {
+      const errVar = B_varWithoutAllocation(g);
+      let value = out;
+      if (flag & 2048) [code, value] = given(code);
+      lift.a = !!(flag & 1) && (isAsync || !(flag & 512));
+      const valueVar = isAsync ? B_varWithoutAllocation(g) : value;
+      const success = okResult(flag, flag & 4096 ? "true" : flag & 2048 ? value : valueVar);
+      let body = isAsync
+        ? `${code}return ${out}.then(${valueVar}=>${done(`(${success})`)},${errVar}=>(${failOf(errVar)}))`
+        : `${code}return ${done(lifted(success))}`;
+      // An outcome with an answer of its own never throws, and any body can:
+      // what it reads may be a getter or a proxy, even where nothing it checks
+      // can fail. Only an empty one needs no `try` - the decision a
+      // `safe(() => ...)` wrapper can never make.
+      if (code)
+        body = `try{${body}}catch(${errVar}){return ${list ? failOf(errVar) : lifted(failOf(errVar))}}`;
+      const names = g.kj || named ? [list, ...g.l!] : g.l || [];
+      return names.length ? `let ${[...new Set(names)]};${body}` : body;
+    },
+  };
 };
 
 export const compileDecoder = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
-  defs: Record<string, Internal> | undefined,
   node?: OpNode
 ): (input: unknown) => unknown => {
-  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
+  const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag);
+  // A nested compile (recursive.ts, the one caller with a node) answers with
+  // its value, so it raises.
+  const outcome = outcomeOf(input, flag, !!node);
+  input.g.x = outcome.x;
 
   const output = parse(input);
   const code = B_merge(output);
@@ -222,10 +411,13 @@ export const compileDecoder = (
     node.t = output.t === true;
   }
 
-  const body = emitTail(input, code, output.i, isAsync, flag, !!defs);
+  const body = outcome.t(code, output.i, isAsync);
   if (!body) return noopOperation;
   const fn = new Function("e", "s", `return ${operationArgVar}=>{${body}}`)(input.g.e, s);
   fn.embedded = input.g.e;
+  // What the throw boundary's stack capture cuts at. Handed over after the
+  // fact because the emitter runs before the function it names exists.
+  input.g.f = fn;
   return fn;
 }
 export const getOutputSchema = (schema: Internal): Internal => {
@@ -273,9 +465,15 @@ Object.defineProperty(schemaPrototype, reversedKey, {
       const record = mut as unknown as Record<string, unknown>;
       reverseSwap(record, "parser", "serializer");
       reverseSwap(record, "refiner", "inputRefiner");
-      // The link into this node is now the one out of it, read the other way:
-      // opening `current` into `next` was storing `next` into `current`.
-      next && next.opens !== U ? (mut.opens = !next.opens) : delete mut.opens;
+      // The link into this node is now the one out of it, read the other way.
+      // Only a chain a content schema is part of has a reading anything reads,
+      // so the schema that answers it is found on this node, the next, or the
+      // next's arms - and a bundle with no content schema ships none of it.
+      const reverseReading =
+        mut.reverseReading ||
+        (next && (next.reverseReading || next.anyOf?.find((arm) => arm.reverseReading)?.reverseReading));
+      const flags = (mut.flags & ~12) | (reverseReading ? reverseReading(mut, next) : 0);
+      flags ? (mut.flags = flags) : delete record["flags"];
       // Deleted, not parked in a holding field: encode has no absent-input arm,
       // and double reversal reads the cache below rather than re-deriving, so
       // nothing needs the old value back.
@@ -297,20 +495,25 @@ Object.defineProperty(schemaPrototype, reversedKey, {
           const s = anyOf[idx]!;
           const reversed = reverse(s);
           newAnyOf.push(reversed);
-          setHas(has, reversed.type);
+          setHas(has, reversed);
         }
         mut.has = has;
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"]) mut["$defs"] = reverseDict(mut["$defs"]);
+      // Resolved when a compile asks, not here: the definition holds this ref,
+      // so reversing it now would come back to this node before its reverse is
+      // cached, and without end.
+      const definition = mut.definition;
+      if (definition) mut.definition = () => definition()?.r;
       reversedHead = mut;
       current = next;
     }
 
     // defineProperty (slower, once per schema) keeps the cache non-enumerable:
-    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign,
-    // optionFactory-style spreads, and unionIsTransparent's field count all walk
-    // enumerable fields and must not see it.
+    // enumerability is load-bearing, not cosmetic - copySchema's Object.assign
+    // and unionIsTransparent's field count walk enumerable fields and must not
+    // see it.
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
@@ -322,6 +525,39 @@ Object.defineProperty(schemaPrototype, reversedKey, {
 
 // @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => schema.r!;
+
+// A value a schema stores on its Output side - a default, an example - held to
+// it by one parse through `reverse`, which checks it as an Output and hands it
+// back in the Input form it is stored in. A never or async encode makes that
+// uncomputable, which leaves no Output validation to hold the value to, so
+// there is nothing to check: `undefined`.
+export const decodeOutput = (output: Internal): ((v: unknown) => unknown) | undefined => {
+  try {
+    return getOp(0, 2, unknown, output) as (v: unknown) => unknown;
+  } catch (exn) {
+    if ((getOrRethrow(exn) as unknown as { code: string }).code !== "invalid_operation") throw exn;
+  }
+}
+
+// The default of `S.optional(x, v)` and `s.fieldOr(_, x, v)` is a value of the
+// Output type, written the way the schema outputs it. Not the chain's tail: a
+// container keeps its items' transforms inside itself, so its tail is still the
+// Input form (#452).
+export const setDefault = (owner: Internal, original: Internal, v: unknown): void => {
+  const output = reverse(original);
+  const decode = decodeOutput(output);
+  if (decode) {
+    try {
+      owner.default = decode(v);
+    } catch (exn) {
+      panic(
+        `Invalid default for ${inputExpression(owner)}: ${
+          (getOrRethrow(exn) as unknown as { message: string })["message"]
+        }`
+      );
+    }
+  }
+}
 
 // Lives here rather than beside `inputExpression` in base.ts so that only the
 // consumers who ask for the output side carry `reverse`.
@@ -439,16 +675,19 @@ export const findOpNode = (
 const compileChain = (
   cacheTarget: Internal,
   args: Internal[],
-  flag: Flag
+  flag: Flag,
+  tail: Internal | undefined
 ): (from: unknown) => unknown => {
-  let schema: Internal = args[args.length - 1]!;
-  for (let i = args.length - 2; i >= 0; i--) {
+  const chain = tail ? [...args, tail] : args;
+  let schema: Internal = chain[chain.length - 1]!;
+  for (let i = chain.length - 2; i >= 0; i--) {
     const to = schema;
-    schema = updateOutput(args[i]!, (mut) => {
+    schema = updateOutput(chain[i]!, (mut) => {
       mut.to = to;
       // Rule 3, materialized exactly as `codecTo` does it, and for the same
-      // reason: `reverse` re-points `.to` and would lose it.
-      if (mut.content !== U && mut.opens === U) mut.opens = true;
+      // reason: `reverse` re-points `.to` and would lose it. A `.to` of
+      // `undefined` (`S.assertInputOrThrow`'s result sentinel) declares nothing.
+      if (mut.flags & 3 && !(mut.flags & 12) && to.type !== undefinedTag) mut.flags |= 4;
     });
   }
   // Flag 8: the caller knows nothing about the input, so the chain's own head
@@ -456,12 +695,18 @@ const compileChain = (
   // type checks against it. Read here rather than in `compileDecoder`, whose
   // other caller (recursive.ts) passes a source of its own and inherits this
   // bit through `g.o`.
-  const f = compileDecoder(
-    (flag & 8) ? unknown : schema,
-    schema,
-    flag,
-    U,
-  ) as (from: unknown) => unknown;
+  let f: (from: unknown) => unknown;
+  // The build boundary. A chain with no codec, an async schema in a sync
+  // operation, a reading that can't be chosen - all raised from here down, and
+  // this is where they become an exception. Free: `getOp` reaches this on a
+  // memo miss only, so a compile pays for the `try` and nothing else does.
+  try {
+    f = compileDecoder((flag & 8) ? unknown : schema, schema, flag) as (
+      from: unknown,
+    ) => unknown;
+  } catch (thrown) {
+    throw captureStackAt(thrown as SuryErrorRecord, getOp);
+  }
   addOpNode(cacheTarget, args, flag, f);
   return f;
 };
@@ -509,9 +754,12 @@ export const getOp = (
     node = node.n;
   }
 
-  // The one allocation, on the miss path only: a compile dwarfs the spare
-  // array a `slice` copies out of.
-  return compileChain(cacheTarget, [a0, a1!, a2!, a3!].slice(0, n), flag);
+  // Allocated on the miss path only, where a compile dwarfs them. The tail
+  // (`all[n]`) stays out of the key: keyed, it would outrank every interned
+  // schema by `seq`, and every check of one would share a single memo list on
+  // it.
+  const all = [a0, a1!, a2!, a3!];
+  return compileChain(cacheTarget, all.slice(0, n), flag, all[n]);
 };
 
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
@@ -521,7 +769,7 @@ export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (input: Val
   // this branch, so a union built from its cases' output schemas must not list
   // the input type as something the union can produce.
   const output = B_refine(input, never_, U, never_);
-  output.cp = B_embedInvalidInput(input) + ";";
+  output.cp = B_failInvalidInput(input) + ";";
   return output;
 });
 

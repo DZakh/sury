@@ -8,11 +8,12 @@ jsonSchema:
   input: '{ type: "string", minLength: 0 }'
   output: '{ type: "string", minLength: 0 }'
 isEqual: strictEqual
+compare: strictCompare
 vs:
   zod: z.string().min(0)
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       empty:
         input: '""'

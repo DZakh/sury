@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.json.with(S.to, S.union([S.recursive("R", (self) => S.schema({ head: S.string, next: S.optional(self) })), S.email]))'
+  input: JSON
+  output: unknown
+  instantiations: 8511
+jsonSchema:
+  input: '{ anyOf: [{}, { type: "string", format: "email" }] }'
+  output: '{ anyOf: [{ $ref: "#/$defs/R" }, { type: "string", format: "email" }], $defs: { R: { type: "object", properties: { head: { type: "string" }, next: { $ref: "#/$defs/R" } }, required: ["head"] } } }'
+  fromOutputType: "string | { head: string; next?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare R | email. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0;v0=e[0](i);i=v0;break}if(typeof i==="string"){e[1].test(i)||e[2](i);break}throw e[3](i)}return i}catch(v1){e[4](v1)}}
+    examples:
+      list:
+        input: '{ head: "x", next: { head: "y" } }'
+        output: '{ head: "x", next: { head: "y", next: undefined } }'
+      email:
+        input: '"a@b.co"'
+        output: '"a@b.co"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){e[0](i);e[1](i);break}if(typeof i==="string"){e[2].test(i)||e[3](i);break}throw e[4](i)}return i}catch(v0){e[5](v0)}}
+    examples:
+      list:
+        input: '{ head: "x" }'
+        output: '{ head: "x" }'
+      email:
+        input: '"a@b.co"'
+        output: '"a@b.co"'

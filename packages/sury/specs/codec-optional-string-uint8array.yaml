@@ -11,12 +11,15 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){i=e[0](i)}else{e[1](i)}return i}
+    expression: i=>{try{if(typeof i==="string"){i=e[0](i);}else{throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       text:
         input: '"hi"'
@@ -26,7 +29,7 @@ operations:
         error: Expected string, received undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=e[0].decode(i);i=v0;return i}
+    expression: i=>{try{let v0=e[0].decode(i);i=v0;return i}catch(v1){e[1](v1)}}
     examples:
       bytes-back:
         input: new Uint8Array([104, 105])

@@ -33,7 +33,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="number"&&i==i||e[0](i);return i}`,
+      `i=>{try{typeof i==="number"&&i==i||e[0](i);return i}catch(v0){e[1](v0)}}`,
     )
   })
 

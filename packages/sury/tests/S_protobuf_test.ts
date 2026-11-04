@@ -1,4 +1,4 @@
-import { test } from "vitest";
+import { expectTypeOf, test } from "vitest";
 
 import * as S from "../index.mjs";
 
@@ -99,7 +99,7 @@ test("protobuf strips unknown fields and strict rejects them", (t) => {
   const bytes = new Uint8Array([8, 1, 16, 2]);
 
   t.expect(S.decodeOrThrow(S.protobuf, Message)(bytes)).toEqual({ value: 1 });
-  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("unknown protobuf field 2");
+  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Unrecognized protobuf field 2");
 });
 
 test("protobuf skips every legal unknown wire type including groups", (t) => {
@@ -116,7 +116,7 @@ test("protobuf skips every legal unknown wire type including groups", (t) => {
   ]);
 
   t.expect(decode(bytes)).toEqual({ value: 7 });
-  t.expect(() => decode(new Uint8Array([19, 28]))).toThrow("mismatched protobuf end group");
+  t.expect(() => decode(new Uint8Array([19, 28]))).toThrow("Mismatched protobuf end group");
 });
 
 test("protobuf uses last-one-wins and treats a known field with the wrong wire type as unknown", (t) => {
@@ -125,12 +125,55 @@ test("protobuf uses last-one-wins and treats a known field with the wrong wire t
   const bytes = new Uint8Array([10, 1, 99, 8, 1, 8, 2]);
 
   t.expect(S.decodeOrThrow(S.protobuf, Message)(bytes)).toEqual({ value: 2 });
-  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("unknown protobuf field 1");
+  t.expect(() => S.decodeOrThrow(S.protobuf, StrictMessage)(bytes)).toThrow("Failed at value: Expected wire type 0, received 2");
 });
 
+// The spec format has no global config, so the flag is held here.
+test("protobuf reads NaN into a number when the global config disables the NaN check", (t) => {
+  const nan = [0, 0, 0, 0, 0, 0, 248, 127];
+  const Message = S.schema({
+    n: S.protobufField(S.number, 1),
+    o: S.protobufField(S.nullable(S.number), { number: 2, type: "double" }),
+    l: S.protobufField(S.array(S.number), 3),
+    f: S.protobufField(S.number, { number: 4, type: "float" }),
+    // A nested message compiles its own reader, map values and oneofs included.
+    m: S.protobufField(
+      S.schema({
+        x: S.protobufField(S.number, 1),
+        d: S.protobufField(S.record(S.number), 2),
+        c: S.union([S.schema({ case: "v" as const, value: S.protobufField(S.number, 3) }), S.schema({ case: undefined })]),
+      }),
+      5,
+    ),
+  });
+  const nested = [9, ...nan, 18, 12, 10, 1, 97, 17, ...nan, 25, ...nan];
+  const bytes = new Uint8Array([9, ...nan, 17, ...nan, 26, 8, ...nan, 37, 0, 0, 192, 127, 42, nested.length, ...nested]);
+  let flagged: (bytes: Uint8Array) => S.Output<typeof Message>;
+  try {
+    S.global({ disableNanNumberValidation: true });
+    flagged = S.decodeOrThrow(S.protobuf, Message);
+    const read = flagged(bytes);
+    const c = read.m.c as { value: number };
+    t.expect([read.n, read.o, read.l[0], read.f, read.m.x, read.m.d["a"], c.value].every(Number.isNaN)).toBe(true);
+  } finally {
+    S.global({});
+  }
+  // An operation keeps the config it was compiled under.
+  t.expect(Number.isNaN(flagged(bytes).n)).toBe(true);
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(bytes)).toThrow("Failed at n: Expected number, received NaN");
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([42, nested.length, ...nested]))).toThrow(
+    "Failed at m.x: Expected number, received NaN",
+  );
+  t.expect(() => S.decodeOrThrow(S.protobuf, Message)(new Uint8Array([17, ...nan]))).toThrow(
+    "Failed at o: Expected number | null, received NaN",
+  );
+});
+
+// S.number refuses the NaN a decode reads (codec-protobuf-number-nan), so the
+// float that holds one is the union docs/js-protobuf.md shows.
 test("protobuf preserves IEEE-754 special values and rejects float32 overflow", (t) => {
   const Message = S.schema({
-    float: field(S.number, 1, "float"),
+    float: field(S.union([S.number, S.schema(NaN)]), 1, "float"),
     double: field(S.number, 2, "double"),
   });
   const encode = S.decodeOrThrow(Message, S.protobuf);
@@ -142,7 +185,9 @@ test("protobuf preserves IEEE-754 special values and rejects float32 overflow", 
   const specials = decode(encode({ float: Number.NaN, double: Number.POSITIVE_INFINITY }));
   t.expect(Number.isNaN(specials.float)).toBe(true);
   t.expect(specials.double).toBe(Number.POSITIVE_INFINITY);
-  t.expect(() => encode({ float: Number.MAX_VALUE, double: 0 })).toThrow("invalid float");
+  t.expect(() => encode({ float: Number.MAX_VALUE, double: 0 })).toThrow(
+    "Failed at float: Expected float, received 1.7976931348623157e+308",
+  );
 });
 
 test("protobuf rejects malformed wire data", (t) => {
@@ -153,9 +198,9 @@ test("protobuf rejects malformed wire data", (t) => {
   t.expect(() => decode(new Uint8Array([0]))).toThrow();
   t.expect(() => decode(new Uint8Array([10, 1, 255]))).toThrow();
   t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 128, 128, 128, 128, 128, 2]))).toThrow();
-  t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 16]))).toThrow("invalid protobuf tag");
-  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 0, 1]))).toThrow("invalid protobuf tag");
-  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1]))).toThrow("invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([128, 128, 128, 128, 16]))).toThrow("Invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 0, 1]))).toThrow("Invalid protobuf tag");
+  t.expect(() => decode(new Uint8Array([136, 128, 128, 128, 128, 128, 128, 128, 0, 1]))).toThrow("Invalid protobuf tag");
   t.expect(decode(new Uint8Array([248, 255, 255, 255, 15, 1, 10, 0]))).toEqual({ value: "" });
 });
 
@@ -214,7 +259,7 @@ test("protobuf maps a record to map<K, V> entries", (t) => {
   t.expect(decode(bytes)).toEqual(value);
   t.expect(decode(new Uint8Array([10, 0]))).toEqual({ value: { "": { key: "", values: [] } }, ints: {}, flags: {}, big: {} });
   t.expect(decode(new Uint8Array([18, 2, 16, 7]))).toMatchObject({ ints: { "0": 7 } });
-  t.expect(() => encode({ ...value, ints: { x: 1 } })).toThrow("invalid int32 key");
+  t.expect(() => encode({ ...value, ints: { x: 1 } })).toThrow('Failed at ints.x: Expected int32 key, received "x"');
 });
 
 test("protobuf stores a __proto__ map key as an own property", (t) => {
@@ -305,10 +350,10 @@ test("protobuf rejects 32-bit values outside their range instead of wrapping", (
     packed: S.array(S.integer).with(S.protobufField, { number: 3, type: "uint32" }),
   });
   const encode = S.decodeOrThrow(Message, S.protobuf);
-  t.expect(() => encode({ u: -1, i: 0, packed: [] })).toThrow("invalid uint32");
-  t.expect(() => encode({ u: 4294967296, i: 0, packed: [] })).toThrow("invalid uint32");
-  t.expect(() => encode({ u: 0, i: 2147483648, packed: [] })).toThrow("invalid int32");
-  t.expect(() => encode({ u: 0, i: 0, packed: [-1] })).toThrow("invalid uint32");
+  t.expect(() => encode({ u: -1, i: 0, packed: [] })).toThrow("Failed at u: Expected uint32, received -1");
+  t.expect(() => encode({ u: 4294967296, i: 0, packed: [] })).toThrow("Failed at u: Expected uint32, received 4294967296");
+  t.expect(() => encode({ u: 0, i: 2147483648, packed: [] })).toThrow("Failed at i: Expected int32, received 2147483648");
+  t.expect(() => encode({ u: 0, i: 0, packed: [0, -1] })).toThrow("Failed at packed[1]: Expected uint32, received -1");
   t.expect([...encode({ u: 4294967295, i: -2147483648, packed: [0] })]).toEqual([
     8, 255, 255, 255, 255, 15, 16, 128, 128, 128, 128, 248, 255, 255, 255, 255, 1, 26, 1, 0,
   ]);
@@ -362,11 +407,23 @@ test("protobuf reports wire and value failures as Sury errors", (t) => {
   };
   t.expect(invalid(() => decode(new Uint8Array([10, 1, 255])))).toBeInstanceOf(S.Error);
   t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).code).toBe("invalid_conversion");
-  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).message).toContain("not valid UTF-8");
-  t.expect(invalid(() => decode(new Uint8Array([10]))).message).toContain("truncated protobuf message");
-  t.expect(invalid(() => encode({ s: "", f: 1e40 })).message).toContain("invalid float");
+  t.expect(invalid(() => decode(new Uint8Array([10, 1, 255]))).message).toBe("Failed at s: Protobuf string is not valid UTF-8");
+  t.expect(invalid(() => decode(new Uint8Array([10]))).message).toBe("Failed at s: Truncated protobuf message");
+  t.expect(invalid(() => encode({ s: "", f: 1e40 })).message).toBe("Failed at f: Expected float, received 1e+40");
   const Wrapped = S.schema({ inner: Message.with(S.protobufField, 1) });
-  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255]))).code).toBe("invalid_conversion");
+  const nested = invalid(() => S.decodeOrThrow(S.protobuf, Wrapped)(new Uint8Array([10, 3, 10, 1, 255])));
+  t.expect(nested.code).toBe("invalid_conversion");
+  t.expect(nested.path).toEqual(["inner", "s"]);
+  t.expect(nested.reason).toBe("Protobuf string is not valid UTF-8");
+  const Listed = S.schema({
+    items: S.array(Message).with(S.protobufField, 1),
+    byId: S.record(Message).with(S.protobufField, { number: 2, key: "int64" }),
+  });
+  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Listed)(new Uint8Array([10, 0, 10, 3, 10, 1, 255]))).path).toEqual(["items", 1, "s"]);
+  t.expect(invalid(() => S.decodeOrThrow(S.protobuf, Listed)(new Uint8Array([18, 7, 8, 5, 18, 3, 10, 1, 255]))).path).toEqual(["byId", "5", "s"]);
+  const encodeListed = S.decodeOrThrow(Listed, S.protobuf);
+  t.expect(invalid(() => encodeListed({ items: [{ s: "", f: 0 }, { s: 1 as never, f: 0 }], byId: {} })).path).toEqual(["items", 1, "s"]);
+  t.expect(invalid(() => encodeListed({ items: [], byId: { "7": { s: 1 as never, f: 0 } } })).path).toEqual(["byId", "7", "s"]);
 });
 
 test("protobuf names the field that keeps a schema from being a message", (t) => {
@@ -386,7 +443,6 @@ test("protobuf names the field that keeps a schema from being a message", (t) =>
 });
 
 test("protobuf requires an adjacent fully annotated object schema", (t) => {
-  t.expect(() => S.decodeOrThrow(S.uint8Array, S.protobuf)).toThrow();
   t.expect(() => S.decodeOrThrow(S.protobuf, S.string)).toThrow();
   t.expect(() => S.decodeOrThrow(S.schema({ value: S.int32 }), S.protobuf)).toThrow();
   t.expect(() =>
@@ -478,8 +534,462 @@ test("protobufField rejects a repeated or map oneof member and a non-integer enu
   for (const ok of okEnums) {
     ok.with(S.protobufField, { number: 1, type: "enum" });
   }
+  // A message declared as a scalar would be written as whatever the object
+  // coerces to. The same for one `S.recursive` names, inside its definer.
+  const point = S.schema({ x: S.int32.with(S.protobufField, 1) });
+  t.expect(() => point.with(S.protobufField, { number: 1, type: "int32" })).toThrow(
+    "[Sury] S.protobufField requires an object or S.recursive schema to be a message, not int32",
+  );
+  t.expect(() => S.optional(point).with(S.protobufField, { number: 1, type: "string" })).toThrow(
+    "not string",
+  );
+  t.expect(() => S.array(point).with(S.protobufField, { number: 1, type: "bytes" })).toThrow("not bytes");
+  t.expect(() =>
+    S.recursive("N", (self) =>
+      S.schema({ kid: S.optional(self).with(S.protobufField, { number: 2, type: "int32" }) }),
+    ),
+  ).toThrow("[Sury] S.protobufField requires an object or S.recursive schema to be a message, not int32");
+  point.with(S.protobufField, { number: 1, type: "message" });
+  // A side that is a scalar is what a scalar type describes, whichever way the
+  // chain runs: an object converted to one, or bytes converted to an object.
+  point.with(S.to, S.string, { decode: () => "p", encode: () => ({ x: 0 }) }).with(S.protobufField, { number: 1, type: "string" });
+  const packed = S.uint8Array.with(S.to, point, { decode: () => ({ x: 0 }), encode: () => new Uint8Array() });
+  packed.with(S.protobufField, { number: 1, type: "bytes" });
+  S.optional(packed).with(S.protobufField, { number: 1, type: "bytes" });
+  S.array(packed).with(S.protobufField, { number: 1, type: "bytes" });
 });
 
+// The spec format snapshots what an operation does, not what compiling one
+// leaves behind on an unrelated schema, so this lives here.
+test("Compiling two independent recursive schemas leaves neither holding the other's definitions", (t) => {
+  const a = S.recursive<{ v: string; next?: unknown }>("A", (self) =>
+    S.schema({ v: S.string, next: S.optional(self) }),
+  );
+  const b = S.recursive<{ n: number; next?: unknown }>("B", (self) =>
+    S.schema({ n: S.int32, next: S.optional(self) }),
+  );
+  S.parseOrThrow(S.schema({ a, b }), { a: { v: "x" }, b: { n: 1 } });
+  t.expect(S.toInputJSONSchemaOrThrow(a)).toEqual({
+    $ref: "#/$defs/A",
+    $defs: {
+      A: {
+        type: "object",
+        properties: { v: { type: "string" }, next: { $ref: "#/$defs/A" } },
+        required: ["v"],
+      },
+    },
+  });
+});
 
+test("A recursive message prints as itself", (t) => {
+  const node = S.recursive<{ name: string; kids: unknown[] }>("DescriptorProto", (self) =>
+    S.schema({
+      name: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(node)).toBe(
+    `syntax = "proto3";
 
+message DescriptorProto {
+  string name = 1;
+  repeated DescriptorProto kids = 2;
+}
+`,
+  );
+});
 
+test("Mutually recursive messages each print once, under their own name", (t) => {
+  const branch = S.recursive<{ leaf?: unknown; n: number }>("Branch", (self) =>
+    S.schema({
+      leaf: S.optional(
+        S.recursive("Leaf", () => S.schema({ kids: S.array(self).with(S.protobufField, 1) })),
+      ).with(S.protobufField, 1),
+      n: S.int32.with(S.protobufField, 2),
+    }),
+  );
+  t.expect(S.toProtoOrThrow(branch)).toBe(
+    `syntax = "proto3";
+
+message Branch {
+  optional Leaf leaf = 1;
+  int32 n = 2;
+}
+
+message Leaf {
+  repeated Branch kids = 1;
+}
+`,
+  );
+});
+
+// A schema that throws while it is being built has nowhere to be pinned in the
+// spec format, which needs a schema before it can record anything.
+test("A default on the definition being built is refused, where one beside it is not", (t) => {
+  t.expect(() =>
+    S.recursive("Endless", (self) => S.schema({ v: S.int32, kid: S.optional(self, { v: 0 }) })),
+  ).toThrow(
+    "[Sury] Can't set default for Endless | undefined: the default is read as Endless, which would need a default of its own",
+  );
+
+  // The same shape one step away: the default is read as a definition that is
+  // finished, so it holds a finite value and the schema builds.
+  const tree = S.recursive("Tree", (self) =>
+    S.schema({
+      v: S.int32,
+      leaf: S.optional(S.recursive("Leaf", () => S.schema({ n: S.int32 })), { n: 5 }),
+      kid: S.optional(self),
+    }),
+  );
+  t.expect(S.parseOrThrow(tree, { v: 1 })).toEqual({ v: 1, leaf: { n: 5 } });
+
+  // And a definition finished before the definer even ran, which carries its
+  // own and is only being used here.
+  const done = S.recursive("Done", (self) => S.schema({ n: S.int32, kid: S.optional(self) }));
+  const holder = S.recursive("Holder", (self) =>
+    S.schema({ done: S.optional(done, { n: 7 }), kid: S.optional(self) }),
+  );
+  t.expect(S.parseOrThrow(holder, {})).toEqual({ done: { n: 7 } });
+});
+
+// 101 levels of nesting is 500-odd bytes, and the spec format records an
+// example's input and output as literals.
+test("a recursive message decodes 100 levels and refuses 101, and encoding has no limit", (t) => {
+  type Cons = { v: number; next?: Cons };
+  const cons = S.recursive<Cons>("Cons", (self) =>
+    S.schema({
+      v: S.int32.with(S.protobufField, 1),
+      next: S.optional(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = cons.with(S.to, S.protobuf);
+  const nest = (levels: number): Cons =>
+    levels === 1 ? { v: 1, next: undefined } : { v: levels, next: nest(levels - 1) };
+
+  const hundred = S.parseOrThrow(codec, nest(100));
+  t.expect(S.encodeOrThrow(codec, hundred)).toEqual(nest(100));
+
+  // Encoding is what those bytes came from, so the limit is the reader's alone.
+  const overLimit = S.parseOrThrow(codec, nest(101));
+  t.expect(overLimit.length).toBeGreaterThan(hundred.length);
+  const error = (() => {
+    try {
+      S.encodeOrThrow(codec, overLimit);
+    } catch (error) {
+      return error as S.Error;
+    }
+    throw new Error("expected a throw");
+  })();
+  t.expect(error.path).toEqual(Array(100).fill("next"));
+  t.expect(error.reason).toBe("Protobuf message nesting limit exceeded");
+});
+
+test("isEqual reads a recursive message the codec declares, and compare refuses it", (t) => {
+  type Node = { v: string; kids: Node[] };
+  const node = S.recursive<Node>("Node", (self) =>
+    S.schema({
+      v: S.string.with(S.protobufField, 1),
+      kids: S.array(self).with(S.protobufField, 2),
+    }),
+  );
+  const codec = node.with(S.to, S.protobuf);
+  const tree = (v: string, kids: Node[] = []): Node => ({ v, kids });
+
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("x")]))).toBe(true);
+  t.expect(S.isEqualInput(codec, tree("a", [tree("x")]), tree("a", [tree("y")]))).toBe(false);
+
+  // The output side is the wire, compared as the bytes it is.
+  const one = S.parseOrThrow(codec, tree("a"));
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("a")))).toBe(true);
+  t.expect(S.isEqualOutput(codec, one, S.parseOrThrow(codec, tree("b")))).toBe(false);
+
+  // Neither side is orderable: the message is a call, the wire a byte array.
+  t.expect(() => S.compareInput(codec, tree("a"), tree("b"))).toThrow("Can't compare Node");
+  t.expect(() => S.compareOutput(codec, one, one)).toThrow("Can't compare Uint8Array");
+});
+
+// Recursion is a compile-time shape, and a spec holds one schema. This crosses
+// how a self-reference is written, what holds it, and what the message sits
+// under, and holds each to the same message unrolled by hand, which has no
+// recursion to get wrong.
+test("a recursive message reads and writes as the same message unrolled", (t) => {
+  type Any = S.Schema<any, any>;
+  const F = S.protobufField;
+  const notBad = (x: unknown) => (x as { v: string }).v !== "bad";
+  const refs: Record<string, (n: Any) => Any> = {
+    plain: (n) => n,
+    refined: (n) => n.with(S.refine, notBad),
+    meta: (n) => S.meta(n, { description: "d" }),
+    refinedMeta: (n) => S.meta(n.with(S.refine, notBad), { description: "d" }),
+  };
+  const holders: Record<string, { wrap: (s: Any) => Any; value: (depth: number) => unknown }> = {
+    optional: { wrap: (s) => S.optional(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? undefined : holders.optional!.value(d - 1) }) },
+    list: { wrap: (s) => S.array(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? [] : [holders.list!.value(d - 1), holders.list!.value(d - 1)] }) },
+    map: { wrap: (s) => S.record(s), value: (d) => ({ v: `n${d}`, kid: d === 0 ? {} : { a: holders.map!.value(d - 1) } }) },
+  };
+  const roots: Record<string, (m: Any) => [Any, (v: unknown) => unknown]> = {
+    self: (m) => [m, (v) => v],
+    optional: (m) => [S.schema({ x: S.optional(m).with(F, 1) }), (v) => ({ x: v })],
+    list: (m) => [S.schema({ xs: S.array(m).with(F, 1) }), (v) => ({ xs: [v, v] })],
+    map: (m) => [S.schema({ m: S.record(m).with(F, 1) }), (v) => ({ m: { k: v } })],
+    twice: (m) => [S.schema({ a: S.optional(m).with(F, 1), b: S.optional(m).with(F, 2) }), (v) => ({ a: v, b: v })],
+  };
+  const unrolled = (holder: string, depth: number): Any => {
+    let message: Any = S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(S.schema({ v: S.string.with(F, 1) })).with(F, 2) });
+    for (let i = 0; i < depth; i++) message = S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(message).with(F, 2) });
+    return message;
+  };
+  const plain = (x: unknown) => JSON.parse(JSON.stringify(x));
+
+  for (const ref of Object.keys(refs)) {
+    for (const holder of Object.keys(holders)) {
+      for (const root of Object.keys(roots)) {
+        const label = `${ref} self-reference, held ${holder}, under root ${root}`;
+        const recursive = S.recursive("Node", (n: Any) =>
+          S.schema({ v: S.string.with(F, 1), kid: holders[holder]!.wrap(refs[ref]!(n)).with(F, 2) }),
+        );
+        const [schema, place] = roots[root]!(recursive);
+        const [flatSchema] = roots[root]!(unrolled(holder, 3));
+        const codec = schema.with(S.to, S.protobuf);
+        const flatCodec = flatSchema.with(S.to, S.protobuf);
+        const value = place(holders[holder]!.value(3));
+
+        const bytes = S.parseOrThrow(codec, value);
+        t.expect([...bytes], label).toEqual([...S.parseOrThrow(flatCodec, value)]);
+        t.expect(plain(S.encodeOrThrow(codec, bytes)), label).toEqual(plain(value));
+
+        if (ref.startsWith("refined")) {
+          const bad = JSON.parse(JSON.stringify(value).replace('"n1"', '"bad"'));
+          t.expect(() => S.parseOrThrow(codec, bad), label).toThrow();
+          // Bytes a writer with no refinement produced still meet it on the way in.
+          t.expect(() => S.encodeOrThrow(codec, S.parseOrThrow(flatCodec, bad)), label).toThrow();
+        }
+      }
+    }
+  }
+});
+
+// The shapes protoc-gen-sury writes for TypeScript: a type per message, and a
+// schema checked against it. `S.schemaOf` checks equality, so each line here is
+// a spelling the generator can rely on meaning exactly the type it declares.
+test("generated message shapes check against their declared types", (t) => {
+  const Kind = { UNSPECIFIED: 0, PRIMARY: 1 } as const;
+  type Kind = (typeof Kind)[keyof typeof Kind];
+  const KindSchema = S.union([Kind.UNSPECIFIED, Kind.PRIMARY]);
+
+  type Address = { street: string };
+  const AddressSchema = S.schemaOf<Address>()({
+    street: S.protobufField(S.string, { number: 1, type: "string" }),
+  });
+
+  // The arm for no member set is `case?: undefined`, where protobuf-es writes
+  // `case: undefined`: a property that admits `undefined` is optional in Sury's
+  // inference. A protobuf-es value, `{ case: undefined }`, still fits it.
+  type User = {
+    id: number;
+    big: bigint;
+    tags: string[];
+    scores: { [key: string]: number };
+    raw: Uint8Array;
+    kind: Kind;
+    home?: Address;
+    nickname?: string;
+    contact:
+      | { case: "email"; value: string }
+      | { case: "address"; value: Address }
+      | { case?: undefined; value?: undefined };
+  };
+  const UserSchema = S.schemaOf<User>()({
+    id: S.protobufField(S.int32, { number: 1, type: "int32" }),
+    big: S.protobufField(S.bigint, { number: 2, type: "int64" }),
+    tags: S.protobufField(S.array(S.string), { number: 3, type: "string" }),
+    scores: S.protobufField(S.record(S.int32), { number: 4, type: "int32", key: "string" }),
+    raw: S.protobufField(S.uint8Array, { number: 5, type: "bytes" }),
+    kind: S.protobufField(KindSchema, { number: 6, type: "enum" }),
+    home: S.protobufField(S.optional(AddressSchema), { number: 7, type: "message" }),
+    nickname: S.protobufField(S.optional(S.string), { number: 8, type: "string" }),
+    contact: S.union([
+      S.schema({ case: "email", value: S.protobufField(S.string, { number: 9, type: "string" }) }),
+      S.schema({ case: "address", value: S.protobufField(AddressSchema, { number: 10, type: "message" }) }),
+      S.schema({ case: undefined, value: S.optional(S.schema(undefined)) }),
+    ]),
+  });
+  expectTypeOf(UserSchema).toEqualTypeOf<S.Schema<User, User>>();
+
+  const user: User = {
+    id: 1,
+    big: 2n,
+    tags: ["a"],
+    scores: { x: 1 },
+    raw: new Uint8Array([7]),
+    kind: Kind.PRIMARY,
+    contact: { case: "address", value: { street: "s" } },
+  };
+  const bytes = S.decodeOrThrow(UserSchema, S.protobuf)(user);
+  t.expect(S.decodeOrThrow(S.protobuf, UserSchema)(bytes)).toEqual({ ...user, home: undefined, nickname: undefined });
+
+  // `S.schemaOf` can't sit inside `S.recursive`: the type would refer to itself
+  // while being mapped. `S.recursive<T>` checks by assignability instead, which
+  // still rejects a field of the wrong type.
+  type Node = { id: number; children: Node[]; parent?: Node };
+  const NodeSchema = S.recursive<Node>("Node", (self) =>
+    S.schema({
+      id: S.protobufField(S.int32, { number: 1, type: "int32" }),
+      children: S.protobufField(S.array(self), { number: 2, type: "message" }),
+      parent: S.protobufField(S.optional(self), { number: 3, type: "message" }),
+    }),
+  );
+  expectTypeOf(NodeSchema).toEqualTypeOf<S.Schema<Node, Node>>();
+  type Bad = { id: string };
+  S.recursive<Bad>("Bad", () =>
+    // @ts-expect-error - the type declares `id` a string
+    S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }) }),
+  );
+});
+
+// Spelled as a test: a spec can't record a schema whose construction throws.
+test("protobufField refuses a type it doesn't know, inherited names included", (t) => {
+  for (const type of ["constructor", "toString", "__proto__", "google.protobuf.Api", "google.protobuf.constructor"]) {
+    t.expect(() => S.optional(S.string).with(S.protobufField, { number: 1, type: type as S.ProtobufType })).toThrow(
+      "[Sury] S.protobufField requires a protobuf type",
+    );
+  }
+});
+
+test("protobufField refuses a value a well-known type doesn't take", (t) => {
+  const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
+  t.expect(() => S.date.with(S.protobufField, { number: 1, type: "google.protobuf.Duration" })).toThrow(
+    "[Sury] S.protobufField requires { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Duration",
+  );
+  t.expect(() =>
+    S.schema({ seconds: S.number, nanos: S.int32 }).with(S.protobufField, { number: 1, type: "google.protobuf.Timestamp" }),
+  ).toThrow("[Sury] S.protobufField requires a Date or { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Timestamp");
+  // Keys numbered by hand have to be the ones the message has.
+  t.expect(() =>
+    S.schema({ seconds: S.bigint.with(S.protobufField, 2), nanos: S.int32.with(S.protobufField, 1) }).with(S.protobufField, {
+      number: 1,
+      type: "google.protobuf.Duration",
+    }),
+  ).toThrow("[Sury] S.protobufField requires { seconds: S.bigint, nanos: S.int32 } for google.protobuf.Duration");
+  S.schema({ seconds: S.bigint.with(S.protobufField, 1), nanos: S.int32.with(S.protobufField, 2) }).with(S.protobufField, {
+    number: 1,
+    type: "google.protobuf.Duration",
+  });
+  t.expect(() => S.int32.with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" })).toThrow(
+    "[Sury] S.protobufField requires S.optional for google.protobuf.Int32Value: presence is what a wrapper is for",
+  );
+  S.array(S.int32).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" });
+  t.expect(() => S.optional(secondsNanos).with(S.protobufField, { number: 1, type: "google.protobuf.StringValue" })).toThrow(
+    "[Sury] S.protobufField requires an S.optional string value for google.protobuf.StringValue",
+  );
+  t.expect(() => S.record(S.string).with(S.protobufField, { number: 1, type: "google.protobuf.Struct" })).toThrow(
+    "[Sury] S.protobufField requires S.record(S.json) for google.protobuf.Struct",
+  );
+  t.expect(() => S.schema({ a: S.string }).with(S.protobufField, { number: 1, type: "google.protobuf.Empty" })).toThrow(
+    "[Sury] S.protobufField requires S.schema({}) for google.protobuf.Empty",
+  );
+  t.expect(() => S.string.with(S.protobufField, { number: 1, type: "google.protobuf.Any" })).toThrow(
+    "[Sury] S.protobufField requires S.protobufAny, a message S.protobufTypeName names, or an S.union of them for google.protobuf.Any",
+  );
+});
+
+test("A well-known type prints as Google's, each file imported once", (t) => {
+  const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
+  const event = S.schema({
+    at: S.date.with(S.protobufField, 1),
+    ttl: secondsNanos.with(S.protobufField, { number: 2, type: "google.protobuf.Duration" }),
+    data: S.json.with(S.protobufField, 3),
+    meta: S.record(S.json).with(S.protobufField, { number: 4, type: "google.protobuf.Struct" }),
+    byKey: S.record(S.json).with(S.protobufField, { number: 5, key: "int64" }),
+    retries: S.optional(S.int32).with(S.protobufField, { number: 6, type: "google.protobuf.Int32Value" }),
+    mask: S.array(S.string).with(S.protobufField, { number: 7, type: "google.protobuf.FieldMask" }),
+    log: S.array(S.date).with(S.protobufField, 8),
+    none: S.schema({}).with(S.protobufField, { number: 9, type: "google.protobuf.Empty" }),
+  });
+  t.expect(S.toProtoOrThrow(event, { name: "Event", package: "acme.v1" })).toBe(
+    `syntax = "proto3";
+
+package acme.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+message Event {
+  google.protobuf.Timestamp at = 1;
+  google.protobuf.Duration ttl = 2;
+  google.protobuf.Value data = 3;
+  google.protobuf.Struct meta = 4;
+  map<int64, google.protobuf.Value> by_key = 5;
+  optional google.protobuf.Int32Value retries = 6;
+  google.protobuf.FieldMask mask = 7;
+  repeated google.protobuf.Timestamp log = 8;
+  google.protobuf.Empty none = 9;
+}
+`,
+  );
+});
+
+test("A well-known type from sury/protobuf/wkt is Google's own", async (t) => {
+  const wkt = await import("../src/protobuf/wkt/index");
+  const Holder = S.schema({
+    value: S.protobufField(S.optional(wkt.ValueSchema), 1),
+    list: S.protobufField(S.optional(wkt.ListValueSchema), 2),
+    boxed: S.protobufField(S.array(wkt.Int32ValueSchema), 3),
+    syntax: S.protobufField(wkt.SyntaxSchema, { number: 4, type: "enum" }),
+  });
+  const AsJson = S.schema({
+    value: S.optional(S.json).with(S.protobufField, 1),
+    list: S.optional(S.array(S.json)).with(S.protobufField, { number: 2, type: "google.protobuf.ListValue" }),
+    boxed: S.array(S.int32).with(S.protobufField, { number: 3, type: "google.protobuf.Int32Value" }),
+    syntax: S.int32.with(S.protobufField, 4),
+  });
+  const bytes = S.encodeOrThrow(Holder, S.protobuf)({
+    value: { kind: { case: "numberValue", value: 1.5 } },
+    list: { values: [{ kind: { case: "stringValue", value: "a" } }] },
+    boxed: [{ value: 7 }],
+    syntax: 1,
+  });
+  t.expect(bytes).toEqual(S.encodeOrThrow(AsJson, S.protobuf)({ value: 1.5, list: ["a"], boxed: [7], syntax: 1 }));
+  t.expect(S.toProtoOrThrow(Holder, { name: "Holder" })).toBe(`syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/type.proto";
+import "google/protobuf/wrappers.proto";
+
+message Holder {
+  optional google.protobuf.Value value = 1;
+  optional google.protobuf.ListValue list = 2;
+  repeated google.protobuf.Int32Value boxed = 3;
+  google.protobuf.Syntax syntax = 4;
+}
+`);
+});
+
+// The spec format runs neither isOutput nor assertOutput.
+test("S.protobufAny checks and asserts its unpacked value", (t) => {
+  const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
+  const Payload = S.protobufAny.with(S.to, S.union([S.schema({ type: "user", value: User }), S.schema({ type: "other", value: S.protobufAny })]));
+  const other = { type: "other" as const, value: { typeUrl: "x/acme.v1.Refund", value: new Uint8Array() } };
+  t.expect(S.isOutput(Payload)(other)).toBe(true);
+  t.expect(S.isOutput(Payload)({ type: "user", value: { id: "1" } })).toBe(false);
+  t.expect(() => S.assertOutputOrThrow(Payload)(other)).not.toThrow();
+});
+
+// A payload nested 150 Anys deep is no literal to write in a spec.
+test("an Any holding its own message counts toward the nesting limit", (t) => {
+  const Node: S.Schema<any, any> = S.recursive("Node", (self) =>
+    S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node"),
+  );
+  const url = new TextEncoder().encode("type.googleapis.com/acme.v1.Node");
+  const length = (n: number): number[] => (n < 128 ? [n] : [(n & 127) | 128, ...length(n >>> 7)]);
+  let bytes = new Uint8Array([8, 1]);
+  for (let depth = 0; depth < 150; depth++) {
+    const any = [10, ...length(url.length), ...url, 18, ...length(bytes.length), ...bytes];
+    bytes = new Uint8Array([8, 1, 18, ...length(any.length), ...any]);
+  }
+  t.expect(() => S.decodeOrThrow(S.protobuf, Node)(bytes)).toThrow("Protobuf message nesting limit exceeded");
+});

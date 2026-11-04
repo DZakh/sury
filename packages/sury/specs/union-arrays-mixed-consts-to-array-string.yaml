@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.array(S.literal(1)), S.array(S.literal(false)), S.string]).with(S.to, S.union([S.array(S.literal(false)), S.string]))
+  input: string | 1[] | false[]
+  output: string | false[]
+  instantiations: 6504
+jsonSchema:
+  input: '{ anyOf: [{ items: { type: "boolean", const: false }, type: "array" }, { type: "string" }] }'
+  fromInputType: string | false[]
+  output: '{ anyOf: [{ items: { type: "boolean", const: false }, type: "array" }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ items: { type: "boolean", enum: [false] }, type: "array" }, { type: "string" }] }'
+    output: '{ anyOf: [{ items: { type: "boolean", enum: [false] }, type: "array" }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||(Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare 1[] | false[] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare false[] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v2;for(;;){if(Array.isArray(i)){l3:{for(let v0=0;v0<i.length;++v0){let v1=i[v0];if(!(v1===1)){v2=[v2,e[0],v1,[v0]];break l3}}for(let v4=0;v4<i.length;++v4){let v5=i[v4];if(!(v5===false)){v2=[v2,e[1],v5,[v4]];break l3}}break}l8:{for(let v6=0;v6<i.length;++v6){let v7=i[v6];if(!(v7===false)){v2=[v2,e[2],v7,[v6]];break l8}}break}}if(typeof i==="string")break;throw e[3](i,v2)}return i}catch(v10){e[4](v10)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      one:
+        input: "[1]"
+        error: |-
+          Expected 1[] | false[] | string, received [1]
+          - At [0]: Expected false, received 1
+      "false":
+        input: "[false]"
+        output: "[false]"
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{(Array.isArray(i)||typeof i==="string")||e[0](i);return i}catch(v2){e[1](v2)}}
+    examples:
+      "false":
+        input: "[false]"
+        output: "[false]"

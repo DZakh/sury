@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.union([S.string, S.number.with(S.to, S.string)]).with(S.refine, (v) => v !== "", { error: "empty" }))'
+  input: string | number | undefined
+  output: string | undefined
+  instantiations: 6074
+jsonSchema:
+  input: Expected JSON, received string | number | undefined
+  output: Expected JSON, received string | undefined
+isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare string | number | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare string | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;for(;;){if(i===void 0)break;l1:{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i){i=""+i;break}v0=[v0,e[0](i)];break l1}if(!(e[1](i))){v0=[v0,e[2],i];break l1}break}catch(x){v0=[v0,e[3](x)]}}throw e[4](i,v0)}return i}catch(v2){e[5](v2)}}
+    examples:
+      absent:
+        input: undefined
+        output: undefined
+      string:
+        input: '"a"'
+        output: '"a"'
+      number-converts:
+        input: "5"
+        output: '"5"'
+      empty-string-is-refused:
+        input: '""'
+        error: |-
+          Expected string | number | undefined, received ""
+          - empty
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v1;for(;;){if(i===void 0)break;l2:{try{if(!(e[2](i))){v1=[v1,e[3],i];break l2}for(;;){if(typeof i==="string")break;v1=[v1,e[1](i)];break l2}break}catch(x){v1=[v1,e[4](x)]}}throw e[5](i,v1)}return i}catch(v3){e[6](v3)}}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'

@@ -11,11 +11,12 @@ jsonSchema:
     input: "{ enum: [null] }"
     output: "{ enum: [null] }"
 isEqual: alwaysEqual
+compare: alwaysCompare
 vs:
   zod: z.null()
 operations:
   parse:
-    expression: i=>{i===null||e[0](i);return i}
+    expression: i=>{try{i===null||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       valid:
         input: "null"

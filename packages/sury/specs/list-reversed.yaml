@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.reverse((S as any).list(S.number) as S.Schema<number[], unknown>)
+  input: unknown
+  output: number[]
+  instantiations: 392
+jsonSchema:
+  input: "{}"
+  fromInputType: JSON
+  output: '{ items: { type: "number" }, type: "array" }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare list. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare number[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{(i===0||typeof i==="object"&&i&&"hd" in i&&"tl" in i)||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v2){e[3](v2)}}
+    examples:
+      empty-list:
+        input: "0"
+        output: "[]"
+      cell:
+        input: "{ hd: 1, tl: { hd: 2, tl: 0 } }"
+        output: "[1, 2]"
+      null-value:
+        input: "null"
+        error: Expected list, received null
+      empty-object:
+        input: "{}"
+        error: Expected list, received {}
+      array:
+        input: "[]"
+        error: Expected list, received []
+      string:
+        input: '"s"'
+        error: Expected list, received "s"
+      undefined:
+        input: undefined
+        error: Expected list, received undefined
+      function-with-hd-and-tl:
+        input: "Object.assign(() => 0, { hd: 1, tl: 0 })"
+        error: Expected list, received Function
+      cell-without-tail:
+        input: "{ hd: 1 }"
+        error: "Expected list, received { hd: 1; }"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v2){e[2](v2)}}
+    examples:
+      empty-list:
+        input: "0"
+        output: "[]"
+      cell:
+        input: "{ hd: 1, tl: { hd: 2, tl: 0 } }"
+        output: "[1, 2]"
+  encode:
+    expression: i=>{try{let v1;try{v1=e[0](i)}catch(x){e[1](x)}return v1}catch(v2){e[2](v2)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "0"
+      items:
+        input: "[1, 2]"
+        output: "{ hd: 1, tl: { hd: 2, tl: 0 } }"
+  assert:
+    expression: i=>{try{(i===0||typeof i==="object"&&i&&"hd" in i&&"tl" in i)||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return void 0}catch(v2){e[3](v2)}}
+    examples:
+      empty-list:
+        input: "0"
+        output: undefined
+      cell:
+        input: "{ hd: 1, tl: { hd: 2, tl: 0 } }"
+        output: undefined
+      null-value:
+        input: "null"
+        error: Expected list, received null
+      empty-object:
+        input: "{}"
+        error: Expected list, received {}
+      array:
+        input: "[]"
+        error: Expected list, received []
+      string:
+        input: '"s"'
+        error: Expected list, received "s"
+      undefined:
+        input: undefined
+        error: Expected list, received undefined
+      function-with-hd-and-tl:
+        input: "Object.assign(() => 0, { hd: 1, tl: 0 })"
+        error: Expected list, received Function
+      cell-without-tail:
+        input: "{ hd: 1 }"
+        error: "Expected list, received { hd: 1; }"
+  is:
+    expression: i=>{try{if(!((i===0||typeof i==="object"&&i&&"hd" in i&&"tl" in i)))return false;let v0;try{v0=e[0](i)}catch(x){return false}return true}catch(v2){return false}}
+    examples:
+      empty-list:
+        input: "0"
+        output: "true"
+      cell:
+        input: "{ hd: 1, tl: { hd: 2, tl: 0 } }"
+        output: "true"
+      null-value:
+        input: "null"
+        output: "false"
+      empty-object:
+        input: "{}"
+        output: "false"
+      array:
+        input: "[]"
+        output: "false"
+      string:
+        input: '"s"'
+        output: "false"
+      undefined:
+        input: undefined
+        output: "false"
+      function-with-hd-and-tl:
+        input: "Object.assign(() => 0, { hd: 1, tl: 0 })"
+        output: "false"
+      cell-without-tail:
+        input: "{ hd: 1 }"
+        output: "false"

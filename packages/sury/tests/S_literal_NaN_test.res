@@ -40,13 +40,13 @@ module Common = {
   test("Compiled parse code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{Number.isNaN(i)||e[0](i);return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{Number.isNaN(i)||e[0](i);return i}catch(v0){e[1](v0)}}`)
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{Number.isNaN(i)||e[0](i);return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{try{Number.isNaN(i)||e[0](i);return i}catch(v0){e[1](v0)}}`)
   })
 
   test("Reverse schema to self", t => {

@@ -64,7 +64,7 @@ test("Compiled parse code snapshot for simple object with refine", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.foo,v1=i.bar;typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);let v2={foo:v0,bar:v1};e[2](v2)||e[3](v2);return v2}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.foo,v1=i.bar;typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);let v2={foo:v0,bar:v1};e[2](v2)||e[3](v2);return v2}catch(v3){e[5](v3)}}`,
   )
 })
 
@@ -87,12 +87,12 @@ module Issue79 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.myField;(typeof v0==="string"||v0===void 0||v0===null)||e[0](v0);e[1](v0)||e[2](v0);return v0}`,
+      `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.myField;(typeof v0==="string"||v0===void 0||v0===null)||e[0](v0);e[1](v0)||e[2](v0);return v0}catch(v1){e[4](v1)}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Convert,
-      `i=>{let v0=i.myField;e[0](v0)||e[1](v0);return i.myField}`,
+      `i=>{try{let v0=i.myField;e[0](v0)||e[1](v0);return i.myField}catch(v1){e[2](v1)}}`,
     )
 
     t->Assert.deepEqual(%raw(`{"myField": "test"}`)->S.parseOrThrow(~to=schema), Value("test"))
@@ -159,7 +159,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);let v0=i.foo;typeof v0==="bigint"||e[0](v0);return {foo:""+i.foo}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);let v0=i.foo;typeof v0==="bigint"||e[0](v0);return {foo:""+i.foo}}catch(v1){e[4](v1)}}`,
   )
 
   t->Assert.deepEqual(%raw(`{"foo": 123n}`)->S.parseOrThrow(~to=schema), {"foo": "123"}->Obj.magic)

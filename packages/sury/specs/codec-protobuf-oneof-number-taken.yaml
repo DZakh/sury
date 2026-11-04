@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ id: S.protobufField(S.int32, 1), c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
+  input: '{ id: number; c: { case: "a"; value: number; } | { case?: undefined; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 10639
+jsonSchema:
+  input: "Failed at c.case: Expected JSON, received undefined"
+  output: '[Sury] S.protobuf: field number 1 of "c" is already taken'
+isEqual:
+  input: (a,b)=>a===b||a.id===b.id&&(a.c.case==="a"?b.c.case==="a"&&a.c.value===b.c.value:b.c.case===void 0)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { id: int32; c: { case: \"a\"; value: int32; } | { case: undefined; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: field number 1 of "c" is already taken'
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -68,7 +68,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];v0==="bar"||e[0](v0);v1===true||e[1](v1);return i}`,
+      `i=>{try{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];v0==="bar"||e[0](v0);v1===true||e[1](v1);return i}catch(v2){e[3](v2)}}`,
     )
   })
 
@@ -136,7 +136,7 @@ module EmptyArray = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{Array.isArray(i)&&i.length===0||e[0](i);return i}`,
+      `i=>{try{Array.isArray(i)&&i.length===0||e[0](i);return i}catch(v0){e[1](v0)}}`,
     )
   })
 

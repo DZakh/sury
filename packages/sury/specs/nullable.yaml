@@ -13,11 +13,12 @@ jsonSchema:
     input: '{ type: "string", nullable: true }'
     output: '{ type: "string", nullable: true }'
 isEqual: strictEqual
+compare: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
 vs:
   zod: z.string().nullable()
 operations:
   parse:
-    expression: i=>{(typeof i==="string"||i===null)||e[0](i);return i}
+    expression: i=>{try{(typeof i==="string"||i===null)||e[0](i);return i}catch(v0){e[1](v0)}}
     examples:
       string:
         input: '"abc"'

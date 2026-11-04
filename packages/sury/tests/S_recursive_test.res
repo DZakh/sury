@@ -65,8 +65,8 @@ asyncTest("Successfully parses recursive object using S.parseAsPromiseOrReject",
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#ParseAsync,
-    `i=>{try{let v0;v0=e[0](i);return Promise.resolve(v0)}catch(v1){return Promise.reject(v1)}}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path=["Children",v2,...v4.path];throw v4}}return {id:v0,children:v5}}`,
+    `i=>{try{let v0;v0=e[0](i);return Promise.resolve(v0)}catch(v1){return e[1](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[3](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[1].v(v1[v2]);}catch(v4){e[2](v4,["Children",v2])}v5[v2]=v3}return {id:v0,children:v5}}`,
   )
 
   %raw(`{
@@ -102,8 +102,8 @@ test("Successfully serializes recursive object", t => {
     ~schema=nodeSchema->S.reverse,
     ~op=#Convert,
     ~embedded=[("Node", 0)],
-    `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{let v0=i.children;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0].v(v0[v1]);v4[v1]=v2}catch(v3){v3.path=["children",v1,...v3.path];throw v3}}return {Id:i.id,Children:v4}}`,
+    `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+Node: i=>{let v0=i.children;let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0].v(v0[v1]);}catch(v3){e[1](v3,["children",v1])}v4[v1]=v2}return {Id:i.id,Children:v4}}`,
   )
 
   t->Assert.deepEqual(
@@ -210,7 +210,7 @@ test("Parses multiple nested recursive object inside of another object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i.recursive1);}catch(v1){v1.path=["recursive1",...v1.path];throw v1}let v2;try{v2=e[1](i.recursive2);}catch(v3){v3.path=["recursive2",...v3.path];throw v3}return {recursive1:v0,recursive2:v2}}`,
+    `i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0;try{v0=e[0](i.recursive1);}catch(v1){e[1](v1,["recursive1"])}let v2;try{v2=e[2](i.recursive2);}catch(v3){e[3](v3,["recursive2"])}return {recursive1:v0,recursive2:v2}}catch(v4){e[5](v4)}}`,
   )
 
   t->Assert.deepEqual(
@@ -282,8 +282,8 @@ test(
     t->U.assertCompiledCode(
       ~schema=nodeSchema,
       ~op=#Parse,
-      `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path=["Children",v2,...v4.path];throw v4}}let v6;try{v6=e[3]({id:v0,children:v5})}catch(x){e[4](x)}return v6}`,
+      `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[6](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[3](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[1].v(v1[v2]);}catch(v4){e[2](v4,["Children",v2])}v5[v2]=v3}let v6;try{v6=e[4]({id:v0,children:v5})}catch(x){e[5](x)}return v6}`,
     )
     t->Assert.deepEqual(
       {
@@ -306,8 +306,8 @@ Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.Id,v1=i.Ch
       ~schema=nodeSchema,
       ~op=#Encode,
       ~embedded=[("Node", 0)],
-      `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[5](v0);let v1=v0.id,v2=v0.children;typeof v1==="string"||e[2](v1);Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3](v2[v3]);v6[v3]=v4}catch(v5){v5.path=["children",v3,...v5.path];throw v5}}return {Id:v1,Children:v6}}`,
+      `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+Node: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v1=v0.id,v2=v0.children;typeof v1==="string"||e[2](v1);Array.isArray(v2)||e[5](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[3](v2[v3]);}catch(v5){e[4](v5,["children",v3])}v6[v3]=v4}return {Id:v1,Children:v6}}`,
     )
     t->Assert.deepEqual(
       {
@@ -430,15 +430,15 @@ test("Shallowly transforms object when added transform to the S.recursive result
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#Parse,
-    `i=>{let v0;v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}return v1}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path=["Children",v2,...v4.path];throw v4}}return {id:v0,children:v5}}`,
+    `i=>{try{let v0;v0=e[0](i);let v1;try{v1=e[1](v0)}catch(x){e[2](x)}return v1}catch(v2){e[3](v2)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[3](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[1].v(v1[v2]);}catch(v4){e[2](v4,["Children",v2])}v5[v2]=v3}return {id:v0,children:v5}}`,
   )
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#Encode,
     ~embedded=[("Node", 2)],
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.id,v1=i.children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path=["children",v2,...v4.path];throw v4}}return {Id:v0,Children:v5}}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[3](v2)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.id,v1=i.children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[3](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[1].v(v1[v2]);}catch(v4){e[2](v4,["children",v2])}v5[v2]=v3}return {Id:v0,Children:v5}}`,
   )
 })
 
@@ -458,8 +458,8 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#ParseAsync,
-    `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){return Promise.reject(v1)}}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3].v(v2[v3]);v6[v3]=v4.catch(v5=>{v5.path=["Children",v3,...v5.path];throw v5})}catch(v5){v5.path=["Children",v3,...v5.path];throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7]).then(([v0,v7])=>{return {id:v0,children:v7}})}`,
+    `i=>{try{let v0;v0=e[0](i);return v0.catch(e[1])}catch(v1){return e[2](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[3](v1);let v0;try{v0=e[2](e[0](v1),void 0,e[1])}catch(x){e[1](x)}Array.isArray(v2)||e[7](v2);let v5=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[6](e[4].v(v2[v3]),void 0,x=>e[5](x,["Children",v3]))}catch(x){e[5](x,["Children",v3])}v5[v3]=v4}let v6=Promise.all(v5);return Promise.all([v0,v6]).then(([v0,v6])=>{return {id:v0,children:v6}})}`,
   )
 
   %raw(`{
@@ -478,6 +478,38 @@ Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.Id,v2=i.Ch
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
       },
     )
+  })
+})
+
+asyncTest("Refines an async recursive ref inside the call's own then", t => {
+  let nodeSchema = S.recursive("Node", nodeSchema => {
+    S.object(
+      s => {
+        id: s.field(
+          "Id",
+          S.string->S.to(S.any, ~custom={decode: Async(i => Promise.resolve(i)), encode: Never}),
+        ),
+        children: s.field(
+          "Children",
+          S.array(nodeSchema->S.refine(node => node.id !== "4", ~error="Invalid id")),
+        ),
+      },
+    )
+  })
+
+  t->U.assertCompiledCode(
+    ~schema=nodeSchema,
+    ~op=#ParseAsync,
+    `i=>{try{let v0;v0=e[0](i);return v0.catch(e[1])}catch(v1){return e[2](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[3](v1);let v0;try{v0=e[2](e[0](v1),void 0,e[1])}catch(x){e[1](x)}Array.isArray(v2)||e[9](v2);let v5=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[6](e[4].v(v2[v3]),v4=>{e[7](v4,["Children",v3])||e[8](v4,["Children",v3]);return v4},x=>e[5](x,["Children",v3]))}catch(x){e[5](x,["Children",v3])}v5[v3]=v4}let v6=Promise.all(v5);return Promise.all([v0,v6]).then(([v0,v6])=>{return {id:v0,children:v6}})}`,
+  )
+
+  %raw(`{"Id":"1","Children":[{"Id":"4","Children":[]}]}`)
+  ->S.parseAsPromiseOrReject(~to=nodeSchema)
+  ->Promise.thenResolve(_ => t->Assert.fail("Should reject"))
+  ->Promise.catch(error => {
+    t->Assert.is((error->Obj.magic: S.error).message, "Failed at Children[0]: Invalid id")
+    Promise.resolve()
   })
 })
 
@@ -523,8 +555,8 @@ test("Parses recursive object with async fields in parallel", t => {
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#ParseAsync,
-    `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){return Promise.reject(v1)}}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3].v(v2[v3]);v6[v3]=v4.catch(v5=>{v5.path=["Children",v3,...v5.path];throw v5})}catch(v5){v5.path=["Children",v3,...v5.path];throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7]).then(([v0,v7])=>{return {id:v0,children:v7}})}`,
+    `i=>{try{let v0;v0=e[0](i);return v0.catch(e[1])}catch(v1){return e[2](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[8](i);let v1=i.Id,v2=i.Children;typeof v1==="string"||e[3](v1);let v0;try{v0=e[2](e[0](v1),void 0,e[1])}catch(x){e[1](x)}Array.isArray(v2)||e[7](v2);let v5=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v4;try{v4=e[6](e[4].v(v2[v3]),void 0,x=>e[5](x,["Children",v3]))}catch(x){e[5](x,["Children",v3])}v5[v3]=v4}let v6=Promise.all(v5);return Promise.all([v0,v6]).then(([v0,v6])=>{return {id:v0,children:v6}})}`,
   )
 })
 
@@ -541,8 +573,8 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1].v(v1[v2]);v5[v2]=v3}catch(v4){v4.path=["Children",v2,...v4.path];throw v4}}return {id:v0,children:v5}}`,
+    `i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+Node: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.Id,v1=i.Children;typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[3](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v3;try{v3=e[1].v(v1[v2]);}catch(v4){e[2](v4,["Children",v2])}v5[v2]=v3}return {id:v0,children:v5}}`,
   )
 })
 
@@ -553,5 +585,34 @@ test("Doesn't mutate a shared primitive schema passed as the recursive body", t 
   t->U.assertThrowsMessage(
     () => true->Obj.magic->S.parseOrThrow(~to=S.dict(S.string)),
     `Expected { [key: string]: string; }, received true`,
+  )
+})
+
+type rec pbNode = {
+  name: string,
+  kids: array<pbNode>,
+}
+
+test("Successfully round-trips a recursive protobuf message", t => {
+  let nodeSchema = S.recursive("PbNode", nodeSchema => {
+    S.schema(s => {
+      name: s.matches(S.string->S.protobufField(1)),
+      kids: s.matches(S.array(nodeSchema)->S.protobufField(2)),
+    })
+  })
+
+  let value = {name: "a", kids: [{name: "b", kids: []}]}
+  let bytes = value->S.convertOrThrow(~from=nodeSchema, ~to=S.protobuf)
+
+  t->Assert.deepEqual(bytes->S.convertOrThrow(~from=S.protobuf, ~to=nodeSchema), value)
+  t->Assert.deepEqual(
+    nodeSchema->S.toProtoOrThrow,
+    `syntax = "proto3";
+
+message PbNode {
+  string name = 1;
+  repeated PbNode kids = 2;
+}
+`,
   )
 })

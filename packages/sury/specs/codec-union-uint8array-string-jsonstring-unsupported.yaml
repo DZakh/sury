@@ -12,6 +12,9 @@ jsonSchema:
 isEqual:
   input: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[1](a,b):typeof b==="string"&&a===b)
   output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable

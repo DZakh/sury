@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.url.with(S.refine, () => true)), null) })).with(S.to, S.jsonString)'
+  input: "{ [x: string]: unknown; }"
+  output: string
+  instantiations: 5416
+jsonSchema:
+  input: "Failed at f: Expected JSON, received URL | null"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||(a.f===null?b.f===null:a.f===void 0?b.f===void 0:b.f!=null&&a.f.href===b.f.href)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { f: URL | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(v0 instanceof e[2]){e[0](v0)||e[1](v0);break}if(v0===null)break;throw e[3](v0)}}for(;;){if(v0 instanceof e[8]){e[4](v0)||e[7](v0);v0=e[6](e[5](v0));break}if(v0===null){v0="null";break}throw e[9](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[11](v1)}}
+    examples:
+      null-default:
+        input: "{}"
+        output: '"{\"f\":null}"'
+      url:
+        input: '{ f: new URL("https://a.b/") }'
+        output: '"{\"f\":\"https://a.b/\"}"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(v0 instanceof e[2]){e[0](v0)||e[1](v0);break}if(v0===null)break;throw e[3](v0)}}for(;;){if(v0 instanceof e[8]){e[4](v0)||e[7](v0);v0=e[6](e[5](v0));break}if(v0===null){v0="null";break}throw e[9](v0)}return "{\"f\":"+v0+"}"}catch(v1){e[10](v1)}}
+    examples:
+      null-default:
+        input: "{}"
+        output: '"{\"f\":null}"'
+      url:
+        input: '{ f: new URL("https://a.b/") }'
+        output: '"{\"f\":\"https://a.b/\"}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[6](v0);let v2=v0.f;for(;;){if(typeof v2==="string"){let v1=e[1](v0.f);v1||e[4](v2);e[2](v1)||e[3](v1);v2=v1;break}if(v2===null)break;throw e[5](v2)}return {f:v2}}catch(v3){e[7](v3)}}
+    examples:
+      url:
+        input: '"{\"f\":\"https://a.b/\"}"'
+        output: '{ f: new URL("https://a.b/") }'
+      null-field:
+        input: '"{\"f\":null}"'
+        output: "{ f: null }"

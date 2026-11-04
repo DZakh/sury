@@ -211,11 +211,11 @@ the release is published.
 `sury`
 
 ```ts
-export * as S from "sury@11.0.0";
+export * as S from "sury@11.1.0";
 ```
 
 ```ts
-import * as S from "sury@11.0.0";
+import * as S from "sury@11.1.0";
 
 const schema = S.schema({
   number: S.number,
@@ -349,6 +349,26 @@ case the harness *should* have caught or guided better - a missing check, a weak
 error message, a strictness gap that let a bad spec through - add a bullet here
 instead of silently working around it.
 
+- `ts.constructionError` records a schema that throws while it is built, but
+  such a spec still has to carry `ts.input`, `ts.output`, `instantiations`,
+  `jsonSchema` and the three operations, none of which exists for a schema that
+  never constructs - and `spec new` refuses the schema outright. A construction
+  that throws on purpose is a contract like any other:
+  `S.recursive("N", (n) => S.schema({ kid: S.optional(n, x) }))` is refused
+  there, and `"unpack"` on a source arm with no text is refused by `S.to`.
+  Making those dimensions optional when `constructionError` is set would let
+  every such rule live in a spec; until then they are pinned by tests
+  (`tests/content_test.ts` holds the `S.to` ones).
+
+- A spec records what an operation does, never what compiling it leaves behind
+  on a schema that is not the subject. The parse loop used to adopt the first
+  `$defs` record it met by reference, so compiling an object holding two
+  independent `S.recursive` schemas merged the second's definitions into the
+  first schema's own record and left it corrupted for the rest of the program -
+  every spec passed, and the reproduction had to be a test file. A spec could
+  carry the schemas it must not disturb, comparing a snapshot of each before and
+  after the operations are compiled.
+
 - An example's `error` is matched verbatim, and `errorConstructor` is the
   opt-out for a message that belongs to the platform rather than to Sury.
   Nothing points an author at it: the failure is a golden that passed locally
@@ -357,6 +377,22 @@ instead of silently working around it.
   signal to key on - a mismatch on an `error` golden whose two sides share a
   class could say "this message is the platform's; record `errorConstructor`
   instead".
+
+- A Result-shaped outcome is read for `success`, `value` and `error.message`
+  and nothing else, so a Result's `issues` go unchecked across the whole
+  corpus. The harness holds both sides already: it could put every `error`
+  golden to `~standard.validate` for the same value and require the two to
+  report the same issue. `tests/operations_test.ts` holds that for a handful of
+  schemas instead.
+
+- Nothing measures the Result tail's generated code. `summary.ts` ranks
+  generated-code length from `expression`, which is the throw tail only, so the
+  ~90 characters the Standard Schema `issues` added to every `*AsResult`
+  operation moved no metric. Measuring the Result tail the same way - computed
+  and ranked, not stored, so no spec grows a second golden - would catch it.
+  (A per-spec `resultExpression` field was tried for this and removed: the tail
+  is one emitter whose only per-schema variation is whether a `try` is emitted,
+  so the copies were derivation rather than coverage.)
 
 - `operations` has an `assert` and an `is` slot and no spec fills either, so
   `S.assertInputOrThrow` and `S.isInput` still have no golden anywhere. Both
@@ -386,7 +422,7 @@ instead of silently working around it.
   close it.
 
 - Three structural-equality oracles have to agree and nothing checks that they
-  do: `deepEqual` in `src/eq.ts`, `structural` in `scripts/eqFuzz.ts`, and
+  do: `deepEqual` in `src/eq.ts`, `structural` in `scripts/unionFuzz/sample.ts`, and
   `structurallyEqual` in `packages/spec/harness.ts`. Each is the other's
   reference - the fuzzer holds the emit to its walk, and the harness calls a
   disagreement with its own walk a finding - so a value kind missing from one is

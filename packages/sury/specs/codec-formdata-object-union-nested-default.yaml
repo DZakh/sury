@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.formData.with(S.to, S.schema({ a: S.union([S.number, S.nullable(S.string, "d")]) }))'
+  input: FormData
+  output: "{ a: string | number; }"
+  instantiations: 6383
+jsonSchema:
+  input: Expected JSON, received FormData
+  output: '{ type: "object", properties: { a: { anyOf: [{ type: "number" }, { type: "string" }] } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||a.a===b.a
+compare:
+  input: "throws: [Sury] Can't compare FormData. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number | string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'SuryError: Failed at a: Ambiguous "" for number | string | null. Should a blank input be rejected, kept, or read as absent? Choose with S.nonEmpty, S.minLength(0), or S.optional'
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at a: Ambiguous number | string -> string. Should number be decoded or ignored? Choose with S.to for number -> string, or S.never -> number"

@@ -303,17 +303,22 @@ A schema read from a file or an API needs no cast: a non-literal argument - `unk
 
 ### Standard Schema
 
-**Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
+**Sury** implements the [Standard Schema](https://standardschema.dev/) specification, so a schema works with any library that accepts one, such as form libraries. It reports every issue, not only the first:
 
 ```ts
-schema["~standard"].validate({ name: "Dmitry" });
-// { value: { name: "Dmitry" } }
+const schema = S.schema({ name: S.string, age: S.number });
 
-schema["~standard"].validate({ name: 1 });
-// { issues: [{ message: "Expected string, received 1", path: ["name"] }] }
+schema["~standard"].validate({ name: "Dmitry", age: 30 }).value;
+// { name: "Dmitry", age: 30 }
+
+schema["~standard"].validate({ name: 1, age: "30" }).issues;
+// [
+//   { message: "Expected string, received 1", path: ["name"] },
+//   { message: 'Expected number, received "30"', path: ["age"] },
+// ]
 ```
 
-A schema with an async codec answers with a promise of the same result, as the spec allows; every other schema answers synchronously.
+A schema with an async codec answers with a promise.
 
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
@@ -689,6 +694,16 @@ Conceptually, this is how **Sury** processes default values:
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
 
+The default is what parsing returns, so it is written in the schema's output shape, even when the schema transforms:
+
+```ts
+const item = S.object((s) => ({ kind: "a", value: s.field("v", S.string) }));
+const itemsSchema = S.optional(S.array(item), [{ kind: "a", value: "x" }]);
+
+S.parseOrThrow(itemsSchema, undefined); // => [{ kind: "a", value: "x" }]
+S.optional(S.array(item), [{ v: "x" }]); // throws: Invalid default
+```
+
 ## Nullables
 
 Similarly, you can create nullable types with `S.nullable`.
@@ -715,6 +730,16 @@ S.parseOrThrow(nullishStringSchema, "asdf"); // => "asdf"
 S.parseOrThrow(nullishStringSchema, null); // => null
 S.parseOrThrow(nullishStringSchema, undefined); // => undefined
 ```
+
+Pass a fallback as the second argument to replace both `undefined` and `null`:
+
+```ts
+const schema = S.nullish(S.string, "fallback");
+S.parseOrThrow(schema, undefined); // => "fallback"
+S.parseOrThrow(schema, null); // => "fallback"
+```
+
+To replace only `undefined` and keep `null`, use `S.optional(S.nullable(S.string), "fallback")`.
 
 ## Objects
 
@@ -1486,227 +1511,21 @@ S.encodeOrThrow({ q: "hi", page: 2 }, search);
 
 ## Protocol Buffers
 
-`S.protobuf` is the [Protocol Buffers](https://protobuf.dev) binary wire
-format. Give every field of an object schema a field number with
-`S.protobufField`, name `S.protobuf` as the other side of the operation, and
-you have an encoder and a decoder for that message: no `.proto` file, no code
-generation step, and the same schema still validates, infers types and
-converts to JSON Schema.
+`S.protobuf` encodes and decodes the [Protocol Buffers](https://protobuf.dev)
+binary format, with no `.proto` file or code generation step:
 
 ```ts
 const User = S.schema({
   id: S.int32.with(S.protobufField, 1),
   name: S.string.with(S.protobufField, 2),
-  tags: S.array(S.string).with(S.protobufField, 3),
-  score: S.optional(S.number).with(S.protobufField, 4),
 });
 
-const encode = S.encodeOrThrow(User, S.protobuf);
-const decode = S.decodeOrThrow(S.protobuf, User);
-
-const bytes = encode({ id: 150, name: "Ada", tags: ["ml"] });
-// Uint8Array [8, 150, 1, 18, 3, 65, 100, 97, 26, 2, 109, 108]
-decode(bytes); // { id: 150, name: "Ada", tags: ["ml"] }
+S.encodeOrThrow(User, S.protobuf)({ id: 150, name: "Ada" });
+// Uint8Array [8, 150, 1, 18, 3, 65, 100, 97]
 ```
 
-`S.protobuf.with(S.to, User)` is the same codec as a single schema, for when
-you need one value to hand somewhere - a framework that takes a schema, or a
-`parse` that starts from `unknown` and checks the bytes are a `Uint8Array`
-before reading them:
-
-```ts
-S.parseOrThrow(S.protobuf.with(S.to, User))(body);
-```
-
-The wire type is inferred from the schema: `S.string` is `string`, `S.boolean`
-is `bool`, `S.uint8Array` is `bytes`, `S.int32` is `int32`, `S.number` is
-`double`, `S.bigint` is `int64`, `S.union([0, 1, 2])` is an `enum`, an object
-schema is a nested `message`, `S.array` is a `repeated` field and `S.record`
-is a `map`. An enum is open, as in proto3: a number the schema doesn't list
-decodes as that number. Pass a descriptor to
-pick any of the fifteen scalar wire types yourself, which also lets the JS
-type differ from the wire type, since Sury converts through the schema:
-
-```ts
-S.schema({
-  id: S.string.with(S.protobufField, { number: 1, type: "uint32" }), // "150" ⇄ varint 150
-  delta: S.int32.with(S.protobufField, { number: 2, type: "sint32" }), // zigzag
-  hash: S.bigint.with(S.protobufField, { number: 3, type: "fixed64" }),
-  ratio: S.number.with(S.protobufField, { number: 4, type: "float" }),
-  level: S.int32.with(S.protobufField, { number: 5, type: "enum" }),
-});
-```
-
-`type` is one of `double`, `float`, `int32`, `int64`, `uint32`, `uint64`,
-`sint32`, `sint64`, `fixed32`, `fixed64`, `sfixed32`, `sfixed64`, `bool`,
-`string`, `bytes`, `enum` or `message`. 64-bit integers are `bigint`.
-
-**Presence** follows proto3. A field is written only when it is not its default
-(`0`, `""`, `false`, empty bytes), and an absent field decodes to that default.
-`S.optional` gives a field explicit presence: `0` is written, and an absent
-field stays absent. A required nested message that is absent on the wire
-decodes to its default instance; wrap it in `S.optional` to observe presence.
-
-**Repeated** scalars are written packed and read in either form. A
-`packed: false` descriptor writes them expanded, as `[packed=false]` does.
-Repeated messages append, a nested message seen twice merges, and a scalar
-seen twice keeps the last value.
-
-**Maps** are `S.record` fields. The key travels as the property name and
-defaults to a `string` key; pick another with `key`. `type` describes the
-value:
-
-```ts
-S.schema({
-  counts: S.record(S.int32).with(S.protobufField, 1), // map<string, int32>
-  byId: S.record(User).with(S.protobufField, { number: 2, key: "int64" }), // map<int64, User>
-});
-```
-
-**Oneofs** are optional fields that share a `oneof` name. At most one is ever
-set: decoding a member clears the others, and encoding a value with two of them
-set is refused rather than written, since a reader would take the second and
-drop the first. A member keeps explicit presence, so its zero value is written:
-
-```ts
-S.schema({
-  text: S.optional(S.string).with(S.protobufField, { number: 1, oneof: "value" }),
-  count: S.optional(S.int32).with(S.protobufField, { number: 2, oneof: "value" }),
-});
-```
-
-**Output memory.** An encoded message is a view into a larger buffer, like a
-Node `Buffer`: `bytes.buffer` is bigger than `bytes.byteLength` and
-`bytes.byteOffset` is not zero. Every consumer of a `Uint8Array` respects the
-view, so this only matters if you reach for `bytes.buffer` yourself. To own the
-memory, to transfer it to a worker or hand an `ArrayBuffer` to an API that
-wants one, put `S.arrayBuffer` on the wire side; the conversion copies the
-message to size:
-
-```ts
-const Wire = S.arrayBuffer.with(S.to, S.protobuf);
-
-S.encodeOrThrow(User, S.protobuf.with(S.to, S.arrayBuffer))(user); // ArrayBuffer(12)
-S.decodeOrThrow(Wire, User)(buffer); // { id: 150, name: "Ada", tags: [] }
-```
-
-**Generating a `.proto`.** `S.toProtoOrThrow` prints the proto3 source for a
-message schema, so a Sury schema can be the source of truth other languages
-build from, and `buf breaking` can guard it in CI. A schema's `name` meta names
-its message; without one the field key does. `description` becomes a comment
-and `deprecated` the option: meta a schema carried before `S.protobufField`
-numbered it belongs to the message or enum it declares, meta set after to the
-field.
-
-```ts
-const Address = S.schema({
-  street: S.string.with(S.protobufField, 1),
-}).with(S.meta, { name: "Address" });
-const User = S.schema({
-  id: S.int32.with(S.protobufField, 1),
-  homeAddress: S.optional(Address).with(S.protobufField, 2),
-  kind: S.union([0, 1, 2]).with(S.protobufField, { number: 3, type: "enum" }),
-}).with(S.meta, { name: "User" });
-
-S.toProtoOrThrow(User, { package: "acme.v1" });
-// syntax = "proto3";
-//
-// package acme.v1;
-//
-// message User {
-//   enum Kind {
-//     KIND_UNSPECIFIED = 0;
-//     KIND_1 = 1;
-//     KIND_2 = 2;
-//   }
-//
-//   int32 id = 1;
-//   optional Address home_address = 2;
-//   Kind kind = 3;
-// }
-//
-// message Address {
-//   string street = 1;
-// }
-```
-
-The zero member prints as `KIND_UNSPECIFIED`, and an enum built from
-literals that lack `0` gets one prepended, since proto3 requires a zero member
-that the schema itself rejects.
-
-**Why the field names change case.** `homeAddress` prints as `home_address`
-because that is what proto3's style guide asks for and what `buf lint` checks
-by default. It changes nothing about the wire: a field is its number, never its
-name. Every generator turns `home_address` back into the name its own language
-would use, so the property you started from is the property you get back:
-`homeAddress` in TypeScript and in ProtoJSON, `HomeAddress` in Go,
-`home_address` in Python. The one case worth knowing is that an acronym
-flattens, so a `userID` key prints `user_id` and comes back as `userId`. Keys
-that are already snake_case are left alone; a key that is not a plain
-identifier is made into one.
-
-**Unknown fields** are skipped, the way every proto3 reader skips them: a
-field number the schema does not claim is stepped over whatever its wire type
-(varint, 64-bit, length-delimited, group or 32-bit), and so is a *known*
-number arriving under a wire type its field cannot hold. That is what lets a
-sender add a field without breaking you. They are skipped, not kept: decode
-then encode writes back only the fields the schema declares, so a message that
-round-trips through Sury loses whatever it carried that you did not describe.
-Put `S.strict` on the message to reject an unknown field instead of skipping
-it, which is worth having on an internal wire where an unexpected number means
-a version skew you would rather hear about.
-
-Strings must be valid UTF-8. Malformed input, such as a truncated field, a field
-number of zero, an unknown wire type, an unmatched group or a tag wider than
-32 bits, throws an `S.Error` with code `invalid_conversion` and the wire
-problem as its reason; so does a value the wire type can't hold, such as a
-`float` beyond 32-bit range.
-
-A wire failure names where it hit, the way an object parse error names a
-path: the field it was reading, its number, and the wire type the bytes
-claimed, with each enclosing message in front of it.
-
-```ts
-const Account = S.schema({
-  id: S.int32.with(S.protobufField, 1),
-  addr: S.optional(S.schema({ street: S.string.with(S.protobufField, 1) })).with(S.protobufField, 2),
-});
-
-S.decodeOrThrow(S.protobuf, Account)(new Uint8Array([8, 1, 18, 3, 10, 1, 255]));
-// => S.Error: protobuf string is not valid UTF-8 at addr.street (field 1, wire type 2)
-```
-
-A failure with no field to name keeps its own text: a field number the
-message does not declare says so itself, and bytes that are not a tag at all
-were never a field.
-
-A schema that can't be a message, whether a field without a number, two fields
-sharing one or an optional repeated field, is rejected when the operation is
-built, naming the field.
-
-#### Speed and correctness
-
-[Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
-is regenerated on every push to main and carries the numbers: bundle size and
-encode/decode timings against protobuf.js, protobuf-es and pbf, a feature table
-where every cell is a call actually run against that library, and the
-conformance scores. The short version: against protobuf-es, encoding runs
-3.2-12.9x and decoding 1.8-10.5x, the widest gaps on the smallest messages; and
-on a Mapbox vector tile pbf is the one to beat, because a tile is almost
-entirely packed varints and that is what pbf is built for.
-
-`S.protobuf` passes **692 of the 698 binary proto3 cases** of Google's own
-`conformance_test_runner`. The six are named with their reason in
-[`failing_tests.txt`](https://github.com/DZakh/sury/tree/main/packages/protobuf-conformance/failing_tests.txt):
-four need recursive messages, two need unknown fields to survive a round trip.
-ProtoJSON, text format and the proto2 message types are not attempted.
-
-Beside it, a corpus of our own in
-[`packages/protobuf-test-suite`](https://github.com/DZakh/sury/tree/main/packages/protobuf-test-suite),
-where every case round-trips against two independent implementations:
-protobuf.js, and protobuf-es over both the reference `.proto` and the one
-`S.toProtoOrThrow` prints. Not covered by either: extensions, proto2 groups as
-fields, and retaining unknown fields through a round trip (see above).
+Oneofs, well-known types, `google.protobuf.Any`, printing a `.proto` and
+generating schemas from one: [Protocol Buffers](./js-protobuf.md).
 
 ## Content
 
@@ -1761,6 +1580,20 @@ S.uint8Array.with(S.to, S.jsonString, "unpack");
 ```ts
 S.uint8Array.with(S.to, S.jsonString, "pack");
 // decode pack, encode unpack
+```
+
+### The string is JSON text
+
+```ts
+S.string.with(S.to, userSchema, "unpack");
+// the text is read as userSchema
+```
+
+### The JSON string holds the string
+
+```ts
+S.string.with(S.to, S.jsonString, "pack");
+// "hi" is stored as '"hi"'
 ```
 
 ### If you omit pack or unpack
@@ -2028,7 +1861,7 @@ Every operation names two things: the **verb** - what it does - and the **outcom
 | Convert   |                                                      |                                                        | `parse`, `decode`, `encode` |
 | Construct | `makeInput`                                          | `makeOutput`                                           |                             |
 | Validate  | `isInput`, `isInputAsPromise`                        | `isOutput`, `isOutputAsPromise`                        |                             |
-| Compare   | `isEqualInput`                                       | `isEqualOutput`                                        |                             |
+| Compare   | `isEqualInput`, `compareInput`                       | `isEqualOutput`, `compareOutput`                       |                             |
 | Assert    | `assertInputOrThrow`, `assertInputAsPromiseOrReject` | `assertOutputOrThrow`, `assertOutputAsPromiseOrReject` |                             |
 | Describe  | `toInputJSONSchemaOrThrow`, `toInputExpression`      | `toOutputJSONSchemaOrThrow`, `toOutputExpression`      |                             |
 
@@ -2039,14 +1872,14 @@ A suffix names the failure mechanism only when the return type doesn't reveal it
 | Suffix | Returns | |
 | --- | --- | --- |
 | `OrThrow` | `TOutput` | throws `S.Error` |
-| `AsResult` | `S.Result<TOutput>` | `{ success, value, error }` |
+| `AsResult` | `S.Result<TOutput>` | `{ success, value, error, issues }` |
 | `AsPromiseOrReject` | `Promise<TOutput>` | rejects with `S.Error` - never throws synchronously |
 | `AsResultPromise` | `Promise<S.Result<TOutput>>` | |
 | `AsPromisableResult` | `S.Result<TOutput> \| Promise<S.Result<TOutput>>` | follows the schema's own shape |
 
 `parse`, `decode`, `encode`, `makeInput` and `makeOutput` each take all five.
 
-There is no promisable *throwing* variant, in either language: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
+There is no promisable *throwing* variant: `Result | Promise<Result>` is already two shapes to branch on, and once you have branched you know which one you have.
 
 ```ts
 S.parseOrThrow(userSchema, data);          //? { id: string }
@@ -2060,10 +1893,53 @@ The `Result` is compiled into the operation rather than wrapped around it, which
 
 ```ts
 S.parseAsResult(S.schema({ id: S.unknown }).with(S.noValidation, true)).toString();
-// => (i) => { return { success: true, value: { id: i.id }, error: void 0 } }
+// => (i) => { return { success: true, value: { id: i.id }, error: void 0, issues: void 0 } }
 ```
 
 Both branches of a `Result` carry the same keys in the same order, so `const { value, error } = result` narrows and a consumer's `.success` read stays monomorphic.
+
+#### Every issue at once
+
+A failed `Result` lists every problem in `issues`, so a form can show them all. `error` is the first one, the same error `OrThrow` would throw:
+
+```ts
+const signup = S.schema({
+  email: S.email,
+  password: S.string.with(S.minLength, 8),
+  tags: S.array(S.string),
+});
+
+S.parseAsResult(signup, { email: "x", password: "123", tags: ["a", 1] }).issues;
+// [
+//   { message: 'Expected email, received "x"', path: ["email"] },
+//   { message: 'Expected string.length >= 8, received "123"', path: ["password"] },
+//   { message: "Expected string, received 1", path: ["tags", 1] },
+// ]
+```
+
+A `Result` is a Standard Schema result, the same one [`~standard.validate`](#standard-schema) returns.
+
+A refine on an object runs only when all its fields are valid, so it never sees a broken value:
+
+```ts
+const passwords = S.schema({ password: S.string.with(S.minLength, 8), confirm: S.string })
+  .with(S.refine, (v) => v.password === v.confirm, { error: "Passwords must match" });
+
+S.parseAsResult(passwords, { password: "123", confirm: "x" }).issues;
+// [{ message: 'Expected string.length >= 8, received "123"', path: ["password"] }]
+```
+
+A union reports one issue for itself, and async fields report theirs after the sync ones (`activeUser` is the async check from [Refinements](#refinements)):
+
+```ts
+const account = S.schema({ id: activeUser, age: S.number });
+
+(await S.parseAsResultPromise(account, { id: inactiveId, age: "x" })).issues;
+// [
+//   { message: 'Expected number, received "x"', path: ["age"] },
+//   { message: `The user ${inactiveId} is inactive.`, path: ["id"] },
+// ]
+```
 
 Every failure of the value comes back in the outcome's own shape, exceptions included: a refine or coder that throws is wrapped as `invalid_conversion` with the exception as its `cause`, and so is anything else the value raises on its way through (a getter, say). Only a defect - a schema wired wrong, which fails for every input - throws out of every outcome, at the point the operation is created.
 
@@ -2174,7 +2050,7 @@ const isUser = S.isInput(userSchema);
 const users = records.filter(isUser);
 ```
 
-**Compare** - `S.isEqualInput(schema)` and `S.isEqualOutput(schema)`, a compiled equality for two values of that side:
+**Compare** - `S.isEqualInput(schema)` / `S.isEqualOutput(schema)` answer whether two values of that side are the same; `S.compareInput(schema)` / `S.compareOutput(schema)` answer `-1 | 0 | 1`, ascending, for `Array.prototype.sort`. 0 is exactly when `isEqual` would be true.
 
 ```ts
 const eventSchema = S.schema({ kind: "click", at: S.date, path: S.string });
@@ -2192,7 +2068,30 @@ S.isEqualOutput(eventSchema, a, b); // immediate, schema first
 S.isEqualOutput(a, b, eventSchema); // immediate, data first
 ```
 
-`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order, and a union by the member each value lands in.
+`kind` is a literal, so it contributes no comparison at all: a value that conforms can only hold the one it declares. Fields and elements otherwise compare by their own schemas, and a `Date` by its time, a `Set` by its members, a `FormData` by its entries in order.
+
+`isEqual` answers for every schema. `compare` answers for the schemas that have an order: `S.string`, `S.number`, `S.bigint`, `S.boolean`, `S.date`, `S.url`, a literal, `S.optional` / `S.nullable` of one of those, an enum of one kind, and `S.tuple` of any of those. Anything else throws when the comparator is compiled.
+
+```ts
+const ascByAtPath = S.compareOutput(S.tuple([S.date, S.string]));
+[[later, "b"], [at, "a"]].sort(ascByAtPath);
+//=> [[at, "a"], [later, "b"]]
+
+S.compareOutput(S.schema({ at: S.date }));
+//! Can't compare { at: Date; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality
+```
+
+To sort records, compare the fields you want to sort by as a tuple:
+
+```ts
+events.sort((a, b) => ascByAtPath([a.at, a.path], [b.at, b.path]));
+```
+
+Descending is the same comparator with the arguments the other way round:
+
+```ts
+events.sort((a, b) => ascByAtPath([b.at, b.path], [a.at, a.path]));
+```
 
 Both values have to be valid for the schema already - this compares, it does not validate. Use [`S.makeOutputOrThrow`](#constructing-entities) on a value you built yourself if you need it checked first.
 
@@ -2451,7 +2350,30 @@ The output side is derived through [`reverse`](#reverse), so nested transforms a
 
 ## Error handling
 
-**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` and `stack` work as usual. Every error carries:
+**Sury** throws `S.Error`, a subclass of `Error` named `SuryError`, so `instanceof` works as usual. A thrown error carries a `stack` starting at the line that called the operation; one handed back by an `AsResult` outcome or by Standard Schema has none, because nothing threw.
+
+An async schema that fails after its first `await` rejects with one too, starting at the `await` that received it. A bare `.catch()` has no `await` to trace back through, so its stack can't name your line:
+
+```ts
+const parseId = S.parseAsPromiseOrReject(
+  S.string.with(S.to, S.number, {
+    decode: { async: async (id: string) => Number(id) },
+    encode: String,
+  }),
+);
+
+try {
+  await parseId("abc");
+} catch (e) {
+  e.stack; // starts at the `await` above
+}
+
+parseId("abc").catch((e) => {
+  e.stack; // doesn't name this line
+});
+```
+
+Every error carries:
 
 - `path` - where the failure happened, as an array of keys and indices from the root of the value (`[]` at the root, `["items", 0]` inside). `S.pathToText(path)` renders it as `items[0]`.
 - `reason` - the failure itself, without the path: `Expected string, received undefined`.
@@ -2476,6 +2398,21 @@ try {
 }
 ```
 
+Printing one shows the failure and what this value decided. `expected` and
+`received` are schemas shared by every failure of the same check, so they stay
+out of the way until you ask for them:
+
+```ts
+console.log(e);
+// [SuryError: Failed at items[1]: Expected string, received 1] {
+//   code: 'invalid_input',
+//   path: [ 'items', 1 ],
+//   input: 1
+// }
+
+e.expected; // => S.string
+```
+
 Or ask the operation for a result instead of an exception - the `AsResult` and
 `AsResultPromise` outcomes build it into the compiled operation, so there is no
 callback to wrap and nothing to remember to catch:
@@ -2494,7 +2431,8 @@ const asyncResult = await S.parseAsResultPromise(S.boolean, data);
 
 `error` is a `S.DataError` - `invalid_input`, `unrecognized_key` or
 `invalid_conversion`, all failures **of this value**, reportable to whoever
-supplied it.
+supplied it. `result.issues` lists every failure (see
+[Every issue at once](#every-issue-at-once)).
 
 A `S.DefectError` - `invalid_operation` or `unsupported_decode` - is never a
 result. A schema wired wrong fails for every input, so it is the developer's
@@ -2509,7 +2447,7 @@ is created, which for an immediate call form is that same call.
 
 `defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
-```rescript
+```ts
 S.global({
   defaultAdditionalItems: "strict",
 })
@@ -2519,7 +2457,7 @@ S.global({
 
 `disableNanNumberValidation` is an option that controls whether the library should check for NaN values when parsing numbers. The default value is `false`, but you can globally change it to `true` to allow NaN values. If you parse many numbers which are guaranteed to be non-NaN, you can set it to `true` to improve performance ~10%, depending on the case.
 
-```rescript
+```ts
 S.global({
   disableNanNumberValidation: true,
 })

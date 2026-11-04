@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
   output: '{ type: "object", allOf: [{ type: "object", properties: { child: { type: "string" } }, required: ["child"] }] }'
 isEqual: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+compare: "throws: [Sury] Can't compare { [key: string]: JSON; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);e[1](i)||e[3](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path=[v0,...v1.path];throw v1}}return i}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);e[2](i)||e[4](i);for(let v0 in i){try{e[0](i[v0]);}catch(v1){e[1](v1,[v0])}}return i}catch(v2){e[5](v2)}}
     examples:
       valid:
         input: '{ child: "ok", extra: true }'
@@ -25,13 +26,13 @@ operations:
         input: "{ child: 1 }"
         error: Should pass the keywords adjacent to the $ref.
   decode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '{ child: "ok", extra: true }'
         output: '{ child: "ok", extra: true }'
   encode:
-    expression: i=>{e[0](i)||e[1](i);return i}
+    expression: i=>{try{e[0](i)||e[1](i);return i}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '{ child: "ok", extra: true }'

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((R3) => S.union([S.schema({ t: "a", n: S.array(R3) }), S.schema({ t: "b", n: S.array(R3) }), S.schema({ t: "c", n: S.array(R3) })]).with(S.to, R3))(S.recursive("R3", (self) => S.union([S.schema({ t: "a", n: S.array(self) }), S.schema({ t: "b", n: S.array(self) })])))'
+  input: '{ t: "a"; n: unknown[]; } | { t: "b"; n: unknown[]; } | { t: "c"; n: unknown[]; }'
+  output: unknown
+  instantiations: 13608
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "c" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R3: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }] } } }'
+  fromInputType: '{ t: "a"; n: ({ t: "a"; n: (... | { t: "b"; n: (... | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | ...)[]; } | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | { t: "b"; n: (... | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | ...)[]; } | ...)[]; })[]; } | { ...; }'
+  output: '{ $ref: "#/$defs/R3", $defs: { R3: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }] } } }'
+  fromOutputType: '{ t: "a"; n: (... | { t: "b"; n: (... | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | ...)[]; } | ...)[]; }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", enum: ["c"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R3: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }] } } }'
+    output: '{ $ref: "#/$defs/R3", $defs: { R3: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", enum: ["b"] }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }] } } }'
+isEqual:
+  input: (a,b)=>a===b||(a.t==="a"?b.t==="a"&&e[4](a.n,b.n):a.t==="b"?b.t==="b"&&e[2](a.n,b.n):b.t==="c"&&e[0](a.n,b.n))
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { t: \"a\"; n: R3[]; } | { t: \"b\"; n: R3[]; } | { t: \"c\"; n: R3[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare R3. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;Array.isArray(v0)||e[2](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[0](v0[v1]);}catch(v3){e[1](v3,["n",v1])}v4[v1]=v2}e[3]({t:i.t,n:v4});i={t:i.t,n:v4};break}if(i.t==="b"){let v5=i.n;Array.isArray(v5)||e[6](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[4](v5[v6]);}catch(v8){e[5](v8,["n",v6])}v9[v6]=v7}e[7]({t:i.t,n:v9});i={t:i.t,n:v9};break}if(i.t==="c"){let v10=i.n;Array.isArray(v10)||e[10](v10);let v14=new Array(v10.length);for(let v11=0;v11<v10.length;++v11){let v12;try{v12=e[8](v10[v11]);}catch(v13){e[9](v13,["n",v11])}v14[v11]=v12}e[11]({t:i.t,n:v14});i={t:i.t,n:v14};break}throw e[12](i)}}else{throw e[12](i)}return i}catch(v15){e[13](v15)}}
+    examples:
+      a:
+        input: '{ t: "a", n: [] }'
+        output: '{ t: "a", n: [] }'
+      c:
+        input: '{ t: "c", n: [] }'
+        error: 'Expected { t: "a"; n: R3[]; } | { t: "b"; n: R3[]; }, received { t: "c"; n: Array(0); }'
+  decode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;for(let v1=0;v1<v0.length;++v1){try{e[0](v0[v1]);}catch(v2){e[1](v2,["n",v1])}}e[2](i);break}if(i.t==="b"){let v3=i.n;for(let v4=0;v4<v3.length;++v4){try{e[3](v3[v4]);}catch(v5){e[4](v5,["n",v4])}}e[5](i);break}if(i.t==="c"){let v6=i.n;for(let v7=0;v7<v6.length;++v7){try{e[6](v6[v7]);}catch(v8){e[7](v8,["n",v7])}}e[8](i);break}throw e[9](i)}}else{throw e[9](i)}return i}catch(v9){e[10](v9)}}
+    examples:
+      a:
+        input: '{ t: "a", n: [] }'
+        output: '{ t: "a", n: [] }'
+  encode:
+    expression: i=>{try{e[0](i);if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.t==="a"){let v0=i.n;Array.isArray(v0)||e[3](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2;try{v2=e[1](v0[v1]);}catch(v3){e[2](v3,["n",v1])}v4[v1]=v2}i={t:i.t,n:v4};break}if(i.t==="b"){let v5=i.n;Array.isArray(v5)||e[6](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v7;try{v7=e[4](v5[v6]);}catch(v8){e[5](v8,["n",v6])}v9[v6]=v7}i={t:i.t,n:v9};break}if(i.t==="c"){let v10=i.n;Array.isArray(v10)||e[9](v10);let v14=new Array(v10.length);for(let v11=0;v11<v10.length;++v11){let v12;try{v12=e[7](v10[v11]);}catch(v13){e[8](v13,["n",v11])}v14[v11]=v12}i={t:i.t,n:v14};break}throw e[10](i)}}else{throw e[10](i)}return i}catch(v15){e[11](v15)}}
+    examples:
+      b:
+        input: '{ t: "b", n: [] }'
+        output: '{ t: "b", n: [] }'

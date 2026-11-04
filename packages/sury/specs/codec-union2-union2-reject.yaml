@@ -10,12 +10,15 @@ jsonSchema:
 isEqual:
   input: strictEqual
   output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare never | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){e[0](i);break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
     examples:
       rejected-number:
         input: "42"
@@ -23,9 +26,6 @@ operations:
       preserved-string:
         input: '"ok"'
         output: '"ok"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
   decode: eq-to-parse
   encode:
     creationError: "SuryError: Ambiguous never | string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number"

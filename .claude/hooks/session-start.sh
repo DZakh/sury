@@ -30,7 +30,7 @@ fi
 # 2. opam + a system OCaml compiler (needed to build the ppx).
 if ! command -v opam >/dev/null 2>&1 || ! command -v ocaml >/dev/null 2>&1; then
   $SUDO apt-get update
-  $SUDO DEBIAN_FRONTEND=noninteractive apt-get install -y opam ocaml
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y opam ocaml
 fi
 
 # 3. opam init + a system switch (re-uses apt's OCaml, no compiler build).

@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
   output: '{ type: "object", properties: { value: { type: "string" } }, required: ["value"] }'
 isEqual: (a,b)=>a===b||a.value===b.value
+compare: "throws: [Sury] Can't compare { value: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.value;typeof v0==="string"||e[0](v0);return {value:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.value;typeof v0==="string"||e[0](v0);return {value:v0}}catch(v1){e[2](v1)}}
     examples:
       valid:
         input: '{ value: "ok" }'

@@ -10,16 +10,18 @@ import {
   inputExpression,
   type Internal,
   panic,
+  pathConcat,
   tagFlags,
   U,
   unknown,
   type Val
 } from "../base";
 import {
+  B_let,
+  B_sink,
   _notVarBeforeValidation,
   B_asyncVal,
   B_markOutput,
-  B_markThrow,
   B_merge,
   B_next,
   B_nextVar,
@@ -144,55 +146,51 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       let lengthCode = "";
       let itemBuildCode = "";
-      let itemParseCode = "";
       let asyncInlines = "";
       let hasAsync = false;
-      for (let idx = 0; idx < keysLen; ++idx) {
-        const key = keys[idx]!;
-        const idxStr = `${idx}`;
-        const rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`;
+      const itemParseCode = B_sink(input.g, () => {
+        let code = "";
+        for (let idx = 0; idx < keysLen; ++idx) {
+          const key = keys[idx]!;
+          const idxStr = `${idx}`;
+          const rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`;
 
-        const fieldSchema = properties[key]!;
+          const fieldSchema = properties[key]!;
 
-        // When the declared source differs from the runtime type
-        // (e.g. runtime=unknown, declared=json), chain through the
-        // declared type first so parse validates the value matches
-        // the source schema before converting to the field type.
-        const itemExpected =
-          declaredItemSchema !== runtimeItemSchema
-            ? copyTo(declaredItemSchema, fieldSchema)
-            : fieldSchema;
+          // When the declared source differs from the runtime type
+          // (e.g. runtime=unknown, declared=json), chain through the
+          // declared type first so parse validates the value matches
+          // the source schema before converting to the field type.
+          const itemExpected =
+            declaredItemSchema !== runtimeItemSchema
+              ? copyTo(declaredItemSchema, fieldSchema)
+              : fieldSchema;
 
-        const itemInput = B_scope(input);
-        itemInput.i = rawValueCode;
-        itemInput.s = runtimeItemSchema;
-        itemInput.e = itemExpected;
-        itemInput.v = _notVarBeforeValidation;
-        itemInput.io = false;
+          const itemInput = B_scope(input);
+          itemInput.i = rawValueCode;
+          itemInput.s = runtimeItemSchema;
+          itemInput.e = itemExpected;
+          itemInput.v = _notVarBeforeValidation;
+          itemInput.io = false;
 
-        itemInput.path = [key];
+          itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
+          const itemOutput = parse(itemInput);
+          if ((itemOutput.f & 1)) {
+            hasAsync = true;
+          }
 
-        const itemOutput = parse(itemInput);
-        if ((itemOutput.f & 1)) {
-          hasAsync = true;
+          code += B_merge(itemOutput);
+          lengthCode += `${inputVar}[${idxStr}].length,`;
+          asyncInlines += `${itemOutput.i},`;
+          itemBuildCode += `${inlinedObjectKey(key)}:${itemOutput.i},`;
         }
-
-        itemParseCode += B_merge(itemOutput);
-        lengthCode += `${inputVar}[${idxStr}].length,`;
-        asyncInlines += `${itemOutput.i},`;
-        itemBuildCode += `${inlinedObjectKey(key)}:${itemOutput.i},`;
-      }
+        return code;
+      });
 
       let output = B_nextVar(input, outputSchema);
       const outputVar = output.i;
-      // Row accumulator: declared at the head of its own segment, before the
-      // `for` below that fills it.
-      output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode.slice(0, -1)}));`;
+      output.cp = B_let(input.g, outputVar, `new Array(Math.max(${lengthCode.slice(0, -1)}))`);
 
-      // Wrap the row body in a single try/catch that prepends the row index to
-      // any thrown error - giving paths like `[0].bar`. A single wrapper is
-      // used (rather than per-field) so that `let` variables declared while
-      // parsing one field remain in scope for the object construction.
       let rowAssign: string;
       if (hasAsync) {
         // For async fields, each row becomes a promise that awaits all field values
@@ -209,17 +207,9 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       }
 
       const rowBody = itemParseCode + rowAssign;
-      let wrappedBody: string;
-      if (itemParseCode === "") {
-        wrappedBody = rowBody;
-      } else {
-        const errorVar = B_varWithoutAllocation(input.g);
-        B_markThrow(input);
-        wrappedBody = `try{${rowBody}}catch(${errorVar}){${errorVar}.path=[${iteratorVar},...${errorVar}.path];throw ${errorVar}}`;
-      }
       output.cp =
         output.cp +
-        `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`;
+        `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${rowBody}}`;
 
       if (hasAsync) {
         output = B_asyncVal(output, `Promise.all(${outputVar})`);
@@ -241,46 +231,40 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
       let initialArraysCode = "";
       let settingCode = "";
-      let perFieldCode = "";
-      for (let idx = 0; idx < keysLen; ++idx) {
-        const key = keys[idx]!;
-        initialArraysCode += `new Array(${inputVar}.length),`;
+      const perFieldCode = B_sink(input.g, () => {
+        let code = "";
+        for (let idx = 0; idx < keysLen; ++idx) {
+          const key = keys[idx]!;
+          initialArraysCode += `new Array(${inputVar}.length),`;
 
-        if (needsPerFieldTransform) {
-          const fieldSchema = properties[key]!;
-          const rawValueCode = inlinedProperty(`${inputVar}[${iteratorVar}]`, key);
+          if (needsPerFieldTransform) {
+            const fieldSchema = properties[key]!;
+            const rawValueCode = inlinedProperty(`${inputVar}[${iteratorVar}]`, key);
 
-          const itemInput = B_scope(input);
-          itemInput.i = rawValueCode;
-          itemInput.s = fieldSchema;
-          itemInput.e = declaredItemSchema;
-          itemInput.v = _notVarBeforeValidation;
-          itemInput.io = false;
-          itemInput.path = [key];
+            const itemInput = B_scope(input);
+            itemInput.i = rawValueCode;
+            itemInput.s = fieldSchema;
+            itemInput.e = declaredItemSchema;
+            itemInput.v = _notVarBeforeValidation;
+            itemInput.io = false;
+            itemInput.path = pathConcat(input.path, [{ e: iteratorVar }, key]);
 
-          const itemOutput = parse(itemInput);
-          perFieldCode += B_merge(itemOutput);
-          settingCode += `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
-        } else {
-          settingCode +=
-            `${outputVar}[${idx}][${iteratorVar}]=${inlinedProperty(`${inputVar}[${iteratorVar}]`, key)};`;
+            const itemOutput = parse(itemInput);
+            code += B_merge(itemOutput);
+            settingCode += `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
+          } else {
+            settingCode +=
+              `${outputVar}[${idx}][${iteratorVar}]=${inlinedProperty(`${inputVar}[${iteratorVar}]`, key)};`;
+          }
         }
-      }
+        return code;
+      });
 
-      // Columnar accumulator: declared before the `for` that fills it.
-      output.cp = `let ${outputVar}=[${initialArraysCode.slice(0, -1)}];`;
+      output.cp = B_let(input.g, outputVar, `[${initialArraysCode.slice(0, -1)}]`);
       const loopBody = perFieldCode + settingCode;
-      let wrappedBody: string;
-      if (needsPerFieldTransform && perFieldCode !== "") {
-        const errorVar = B_varWithoutAllocation(input.g);
-        B_markThrow(input);
-        wrappedBody = `try{${loopBody}}catch(${errorVar}){${errorVar}.path=[${iteratorVar},...${errorVar}.path];throw ${errorVar}}`;
-      } else {
-        wrappedBody = loopBody;
-      }
       output.cp =
         output.cp +
-        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`;
+        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${loopBody}}`;
       return B_markOutput(output, input);
     }
   }

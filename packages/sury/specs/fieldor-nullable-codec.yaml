@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.string.with(S.to, S.number)), null) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ f: number | null; }"
+  instantiations: 5067
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: null, anyOf: [{ type: "string" }, { type: "null" }] } } }'
+  output: '{ type: "object", properties: { f: { anyOf: [{ type: "number" }, { type: "null" }] } }, required: ["f"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { default: null, type: "string", nullable: true } } }'
+    output: '{ type: "object", properties: { f: { type: "number", nullable: true } }, required: ["f"] }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: string | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;throw e[1](v0)}}return {f:v0}}catch(v2){e[3](v2)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: null }"
+      "":
+        input: "{ f: null }"
+        output: "{ f: null }"
+      string-converts:
+        input: '{ f: "2" }'
+        output: "{ f: 2 }"
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=null}else{for(;;){if(typeof v0==="string"){let v1=+v0;v1==v1&&(v1||v0.trim())||e[0](v0);v0=v1;break}if(v0===null)break;throw e[1](v0)}}return {f:v0}}catch(v2){e[2](v2)}}
+    examples:
+      string-converts:
+        input: '{ f: "2" }'
+        output: "{ f: 2 }"
+  encode:
+    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="number"&&v0==v0){v0=""+i.f;break}if(v0===null)break;throw e[0](v0)}return {f:v0}}catch(v1){e[1](v1)}}
+    examples:
+      number-converts-back-once:
+        input: "{ f: 2 }"
+        output: '{ f: "2" }'
+      "":
+        input: "{ f: null }"
+        output: "{ f: null }"

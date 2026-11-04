@@ -8,34 +8,28 @@ jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare number | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="string")break;e[0](i)}return i}
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){i=""+i;break}if(typeof i==="string")break;throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       number-decoded:
         input: "123"
         output: '"123"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
       string:
         input: '"abc"'
         output: '"abc"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
       float-decoded:
         input: "1.5"
         output: '"1.5"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
   decode: eq-to-parse
   encode:
-    expression: i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
+    expression: i=>{try{let v1;for(;;){if(typeof i==="string"){l2:{let v0=+i;if(!(v0==v0&&(v0||i.trim()))){v1=[v1,e[0],i];break l2}i=v0;break}break}throw e[1](i,v1)}return i}catch(v3){e[2](v3)}}
     examples:
       numeric-string:
         input: '"123"'

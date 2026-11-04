@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("A", (a) => S.schema({ v: S.string, kids: S.array(a) })).with(S.to, S.recursive("B", (b) => S.schema({ v: S.string.with(S.to, S.number), kids: S.array(b) })))'
+  input: unknown
+  output: unknown
+  instantiations: 9626
+jsonSchema:
+  input: '{ $ref: "#/$defs/A", $defs: { A: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/A" }, type: "array" } }, required: ["v", "kids"] } } }'
+  fromInputType: "{ v: string; kids: ...[]; }"
+  output: '{ $ref: "#/$defs/B", $defs: { B: { type: "object", properties: { v: { type: "number" }, kids: { items: { $ref: "#/$defs/B" }, type: "array" } }, required: ["v", "kids"] } } }'
+  fromOutputType: "{ v: number; kids: ...[]; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare A. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare B. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);let v1;v1=e[1](v0);return v1}catch(v2){e[2](v2)}}
+    examples:
+      nested:
+        input: '{ v: "1", kids: [{ v: "2", kids: [] }] }'
+        output: "{ v: 1, kids: [{ v: 2, kids: [] }] }"
+      nested-not-a:
+        input: '{ v: "1", kids: [{ v: 2, kids: [] }] }'
+        error: "Failed at kids[0].v: Expected string, received 2"
+  decode:
+    expression: i=>{try{e[0](i);let v0;v0=e[1](i);return v0}catch(v1){e[2](v1)}}
+    examples:
+      nested:
+        input: '{ v: "1", kids: [{ v: "2", kids: [] }] }'
+        output: "{ v: 1, kids: [{ v: 2, kids: [] }] }"
+  encode: eq-to-parse

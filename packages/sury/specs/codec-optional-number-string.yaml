@@ -9,12 +9,15 @@ jsonSchema:
   fromInputType: number
   output: '{ type: "string" }'
 isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: strictCompare
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{if(typeof i==="number"&&i==i){i=""+i}else{e[0](i)}return i}
+    expression: i=>{try{if(typeof i==="number"&&i==i){i=""+i;}else{throw e[0](i)}return i}catch(v0){e[1](v0)}}
     examples:
       number:
         input: "12"
@@ -24,7 +27,7 @@ operations:
         error: Expected number, received undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}
+    expression: i=>{try{let v0=+i;v0==v0&&(v0||i.trim())||e[0](i);i=v0;return i}catch(v1){e[1](v1)}}
     examples:
       text:
         input: '"12"'

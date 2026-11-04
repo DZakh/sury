@@ -8,11 +8,12 @@ jsonSchema:
   input: Expected JSON, received Map<string, number>.size >= 1
   output: Expected JSON, received Map<string, number>.size >= 1
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Map<string, number>.size >= 1. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: z.map(z.string(), z.number()).min(1)
 operations:
   parse:
-    expression: i=>{i instanceof e[3]||e[4](i);for(let v0 of i){try{let v2=v0[0];typeof v2==="string"||e[1](v2);let v1=v0[1];typeof v1==="number"&&v1==v1||e[0](v1);}catch(v3){v3.path=[v0[0],...v3.path];throw v3}}i.size>0||e[2](i);return i}
+    expression: i=>{try{i instanceof e[3]||e[4](i);for(let v0 of i){let v1=v0[0];typeof v1==="string"||e[0](v1,[v0[0]]);let v2=v0[1];typeof v2==="number"&&v2==v2||e[1](v2,[v0[0]]);}i.size>0||e[2](i);return i}catch(v3){e[5](v3)}}
     examples:
       valid:
         input: new Map([["a", 1]])
@@ -24,7 +25,7 @@ operations:
         input: new Map([["a", "1"]])
         error: 'Failed at a: Expected number, received "1"'
   decode:
-    expression: i=>{i.size>0||e[0](i);return i}
+    expression: i=>{try{i.size>0||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: new Map([["a", 1]])
@@ -33,7 +34,7 @@ operations:
         input: new Map([])
         error: Expected Map<string, number>.size >= 1, received Map
   encode:
-    expression: i=>{i.size>0||e[0](i);return i}
+    expression: i=>{try{i.size>0||e[0](i);return i}catch(v1){e[1](v1)}}
     examples:
       valid:
         input: new Map([["a", 1]])

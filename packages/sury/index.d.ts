@@ -19,6 +19,7 @@ export type SuccessResult<TValue> = {
   readonly success: true;
   readonly value: TValue;
   readonly error?: undefined;
+  readonly issues?: undefined;
 };
 
 export type FailureResult = {
@@ -29,8 +30,21 @@ export type FailureResult = {
   // silently doesn't. They mirror the `void 0` fillers the compiled Result tail
   // emits, so the two branches also share one hidden class at runtime.
   readonly value?: undefined;
+  readonly issues: readonly StandardSchemaV1.Issue[];
 };
 
+/**
+ * What every `*AsResult` operation and `schema["~standard"].validate` return,
+ * a Standard Schema result. A failure lists every issue; `error` is the first.
+ *
+ * ```ts
+ * const result = S.parseAsResult(S.schema({ a: S.string, b: S.number }), { a: 1, b: "x" })
+ * result.success       // false
+ * result.error?.reason // "Expected string, received 1"
+ * result.issues        // [{ message: "Expected string, received 1", path: ["a"] },
+ *                      //  { message: 'Expected number, received "x"', path: ["b"] }]
+ * ```
+ */
 export type Result<TValue> = SuccessResult<TValue> | FailureResult;
 
 /**
@@ -118,7 +132,7 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
   ): Schema<TInput, TTargetOutput>;
   // `S.shape`, and any modifier whose callback decides the output type.
   // Naming the callback here is what types its parameter as `TOutput`. The
-  // required third parameter excludes `S.optional`/`S.nullable`: a lazy
+  // required third parameter excludes `S.optional`/`S.nullable`/`S.nullish`: a lazy
   // default `() => value` is not a shaper, and the trailing `_?: never` they
   // declare is what fails this overload so they resolve below instead.
   with<TShape>(
@@ -332,28 +346,23 @@ export const Error: {
   prototype: Error;
 };
 
-// Extract Output/Input by matching only the `~standard` marker instead of the
-// full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
-// instantiate per match). `types` is optional, so the pattern keeps it optional.
 export type Output<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : never;
 
-// Match the `~standard` marker instead of the full `Schema<…>` shape for the
-// same instantiation-cost reason as `Output<T>` above.
 // `-readonly` undoes the `readonly` that a `const T` call site (schema/union)
 // stamps onto every nested property - that marker only exists to keep literal
 // types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } | undefined };
 }
   ? TOutput
   : T extends (...args: any[]) => any
@@ -365,7 +374,7 @@ export type UnknownToOutput<T> = T extends {
   : T;
 
 export type UnknownToInput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } | undefined };
 }
   ? TInput
   : T extends (...args: any[]) => any
@@ -596,6 +605,28 @@ export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
 export const protobuf: Schema<Uint8Array, Uint8Array>;
 
 /**
+ * A `google.protobuf.Any`: a message of any type, as its type URL and its bytes.
+ * Convert it with `S.to` to a message `S.protobufTypeName` names, or to an
+ * `S.union` of them, each one such message or an object or tuple holding one
+ * beside literals:
+ *
+ * ```ts
+ * const Event = S.protobufAny.with(S.to, S.union([
+ *   S.schema({ type: "user", value: UserSchema }),
+ *   S.schema({ type: "other", value: S.protobufAny }),
+ * ]));
+ * ```
+ *
+ * The type is the name after the URL's last `/`, so any prefix reads, and
+ * `type.googleapis.com/` is written. A member holding `S.protobufAny` itself
+ * takes the types no other member names; without one, an unlisted type fails.
+ */
+export const protobufAny: Schema<
+  { typeUrl: string; value: Uint8Array },
+  { typeUrl: string; value: Uint8Array }
+>;
+
+/**
  * The proto3 source describing the wire `S.protobuf` speaks for a message
  * schema: every field with its number and wire type, `optional`, `repeated`,
  * `map<K, V>`, `oneof` blocks, nested messages and enums. A schema's `name`
@@ -635,10 +666,44 @@ export type ProtobufType =
   | "enum"
   | "message";
 
+/**
+ * A Google well-known type a field is declared as, printed by `S.toProtoOrThrow`
+ * as an import rather than a message of its own. Each takes one value:
+ *
+ * - `Timestamp`: a `Date` (implied by `S.date`) or `{ seconds: bigint, nanos: int32 }`
+ * - `Duration`: `{ seconds: bigint, nanos: int32 }`
+ * - `Value`: `S.json` (implied by it), `Struct`: `S.record(S.json)`, `ListValue`: `S.array(S.json)`
+ * - `FieldMask`: `S.array(S.string)`, `Empty`: `S.schema({})`
+ * - the wrappers: an `S.optional` of their scalar, since presence is what a wrapper is for
+ * - `Any`: `S.protobufAny`, or what it converts to: a message `S.protobufTypeName`
+ *   names, or an `S.union` of them. A union of messages is an `Any` without
+ *   saying so.
+ *
+ * An `S.array` or `S.record` of any of these is a repeated or map field of it.
+ */
+export type ProtobufWellKnownType =
+  | "google.protobuf.Any"
+  | "google.protobuf.Timestamp"
+  | "google.protobuf.Duration"
+  | "google.protobuf.Value"
+  | "google.protobuf.Struct"
+  | "google.protobuf.ListValue"
+  | "google.protobuf.FieldMask"
+  | "google.protobuf.Empty"
+  | "google.protobuf.DoubleValue"
+  | "google.protobuf.FloatValue"
+  | "google.protobuf.Int64Value"
+  | "google.protobuf.UInt64Value"
+  | "google.protobuf.Int32Value"
+  | "google.protobuf.UInt32Value"
+  | "google.protobuf.BoolValue"
+  | "google.protobuf.StringValue"
+  | "google.protobuf.BytesValue";
+
 /** What `S.protobufField` accepts beyond a bare number. See `S.protobuf`. */
 export type ProtobufField = {
   number: number;
-  type?: ProtobufType;
+  type?: ProtobufType | ProtobufWellKnownType;
   /** Encode a repeated scalar expanded (`[packed=false]`) instead of packed. Decoding accepts both. */
   packed?: boolean;
   /** Key type of a `map<K, V>` field, for an `S.record` schema. Defaults to `string`. */
@@ -654,6 +719,17 @@ export type ProtobufField = {
 export function protobufField<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   field: number | ProtobufField
+): Schema<TInput, TOutput>;
+
+/**
+ * Names a message or enum schema with its full proto name, such as
+ * `"acme.v1.User"`. `S.toProtoOrThrow` imports a `google.protobuf.*` type
+ * instead of declaring it, and a `google.protobuf.Any` field holds the messages
+ * named this way: see `S.protobuf`.
+ */
+export function protobufTypeName<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  typeName: string
 ): Schema<TInput, TOutput>;
 
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
@@ -2196,6 +2272,48 @@ export function isEqualOutput<S extends AnySchema>(
 ): boolean;
 
 /**
+ * The order of two Input-side values, by the schema's own structure: -1, 0 or
+ * 1. 0 exactly when {@link isEqualInput} would answer true. Fields and elements
+ * compare by their own schemas, a `Date` by its time, a union by the member
+ * each value lands in (earlier member first) then that member's payload, and a
+ * literal not at all.
+ *
+ * Both values are assumed to already match the schema - this compares, it does
+ * not validate. `S.compareInput(schema)` compiles once and is the form to
+ * hoist; the direct forms compile on first use and are cached per schema.
+ * Hand the compiled form to `Array.prototype.sort` for values this schema
+ * can order.
+ */
+export function compareInput<S extends AnySchema>(
+  schema: S
+): (a: Input<S>, b: Input<S>) => -1 | 0 | 1;
+export function compareInput<S extends AnySchema>(
+  schema: S,
+  a: Input<S>,
+  b: Input<S>
+): -1 | 0 | 1;
+export function compareInput<S extends AnySchema>(
+  a: Input<S>,
+  b: Input<S>,
+  schema: S
+): -1 | 0 | 1;
+
+/** `compareInput` for the Output side. */
+export function compareOutput<S extends AnySchema>(
+  schema: S
+): (a: Output<S>, b: Output<S>) => -1 | 0 | 1;
+export function compareOutput<S extends AnySchema>(
+  schema: S,
+  a: Output<S>,
+  b: Output<S>
+): -1 | 0 | 1;
+export function compareOutput<S extends AnySchema>(
+  a: Output<S>,
+  b: Output<S>,
+  schema: S
+): -1 | 0 | 1;
+
+/**
  * `isInput` for a schema with an async conversion. Resolves to the answer and
  * never rejects; TypeScript can't express an async type predicate, so no
  * narrowing happens.
@@ -2512,8 +2630,6 @@ export function optional<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Never passed: fails `with`'s callback overload, so a lazy default is
-  // not typed as a shaper.
   _?: never
 ): Schema<
   TInput | undefined,
@@ -2528,18 +2644,22 @@ export function nullable<
 >(
   schema: SchemaLike<TInput, TOutput> | TDef,
   or?: (() => TOr) | TOr,
-  // Never passed: fails `with`'s callback overload, so a lazy default is
-  // not typed as a shaper.
   _?: never
 ): Schema<TInput | null, TOr extends null ? TOutput | null : TOutput>;
 
-export const nullish: <
+export function nullish<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
-  TOutput = UnknownToOutput<TDef>
+  TOutput = UnknownToOutput<TDef>,
+  TOr extends TOutput | undefined = undefined
 >(
-  schema: SchemaLike<TInput, TOutput> | TDef
-) => Schema<TInput | undefined | null, TOutput | undefined | null>;
+  schema: SchemaLike<TInput, TOutput> | TDef,
+  or?: (() => TOr) | TOr,
+  _?: never
+): Schema<
+  TInput | undefined | null,
+  TOr extends undefined ? TOutput | undefined | null : TOutput
+>;
 
 export type Class<T> = new (...args: readonly any[]) => T;
 export const instance: <T>(class_: Class<T>) => Schema<T, T>;
@@ -2559,8 +2679,8 @@ export const array: <
  * to it with {@link to}, and the same schema reversed encodes back.
  *
  * ```ts
- * S.parser(S.set(S.string))(new Set(["a"])); // Set { "a" }
- * S.parser(S.array(S.string).with(S.to, S.set(S.string)))(["a"]); // Set { "a" }
+ * S.parseOrThrow(S.set(S.string), new Set(["a"])); // Set { "a" }
+ * S.parseOrThrow(S.array(S.string).with(S.to, S.set(S.string)), ["a"]); // Set { "a" }
  * ```
  */
 export const set: <
@@ -2579,7 +2699,7 @@ export const set: <
  * schema reversed encodes back.
  *
  * ```ts
- * S.parser(S.map(S.string, S.number))(new Map([["a", 1]])); // Map { "a" => 1 }
+ * S.parseOrThrow(S.map(S.string, S.number), new Map([["a", 1]])); // Map { "a" => 1 }
  * ```
  */
 export const map: <
@@ -2889,7 +3009,8 @@ type Coder<A, B> = { bivarianceHack(value: A): B }["bivarianceHack"];
  * to its own source: `"unpack"` opens it and hands the payload on, `"pack"`
  * stores its value. One direction must be the opposite of the other. A bare
  * `"pack"` or `"unpack"` as `S.to`'s third argument is the decode reading
- * with encode set to the opposite.
+ * with encode set to the opposite. `S.string.with(S.to, userSchema, "unpack")`
+ * reads the text as `userSchema`.
  */
 export type Conversion<A, B> =
   | Coder<A, B>

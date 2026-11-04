@@ -8,12 +8,13 @@ jsonSchema:
   input: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
   output: '{ type: "object", properties: { count: { type: "integer", default: "" } } }'
 isEqual: (a,b)=>a===b||a.count===b.count
+compare: "throws: [Sury] Can't compare { count: integer | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.count;(typeof v0==="number"&&v0==v0&&v0%1==0||v0===void 0)||e[0](v0);return {count:v0}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.count;(typeof v0==="number"&&v0==v0&&v0%1==0||v0===void 0)||e[0](v0);return {count:v0}}catch(v1){e[2](v1)}}
     examples:
       value-present:
         input: "{ count: 1 }"

@@ -6,18 +6,20 @@
 
 Describing a shape, checking a value against it, and getting a TypeScript type out of it: the job every one of these libraries is for. Sury compiles the schema into a function, which is why the parse row reads the way it does.
 
-Measured against sury 11.0.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.2, arktype 2.2.3.
+Measured against sury 11.1.0, zod 4.4.3, @sinclair/typebox 0.34.52, valibot 1.4.2, arktype 2.2.3.
 
 ## Features
 
 |  | Sury | Zod | TypeBox | Valibot | ArkType |
 | --- | :---: | :---: | :---: | :---: | :---: |
+| What you see on hover<br><sub>the type your editor shows for `{ foo: string }`, which is also what an error quotes back at you</sub> | `S.Schema<{foo: string}, {foo: string}>` | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>` | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>` |
 | Standard Schema<br><sub>the interface tRPC, TanStack and 28 others accept a schema through</sub> | ✅ | ✅ | ❌ | ✅ | ✅ |
-| A transform runs backwards too<br><sub>one description for decoding a value and encoding it again</sub> | ✅ | ✅ | ✅ | ❌† | ❌† |
-| Equality compiled from the schema<br><sub>comparing two values by what the schema says they are, not by walking them blind</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
-| A constructor that checks the value you built<br><sub>for a value your own code produced, rather than one that arrived from outside</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
-| Asynchronous validation | ✅ | ✅ | ❌† | ✅ | ❌† |
-| Reports every problem, not just the first<br><sub>Sury stops at the first, which is what makes the parse row below what it is</sub> | ❌ | ✅ | ❌ | ✅ | ✅ |
+| One schema, both directions<br><sub>write the transform once and the same schema encodes the value back</sub> | ✅ | ✅ | ✅ | ❌† | ❌† |
+| Compares two values for you<br><sub>the schema knows the shape, so comparing is one generated function instead of a blind walk</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
+| Checks a value you built yourself<br><sub>for data your own code produced, where parsing an untrusted input is the wrong tool</sub> | ✅ | ❌† | ❌† | ❌† | ❌† |
+| Validates asynchronously | ✅ | ✅ | ❌† | ✅ | ❌† |
+| Reports every problem, not just the first<br><sub>through Standard Schema validate, the way a form library reads it</sub> | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Runs where `new Function` is blocked<br><sub>a page under a strict CSP, some browser extension contexts</sub> | ❌† | ⭕† opt-out | ⭕† opt-in | ✅† | ⭕† opt-out |
 
 <sub>Unmarked ✅ and ❌ are probes: the call was run against that library at the version above, and the table prints what happened. † marks a cell read from the library's documentation instead.</sub>
 

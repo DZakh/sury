@@ -8,13 +8,14 @@ jsonSchema:
   input: Expected JSON, received Set<string>
   output: Expected JSON, received Set<string>
 isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Set<string>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
     isAsync: true
-    expression: i=>{try{i instanceof e[4]||e[5](i);let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{typeof v0==="string"||e[3](v0);let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v5=>{v5.path=[v3,...v5.path];throw v5}));}catch(v5){v5.path=[v3,...v5.path];throw v5}}return Promise.all(v2).then(v6=>new Set(v6))}catch(v7){return Promise.reject(v7)}}
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v3=[];let v4=0;for(let v0 of i){let v1=v4++;typeof v0==="string"||e[4](v0,[v1]);let v2;try{v2=e[2](e[0](v0),v2=>{typeof v2==="string"||e[3](v2,[v1]);return v2},x=>e[1](x,[v1]))}catch(x){e[1](x,[v1])}v3.push(v2);}return Promise.all(v3).then(v5=>new Set(v5)).catch(e[7])}catch(v6){return e[8](v6)}}
     examples:
       valid:
         input: new Set(["a", "b"])
@@ -25,9 +26,16 @@ operations:
       rejected-later-item:
         input: new Set(["a", "bad"])
         error: "Failed at [1]: rejected"
+      every-failed-item-is-collected:
+        input: new Set([1, "bad", "a", 2])
+        error: "Failed at [0]: Expected string, received 1"
+        issues:
+          - "Failed at [0]: Expected string, received 1"
+          - "Failed at [3]: Expected string, received 2"
+          - "Failed at [1]: rejected"
   decode:
     isAsync: true
-    expression: i=>{try{let v2=[];let v4=0;for(let v0 of i){let v3=v4++;try{let v1;try{v1=e[0](v0).catch(x=>e[1](x))}catch(x){e[1](x)}v2.push(v1.then(v1=>{typeof v1==="string"||e[2](v1);return v1}).catch(v5=>{v5.path=[v3,...v5.path];throw v5}));}catch(v5){v5.path=[v3,...v5.path];throw v5}}return Promise.all(v2).then(v6=>new Set(v6))}catch(v7){return Promise.reject(v7)}}
+    expression: i=>{try{let v3=[];let v4=0;for(let v0 of i){let v1=v4++;let v2;try{v2=e[2](e[0](v0),v2=>{typeof v2==="string"||e[3](v2,[v1]);return v2},x=>e[1](x,[v1]))}catch(x){e[1](x,[v1])}v3.push(v2);}return Promise.all(v3).then(v5=>new Set(v5)).catch(e[4])}catch(v6){return e[5](v6)}}
     examples:
       valid:
         input: new Set(["a"])

@@ -173,14 +173,20 @@ export const undeclaredAssignments = (spec: Spec, out: string[]): void => {
       scanAssignments(code, `operations.${opName}`, [], out);
     }
   }
-  // Equality is compiled as `(a,b)=>…`, so those two are bound rather than free.
-  const eq = spec.isEqual;
-  if (eq == null || isSkip(eq)) return;
-  for (const [side, code] of isEqualSidesForm(eq)
-    ? ([["input", eq.input], ["output", eq.output]] as const)
-    : ([["", eq]] as const))
-    if (typeof code === "string")
-      scanAssignments(code, side ? `isEqual.${side}` : "isEqual", ["a", "b"], out);
+  // Equality and compare are compiled as `(a,b)=>…`, so those two are bound
+  // rather than free.
+  for (const [field, label] of [
+    ["isEqual", "isEqual"],
+    ["compare", "compare"],
+  ] as const) {
+    const eq = spec[field];
+    if (eq == null || isSkip(eq)) continue;
+    for (const [side, code] of isEqualSidesForm(eq)
+      ? ([["input", eq.input], ["output", eq.output]] as const)
+      : ([["", eq]] as const))
+      if (typeof code === "string")
+        scanAssignments(code, side ? `${label}.${side}` : label, ["a", "b"], out);
+  }
 };
 
 // A full op block is chosen over `identity`/`eq-to-parse` precisely because it
@@ -348,7 +354,14 @@ const isNoop = (fn: Function): boolean =>
 // compiled comparator comes out of `new Function` and so has no name at all,
 // which is what makes the reading unambiguous, and a rename in Sury's source
 // turns every spec that claims one stale rather than leaving it silently wrong.
-const SHARED_COMPARATORS = ["alwaysEqual", "strictEqual", "sameValueZeroEqual"];
+const SHARED_COMPARATORS = [
+  "alwaysEqual",
+  "strictEqual",
+  "sameValueZeroEqual",
+  "alwaysCompare",
+  "strictCompare",
+  "nanCompare",
+];
 const comparatorForm = (fn: Function): string =>
   SHARED_COMPARATORS.includes(fn.name) ? fn.name : fn.toString();
 
@@ -665,6 +678,27 @@ export const deriveIsEqual = (schema: any): string | IsEqualSides => {
   return input === output ? input : { input, output };
 };
 
+// Compare answers for a closed set of schemas (primitives, Date, URL, tuples of
+// them, and the unions that collapse to one test); everything else is refused
+// when the comparator is compiled. The refusal is this dimension's contract for
+// those schemas, so it is recorded as `throws: <message>` and checked, rather
+// than skipped.
+const COMPARE_THROWS = "throws: ";
+
+const compareForm = (build: () => Function): string => {
+  try {
+    return comparatorForm(build());
+  } catch (e) {
+    return `${COMPARE_THROWS}${(e as Error).message}`;
+  }
+};
+
+export const deriveCompare = (schema: any): string | IsEqualSides => {
+  const input = compareForm(() => S.compareInput(schema) as Function);
+  const output = compareForm(() => S.compareOutput(schema) as Function);
+  return input === output ? input : { input, output };
+};
+
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) - callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] => {
@@ -705,6 +739,7 @@ const canonExample = (ex: Example): Example => {
     "input",
     "output",
     "error",
+    "issues",
     "errorConstructor",
     "divergence",
   ]) as Example;
@@ -748,6 +783,8 @@ export const canonicalize = (obj: Spec): Spec => {
   }
   if (isEqualSidesForm(o.isEqual))
     o.isEqual = order(o.isEqual as Record<string, unknown>, IS_EQUAL_KEY_ORDER as string[]) as typeof o.isEqual;
+  if (isEqualSidesForm(o.compare))
+    o.compare = order(o.compare as Record<string, unknown>, IS_EQUAL_KEY_ORDER as string[]) as typeof o.compare;
   if (o.operations && !isSkip(o.operations)) {
     const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
     for (const name of OP_ORDER) if (ops[name]) ops[name] = canonOp(ops[name]);
@@ -1029,6 +1066,32 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
   return r as T;
 };
 
+// What a Result reports, as the messages a thrown error for each issue would
+// carry. Recorded only when there is more than one: a lone issue is the
+// example's `error`, which the operation matrix already holds every Result
+// outcome to.
+const exampleIssues = async (
+  opName: OpName,
+  isAsync: boolean,
+  schema: unknown,
+  input: string,
+): Promise<string[] | undefined> => {
+  const forms = OUTCOME_FORMS[opName] as Record<string, (s: unknown) => (v: unknown) => unknown>;
+  const factory = forms[isAsync ? "AsResultPromise" : "AsResult"];
+  if (!factory) return undefined;
+  let result: { success: boolean; issues?: { message: string; path?: PropertyKey[] }[] };
+  try {
+    result = (await factory(schema)(evalSchema(input))) as typeof result;
+  } catch {
+    return undefined;
+  }
+  const issues = result.issues;
+  if (result.success || !issues || issues.length < 2) return undefined;
+  return issues.map((issue) =>
+    issue.path?.length ? `Failed at ${S.pathToText(issue.path as never)}: ${issue.message}` : issue.message,
+  );
+};
+
 // The author owns inputs and skips; the harness owns every derived answer.
 export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, BuiltOp>): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
@@ -1066,6 +1129,7 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
   );
 
   if (!isSkip(next.isEqual)) next.isEqual = deriveIsEqual(schema);
+  if (!isSkip(next.compare)) next.compare = deriveCompare(schema);
 
   const builtOps = compiled ?? buildOps(schema);
   const parseBuilt = builtOps.parse;
@@ -1096,20 +1160,6 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
       continue;
     }
     if (!isSkip(op.expression)) op.expression = fn.toString();
-    if (op.resultExpression !== undefined) {
-      const resultFn = (
-        { parse: S.parseAsResult, decode: S.decodeAsResult, encode: S.encodeAsResult } as Partial<
-          Record<OpName, (schema: any) => (input: any) => any>
-        >
-      )[opName];
-      if (resultFn) {
-        try {
-          op.resultExpression = resultFn(schema).toString();
-        } catch {
-          // async or rejected at creation — the matrix already covers outcomes
-        }
-      }
-    }
     for (const [name, ex] of Object.entries(op.examples)) {
       // Evaluated OUTSIDE the try below: an input that does not parse, or that
       // names something undefined, is an authoring mistake. Recording the
@@ -1153,7 +1203,10 @@ export const recomputeGoldens = async (obj: Spec, compiled?: Record<OpName, Buil
           input: ex.input,
           ...("errorConstructor" in ex
             ? { errorConstructor: (e as Error).constructor.name }
-            : { error: describeExampleThrow(e) }),
+            : {
+                error: describeExampleThrow(e),
+                issues: await exampleIssues(opName, op.isAsync === true, schema, ex.input),
+              }),
           ...(await refreshDivergence(opName, op.isAsync === true, schema, ex, next)),
         });
       }
@@ -2239,9 +2292,9 @@ export const checkZodExamples = async (spec: Spec): Promise<string[]> => {
 
 // SameValueZero at the leaves, so it agrees with the emit on NaN (equal to
 // itself) and on -0 (equal to 0) - `isDeepStrictEqual` splits both the other
-// way. An absent key and an `undefined` one are one value: a schema reads an
-// optional property the same either way.
-const structurallyEqual = (a: unknown, b: unknown): boolean => {
+// way. An absent key and an `undefined` one are two values unless
+// `blindToUndefined`, for the pairs only a schema could decide (see below).
+const structurallyEqual = (a: unknown, b: unknown, blindToUndefined?: boolean): boolean => {
   if (a === b) return true;
   if (a !== a) return b !== b;
   if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
@@ -2255,7 +2308,7 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
   if (Array.isArray(a) || (ArrayBuffer.isView(a) && typeof (a as unknown as ArrayLike<unknown>).length === "number")) {
     const n = (a as unknown as ArrayLike<unknown>).length;
     if (n !== (b as unknown as ArrayLike<unknown>).length) return false;
-    for (let i = 0; i < n; i++) if (!structurallyEqual(ao[i], bo[i])) return false;
+    for (let i = 0; i < n; i++) if (!structurallyEqual(ao[i], bo[i], blindToUndefined)) return false;
     return true;
   }
   // The built-ins whose value is their content rather than their identity.
@@ -2275,14 +2328,14 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
     const settled = (side: typeof as, entry: unknown): boolean => {
       if (!isMap) return side.has(entry);
       const pair = entry as [unknown, unknown];
-      return side.has(pair[0]) && structurallyEqual(side.get(pair[0]), pair[1]);
+      return side.has(pair[0]) && structurallyEqual(side.get(pair[0]), pair[1], blindToUndefined);
     };
     const rest = [...as].filter((entry) => !settled(bs, entry));
     if (!rest.length) return true;
     const left = [...bs].filter((entry) => !settled(as, entry));
     for (const entry of rest) {
       let i = left.length;
-      while (i--) if (structurallyEqual(entry, left[i])) break;
+      while (i--) if (structurallyEqual(entry, left[i], blindToUndefined)) break;
       if (i < 0) return false;
       left.splice(i, 1);
     }
@@ -2304,16 +2357,19 @@ const structurallyEqual = (a: unknown, b: unknown): boolean => {
   // `{b: undefined}` would pass every value comparison a lenient walk makes.
   // For a dict or an unknown position the keys ARE the content, which is the
   // rule `dictFn` and `deepEqual` follow. A declared-optional property is the
-  // one place absent and `undefined` are one value, and no pair here turns on
-  // it: these are values an operation produced, and an operation writes the
-  // property either way.
-  const keys = Object.keys(ao);
-  if (keys.length !== Object.keys(bo).length) return false;
-  for (const key of keys) if (!(key in bo) || !structurallyEqual(ao[key], bo[key])) return false;
+  // one place absent and `undefined` are one value, which a schema-blind walk
+  // can't tell apart from a dict key: `blindToUndefined` drops such keys, so a
+  // pair that differs only there is one the oracle has no answer for.
+  const own = (o: Record<string, unknown>) =>
+    blindToUndefined ? Object.keys(o).filter((key) => o[key] !== undefined) : Object.keys(o);
+  const keys = own(ao);
+  if (keys.length !== own(bo).length) return false;
+  for (const key of keys)
+    if (!(key in bo) || !structurallyEqual(ao[key], bo[key], blindToUndefined)) return false;
   return true;
 };
 
-type EqValue = { where: string; make: () => unknown };
+type EqValue = { where: string; op: OpName; make: () => unknown };
 
 // Only values the SCHEMA produced, never ones an author wrote: a parse input
 // may carry a key the schema strips, or a spelling it coerces, so two of them
@@ -2346,7 +2402,7 @@ const equalityPools = (spec: Spec): Record<"input" | "output", EqValue[]> => {
       } catch {
         continue; // an unevaluatable golden is reported by the checks above
       }
-      pools[side].push({ where: `operations.${opName}.examples.${exName}.output`, make });
+      pools[side].push({ where: `operations.${opName}.examples.${exName}.output`, op: opName, make });
     }
   }
   return pools;
@@ -2367,6 +2423,11 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
     const direct = (side === "input" ? S.isEqualInput : S.isEqualOutput) as (
       ...args: unknown[]
     ) => boolean;
+    const cmpName = side === "input" ? "compareInput" : "compareOutput";
+    const cmpDirect = (side === "input" ? S.compareInput : S.compareOutput) as (
+      ...args: unknown[]
+    ) => number;
+    const skipCompare = spec.compare == null || isSkip(spec.compare);
     // The comparison assumes both values match the schema, so a value that
     // doesn't is outside what it answers for - an excess key on a strict
     // object, a required field an encode example deliberately drops. Those are
@@ -2390,6 +2451,29 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
       errs.push(`isEqual: S.${name}(schema) threw ${JSON.stringify((e as Error).message)}`);
       continue;
     }
+    const cmpGolden =
+      typeof spec.compare === "string"
+        ? spec.compare
+        : (spec.compare as IsEqualSides | undefined)?.[side];
+    const wantThrow = cmpGolden?.startsWith(COMPARE_THROWS) === true;
+    let compiledCmp: ((a: unknown, b: unknown) => number) | undefined;
+    if (!skipCompare) {
+      try {
+        compiledCmp = cmpDirect(schema) as unknown as (a: unknown, b: unknown) => number;
+        if (wantThrow)
+          errs.push(`compare: S.${cmpName}(schema) no longer throws - rerun with --write`);
+      } catch (e) {
+        const message = (e as Error).message;
+        if (!wantThrow) {
+          errs.push(`compare: S.${cmpName}(schema) threw ${JSON.stringify(message)}`);
+        } else if (cmpGolden !== `${COMPARE_THROWS}${message}`) {
+          errs.push(
+            `compare: S.${cmpName}(schema) threw ${JSON.stringify(message)}, ` +
+              `golden says ${JSON.stringify(cmpGolden!.slice(COMPARE_THROWS.length))}`,
+          );
+        }
+      }
+    }
     const conforming = values.filter((v) => {
       try {
         return inSide(v.make());
@@ -2404,6 +2488,11 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
         const a = left.make();
         const b = right.make();
         const want = structurallyEqual(a, b);
+        // Parse writes an absent optional property as `undefined` and decode
+        // passes it through absent, so outputs of two operations can differ
+        // only there. One operation writes it one way, so its own pairs keep
+        // the strict answer - which is what holds a dict to its keys.
+        if (!want && left.op !== right.op && structurallyEqual(a, b, true)) continue;
         const pair =
           i === j ? `${left.where} against a fresh copy of itself` : `${left.where} vs ${right.where}`;
         // Every comparison here has to reach the structural path. The emit
@@ -2442,6 +2531,35 @@ export const checkEquality = (spec: Spec, schema: any): string[] => {
             errs.push(
               `isEqual: ${pair}: ${spelling} answered ${valueToCodeSafe(got)}, expected ${want}` +
                 ` - a=${valueToCodeSafe(a)}, b=${valueToCodeSafe(b)}`,
+            );
+        }
+        if (compiledCmp) {
+          let cmp: unknown;
+          let cmpBack: unknown;
+          try {
+            cmp = compiledCmp(a, b);
+            cmpBack = compiledCmp(b, a);
+          } catch (e) {
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema) threw ${JSON.stringify((e as Error).message)}`,
+            );
+            continue;
+          }
+          const zero = cmp === 0;
+          if (zero !== want)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(a, b) answered ${valueToCodeSafe(cmp)}, ` +
+                `expected ${want ? 0 : "non-zero"} (isEqual is ${want})` +
+                ` - a=${valueToCodeSafe(a)}, b=${valueToCodeSafe(b)}`,
+            );
+          if (cmp !== -1 && cmp !== 0 && cmp !== 1)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(a, b) answered ${valueToCodeSafe(cmp)}, expected -1 | 0 | 1`,
+            );
+          if ((cmpBack === 0) !== want)
+            errs.push(
+              `compare: ${pair}: S.${cmpName}(schema)(b, a) answered ${valueToCodeSafe(cmpBack)}, ` +
+                `expected ${want ? 0 : "non-zero"}`,
             );
         }
       }

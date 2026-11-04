@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.recursive("R", (self) => S.union([S.optional(S.string, "d"), S.array(self)])), S.literal(null)]))
+  input: JSON
+  output: unknown
+  instantiations: 8519
+jsonSchema:
+  input: '{ anyOf: [{}, { type: "null" }] }'
+  output: Expected JSON, received string | undefined
+  openapi-3.0:
+    input: "{ nullable: true }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare JSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare R | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){try{let v0;v0=e[0](i);i=v0;break}catch(x){v1=[v1,e[1](x)]}if(i===null)break;throw e[2](i,v1)}return i}catch(v2){e[3](v2)}}
+    examples:
+      null-reaches-the-default:
+        input: "null"
+        output: '"d"'
+      list:
+        input: '["a", ["b"]]'
+        output: '["a", ["b"]]'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0;for(;;){if(i===null)break;try{e[0](i);e[1](i);break}catch(x){v0=[v0,e[2](x)]}throw e[3](i,v0)}return i}catch(v1){e[4](v1)}}
+    examples:
+      list:
+        input: '["a"]'
+        output: '["a"]'

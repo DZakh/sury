@@ -55,18 +55,18 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale - run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -14,7 +14,7 @@
+    @@ -15,7 +15,7 @@
         zod: z.string()
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
           examples:
             valid:
               input: '"hello"'
         ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
     - i=>i /* stale */
-    + i=>{typeof i==="string"||e[0](i);return i}",
+    + i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);
@@ -83,7 +83,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale - run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -18,7 +18,7 @@
+    @@ -19,7 +19,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -123,7 +123,7 @@ test("stale creationError golden (recorded message drifted from what the schema 
     {
       "stderr": "✗ codec-bool-number-unsupported
         goldens stale - run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -13,7 +13,7 @@
+    @@ -14,7 +14,7 @@
           _skip: not-applicable
       operations:
         parse:
@@ -203,8 +203,8 @@ test("jsonSchema round-trip types are omitted when they match the schema types",
         output: '{ type: "string" }'
     -   fromOutputType: string
       isEqual: strictEqual
-      vs:
-        zod: z.string()",
+      compare: strictCompare
+      vs:",
       "stdout": "",
     }
   `);
@@ -228,8 +228,8 @@ test("jsonSchema round-trip types are forbidden when JSON Schema creation fails"
         output: Expected JSON, received bigint
     -   fromOutputType: bigint
       isEqual: strictEqual
-      vs:
-        zod: z.bigint()",
+      compare: strictCompare
+      vs:",
       "stdout": "",
     }
   `);
@@ -253,8 +253,8 @@ test("jsonSchema round-trip types are required when they diverge from the schema
         output: '{ items: { type: "string" }, type: "array", minItems: 2 }'
     +   fromOutputType: string[]
       isEqual: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
-      vs:
-        zod:",
+      compare: "throws: [Sury] Can't compare string[].length >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+      vs:",
       "stdout": "",
     }
   `);
@@ -267,16 +267,16 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
     {
       "stderr": "✗ string
         not canonical - run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
-    @@ -10,7 +10,8 @@
-        input: '{ type: "string" }'
+    @@ -11,7 +11,8 @@
         output: '{ type: "string" }'
       isEqual: strictEqual
+      compare: strictCompare
     - vs: { zod: z.string() }
     + vs:
     +   zod: z.string()
       operations:
         parse:
-          expression: i=>{typeof i==="string"||e[0](i);return i}",
+          expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);
@@ -334,7 +334,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity - use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity - use a full op block with examples
         goldens stale - resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -5,29 +5,29 @@
+    @@ -5,30 +5,30 @@
           - S.schema(S.string)
         input: string
         output: string
@@ -346,12 +346,13 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
       isEqual: strictEqual
+      compare: strictCompare
       vs:
         zod: z.string()
       operations:
         parse:
-    -     expression: i=>{typeof i==="string"||e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(v0){e[2](v0)}}
           examples:
             valid:
               input: '"hello"'
@@ -386,7 +387,7 @@ test("full op block claimed but the operation actually compiles to identity", as
         operations.decode: no examples - a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to identity - use \`identity\` instead of an expression + examples
         goldens stale - resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -29,7 +29,7 @@
+    @@ -30,7 +30,7 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -424,15 +425,17 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
     - isEqual: (a,b)=>a===b||e[0](a,b)
+    - compare: "throws: [Sury] Can't compare never. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
     +   input: '{ type: "string", minLength: 3 }'
     +   output: '{ type: "string", minLength: 3 }'
     + isEqual: strictEqual
+    + compare: strictCompare
       vs:
         zod: z.never()
       operations:
         parse:
-    -     expression: i=>{e[0](i);return i}
-    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+    -     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    +     expression: i=>{try{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}catch(v0){e[2](v0)}}
           examples:
             invalid-string:
               input: '"anything"'
@@ -460,12 +463,12 @@ test("full op block claimed but the operation actually compiles to the same code
         operations.decode: no examples - a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to the same code as parse - use \`eq-to-parse\` instead of an expression + examples
         goldens stale - resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -21,7 +21,7 @@
+    @@ -22,7 +22,7 @@
               input: undefined
               error: Expected never, received undefined
         decode:
     -     expression: ""
-    +     expression: i=>{e[0](i);return i}
+    +     expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
           examples: {}
         encode: eq-to-parse
     ",
@@ -574,7 +577,7 @@ test("operations block omits an op the schema supports", async () => {
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        schema: Failed at ["operations"]["encode"]: Expected "identity" | "eq-to-parse" | { isAsync: true | undefined; expression: string | { _skip: string; }; resultExpression: string | undefined; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received undefined
+        schema: Failed at ["operations"]["encode"]: Expected "identity" | "eq-to-parse" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; issues: string[] | undefined; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received undefined
         operations.encode: missing - a spec must declare parse, decode, and encode (run \`pnpm spec new\` to scaffold them, or add the block)",
       "stdout": "",
     }
@@ -588,7 +591,7 @@ test("_skip on an operation is rejected with a guiding message", async () => {
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        schema: Failed at ["operations"]["parse"]: Expected "identity" | { isAsync: true | undefined; expression: string | { _skip: string; }; resultExpression: string | undefined; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received { _skip: "not-applicable"; }
+        schema: Failed at ["operations"]["parse"]: Expected "identity" | { isAsync: true | undefined; expression: string | { _skip: string; }; examples: { [key: string]: { input: string; output: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; error: string; issues: string[] | undefined; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; } | { input: string; errorConstructor: string; divergence: { reason: string; check: true | string | undefined; ajv: true | string | undefined; zod: string | undefined; } | undefined; }; }; } | { creationError: string; }, received { _skip: "not-applicable"; }
     - At ["operations"]["parse"]["expression"]: Expected string | { _skip: string; }, received undefined
     - At ["operations"]["parse"]["creationError"]: Expected string, received undefined
         operations.parse: _skip is not valid on an operation - use identity, eq-to-parse, a full block with examples, or a creationError",
@@ -621,18 +624,18 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.instantiations: invalid _skip reason "nonsense-reason"
         goldens stale - run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -15,7 +15,7 @@
+    @@ -16,7 +16,7 @@
         zod: z.string()
       operations:
         parse:
     -     expression: i=>i /* stale */
-    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
           examples:
             valid:
               input: '"hello"'
         ts.aliases["S.schema(S.string)"]: operations.parse.expression differs:
     - i=>i /* stale */
-    + i=>{typeof i==="string"||e[0](i);return i}",
+    + i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}",
       "stdout": "",
     }
   `);

@@ -13,18 +13,22 @@ import {
   type Val,
 } from "../base";
 import {
-  B_asyncVal,
+  B_child,
   B_collectAsync,
+  B_collects,
+  B_countCopy,
   B_forOf,
   B_iterScope,
   B_markOutput,
-  B_mergeWithPathPrepend,
+  B_merge,
   B_next,
   B_refine,
+  B_settle,
+  B_sink,
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayDecoder, arrayFactory, definitionToSchema } from "../composites";
-import { iterableSource, parse, parseDynamic } from "../parse";
+import { iterableSource, parse } from "../parse";
 
 // One entry, described as the `[key, value]` tuple that `Array.from` produces
 // and `new Map` consumes. That is the wire form, and the only place the key
@@ -76,7 +80,8 @@ const mapDecoder = (input: Val): Val => {
       inputEntry.additionalItems === "strict",
   );
 
-  const entryVar = B_varWithoutAllocation(source.g);
+  const g = source.g;
+  const entryVar = B_varWithoutAllocation(g);
   const sourceVar = source.v();
   const fromEntry = entryOf(source.s);
   const toEntry = entryOf(expected);
@@ -87,75 +92,84 @@ const mapDecoder = (input: Val): Val => {
   // located by its position, as a Set item is. Decided by the schema, so a key
   // that fails to be the string it should be is still what the error reports.
   const byKey = !isArraySource && !!(tagFlags[toKey.type]! & (2 | 4));
-  const indexVar = byKey ? "" : B_varWithoutAllocation(source.g);
+  const indexVar = byKey ? "" : B_varWithoutAllocation(g);
   const location = byKey ? `${entryVar}[0]` : indexVar;
 
-  const raiseCountBefore = source.g.t;
-  const keyOutput = parseDynamic(
-    B_iterScope(source, `${entryVar}[0]`, itemAt(fromEntry, 0), toKey),
-  );
+  const failCountBefore = g.t + g.j;
+  const keyScope = B_iterScope(source, `${entryVar}[0]`, itemAt(fromEntry, 0), toKey, location);
   const valueScope = B_iterScope(
     source,
     `${entryVar}[1]`,
     itemAt(fromEntry, 1),
     itemAt(toEntry, 1),
+    location,
   );
-  // The value continues the key's chain rather than starting its own, so the
-  // entry merges as one block: a key materialized into a variable inside a
-  // `try` of its own would be out of scope where the entry is stored.
-  valueScope.prev = keyOutput;
-  const valueOutput = parseDynamic(valueScope);
-
-  const isAsync = !!((keyOutput.f | valueOutput.f) & 1);
-  const hasTransform = keyOutput.t === true || valueOutput.t === true;
-  const rebuild = isArraySource || hasTransform || isAsync;
-  // Nothing to do per entry: the wire array already IS the entry list, so the
-  // constructor does the whole rebuild and the loop is left to validation.
-  const fromSource = rebuild && !hasTransform && !isAsync;
-
-  const outSchema = mapFactory(keyOutput.s, valueOutput.s);
-  const out = rebuild
-    ? B_next(
-        source,
-        fromSource ? `new Map(${sourceVar})` : isAsync ? "[]" : "new Map",
-        isAsync ? arrayFactory(entryOf(outSchema)!) : outSchema,
-      )
-    : B_refine(source, expected);
-  const outVar = rebuild && !fromSource ? out.v() : "";
-
-  // An async entry is one promise over both halves, so the merge's own catch,
-  // which reaches only the val it is handed, names where either failed. Its
-  // expression is fixed here, before the merge, and the merge renames a half
-  // when a check materializes it (`v0[1]` becomes `let v5=v0[1]`), so both are
-  // read as variables now, which is the name the merge will use.
-  const entry = isAsync
-    ? B_asyncVal(valueOutput, `Promise.all([${keyOutput.v()},${valueOutput.v()}])`)
-    : valueOutput;
-  const canThrow = (): boolean => source.g.t !== raiseCountBefore;
-  // Lazy: merging an entry can rename the val it produces (materialization)
-  // and wraps an async one in a `.catch`, both after this is decided.
-  const append = (): string =>
-    `${
-      outVar
-        ? `${outVar}.${isAsync ? `push(${entry.i})` : `set(${keyOutput.i},${valueOutput.i})`};`
-        : ""
-    }${!byKey && canThrow() && !isAsync ? `${indexVar}++;` : ""}`;
-
-  const body = B_mergeWithPathPrepend(entry, source, location, append, raiseCountBefore);
-  const counted = !byKey && canThrow();
-  B_forOf(
-    out,
-    entryVar,
-    sourceVar,
-    body,
-    counted,
-    indexVar,
-    counted && isAsync ? B_varWithoutAllocation(source.g) : indexVar,
-  );
+  let keyOutput!: Val, valueOutput!: Val, out!: Val, outSchema!: Internal, isAsync = false;
+  let counted = false, counterVar = indexVar;
+  const collected = g.kj;
+  const body = B_sink(g, () => {
+    const collects = B_collects(g);
+    // A half that settles (`B_settle`) has its rejection read as a value, so
+    // the join sees both halves of every entry.
+    const settles = (val: Val): boolean => collects && !!g.k && !!(val.f & 1);
+    // The key and the value are children of their own, as an object's fields
+    // are, so an operation that collects reports a bad key and a bad value of
+    // one entry both. What a half materializes is declared at the body's head
+    // (B_let), which is what lets the entry be stored after both blocks; a
+    // converted half is materialized inside its own, since the store runs
+    // even after a half failed and must not evaluate the conversion again.
+    const half = (scope: Val): [Val, string] => {
+      let val!: Val, merged = "";
+      const emit = () => {
+        val = parse(scope);
+        if (collects && (val.t === true || val.f & 1)) val.v();
+        if (settles(val)) val.fs?.(val, true);
+        merged = B_merge(val);
+      };
+      const wrap = collects ? B_child(g, emit) : (emit(), U);
+      return [val, wrap ? wrap(merged, val) : merged];
+    };
+    const [k, keyCode] = half(keyScope);
+    const [v, valueCode] = half(valueScope);
+    keyOutput = k;
+    valueOutput = v;
+    isAsync = !!((k.f | v.f) & 1);
+    // Nothing to do per entry: the wire array already IS the entry list, so
+    // the constructor does the whole rebuild and the loop is left to
+    // validation.
+    const add = k.t === true || v.t === true || isAsync;
+    outSchema = mapFactory(k.s, v.s);
+    out =
+      isArraySource || add
+        ? B_next(
+            source,
+            add ? (isAsync ? "[]" : "new Map") : `new Map(${sourceVar})`,
+            isAsync ? arrayFactory(unknown) : outSchema,
+          )
+        : B_refine(source, expected);
+    // An async entry goes onto the list as its two halves, which
+    // B_collectAsync pairs back up.
+    const stored = (val: Val): string => (settles(val) ? B_settle(out, val) : val.i);
+    const code = add
+      ? `${keyCode}${valueCode}${out.v()}.${
+          isAsync ? `push(${stored(k)},${stored(v)})` : `set(${k.i},${v.i})`
+        };`
+      : g.t + g.j === failCountBefore
+        ? ""
+        : keyCode + valueCode;
+    counted = !byKey && g.t + g.j !== failCountBefore;
+    const copy = counted && isAsync
+      ? B_countCopy(g, indexVar, (counterVar = B_varWithoutAllocation(g)))
+      : "";
+    return copy + code;
+  });
+  if (g.kj !== collected) out.k = true;
+  B_forOf(out, entryVar, sourceVar, body, counted ? counterVar : U, counted && !isAsync);
 
   // `source`, not `input`: see iterableSource.
-  return B_markOutput(isAsync ? B_collectAsync(out, "Map", outSchema) : out, source);
+  return B_markOutput(isAsync ? B_collectAsync(out, "Map", outSchema, true) : out, source);
 };
+
 
 const mapEncoder: Encoder = (input: Val, target: Internal): Val => {
   if ((tagFlags[target.type]! & 128)) {
