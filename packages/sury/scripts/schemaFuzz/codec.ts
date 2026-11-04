@@ -21,6 +21,11 @@
 //   reverse      `encode(schema)` is `decode(reverse(schema))`. One operation
 //                reached two ways, so a reverse that rebuilds rather than swaps
 //                is caught against itself.
+//   absent       a key a JSON document leaves out reads through `S.json` the
+//                way `parse` reads it, also with the schema held as a field,
+//                bare and under `S.shape`.
+//   present null a `null` under a present key reads through `S.json` the way
+//                `parse` reads it, rejected where parse rejects it.
 //
 // Equality here is the structural walk, never `isEqual*`: that comparator is
 // what the eq family tests, and a property holding only because both sides are
@@ -33,6 +38,32 @@ type Op = (value: unknown) => unknown;
 
 const settled = (value: unknown): boolean => !(value instanceof Promise);
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const has = (value: unknown, key: string): boolean => isRecord(value) && key in value;
+
+const at = (value: unknown, path: string[]): unknown =>
+  path.reduce<unknown>((v, key) => (isRecord(v) ? v[key] : undefined), value);
+
+const firstDivergentAbsent = (document: unknown, parsed: unknown, read: unknown, path: string[]): string[] | undefined => {
+  if (!isRecord(document) || !isRecord(parsed) || !isRecord(read)) return undefined;
+  // A renamed or reshaped field is not an absent one.
+  if (Array.isArray(document) !== Array.isArray(parsed) || Object.keys(document).some((key) => !(key in parsed))) {
+    return undefined;
+  }
+  for (const key of Object.keys(parsed)) {
+    const next = [...path, key];
+    if (!(key in document)) {
+      if (!structural(read[key], parsed[key])) return next;
+    } else {
+      const found = firstDivergentAbsent(document[key], parsed[key], read[key], next);
+      if (found) return found;
+    }
+  }
+  return undefined;
+};
+
 const check = (ctx: Ctx): void => {
   const { S, schema, reversed, lossy, inputs, outputs, isInput, isOutput, report, compile, count } = ctx;
 
@@ -40,6 +71,7 @@ const check = (ctx: Ctx): void => {
   const encode = compile<Op>("encode", () => S.encodeOrThrow(schema));
   const parse = compile<Op>("agreement", () => S.parseOrThrow(schema));
   const viaReverse = compile<Op>("reverse", () => S.decodeOrThrow(reversed));
+  const viaJson = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, schema)));
 
   if (decode) {
     for (const [i] of inputs) {
@@ -67,6 +99,97 @@ const check = (ctx: Ctx): void => {
       }
       if (settled(parsed) && !structural(parsed, decoded)) {
         report("agreement", `parse answered ${show(parsed)} and decode ${show(decoded)} for ${show(i)}`);
+      }
+    }
+  }
+
+  if (parse && viaJson) {
+    for (const [i] of inputs) {
+      let document: unknown;
+      let parsed: unknown;
+      try {
+        document = JSON.parse(JSON.stringify(i));
+        parsed = parse(document);
+      } catch {
+        continue;
+      }
+      if (!settled(parsed)) continue;
+      count("documents");
+      let read: unknown;
+      try {
+        read = viaJson(document);
+      } catch (error) {
+        const path = (error as { path?: string[] }).path ?? [];
+        const parent = path.slice(0, -1);
+        const key = path[parent.length];
+        if (key !== undefined && isRecord(at(document, parent)) && !has(at(document, parent), key) && has(at(parsed, parent), key)) {
+          report("absent", `parse accepted ${show(document)} but S.json threw at the absent ${path.join(".")} - ${reason(error)}`);
+        }
+        continue;
+      }
+      if (!settled(read)) continue;
+      const path = firstDivergentAbsent(document, parsed, read, []);
+      if (path) {
+        report("absent", `the absent ${path.join(".")} of ${show(document)} read as ${show(at(read, path))} through S.json and as ${show(at(parsed, path))} by parse`);
+      }
+    }
+  }
+
+  for (const [field, build] of [
+    ["field", () => S.schema({ a: schema })],
+    ["shaped field", () => S.schema({ a: S.shape(schema, (v: unknown) => ({ v })) })],
+  ] as const) {
+    let holder: unknown;
+    let parseHolder: Op;
+    try {
+      holder = build();
+      parseHolder = S.parseOrThrow(holder);
+    } catch {
+      continue;
+    }
+    const read = compile<Op>("absent", () => S.parseOrThrow(S.json.with(S.to, holder)));
+    if (!read) continue;
+    // NaN and a required `S.void` are written as `null`.
+    let writeBack: Op | undefined;
+    const spellsNull = (answer: unknown): boolean => {
+      try {
+        return ((writeBack ??= S.encodeOrThrow(S.json.with(S.to, holder)))(answer) as { a?: unknown }).a === null;
+      } catch {
+        return false;
+      }
+    };
+    // A fresh document per read: a parse may write into the object it reads.
+    for (const [property, fresh] of [
+      ["absent", () => ({})],
+      ["present null", () => ({ a: null })],
+    ] as const) {
+      const document = fresh();
+      let parsed: unknown;
+      let parseError: unknown;
+      try {
+        parsed = parseHolder(fresh());
+      } catch (error) {
+        parseError = error;
+      }
+      if (parseError === undefined && !settled(parsed)) continue;
+      let answer: unknown;
+      try {
+        answer = read(fresh());
+      } catch (error) {
+        if (parseError === undefined) {
+          report(property, `parse read ${show(document)} as ${show(parsed)} but S.json threw with the schema as a ${field} - ${reason(error)}`);
+        }
+        continue;
+      }
+      if (!settled(answer)) continue;
+      if (parseError !== undefined) {
+        // A carrier may meet a required key another way; a present null it may
+        // take only as the value's own JSON spelling.
+        if (property === "present null" && !spellsNull(answer)) {
+          report(property, `parse rejected ${show(document)} but S.json read it as ${show(answer)} with the schema as a ${field}`);
+        }
+      } else if (!structural(answer, parsed)) {
+        report(property, `parse read ${show(document)} as ${show(parsed)} and S.json as ${show(answer)} with the schema as a ${field}`);
       }
     }
   }

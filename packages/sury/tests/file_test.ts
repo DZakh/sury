@@ -44,7 +44,7 @@ test("a file is a blob but a blob is not a file", () => {
 });
 
 // A variadic call is not a schema, so no spec can hold it.
-test("FIXME: a three-schema chain decodes but does not encode", async () => {
+test("a three-schema encode reverses its first schema only, as documented", async () => {
   const user = S.schema({ name: S.string.with(S.nonEmpty) });
   const decoded = await S.decodeAsPromiseOrReject(S.file, S.jsonString, S.array(user))(
     new File(['[{"name":"Ann"}]'], "users.json"),

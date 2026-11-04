@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (a) => S.schema({ other: S.recursive("Node", (n) => S.schema({ b: S.number, kid: S.optional(n) })), self: S.optional(a) }))'
+  input: unknown
+  output: unknown
+  instantiations: 9528
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { other: { $ref: "#/$defs/Node2" }, self: { $ref: "#/$defs/Node" } }, required: ["other"] }, Node2: { type: "object", properties: { b: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
+  fromInputType: "{ other: { b: number; kid?: ... | undefined; }; self?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { other: { $ref: "#/$defs/Node2" }, self: { $ref: "#/$defs/Node" } }, required: ["other"] }, Node2: { type: "object", properties: { b: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
+  fromOutputType: "{ other: { b: number; kid?: ... | undefined; }; self?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: todo(#…)
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      nested:
+        input: "{ other: { b: 1, kid: { b: 2 } }, self: { other: { b: 3 } } }"
+        output: "{ other: { b: 1, kid: { b: 2, kid: undefined } }, self: { other: { b: 3, kid: undefined }, self: undefined } }"
+      self-as-inner:
+        input: "{ other: { b: 1 }, self: { b: 5 } }"
+        error: "Failed at self.other: Expected { b: number; kid: Node | undefined; }, received undefined"
+      other-as-outer:
+        input: "{ other: { other: { b: 1 } } }"
+        error: "Failed at other.b: Expected number, received undefined"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: "{ other: { b: 1, kid: { b: 2 } }, self: { other: { b: 3 } } }"
+        output: "{ other: { b: 1, kid: { b: 2 } }, self: { other: { b: 3 } } }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: "{ other: { b: 1, kid: { b: 2 } }, self: { other: { b: 3 } } }"
+        output: "{ other: { b: 1, kid: { b: 2 } }, self: { other: { b: 3 } } }"

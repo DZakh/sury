@@ -5,31 +5,34 @@ ts:
   output: JSON
   instantiations: 897
 jsonSchema:
-  input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
-  fromInputType: "string | number | boolean | { bar: number; } | JSON[] | null"
-  output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
-  fromOutputType: "string | number | boolean | { bar: number; } | JSON[] | null"
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" }, foo: {} }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+  fromInputType: "string | number | boolean | { bar: number; foo?: JSON | undefined; } | JSON[] | null"
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" }, foo: {} }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { type: "null" }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+  fromOutputType: "string | number | boolean | { bar: number; foo?: JSON | undefined; } | JSON[] | null"
   openapi-3.0:
-    input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
-    output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" } }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
-isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.bar===b.bar:Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
-compare: "throws: [Sury] Can't compare string | number | { bar: integer; } | JSON[] | boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+    input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" }, foo: {} }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+    output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "object", properties: { bar: { type: "integer" }, foo: {} }, required: ["bar"] }, { items: {}, type: "array" }, { type: "boolean" }, { enum: [null] }], allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }] }'
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof a==="number"&&a==a?typeof b==="number"&&b==b&&a===b:typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b)&&a.bar===b.bar&&e[1](a.foo,b.foo):Array.isArray(a)?Array.isArray(b)&&e[0](a,b):typeof a==="boolean"?typeof b==="boolean"&&a===b:b===null)
+compare: "throws: [Sury] Can't compare string | number | { bar: integer; foo: JSON | undefined; } | JSON[] | boolean | null. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{e[3](i)||e[4](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar;typeof v0==="number"&&v0%1==0||e[0](v0);i={bar:v0};break}if(Array.isArray(i)){for(let v1=0;v1<i.length;++v1){try{e[1](i[v1]);}catch(v2){v2.path=[v1,...v2.path];throw v2}}break}if(typeof i==="boolean")break;if(i===null)break;throw e[2](i)}return i}catch(v3){e[5](v3)}}
+    expression: i=>{try{e[8](i)||e[9](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.bar,v1=i.foo;typeof v0==="number"&&v0%1==0||e[0](v0);let v3;for(;;){if(v1===void 0)break;try{try{e[1](v1);}catch(v2){e[2](v2,["foo"])}break}catch(x){v3=[v3,e[3](x)]}throw e[4](v1,v3)}i={bar:v0,foo:v1};break}if(Array.isArray(i)){for(let v4=0;v4<i.length;++v4){try{e[5](i[v4]);}catch(v5){e[6](v5,[v4])}}break}if(typeof i==="boolean")break;if(i===null)break;throw e[7](i)}return i}catch(v6){e[10](v6)}}
     examples:
-      # FIXME: the same strip the encode block below describes, seen from the
-      # other side - the object arm drops `foo`, so what parse returns fails the
-      # `allOf` that its own jsonSchema.output still requires.
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'
-        output: "{ bar: 2 }"
-        divergence:
-          reason: the object arm strips `foo` before the allOf refinement reads it, so what parse returns fails the document parse itself publishes
-          ajv: "output: data must have required property 'foo'"
+        output: '{ bar: 2, foo: "quux" }'
+      undeclared-key-kept:
+        input: '{ foo: "quux", bar: 2, baz: [1] }'
+        output: '{ bar: 2, foo: "quux" }'
+      base-property-invalid:
+        input: '{ foo: "quux", bar: 2.5 }'
+        error: "Failed at bar: Expected integer, received 2.5"
+      allof-property-invalid:
+        input: "{ foo: 1, bar: 2 }"
+        error: Should pass for all schemas of the allOf property.
       allof-unsatisfied:
         input: "{ bar: 2 }"
         error: Should pass for all schemas of the allOf property.
@@ -37,13 +40,13 @@ operations:
         input: '{ foo: "quux" }'
         error: "Failed at bar: Expected integer, received undefined"
   decode:
-    expression: i=>{try{e[0](i)||e[2](i);(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="object"&&i&&!Array.isArray(i)||Array.isArray(i)||typeof i==="boolean"||i===null)||e[1](i);return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{e[5](i)||e[6](i);for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}break}if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[4](i)}return i}catch(v4){e[7](v4)}}
     examples:
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'
         output: '{ foo: "quux", bar: 2 }'
   encode:
-    expression: i=>{try{(typeof i==="string"||typeof i==="number"&&i==i||typeof i==="object"&&i&&!Array.isArray(i)||Array.isArray(i)||typeof i==="boolean"||i===null)||e[2](i);e[0](i)||e[1](i);return i}catch(v1){e[3](v1)}}
+    expression: i=>{try{for(;;){if(typeof i==="string")break;if(typeof i==="number"&&i==i)break;if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i.foo;let v2;for(;;){if(v0===void 0)break;try{try{e[0](v0);}catch(v1){e[1](v1,["foo"])}break}catch(x){v2=[v2,e[2](x)]}throw e[3](v0,v2)}break}if(Array.isArray(i))break;if(typeof i==="boolean")break;if(i===null)break;throw e[4](i)}e[5](i)||e[6](i);return i}catch(v4){e[7](v4)}}
     examples:
       base-and-allof-satisfied:
         input: '{ foo: "quux", bar: 2 }'

@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("Node", (n) => S.schema({ inner: S.optional(S.recursive("Node", (m) => S.schema({ k: S.number, kid: S.optional(m) }))), kid: S.optional(n) }))'
+  input: unknown
+  output: unknown
+  instantiations: 9667
+jsonSchema:
+  input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { inner: { $ref: "#/$defs/Node2" }, kid: { $ref: "#/$defs/Node" } } }, Node2: { type: "object", properties: { k: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["k"] } } }'
+  fromInputType: "{ inner?: { k: number; kid?: ... | undefined; } | undefined; kid?: ... | undefined; }"
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { inner: { $ref: "#/$defs/Node2" }, kid: { $ref: "#/$defs/Node" } } }, Node2: { type: "object", properties: { k: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["k"] } } }'
+  fromOutputType: "{ inner?: { k: number; kid?: ... | undefined; } | undefined; kid?: ... | undefined; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      both:
+        input: "{ inner: { k: 1, kid: { k: 2 } }, kid: { inner: { k: 3 } } }"
+        output: "{ inner: { k: 1, kid: { k: 2, kid: undefined } }, kid: { inner: { k: 3, kid: undefined }, kid: undefined } }"
+      inner-rejects-outer-shape:
+        input: "{ inner: { inner: { k: 1 } } }"
+        error: "Failed at inner.k: Expected number, received undefined"
+      outer-strips-unknown-key:
+        input: "{ kid: { k: 1 } }"
+        output: "{ inner: undefined, kid: { inner: undefined, kid: undefined } }"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      both:
+        input: "{ inner: { k: 1, kid: { k: 2 } }, kid: { inner: { k: 3 } } }"
+        output: "{ inner: { k: 1, kid: { k: 2 } }, kid: { inner: { k: 3 } } }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      both:
+        input: "{ inner: { k: 1, kid: { k: 2 } }, kid: { inner: { k: 3 } } }"
+        output: "{ inner: { k: 1, kid: { k: 2 } }, kid: { inner: { k: 3 } } }"

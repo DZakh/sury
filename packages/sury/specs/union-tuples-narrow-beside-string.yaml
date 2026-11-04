@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.tuple(["c"]), S.string]).with(S.to, S.union([S.tuple(["a"]), S.string]))
+  input: string | ["c"]
+  output: string | ["a"]
+  instantiations: 6062
+jsonSchema:
+  input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
+  fromInputType: string
+  output: '{ anyOf: [{ not: {} }, { type: "string" }] }'
+  fromOutputType: string
+isEqual: (a,b)=>a===b||(Array.isArray(a)?Array.isArray(b):typeof b==="string"&&a===b)
+compare:
+  input: "throws: [Sury] Can't compare [\"c\"] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare [\"a\"] | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(Array.isArray(i)&&i.length===1&&i[0]==="c"){for(;;){throw e[0](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      c:
+        input: '["c"]'
+        error: Expected ["a"], received ["c"]
+      string:
+        input: '"s"'
+        output: '"s"'
+  decode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)&&i["0"]==="c"){for(;;){throw e[0](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      string:
+        input: '"s"'
+        output: '"s"'
+  encode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)&&i["0"]==="a"){for(;;){throw e[0](i)}break}if(typeof i==="string")break;throw e[1](i)}return i}catch(v0){e[2](v0)}}
+    examples:
+      string:
+        input: '"s"'
+        output: '"s"'
