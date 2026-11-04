@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(S.union([self, S.string]).with(S.refine, (x) => x !== "bad", { error: "no bad" }), "bad") }))'
+  input: unknown
+  output: unknown
+  instantiations: 8739
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { default: "bad", anyOf: [{ $ref: "#/$defs/N" }, { type: "string" }] } }, required: ["v"] } } }'
+  fromInputType: "{ v: number; kid?: string | ... | undefined; }"
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { anyOf: [{ $ref: "#/$defs/N" }, { type: "string" }] } }, required: ["v", "kid"] } } }'
+  fromOutputType: "{ v: number; kid: string | ...; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      # FIXME: the union's own refinement never checks the default, so "bad" is set
+      kid-missing:
+        input: "{ v: 1 }"
+        output: '{ v: 1, kid: "bad" }'
+      nested-kid-missing:
+        input: "{ v: 1, kid: { v: 2 } }"
+        output: '{ v: 1, kid: { v: 2, kid: "bad" } }'
+      kid-invalid:
+        input: "{ v: 1, kid: 5 }"
+        error: "Failed at kid: Expected N | string, received 5"
+  decode: eq-to-parse
+  encode: eq-to-parse
