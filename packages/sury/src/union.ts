@@ -173,7 +173,7 @@ const unionNeverLink = (schema: Internal): boolean => {
 // which nothing that only describes the union changes: a description, or the
 // field number and type name protobuf gives an enum. Flattening keeps such a
 // union whole all the same, as its members alone would lose what it carries.
-const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
+export const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) if (!converts || !(key in unionDescribing)) fields++;
