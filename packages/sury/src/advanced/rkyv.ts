@@ -22,6 +22,7 @@ import {
   type Path,
   pathConcat,
   refTag,
+  s as sury,
   stringify,
   stringTag,
   type SuryErrorRecord,
@@ -34,6 +35,7 @@ import {
 import {
   _var,
   B_conversionFail,
+  noopOperation,
   B_embedPure,
   B_fail,
   B_let,
@@ -44,7 +46,7 @@ import {
   B_varWithoutAllocation,
 } from "../builder";
 import { arrayFactory, definitionToSchema } from "../composites";
-import { instanceDecoder } from "../parse";
+import { getOp, instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, nan, nullLiteral, string, unit } from "../primitives";
 import { base64Content, port, uint8Array } from "../refinements";
 import { unionFactory } from "../union";
@@ -95,6 +97,8 @@ type Layout = {
   c?: unknown;
   // A recursive definition, compiled as its own function.
   r?: number;
+  // The schema the node was laid out from: what its value decodes to.
+  x?: Internal;
 };
 
 // Byte sizes. Every other fact about a number type follows from its name: a
@@ -165,6 +169,12 @@ const numberLayout = (schema: Internal, type: string | undefined, nan?: Internal
 };
 
 const layoutOf = (schema: Internal, ctx: Ctx): Layout => {
+  const layout = layoutOfSchema(schema, ctx);
+  layout.x ??= schema;
+  return layout;
+};
+
+const layoutOfSchema = (schema: Internal, ctx: Ctx): Layout => {
   const type = schema.rkyvType as string | undefined;
   if (type?.startsWith("Box")) {
     const inner = copySchema(schema);
@@ -312,6 +322,7 @@ const unionLayout = (schema: Internal, ctx: Ctx): Layout => {
       fields.push(layoutOf(member.properties[key]!, ctx));
     }
     const body = struct("struct", keys, fields, U as unknown as Internal, 1);
+    body.x = member;
     const definition: Record<string, unknown> = {};
     for (const key in member.properties!) {
       own(definition, key, key === tk ? member.properties[key] : fields[keys.indexOf(key)]!.w);
@@ -370,7 +381,7 @@ const fail = (reason: string): never => {
 // A failure inside a scope gains the scope's place in front of what it
 // already says. Anything else - a getter's throw - passes through.
 const prefix = (x: unknown, at: Path): unknown => {
-  if (isFailure(x)) x.path = pathConcat(at, x.path);
+  if (isFailure(x) || (x as { s?: symbol } | undefined)?.s === sury) (x as SuryErrorRecord).path = pathConcat(at, (x as SuryErrorRecord).path);
   return x;
 };
 
@@ -400,6 +411,9 @@ type Gen = {
   vars: number;
   decls: string[];
   tables: Path[][];
+  // Set when the reader converts each field to what its schema decodes to:
+  // the compiled operations it calls.
+  ops?: Function[];
 };
 
 const newVar = (gen: Gen): string => {
@@ -437,6 +451,33 @@ const at = (p: string, off: number): string => (off === 0 ? p : `${p}+${off}`);
 // Emits the statements reading `layout` at `p`, whose out-of-line data lies
 // below `hi`, and returns the expression of its value.
 const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string, path: Path): [code: string, value: string] => {
+  const [code, value] = emitWire(gen, scope, layout, p, hi, path);
+  if (gen.ops === U || layout.r !== U || !isLeaf(layout)) return [code, value];
+  const op = getOp(0, 2, layout.w, layout.x!);
+  if (op === noopOperation) return [code, value];
+  const x = newVar(gen);
+  return [`${code}${mark(scope, path)}${x}=K[${gen.ops.push(op) - 1}](${value});`, x];
+};
+
+const isLeaf = (layout: Layout): boolean => !(layout.k >= 5 && layout.k <= 10 && layout.k !== 6) || (layout.k === 9 && layout.tk === U);
+
+// Whether every node the archive holds above its leaves decodes to itself, so
+// a reader that converts the leaves has produced the value whole: no struct,
+// list, option or enum the schema refines or transforms.
+const plain = (layout: Layout, seen = new Set<Layout>()): boolean => {
+  if (seen.has(layout)) return true;
+  seen.add(layout);
+  if (isLeaf(layout)) return true;
+  const x = layout.x;
+  if (x !== U && (x.refiner !== U || x.inputRefiner !== U || x.to !== U || x.parser !== U)) return false;
+  return (
+    (layout.i === U || plain(layout.i, seen)) &&
+    (layout.f ?? []).every(([, field]) => plain(field, seen)) &&
+    (layout.v ?? []).every(([, body]) => body === U || plain(body, seen))
+  );
+};
+
+const emitWire = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string, path: Path): [code: string, value: string] => {
   if (layout.r !== U) {
     const x = newVar(gen);
     return [`${mark(scope, path)}${x}=r${layout.r}(${p},${hi});`, x];
@@ -564,8 +605,18 @@ const fnBody = (gen: Gen, scope: Scope, code: string, ret: string): string =>
 
 const freshGen = (tables: Path[][]): Gen => ({ vars: 0, decls: [], tables });
 
-const compileReader = (root: Layout, fns: Layout[]): ((bytes: Uint8Array) => unknown) => {
+// A short ASCII string read in one call, every byte an argument: V8 builds it
+// flat, several times faster than a loop of concatenations or a native slice.
+const shortAscii = (): string => {
+  let cases = "";
+  for (let n = 0, args = ""; n < 25; n++, args += `${n > 1 ? "," : ""}b[q+${n - 1}]`) cases += `case ${n}:return String.fromCharCode(${args});`;
+  return cases;
+};
+
+const compileReader = (root: Layout, fns: Layout[], convert: boolean): ((bytes: Uint8Array) => unknown) => {
   const tables: Path[][] = [];
+  const ops: Function[] | undefined = convert ? [] : U;
+  const freshGen = (tables: Path[][]): Gen => ({ vars: 0, decls: [], tables, ops });
   let src = "";
   for (const def of fns) {
     const gen = freshGen(tables);
@@ -582,15 +633,25 @@ const compileReader = (root: Layout, fns: Layout[]): ((bytes: Uint8Array) => unk
     "P",
     "T",
     "D",
+    "K",
+    "A",
     `let b,d,lo;` +
       // Claims a subtree the way rkyv's validator does: past everything
       // claimed so far and below the pointer that reaches it.
       `const C=(q,n,a,hi)=>{if(q<lo||q+n>hi)F("rkyv pointer out of bounds");if(q&(a-1))F("Unaligned rkyv pointer")};` +
-      `const S=(p,hi)=>{let n=0,q=p;if((b[p]&192)!==128){while(n<8&&b[p+n]!==255)n++}else{n=d.getUint32(p,true);n=(n&63)+(n>>>8)*64;if(n<9)F("Invalid rkyv string length");q=p+d.getInt32(p+4,true);C(q,n,1,hi);lo=q+n}if(n<13){let s="",c=0;for(let j=0;j<n;j++){c=b[q+j];if(c>127)return D(b,q,n);s+=String.fromCharCode(c)}return s}return D(b,q,n)};` +
+      `const S=(p,hi)=>{let n=0,q=p;if((b[p]&192)!==128){while(n<8&&b[p+n]!==255)n++}else{n=d.getUint32(p,true);n=(n&63)+(n>>>8)*64;if(n<9)F("Invalid rkyv string length");q=p+d.getInt32(p+4,true);C(q,n,1,hi);lo=q+n}let c=0;for(let j=q,e=q+n;j<e;j++)c|=b[j];if(c<128){if(n<25)return R(q,n);if(A)return A.call(b,q,q+n)}return D(b,q,n)};` +
+      `const R=(q,n)=>{switch(n){${shortAscii()}}};` +
       src,
   );
-  return factory(fail, prefix, tables, utf8);
+  return factory(fail, prefix, tables, utf8, ops, nodeBuffer()?.latin1Slice);
 };
+
+// Node's Buffer reads ASCII bytes, which are their own UTF-8, into a string
+// and writes a string's UTF-8 at an offset, each without TextDecoder's or
+// TextEncoder's per-call cost. Read when an operation compiles rather than at
+// load, so a bundle that never reaches S.rkyv keeps no trace of it.
+const nodeBuffer = (): { latin1Slice?: Function; utf8Write?: Function } | undefined =>
+  (globalThis as { Buffer?: { prototype: { latin1Slice?: Function; utf8Write?: Function } } }).Buffer?.prototype;
 
 const utf8 = (bytes: Uint8Array, p: number, n: number): string => {
   try {
@@ -601,14 +662,23 @@ const utf8 = (bytes: Uint8Array, p: number, n: number): string => {
 };
 
 
+// A 64-bit limb sits 8-aligned in the writer's own buffer, so on a
+// little-endian host (every JS engine in practice) it is stored through a typed
+// array: a tenth of what DataView's bigint setters cost.
+const littleEndian = (): boolean => new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+
+const setLimb = (signed: boolean, p: string, v: string): string =>
+  littleEndian() ? `${signed ? "wb" : "wu"}[(${p})/8]=${v}` : `wd.set${signed ? "BigInt64" : "BigUint64"}(${p},${v},true)`;
+
 const write = (t: string, p: string, v: string): string => {
   const size = numbers[t]!;
   if (size === 1) return `w[${p}]=${v}`;
+  if (size === 8 && isBig(t)) return setLimb(t[0] === "i", p, v);
   if (size <= 8) return `wd.set${view(t)}(${p},${v},true)`;
   let code = "";
   for (let off = 0; off < size; off += 8) {
     const top = off === size - 8;
-    code += `${off ? "," : ""}wd.set${top ? view(t, 8) : "BigUint64"}(${at(p, off)},BigInt.as${top && t[0] === "i" ? "Int" : "Uint"}N(64,${off ? `${v}>>${off * 8}n` : v}),true)`;
+    code += `${off ? "," : ""}${setLimb(top && t[0] === "i", at(p, off), `BigInt.as${top && t[0] === "i" ? "Int" : "Uint"}N(64,${off ? `${v}>>${off * 8}n` : v})`)}`;
   }
   return code;
 };
@@ -664,15 +734,29 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
       const inner = newScope(gen);
       const [deps, itemResolvers] = emitDeps(gen, inner, item, `${list}[${i}]`, []);
       let code = bound;
-      const arrays = itemResolvers.map(() => newVar(gen));
+      let slots: string[] = [];
       if (deps !== "") {
-        code += `${arrays.map((a) => `${a}=new Array(${list}.length);`).join("")}try{for(${i}=0;${i}<${list}.length;${i}++){${deps}${arrays
-          .map((a, idx) => `${a}[${i}]=${itemResolvers[idx]};`)
-          .join("")}}}${scopeCatch(gen, inner, i)}`;
+        // Each item's resolvers wait for the items to be laid out. Numbers go
+        // to a run of the shared scratch reserved for this list, which costs
+        // no allocation; a recursive item's resolvers are arrays of their own.
+        const k = itemResolvers.length;
+        let store: string;
+        if (numericResolvers(item)) {
+          const base = newVar(gen);
+          code += `${base}=Q(${list}.length*${k});`;
+          slots = itemResolvers.map((_, idx) => `R[${base}+${i}*${k}+${idx}]`);
+          store = itemResolvers.map((res, idx) => `${slots[idx]}=${res};`).join("");
+        } else {
+          const arrays = itemResolvers.map(() => newVar(gen));
+          code += arrays.map((a) => `${a}=new Array(${list}.length);`).join("");
+          slots = arrays.map((a) => `${a}[${i}]`);
+          store = arrays.map((a, idx) => `${a}[${i}]=${itemResolvers[idx]};`).join("");
+        }
+        code += `try{for(${i}=0;${i}<${list}.length;${i}++){${deps}${store}}}${scopeCatch(gen, inner, i)}`;
       }
       const o = newVar(gen),
         e = newVar(gen);
-      const resolve = emitResolve(gen, item, e, arrays.map((a) => `${a}[${i}]`), o);
+      const resolve = emitResolve(gen, item, e, slots, o);
       // The length is a resolver of its own: a list inside an enum variant
       // is copied out per item whatever variant the item holds.
       const n = newVar(gen);
@@ -682,8 +766,9 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
     }
     case 7: {
       const [bound, x] = bind(gen, v);
+      const t = newVar(gen);
       const [deps, resolvers] = emitDeps(gen, scope, layout.i!, x, path);
-      return [`${bound}${deps === "" ? "" : `if(${x}!==${literalSource(layout.n)}){${deps}}`}`, [x, ...resolvers]];
+      return [`${bound}${t}=${x}!==${literalSource(layout.n)};${deps === "" ? "" : `if(${t}){${deps}}`}`, [t, ...resolvers]];
     }
     case 8: {
       const [bound, x] = bind(gen, v);
@@ -748,8 +833,9 @@ const emitResolve = (gen: Gen, layout: Layout, v: string, resolvers: string[], p
     case 6:
       return `wd.setInt32(${p},${resolvers[0]}-(${p}),true);wd.setUint32(${p}+4,${layout.k === 6 ? `${v}.length` : resolvers[1]},true);`;
     case 7: {
-      const [x, ...rest] = resolvers;
-      return `if(${x}!==${literalSource(layout.n)}){w[${p}]=1;${emitResolve(gen, layout.i!, x!, rest, at(p, layout.o!))}}`;
+      const [t, ...rest] = resolvers;
+      const [bound, x] = bind(gen, v);
+      return `if(${t}){${bound}w[${p}]=1;${emitResolve(gen, layout.i!, x, rest, at(p, layout.o!))}}`;
     }
     case 8:
       return resolveFields(gen, layout, v, resolvers, 0, p)[0];
@@ -780,6 +866,18 @@ const resolveFields = (gen: Gen, layout: Layout, v: string, resolvers: string[],
   }
   return [code, cursor];
 };
+
+// Whether every resolver the layout leaves is a number: all but a recursive
+// definition's, which hands back an array of its own.
+const numericResolvers = (layout: Layout): boolean =>
+  layout.r === U &&
+  (layout.k === 7
+    ? numericResolvers(layout.i!)
+    : layout.k === 8
+      ? layout.f!.every(([, field]) => numericResolvers(field))
+      : layout.k === 9
+        ? layout.v!.every(([, body]) => body === U || numericResolvers(body))
+        : true);
 
 const resolverCount = (layout: Layout): number => {
   if (layout.r !== U) return 1;
@@ -820,20 +918,22 @@ const compileWriter = (root: Layout, fns: Layout[]): ((value: unknown) => Uint8A
   const [deps, resolvers] = emitDeps(gen, scope, root, "v", []);
   const r = newVar(gen);
   const resolve = emitResolve(gen, root, "v", resolvers, r);
-  src += `return function(v){wp=0;${fnBody(gen, scope, `${deps}A(${root.a});${r}=wp;Z(${root.s});${resolve}`, "w.slice(0,wp)")}}`;
+  src += `return function(v){wp=0;rp=0;${fnBody(gen, scope, `${deps}A(${root.a});${r}=wp;Z(${root.s});${resolve}`, "w.slice(0,wp)")}}`;
   const factory = new Function(
     "E",
     "P",
     "T",
     "N",
-    `let w=new Uint8Array(256),wd=new DataView(w.buffer),wp=0;` +
-      `const G=(n)=>{if(wp+n>w.length){let x=new Uint8Array(Math.max(w.length*2,wp+n));x.set(w);w=x;wd=new DataView(w.buffer)}};` +
+    "M",
+    `let w=new Uint8Array(256),wd=new DataView(w.buffer),wb=new BigInt64Array(w.buffer),wu=new BigUint64Array(w.buffer),wp=0,R=new Float64Array(64),rp=0;` +
+      `const Q=(n)=>{let s=rp;rp+=n;if(rp>R.length){let x=new Float64Array(Math.max(R.length*2,rp));x.set(R);R=x}return s};` +
+      `const G=(n)=>{if(wp+n>w.length){let x=new Uint8Array(Math.max(w.length*2,wp+n+7&-8));x.set(w);w=x;wd=new DataView(w.buffer);wb=new BigInt64Array(w.buffer);wu=new BigUint64Array(w.buffer)}};` +
       `const A=(a)=>{G(a);while(wp&(a-1))w[wp++]=0};` +
       `const Z=(n)=>{G(n);w.fill(0,wp,wp+n);wp+=n};` +
       // Writes a string's UTF-8 at the cursor, keeping it there only when it
-      // is too long to sit inline. Past a dozen characters TextEncoder
-      // outruns a loop of charCodeAt.
-      `const W=(s)=>{let l=s.length,n=0;G(l*3);if(l>12)n=N(s,w,wp);else for(;n<l;n++){let c=s.charCodeAt(n);if(c>127){n=N(s,w,wp);break}w[wp+n]=c}if(n>1073741823)E(s,"String");if(n>8)wp+=n;return n};` +
+      // is too long to sit inline. Node's utf8Write outruns a loop of
+      // charCodeAt at any length, TextEncoder past a dozen characters.
+      `const W=(s)=>{let l=s.length,n=0;G(l*3);if(l>12||M)n=N(s,w,wp);else for(;n<l;n++){let c=s.charCodeAt(n);if(c>127){n=N(s,w,wp);break}w[wp+n]=c}if(n>1073741823)E(s,"String");if(n>8)wp+=n;return n};` +
       `const I=(s,p)=>{w.fill(255,p,p+8);let l=s.length;for(let j=0;j<l;j++){let c=s.charCodeAt(j);if(c>127){N(s,w,p);return}w[p+j]=c}};` +
       `const H=(s)=>{let c=s.codePointAt(0);s.length===(c>65535?2:1)&&(c<55296||c>57343)||E(s,"char")};` +
       src,
@@ -841,7 +941,9 @@ const compileWriter = (root: Layout, fns: Layout[]): ((value: unknown) => Uint8A
   // A getter that encodes again would write over the buffer the outer call
   // is using, so a call that finds it taken builds its own.
   let free: ((value: unknown) => Uint8Array) | undefined;
-  const make = () => factory(invalid, prefix, tables, encodeInto);
+  const utf8Write = nodeBuffer()?.utf8Write;
+  const make = () =>
+    factory(invalid, prefix, tables, utf8Write ? (s: string, w: Uint8Array, p: number): number => utf8Write.call(w, s, p) : encodeInto, !!utf8Write);
   return (value) => {
     const write = free ?? make();
     free = U;
@@ -859,7 +961,14 @@ const encodeInto = (s: string, w: Uint8Array, p: number): number =>
 const invalid = (value: unknown, type: string): never => fail(`Expected ${type}, received ${stringify(value)}`);
 
 
-type Compiled = { layout: Layout; fns: Layout[]; read?: (bytes: Uint8Array) => unknown; write?: (value: unknown) => Uint8Array };
+type Compiled = {
+  layout: Layout;
+  fns: Layout[];
+  // The wire values, for the parse loop to convert; and the target's own.
+  read?: (bytes: Uint8Array) => unknown;
+  final?: (bytes: Uint8Array) => unknown;
+  write?: (value: unknown) => Uint8Array;
+};
 
 const compiled = /* @__PURE__ */ new WeakMap<Internal, Compiled>();
 
@@ -900,7 +1009,16 @@ const rkyvEncoder: Encoder = (input, target) => {
     if (target.flags & 3) return uint8Array.encoder!(input, target);
   }
   const entry = compiledOf(target);
-  const read = (entry.read ??= compileReader(entry.layout, entry.fns));
+  // A target whose containers decode to themselves is read whole, each leaf
+  // converted where it lies: no second pass rebuilds what the reader built.
+  if (target.to === U && target.parser === U && plain(entry.layout)) {
+    const read = (entry.final ??= compileReader(entry.layout, entry.fns, true));
+    const output = B_nextVar(input, target, target);
+    output.cp = guard(input, output, target, `${B_embedPure(input, read)}(${input.v()})`);
+    output.io = true;
+    return output;
+  }
+  const read = (entry.read ??= compileReader(entry.layout, entry.fns, false));
   const output = B_nextVar(input, entry.layout.w, target);
   output.cp = guard(input, output, target, `${B_embedPure(input, read)}(${input.v()})`);
   return output;

@@ -18,13 +18,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.event;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.type==="click"||typeof v1==="string"&&v1==="idle")||e[2](v1);return v0}catch(v2){e[5](v2)}}
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
     examples:
       nan-click:
         input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 5, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])
         output: '{ ratio: NaN, event: { type: "click", x: 5 } }'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.event;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.type==="click"||typeof v1==="string"&&v1==="idle")||e[2](v1);return v0}catch(v2){e[3](v2)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       nan-click:
         input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 5, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])

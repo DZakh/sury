@@ -20,13 +20,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.type==="list"){let v3=v2.xs;break}if(typeof v2==="string"&&v2==="none")break;throw e[2](v2,void 0,[v1])}}return v0}catch(v6){e[5](v6)}}
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
     examples:
       mixed:
         input: new Uint8Array([1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 255, 255, 255, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 220, 255, 255, 255, 3, 0, 0, 0])
         output: '["none", { type: "list", xs: [1, 2] }, "none"]'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)&&v2.type==="list"){let v3=v2.xs;break}if(typeof v2==="string"&&v2==="none")break;throw e[2](v2,void 0,[v1])}}return v0}catch(v6){e[3](v6)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       mixed:
         input: new Uint8Array([1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 255, 255, 255, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 220, 255, 255, 255, 3, 0, 0, 0])

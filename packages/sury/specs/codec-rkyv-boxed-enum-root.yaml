@@ -6,10 +6,10 @@ ts:
   instantiations: 13560
 jsonSchema:
   input: Expected JSON, received Uint8Array
-  output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "node" }, root: { $ref: "#/$defs/Node" } }, additionalProperties: false, required: ["kind", "root"] }, { type: "object", properties: { kind: { type: "string", const: "empty" } }, required: ["kind"] }], $defs: { Node: { type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["value"] } } }'
+  output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "node" }, root: { $ref: "#/$defs/Node" } }, required: ["kind", "root"] }, { type: "object", properties: { kind: { type: "string", const: "empty" } }, required: ["kind"] }], $defs: { Node: { type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["value"] } } }'
   fromOutputType: '{ kind: "node"; root: { value: number; next?: ... | undefined; }; } | { kind: "empty"; }'
   openapi-3.0:
-    output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["node"] }, root: { $ref: "#/$defs/Node" } }, additionalProperties: false, required: ["kind", "root"] }, { type: "object", properties: { kind: { type: "string", enum: ["empty"] } }, required: ["kind"] }], $defs: { Node: { type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["value"] } } }'
+    output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["node"] }, root: { $ref: "#/$defs/Node" } }, required: ["kind", "root"] }, { type: "object", properties: { kind: { type: "string", enum: ["empty"] } }, required: ["kind"] }], $defs: { Node: { type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["value"] } } }'
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
   output: (a,b)=>a===b||(a.kind==="node"?b.kind==="node"&&e[0](a.root,b.root):b.kind==="empty")
@@ -21,13 +21,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{i instanceof e[7]||e[8](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.kind==="node"){try{e[2](v0.root);}catch(v1){e[3](v1,["root"])}let v2;try{v2=e[4](v0.root);}catch(v3){e[5](v3,["root"])}v0={kind:"node",root:v2};break}if(v0.kind==="empty")break;throw e[6](v0)}}else{throw e[6](v0)}return v0}catch(v4){e[9](v4)}}
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
     examples:
       node:
         input: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 232, 255, 255, 255, 240, 255, 255, 255])
         output: '{ kind: "node", root: { value: 1, next: { value: 2, next: undefined } } }'
   decode:
-    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.kind==="node"){try{e[2](v0.root);}catch(v1){e[3](v1,["root"])}let v2;try{v2=e[4](v0.root);}catch(v3){e[5](v3,["root"])}v0={kind:"node",root:v2};break}if(v0.kind==="empty")break;throw e[6](v0)}}else{throw e[6](v0)}return v0}catch(v4){e[7](v4)}}
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
     examples:
       node:
         input: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 232, 255, 255, 255, 240, 255, 255, 255])
