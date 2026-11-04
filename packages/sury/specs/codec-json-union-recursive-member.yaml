@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.union([S.recursive("R", (self) => S.schema({ head: S.string, next: S.optional(self) })), S.email]))'
   input: JSON
   output: unknown
-  instantiations: 8511
+  instantiations: 8940
 jsonSchema:
   input: '{ anyOf: [{}, { type: "string", format: "email" }] }'
   output: '{ anyOf: [{ $ref: "#/$defs/R" }, { type: "string", format: "email" }], $defs: { R: { type: "object", properties: { head: { type: "string" }, next: { $ref: "#/$defs/R" } }, required: ["head"] } } }'

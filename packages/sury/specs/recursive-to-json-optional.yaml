@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("T", (n) => S.schema({ v: S.string, kid: S.optional(n) })).with(S.to, S.json)'
   input: unknown
   output: JSON
-  instantiations: 8074
+  instantiations: 8443
 jsonSchema:
   input: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/T" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; kid?: ... | undefined; }"

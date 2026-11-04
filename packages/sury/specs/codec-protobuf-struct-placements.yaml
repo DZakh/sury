@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ meta: S.protobufField(S.optional(S.record(S.json)), { number: 1, type: "google.protobuf.Struct" }), metas: S.protobufField(S.array(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }), byKey: S.protobufField(S.record(S.record(S.json)), { number: 3, type: "google.protobuf.Struct" }), pick: S.union([S.schema({ case: "obj", value: S.protobufField(S.record(S.json), { number: 4, type: "google.protobuf.Struct" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
   input: '{ metas: Record<string, JSON>[]; byKey: Record<string, Record<string, JSON>>; pick: { case: "obj"; value: Record<string, JSON>; } | { ...; }; meta?: Record<...> | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 13088
+  instantiations: 13509
 jsonSchema:
   input: "Failed at pick.case: Expected JSON, received undefined"
   output: Expected JSON, received Uint8Array

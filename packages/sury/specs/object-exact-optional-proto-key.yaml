@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ toString: S.exactOptional(S.string) })"
+  input: "{ toString?: string | undefined; }"
+  output: "{ toString?: string | undefined; }"
+  instantiations: 2107
+jsonSchema:
+  input: '{ type: "object", properties: { toString: { type: "string" } } }'
+  output: '{ type: "object", properties: { toString: { type: "string" } } }'
+isEqual: (a,b)=>a===b||a.toString===b.toString
+compare: "throws: [Sury] Can't compare { toString?: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: "z.object({ toString: z.string().exactOptional() })"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=(Object.hasOwn(i,"toString")?i.toString:void 0);if(v0!==void 0||Object.hasOwn(i,"toString")){typeof v0==="string"||e[0](v0);}let v1={};if(v0!==void 0){v1.toString=v0}return v1}catch(v2){e[2](v2)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{}"
+        divergence:
+          reason: A key the object only inherits is not there, so `{}` lacks `toString` - Zod and the JSON Schema validator read `Object.prototype.toString` and reject the function they find.
+          ajv: "input: data/toString must be string; output: data/toString must be string"
+          zod: "Invalid input: expected string, received function"
+      present:
+        input: '{ toString: "s" }'
+        output: '{ toString: "s" }'
+      explicit-undefined:
+        input: "{ toString: undefined }"
+        error: "Failed at toString: Expected string, received undefined"
+      wrong-type:
+        input: "{ toString: 1 }"
+        error: "Failed at toString: Expected string, received 1"
+  decode: identity
+  encode: identity

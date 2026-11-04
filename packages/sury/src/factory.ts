@@ -17,6 +17,8 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  requiredOf,
+  isExactOptional,
   itemSymbol,
   noopDecoder,
   objectTag,
@@ -323,6 +325,8 @@ export const schemaShape = <TValue>(schema: Internal, definer: (value: unknown) 
   });
 }
 
+const fieldRead = (schema: Internal): Internal => schema.exactOptional || schema;
+
 const schemaNested = function (this: AdvancedObjectCtx & Record<string, unknown>, fieldName: string): AdvancedObjectCtx {
   const parentCtx = this;
   const cacheId = `~${fieldName}`;
@@ -351,10 +355,10 @@ const schemaNested = function (this: AdvancedObjectCtx & Record<string, unknown>
       if (fieldName in properties) {
         panic(`The field ${inlinedLocation} defined twice`);
       }
-      required.push(fieldName);
+      if (!schema.exactOptional) required.push(fieldName);
       properties[fieldName] = schema;
       return proxifyShapedSchema(
-        schema,
+        fieldRead(schema),
         parentSchema.from!.concat(fieldName),
         parentSchema.fromFlattened
       );
@@ -425,7 +429,7 @@ export const schemaObject = (
       panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
     properties[fieldName] = schema;
-    return proxifyShapedSchema(schema, [fieldName]);
+    return proxifyShapedSchema(fieldRead(schema), [fieldName]);
   };
 
   const ctx = makeObjectCtx(field, flatten);
@@ -433,7 +437,7 @@ export const schemaObject = (
   const definition = definer(ctx);
 
   const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.required = Object.keys(properties);
+  mut.required = requiredOf(properties);
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
   mut.parser = shapedParser;
@@ -517,7 +521,11 @@ const assembleShapedObject = (
       const location = keys[idx]!;
       // Skip locations pre-populated by init (flattened fields)
       if (!(location in output.d!)) {
-        B_field(output, location, () => field(location, properties[location]!));
+        B_field(output, location, () => {
+          const val = field(location, properties[location]!);
+          if (isExactOptional(schema, location)) val.o = true;
+          return val;
+        });
       }
     }
   } else if (onMissing !== U) {
@@ -758,7 +766,11 @@ const getShapedSerializerOutput = (
   // shape has had only its fields checked, so its own refinements run here.
   if (root) {
     v.t = true;
-    v.prev = input;
+    // The bottom of the chain: an object with a key it may omit hands back a
+    // refine over itself, whose `prev` is the object's code.
+    let bottom = v;
+    while (bottom.prev !== U) bottom = bottom.prev;
+    bottom.prev = input;
   }
   v.path = pathConcat(v.path, path);
   return B_markOutput(v);

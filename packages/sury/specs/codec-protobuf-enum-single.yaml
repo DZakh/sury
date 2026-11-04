@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ kind: S.protobufField(S.union([0]), { number: 1, type: "enum" }), maybe: S.protobufField(S.optional(S.union([0])), { number: 2, type: "enum" }) }).with(S.to, S.protobuf)'
   input: "{ kind: 0; maybe?: 0 | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6738
+  instantiations: 7032
 jsonSchema:
   input: '{ type: "object", properties: { kind: { type: "number", const: 0 }, maybe: { type: "number", const: 0 } }, required: ["kind"] }'
   output: Expected JSON, received Uint8Array

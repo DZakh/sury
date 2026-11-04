@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ d: S.protobufField(S.number, 1), f: S.protobufField(S.number, { number: 2, type: "float" }), l: S.protobufField(S.array(S.number), 3), w: S.protobufField(S.optional(S.number), { number: 4, type: "google.protobuf.DoubleValue" }), m: S.protobufField(S.record(S.number), 5) }).with(S.to, S.protobuf)'
   input: "{ d: number; f: number; l: number[]; m: Record<string, number>; w?: number | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7479
+  instantiations: 7731
 jsonSchema:
   input: '{ type: "object", properties: { d: { type: "number" }, f: { type: "number" }, l: { items: { type: "number" }, type: "array" }, w: { type: "number" }, m: { type: "object", additionalProperties: { type: "number" } } }, required: ["d", "f", "l", "m"] }'
   output: Expected JSON, received Uint8Array

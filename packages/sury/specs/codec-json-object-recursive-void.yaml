@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ a: S.recursive("R", (self) => S.union([S.void, S.array(self)])) }))'
   input: JSON
   output: "{ a?: unknown; }"
-  instantiations: 9166
+  instantiations: 9574
 jsonSchema:
   input: '{ type: "object", properties: { a: {} }, additionalProperties: false, required: ["a"] }'
   fromInputType: "{ a: JSON; }"

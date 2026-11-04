@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({ k: "a", x: S.string.with(S.to, S.string, { decode: { async: (v) => Promise.resolve(v + "!") }, encode: (v) => v.slice(0, -1) }) }), S.schema({ k: "b", y: S.string })])'
   input: '{ k: "a"; x: string; } | { k: "b"; y: string; }'
   output: '{ k: "a"; x: string; } | { k: "b"; y: string; }'
-  instantiations: 8201
+  instantiations: 8447
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { k: { type: "string", const: "a" }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", const: "b" }, y: { type: "string" } }, required: ["k", "y"] }] }'
   output: '{ anyOf: [{ type: "object", properties: { k: { type: "string", const: "a" }, x: { type: "string" } }, required: ["k", "x"] }, { type: "object", properties: { k: { type: "string", const: "b" }, y: { type: "string" } }, required: ["k", "y"] }] }'

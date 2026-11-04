@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ p: S.protobufField(S.schema({ type: "other", value: S.protobufAny }), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
   input: '{ p: { type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6724
+  instantiations: 7062
 jsonSchema:
   input: "Failed at p.value.value: Expected JSON, received Uint8Array"
   output: Expected JSON, received Uint8Array

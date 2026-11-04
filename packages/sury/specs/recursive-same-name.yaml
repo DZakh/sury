@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ x: S.recursive("Node", (n) => S.schema({ a: S.string, kid: S.optional(n) })), y: S.recursive("Node", (n) => S.schema({ b: S.number, kid: S.optional(n) })) })'
   input: "{ x?: unknown; y?: unknown; }"
   output: "{ x?: unknown; y?: unknown; }"
-  instantiations: 11471
+  instantiations: 11962
 jsonSchema:
   input: '{ type: "object", properties: { x: { $ref: "#/$defs/Node" }, y: { $ref: "#/$defs/Node2" } }, required: ["x", "y"], $defs: { Node: { type: "object", properties: { a: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["a"] }, Node2: { type: "object", properties: { b: { type: "number" }, kid: { $ref: "#/$defs/Node2" } }, required: ["b"] } } }'
   fromInputType: "{ x: { a: string; kid?: ... | undefined; }; y: { b: number; kid?: ... | undefined; }; }"

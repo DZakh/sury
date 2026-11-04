@@ -3,7 +3,7 @@ ts:
   schema: "S.formData.with(S.to, S.schema({ a: S.union([S.nullable(S.string), S.optional(S.number, 1)]) }))"
   input: FormData
   output: "{ a: string | number | null; }"
-  instantiations: 6700
+  instantiations: 6960
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "string" }, { type: "number" }, { type: "null" }] } }, required: ["a"] }'

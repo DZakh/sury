@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ x: s.fieldOr("x", S.optional(S.union([S.string.with(S.to, S.number), S.boolean]), true), 1) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ x: number | boolean; }"
-  instantiations: 6000
+  instantiations: 6215
 jsonSchema:
   input: '{ type: "object", properties: { x: { default: "1", anyOf: [{ type: "string" }, { type: "boolean" }] } } }'
   output: '{ type: "object", properties: { x: { anyOf: [{ type: "number" }, { type: "boolean" }, { anyOf: [{ type: "number" }, { type: "boolean" }] }] } }, required: ["x"] }'

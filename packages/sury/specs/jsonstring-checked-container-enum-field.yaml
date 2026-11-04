@@ -3,7 +3,7 @@ ts:
   schema: 'S.array(S.schema({ f: S.union(["a", "b"]) }).with(S.refine, (value) => value.f !== "b", { error: "Expected a tag other than b" })).with(S.minLength, 1).with(S.to, S.jsonString)'
   input: '[{ f: "a" | "b"; }, ...{ f: "a" | "b"; }[]]'
   output: string
-  instantiations: 7782
+  instantiations: 7989
 jsonSchema:
   input: '{ items: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, type: "array", minItems: 1 }'
   fromInputType: '{ f: "a" | "b"; }[]'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.protobufField(S.literal(null).with(S.to, S.literal(0)), { number: 1, type: "enum" }) }).with(S.to, S.protobuf)'
   input: "{ k: null; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5940
+  instantiations: 6226
 jsonSchema:
   input: '{ type: "object", properties: { k: { type: "null" } }, required: ["k"] }'
   output: Expected JSON, received Uint8Array

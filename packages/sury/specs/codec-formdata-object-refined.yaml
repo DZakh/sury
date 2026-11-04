@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.string.with(S.nonEmpty) }).with(S.refine, (v) => v.c !== "bad", { error: "obj refused" }).with(S.to, S.formData)'
   input: "{ c: string; }"
   output: FormData
-  instantiations: 6265
+  instantiations: 6446
 jsonSchema:
   input: '{ type: "object", properties: { c: { type: "string", minLength: 1 } }, required: ["c"] }'
   output: Expected JSON, received FormData

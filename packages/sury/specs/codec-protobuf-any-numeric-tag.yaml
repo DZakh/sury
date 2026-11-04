@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobufAny.with(S.to, S.union([S.schema({ t: 1, value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User") }), S.schema({ t: 2n, value: S.protobufTypeName(S.schema({ total: S.protobufField(S.bigint, { number: 1, type: "int64" }) }), "acme.v1.Order") })]))'
   input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
   output: "{ t: 1; value: { id: number; }; } | { t: 2n; value: { total: bigint; }; }"
-  instantiations: 10499
+  instantiations: 11023
 jsonSchema:
   input: "Failed at value: Expected JSON, received Uint8Array"
   output: "Failed at t: Expected JSON, received 2n"

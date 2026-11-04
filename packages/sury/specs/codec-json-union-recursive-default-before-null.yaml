@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.recursive("R", (self) => S.union([S.optional(S.string, "d"), S.array(self)])), S.literal(null)]))
   input: JSON
   output: unknown
-  instantiations: 8519
+  instantiations: 8835
 jsonSchema:
   input: '{ anyOf: [{}, { type: "null" }] }'
   output: Expected JSON, received string | undefined

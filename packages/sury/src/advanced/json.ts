@@ -16,6 +16,7 @@ import {
   type Internal,
   isLiteral,
   isOptional,
+  isExactOptional,
   jsonName,
   objectTag,
   refTag,
@@ -516,7 +517,10 @@ export const jsonString = /* @__PURE__ */ (() => {
           : raw &&
             container.refiner === U &&
             container.inputRefiner === U &&
-            typeof container.additionalItems !== objectTag)
+            typeof container.additionalItems !== objectTag &&
+            // The aggregate renders every key, so one that may be missing
+            // keeps its decoder.
+            !Object.keys(container.properties || {}).some((key) => isExactOptional(container, key)))
       ) {
         const marked = copySchema(container);
         marked.flags = marked.flags | (raw ? 512 : 1024);

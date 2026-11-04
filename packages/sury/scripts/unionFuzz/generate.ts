@@ -1,6 +1,6 @@
 import { modifiers, schemaLeaves, wraps } from "./catalog";
 import { NO_SAMPLE, sample, show } from "./sample";
-import { node, type Shape, valueNode } from "./shape";
+import { admitsUndefined, node, type Shape, valueNode } from "./shape";
 import type { Sury } from "./types";
 
 export type Rng = () => number;
@@ -380,6 +380,20 @@ export const generateSchema = (S: Sury, rng: Rng): MemberSpec => {
     lossy: true,
   };
 };
+
+// A drawn schema again, as an `S.exactOptional` field: one the runner checks
+// beside the draw rather than in its place, so every seed still reaches what it
+// did. Over a schema that takes `undefined` it is that schema, so it is left
+// out there.
+export const exactOptionalField = (S: Sury, member: MemberSpec): MemberSpec | undefined =>
+  member.id.length % 5 === 2 && !admitsUndefined(member.shape)
+    ? {
+        id: `{f?:${member.id}}`,
+        shape: node("exactOptional", member.shape),
+        schema: S.schema({ f: S.exactOptional(member.schema) }),
+        lossy: member.lossy,
+      }
+    : undefined;
 
 export const groupingBarrierMembers = (S: Sury): MemberSpec[] => [
   taggedRescript(S, "One", { id: "string", schema: S.string, shape: node("string") }),

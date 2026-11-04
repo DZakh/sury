@@ -3,7 +3,7 @@ ts:
   schema: S.schema(NaN)
   input: number
   output: number
-  instantiations: 382
+  instantiations: 402
 jsonSchema:
   input: Expected JSON, received NaN
   output: Expected JSON, received NaN

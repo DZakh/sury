@@ -3,7 +3,7 @@ ts:
   schema: "S.union([S.schema({ x: S.string }), S.date])"
   input: "{ x: string; } | Date"
   output: "{ x: string; } | Date"
-  instantiations: 2631
+  instantiations: 2683
 jsonSchema:
   input: "Expected JSON, received { x: string; } | Date"
   output: "Expected JSON, received { x: string; } | Date"

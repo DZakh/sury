@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.string.with(S.to, S.unknown, { decode: { async: ((value: string) => ({ then: (_ok: unknown, no: (e: Error) => unknown) => no(new Error("rejected")), catch: (no: (e: Error) => unknown) => no(new Error("rejected")) })) as never }, encode: (value: unknown) => String(value) }) })'
   input: "{ a: string; }"
   output: "{ a?: unknown; }"
-  instantiations: 5947
+  instantiations: 6131
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: {} }, required: ["a"] }'

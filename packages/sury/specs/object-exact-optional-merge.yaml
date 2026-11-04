@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.merge(S.schema({ a: S.string, f: S.exactOptional(S.number) }), S.schema({ b: S.boolean }))"
+  input: "{ a: string; f?: number | undefined; b: boolean; }"
+  output: "{ a: string; f?: number | undefined; b: boolean; }"
+  instantiations: 5710
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, f: { type: "number" }, b: { type: "boolean" } }, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, f: { type: "number" }, b: { type: "boolean" } }, required: ["a", "b"] }'
+isEqual: (a,b)=>a===b||a.a===b.a&&a.f===b.f&&a.b===b.b
+compare: "throws: [Sury] Can't compare { a: string; f?: number; b: boolean; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    schema: "z.object({ a: z.string(), f: z.number().exactOptional() }).extend({ b: z.boolean() })"
+    divergence: "`S.merge` keeps the fields in the order they were merged, where Zod lists the optional `f` last."
+    input: "{ a: string; b: boolean; f?: number | undefined; }"
+    output: "{ a: string; b: boolean; f?: number | undefined; }"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.a,v1=i.f,v2=i.b;typeof v0==="string"||e[0](v0);if(v1!==void 0||"f" in i){typeof v1==="number"&&v1==v1||e[1](v1);}typeof v2==="boolean"||e[2](v2);let v3={a:v0,b:v2};if(v1!==void 0){v3.f=v1}return v3}catch(v4){e[4](v4)}}
+    examples:
+      absent:
+        input: '{ a: "x", b: true }'
+        output: '{ a: "x", b: true }'
+      present:
+        input: '{ a: "x", f: 1, b: true }'
+        output: '{ a: "x", b: true, f: 1 }'
+      explicit-undefined:
+        input: '{ a: "x", f: undefined, b: true }'
+        error: "Failed at f: Expected number, received undefined"
+  decode: identity
+  encode: identity

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.union([S.schema({ case: "a", value: S.protobufField(S.literal(0).with(S.to, S.number), { number: 1, type: "enum" }) }), S.schema({ case: "b", value: S.protobufField(S.number.with(S.to, S.literal(0)), { number: 2, type: "enum" }) })]) }).with(S.to, S.protobuf)'
   input: '{ k: { case: "a"; value: 0; } | { case: "b"; value: number; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10146
+  instantiations: 10572
 jsonSchema:
   input: '{ type: "object", properties: { k: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "number", const: 0 } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "b" }, value: { type: "number", const: 0 } }, required: ["case", "value"] }] } }, required: ["k"] }'
   fromInputType: '{ k: { case: "a"; value: 0; } | { case: "b"; value: 0; }; }'

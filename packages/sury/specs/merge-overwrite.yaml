@@ -3,7 +3,7 @@ ts:
   schema: 'S.merge(S.schema({ type: S.union(["foo", "bar"]), name: S.string }), S.schema({ type: "foo", fooCount: S.number }))'
   input: '{ name: string; type: "foo"; fooCount: number; }'
   output: '{ name: string; type: "foo"; fooCount: number; }'
-  instantiations: 4450
+  instantiations: 4773
 jsonSchema:
   input: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'
   output: '{ type: "object", properties: { type: { type: "string", const: "foo" }, name: { type: "string" }, fooCount: { type: "number" } }, required: ["type", "name", "fooCount"] }'

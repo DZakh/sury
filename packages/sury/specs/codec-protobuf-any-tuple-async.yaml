@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobufAny.with(S.to, S.union([S.tuple(["au", S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU")]), S.tuple(["other", S.protobufAny])]))'
   input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
   output: '["au", { name: string; }] | ["other", { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }]'
-  instantiations: 10222
+  instantiations: 10556
 jsonSchema:
   input: "Failed at value: Expected JSON, received Uint8Array"
   output: "Failed at [1].value: Expected JSON, received Uint8Array"

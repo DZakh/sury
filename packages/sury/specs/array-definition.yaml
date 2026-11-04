@@ -3,7 +3,7 @@ ts:
   schema: "S.array({ id: S.string })"
   input: "{ id: string; }[]"
   output: "{ id: string; }[]"
-  instantiations: 1351
+  instantiations: 1403
 jsonSchema:
   input: '{ items: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, type: "array" }'
   output: '{ items: { type: "object", properties: { id: { type: "string" } }, required: ["id"] }, type: "array" }'

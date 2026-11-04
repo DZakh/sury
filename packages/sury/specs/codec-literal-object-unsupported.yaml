@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema("x").with(S.to, S.schema({ a: S.number }))'
   input: '"x"'
   output: "{ a: number; }"
-  instantiations: 5547
+  instantiations: 5808
 jsonSchema:
   input: '{ type: "string", const: "x" }'
   output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'

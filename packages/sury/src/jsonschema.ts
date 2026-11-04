@@ -13,6 +13,7 @@ import {
   type Internal,
   isLiteral,
   isOptional,
+  isExactOptional,
   jsonName,
   s as errorSymbol,
   neverTag,
@@ -684,7 +685,7 @@ const internalToJSONSchemaBase = (
     const jsonProperties: Record<string, JSONSchemaDefinition> = Object.create(null);
     for (const key of Object.keys(properties)) {
       const itemSchema = properties[key]!;
-      if (!isOptional(itemSchema)) required.push(key);
+      if (!isOptional(itemSchema) && !isExactOptional(schema, key)) required.push(key);
       jsonProperties[key] = js(itemSchema, pathConcat(path, [key]));
     }
 

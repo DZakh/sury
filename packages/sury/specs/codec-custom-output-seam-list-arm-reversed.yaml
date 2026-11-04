@@ -3,7 +3,7 @@ ts:
   schema: 'S.reverse(((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.union([S.schema({ f: (S as any).list(S.url) }), S.schema({ TAG: "T7", _0: S.integer })]), { decode: (v: unknown) => v, encode: (v: unknown) => v } as any))'
   input: '{ f?: any; } | { TAG: "T7"; _0: number; }'
   output: unknown
-  instantiations: 5877
+  instantiations: 5615
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { f: {} }, required: ["f"] }, { type: "object", properties: { TAG: { type: "string", const: "T7" }, _0: { type: "integer" } }, required: ["TAG", "_0"] }] }'
   fromInputType: '{ f: JSON; } | { TAG: "T7"; _0: number; }'

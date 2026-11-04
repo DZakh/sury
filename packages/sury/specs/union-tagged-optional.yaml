@@ -3,7 +3,7 @@ ts:
   schema: 'S.optional(S.union([S.schema({ kind: "a", value: S.string }), S.schema({ kind: "b", value: S.int32 })]))'
   input: '{ kind: "a"; value: string; } | { kind: "b"; value: number; } | undefined'
   output: '{ kind: "a"; value: string; } | { kind: "b"; value: number; } | undefined'
-  instantiations: 4815
+  instantiations: 5009
 jsonSchema:
   input: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'
   output: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'

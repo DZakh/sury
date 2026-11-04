@@ -3,7 +3,7 @@ ts:
   schema: '((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.schema({ f: S.object((s) => { s.field("a", S.string); return { b: s.field("b", S.string) }; }).with(S.to, S.unknown, { decode: (v: unknown) => v, encode: (v: unknown) => v }) }), { decode: (v: unknown) => v, encode: (v: unknown) => v } as any)'
   input: unknown
   output: "{ f?: unknown; }"
-  instantiations: 3037
+  instantiations: 3206
 jsonSchema:
   input: '{ description: "seam" }'
   fromInputType: JSON

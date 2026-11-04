@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobuf.with(S.to, S.schema({ u: S.protobufField(S.union([S.schema({ type: "au", value: S.protobufTypeName(S.schema({ name: S.protobufField(S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: (x) => x.slice(0, -1) }), 1) }), "acme.v1.AU") }), S.schema({ type: "b", value: S.protobufTypeName(S.schema({ n: S.protobufField(S.int32, 1) }), "acme.v1.B") })]), 1) }))'
   input: Uint8Array<ArrayBufferLike>
   output: '{ u: { type: "au"; value: { name: string; }; } | { type: "b"; value: { n: number; }; }; }'
-  instantiations: 12122
+  instantiations: 12721
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { u: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "au" }, value: { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }, required: ["type", "value"] }, { type: "object", properties: { type: { type: "string", const: "b" }, value: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] } }, required: ["type", "value"] }] } }, required: ["u"] }'

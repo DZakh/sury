@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ password: S.string.with(S.minLength, 8), confirm: S.string }).with(S.refine, (value) => value.password === value.confirm, { error: "Passwords must match" })'
   input: "{ password: string; confirm: string; }"
   output: "{ password: string; confirm: string; }"
-  instantiations: 2535
+  instantiations: 2589
 jsonSchema:
   input: '{ type: "object", properties: { password: { type: "string", minLength: 8 }, confirm: { type: "string" } }, required: ["password", "confirm"] }'
   output: '{ type: "object", properties: { password: { type: "string", minLength: 8 }, confirm: { type: "string" } }, required: ["password", "confirm"] }'

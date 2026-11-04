@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ xs: s.fieldOr("xs", S.record(S.string.with(S.to, S.number)), {}) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ xs: Record<string, number>; }"
-  instantiations: 5074
+  instantiations: 5206
 jsonSchema:
   input: '{ type: "object", properties: { xs: { default: {}, type: "object", additionalProperties: { type: "string" } } } }'
   output: '{ type: "object", properties: { xs: { type: "object", additionalProperties: { type: "number" } } }, required: ["xs"] }'

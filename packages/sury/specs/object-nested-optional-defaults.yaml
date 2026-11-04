@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.optional(S.optional(S.string, "tuna"), "salmon"), b: S.optional(S.optional(S.string, "tuna")), c: S.optional(S.nullable(S.boolean, false), true), d: S.nullable(S.optional(S.string, "t"), "n") })'
   input: "{ a?: string | undefined; b?: string | undefined; c?: boolean | null | undefined; d?: string | null | undefined; }"
   output: "{ a: string; c: boolean; d: string; b?: string | undefined; }"
-  instantiations: 3956
+  instantiations: 4071
 jsonSchema:
   input: '{ type: "object", properties: { a: { default: "salmon", type: "string" }, b: { type: "string" }, c: { default: true, anyOf: [{ type: "boolean" }, { type: "null" }] }, d: { anyOf: [{ default: "t", type: "string" }, { type: "null" }] } } }'
   output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "boolean" }, d: { type: "string" } }, required: ["a", "c", "d"] }'

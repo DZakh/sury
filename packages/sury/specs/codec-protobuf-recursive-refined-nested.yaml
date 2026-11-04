@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Node", (node) => S.schema({ v: S.string.with(S.protobufField, 1), kid: S.optional(node.with(S.refine, (x) => (x as { v: string }).v !== "bad", { error: "no bad" })).with(S.protobufField, 2) })).with(S.to, S.protobuf)'
   input: unknown
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9163
+  instantiations: 9529
 jsonSchema:
   input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/Node" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; kid?: ... | undefined; }"

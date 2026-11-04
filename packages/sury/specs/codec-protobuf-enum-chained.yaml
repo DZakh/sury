@@ -3,7 +3,7 @@ ts:
   schema: "S.protobuf.with(S.to, S.schema({ kind: S.union([0, 1, 2]).with(S.protobufField, 1) }).with(S.to, S.schema({ k: S.number }), { decode: (w) => ({ k: w.kind }), encode: (d) => ({ kind: d.k as 0 | 1 | 2 }) }))"
   input: Uint8Array<ArrayBufferLike>
   output: "{ k: number; }"
-  instantiations: 7043
+  instantiations: 7384
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { k: { type: "number" } }, required: ["k"] }'

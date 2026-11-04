@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.exactOptional(S.optional(S.number, 1)) })"
+  input: "{ f?: number | undefined; }"
+  output: "{ f: number; }"
+  instantiations: 2044
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: 1, type: "number" } } }'
+  output: '{ type: "object", properties: { f: { type: "number" } }, required: ["f"] }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { f: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: "z.object({ f: z.number().default(1) })"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.f;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=1;break}throw e[0](v0)}return {f:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: "{ f: 1 }"
+      explicit-undefined-takes-the-default:
+        input: "{ f: undefined }"
+        output: "{ f: 1 }"
+      present:
+        input: "{ f: 2 }"
+        output: "{ f: 2 }"
+  decode:
+    expression: i=>{try{let v0=i.f;for(;;){if(typeof v0==="number"&&v0==v0)break;if(v0===void 0){v0=1;break}throw e[0](v0)}return {f:v0}}catch(v1){e[1](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: 1 }"
+  encode:
+    expression: i=>{try{let v0=i.f;typeof v0==="number"&&v0==v0||e[0](v0);return i}catch(v1){e[1](v1)}}
+    examples:
+      present:
+        input: "{ f: 2 }"
+        output: "{ f: 2 }"

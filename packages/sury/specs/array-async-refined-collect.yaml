@@ -3,7 +3,7 @@ ts:
   schema: 'S.array(S.string.with(S.to, S.string, { decode: { async: (value) => (value === "t" ? Promise.reject(new Error("taken")) : Promise.resolve(value)) }, encode: (value) => value }).with(S.refine, (value) => value !== "bad", { error: "Expected not bad" }))'
   input: string[]
   output: string[]
-  instantiations: 5316
+  instantiations: 5448
 jsonSchema:
   input: '{ items: { type: "string" }, type: "array" }'
   output: '{ items: { type: "string" }, type: "array" }'

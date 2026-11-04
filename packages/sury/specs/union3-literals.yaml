@@ -3,7 +3,7 @@ ts:
   schema: S.union(["foo", 123, true])
   input: true | "foo" | 123
   output: true | "foo" | 123
-  instantiations: 617
+  instantiations: 663
 jsonSchema:
   input: '{ enum: ["foo", 123, true] }'
   output: '{ enum: ["foo", 123, true] }'

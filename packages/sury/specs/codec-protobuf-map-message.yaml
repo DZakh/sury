@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ byKey: S.record(S.schema({ a: S.int32.with(S.protobufField, 1), b: S.int32.with(S.protobufField, 2) })).with(S.protobufField, 1) }).with(S.to, S.protobuf)"
   input: "{ byKey: Record<string, { a: number; b: number; }>; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8220
+  instantiations: 8572
 jsonSchema:
   input: '{ type: "object", properties: { byKey: { type: "object", additionalProperties: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, b: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a", "b"] } } }, required: ["byKey"] }'
   output: Expected JSON, received Uint8Array

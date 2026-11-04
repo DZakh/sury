@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => { const f = s.flatten(S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }), b: S.optional(S.string) })); return { a: f.a, b: f.b, c: s.field("c", S.string) }; })'
   input: "{ [x: string]: unknown; }"
   output: "{ a: string; b: string | undefined; c: string; }"
-  instantiations: 6397
+  instantiations: 6694
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" }, c: { type: "string" } }, required: ["a", "c"] }'
   fromInputType: "{ a: string; c: string; b?: string | undefined; }"

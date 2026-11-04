@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.protobufField(S.union([0]), { number: 1, type: "enum" }) }).with(S.shape, (o) => ({ v: o.k }))'
   input: "{ k: 0; }"
   output: "{ v: 0; }"
-  instantiations: 5595
+  instantiations: 5868
 jsonSchema:
   input: '{ type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] }'
   output: '{ type: "object", properties: { v: { type: "number", const: 0 } }, required: ["v"] }'

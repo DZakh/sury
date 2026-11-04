@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.object((s) => ({ f: s.fieldOr("f", S.jsonString.with(S.to, S.number), 5) })))'
   input: JSON
   output: "{ f: number; }"
-  instantiations: 5142
+  instantiations: 5274
 jsonSchema:
   # FIXME: under S.json `s.fieldOr` renders its item's output (`number`) rather
   # than the JSON text the document holds, and keeps the defaulted key

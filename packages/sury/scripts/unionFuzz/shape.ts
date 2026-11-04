@@ -52,6 +52,7 @@ const ANY = new Set(["any", "unknown"]);
 export const absorbs = (node: Shape): boolean =>
   ANY.has(node.name) ||
   node.name === "fieldOr" ||
+  node.name === "exactOptional" ||
   node.name === "record" ||
   // `{head, next?}` over a head that may be absent, and it or `head | self[]`
   // over `any`/`unknown`: every field may be absent, or anything goes.

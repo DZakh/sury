@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ a: S.protobufField(S.uint8Array, 1) }).with(S.to, S.protobuf)"
   input: "{ a: Uint8Array<ArrayBufferLike>; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5196
+  instantiations: 5380
 jsonSchema:
   input: "Failed at a: Expected JSON, received Uint8Array"
   output: Expected JSON, received Uint8Array

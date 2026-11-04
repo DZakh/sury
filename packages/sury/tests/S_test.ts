@@ -769,6 +769,50 @@ test("Object with an S.optional(S.never) field is inferred as optional undefined
   t.expect(value).toEqual({ key: "value", oldKey: undefined });
 });
 
+test("S.exactOptional: the key may be missing, the value may not be undefined", (t) => {
+  const schema = S.schema({ a: S.string, f: S.exactOptional(S.number) });
+
+  // Under `exactOptionalPropertyTypes` (tsconfig.exactOptional.json) this is
+  // the one reading that tells it from `S.optional`'s `f?: number | undefined`.
+  expectSchemaType(schema).toBe<{ a: string; f?: number }>();
+  expectSchemaType(S.schema({ f: S.number.with(S.exactOptional) })).toBe<{ f?: number }>();
+  expectSchemaType(
+    S.schema({ f: S.exactOptional(S.string.with(S.to, S.number)) }),
+  ).toBe<{ f?: string }, { f?: number }>();
+  expectSchemaType(S.schema({ o: { f: S.exactOptional(S.boolean) }, t: [1, S.string] })).toBe<{
+    o: { f?: boolean };
+    t: [1, string];
+  }>();
+  // Outside an object it is the schema it wraps.
+  expectSchemaType(S.exactOptional(S.number)).toBe<number>();
+
+  t.expect(S.parseOrThrow(schema, { a: "x" })).toStrictEqual({ a: "x" });
+  t.expect(() => S.parseOrThrow(schema, { a: "x", f: undefined })).toThrow(
+    "Failed at f: Expected number, received undefined",
+  );
+});
+
+test("S.exactOptional: schemaOf matches it against an optional key", () => {
+  type User = { name: string; age?: number };
+  S.schemaOf<User>()({ name: S.string, age: S.exactOptional(S.number) });
+  // @ts-expect-error - the type lets `age` be missing, the schema doesn't
+  S.schemaOf<User>()({ name: S.string, age: S.number });
+  // @ts-expect-error - the type requires `name`
+  S.schemaOf<User>()({ name: S.exactOptional(S.string), age: S.exactOptional(S.number) });
+});
+
+test("S.exactOptional: an S.object field reads undefined when the key is missing", (t) => {
+  const schema = S.object((s) => ({
+    name: s.field("a", S.string),
+    age: s.field("f", S.exactOptional(S.number)),
+  }));
+
+  const value = S.parseOrThrow(schema, { a: "x" });
+  expectTypeOf(value.age).toEqualTypeOf<number | undefined>();
+  t.expect(value).toStrictEqual({ name: "x", age: undefined });
+  t.expect(S.encodeOrThrow(schema, { name: "x", age: undefined })).toStrictEqual({ a: "x" });
+});
+
 test("S.name", (t) => {
   t.expect(S.toInputExpression(S.unknown.with(S.meta, { name: "BlaBla" }))).toBe(
     `BlaBla`,

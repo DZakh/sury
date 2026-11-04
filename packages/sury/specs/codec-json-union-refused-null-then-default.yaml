@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.literal(null).with(S.refine, () => false), S.optional(S.string, "d"), S.literal(null).with(S.refine, () => true)]))
   input: JSON
   output: string | null
-  instantiations: 6340
+  instantiations: 6568
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
   fromInputType: string | null

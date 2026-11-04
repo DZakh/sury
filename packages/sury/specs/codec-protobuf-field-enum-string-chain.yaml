@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobufField(S.union(["a", "b"]).with(S.to, S.union([0, 1])), { number: 1, type: "enum" })'
   input: '"a" | "b"'
   output: 0 | 1
-  instantiations: 5354
+  instantiations: 5609
 jsonSchema:
   input: '{ enum: ["a", "b"] }'
   output: "{ enum: [0, 1] }"

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.optional(S.union([S.protobufField(S.number.with(S.to, S.literal(0)), { number: 1, type: "enum" }), S.protobufField(S.string, 2)])) }).with(S.to, S.protobuf)'
   input: "{ k?: string | number | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7612
+  instantiations: 7945
 jsonSchema:
   input: '{ type: "object", properties: { k: { anyOf: [{ type: "number", const: 0 }, { type: "string" }] } } }'
   fromInputType: "{ k?: string | 0 | undefined; }"

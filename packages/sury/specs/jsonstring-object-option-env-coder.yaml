@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ a: (S as any).$option(S.env.with(S.to, (S as any).$option(S.env))) as S.Schema<string | undefined, string | undefined> }).with(S.to, S.jsonString)"
   input: "{ a?: string | undefined; }"
   output: string
-  instantiations: 6307
+  instantiations: 6491
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } } }'
   # FIXME: the same crash as parse

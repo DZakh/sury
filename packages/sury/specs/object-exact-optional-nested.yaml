@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ o: S.exactOptional(S.schema({ x: S.string.with(S.to, S.number) })) })"
+  input: "{ o?: { x: string; } | undefined; }"
+  output: "{ o?: { x: number; } | undefined; }"
+  instantiations: 7393
+jsonSchema:
+  input: '{ type: "object", properties: { o: { type: "object", properties: { x: { type: "string" } }, required: ["x"] } } }'
+  output: '{ type: "object", properties: { o: { type: "object", properties: { x: { type: "number" } }, required: ["x"] } } }'
+isEqual: (a,b)=>a===b||(a.o===void 0?b.o===void 0:b.o!==void 0&&a.o.x===b.o.x)
+compare:
+  input: "throws: [Sury] Can't compare { o?: { x: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o?: { x: number; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: "z.object({ o: z.object({ x: z.string().pipe(z.coerce.number()) }).exactOptional() })"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i.o;if(v0!==void 0||"o" in i){typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v2=v0.x;typeof v2==="string"||e[1](v2);let v1=+v2;v1==v1&&(v1||v2.trim())||e[0](v2);v0={x:v1};}let v3={};if(v0!==void 0){v3.o=v0}return v3}catch(v4){e[4](v4)}}
+    examples:
+      present:
+        input: '{ o: { x: "1" } }'
+        output: "{ o: { x: 1 } }"
+      absent:
+        input: "{}"
+        output: "{}"
+      explicit-undefined:
+        input: "{ o: undefined }"
+        error: "Failed at o: Expected { x: string; }, received undefined"
+      inner-wrong:
+        input: "{ o: { x: 1 } }"
+        error: "Failed at o.x: Expected string, received 1"
+      inner-not-numeric:
+        input: '{ o: { x: "a" } }'
+        error: 'Failed at o.x: Expected number, received "a"'
+      null-object:
+        input: "{ o: null }"
+        error: "Failed at o: Expected { x: string; }, received null"
+  decode:
+    expression: i=>{try{let v0=i.o;if(v0!==void 0){let v2=v0.x;let v1=+v2;v1==v1&&(v1||v2.trim())||e[0](v2);v0={x:v1};}let v3={};if(v0!==void 0){v3.o=v0}return v3}catch(v4){e[1](v4)}}
+    examples:
+      present:
+        input: '{ o: { x: "2" } }'
+        output: "{ o: { x: 2 } }"
+      absent:
+        input: "{}"
+        output: "{}"
+  encode:
+    expression: i=>{let v0=i.o;if(v0!==void 0){v0={x:""+v0.x};}let v1={};if(v0!==void 0){v1.o=v0}return v1}
+    examples:
+      present:
+        input: "{ o: { x: 2 } }"
+        output: '{ o: { x: "2" } }'
+      absent:
+        input: "{}"
+        output: "{}"

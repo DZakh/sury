@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ id: S.protobufField(S.int32, 1), c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 1) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
   input: '{ id: number; c: { case: "a"; value: number; } | { case?: undefined; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10639
+  instantiations: 11002
 jsonSchema:
   input: "Failed at c.case: Expected JSON, received undefined"
   output: '[Sury] S.protobuf: field number 1 of "c" is already taken'

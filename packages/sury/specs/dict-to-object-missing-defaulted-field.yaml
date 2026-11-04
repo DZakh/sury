@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string).with(S.to, S.schema({ a: S.optional(S.string, "d"), b: S.union([S.optional(S.string, "e"), S.boolean]), c: S.optional(S.string, "0").with(S.to, S.number), d: S.recursive("R", () => S.optional(S.string, "r")) }))'
   input: "{ [x: string]: string; }"
   output: "{ a: string; b: string | boolean; c: number; d: string; }"
-  instantiations: 7707
+  instantiations: 8014
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "string" }, b: { anyOf: [{ type: "string" }, { type: "boolean" }] }, c: { type: "number" }, d: { $ref: "#/$defs/R" } }, required: ["a", "b", "c", "d"], $defs: { R: { type: "string" } } }'

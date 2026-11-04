@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.jsonString, S.schema({ kind: "k0" })])'
   input: 'string | { kind: "k0"; }'
   output: 'string | { kind: "k0"; }'
-  instantiations: 2476
+  instantiations: 2525
 jsonSchema:
   input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'
   output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "object", properties: { kind: { type: "string", const: "k0" } }, required: ["kind"] }] }'

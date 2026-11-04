@@ -143,6 +143,11 @@ export type Schema<TInput = unknown, TOutput = TInput> = {
     ) => Schema<unknown, unknown>,
     callback: (value: TOutput) => TShape
   ): Schema<TInput, TShape>;
+  // Ahead of the generic form, which would return a schema without the mark
+  // that makes an object definition read the field as exact-optional. Matched
+  // by the mark `S.exactOptional` itself carries: relating every other
+  // modifier to its generic signature multiplied their type cost.
+  with(fn: ExactOptional): Schema<TInput, TOutput> & ExactOptional;
   // No argument and one argument each get a dedicated overload: TypeScript
   // resolves them far cheaper than the rest-tuple form below.
   with<TNextInput, TNextOutput>(
@@ -370,7 +375,7 @@ export type UnknownToOutput<T> = T extends {
   : T extends unknown[]
   ? { -readonly [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToOutput<T[K]> }>
+  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToOutput<T[K]> }, T>
   : T;
 
 export type UnknownToInput<T> = T extends {
@@ -382,7 +387,7 @@ export type UnknownToInput<T> = T extends {
   : T extends unknown[]
   ? { -readonly [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToInput<T[K]> }>
+  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToInput<T[K]> }, T>
   : T;
 
 // Lightweight parameter type for inferring a schema's Output/Input: matching
@@ -415,19 +420,54 @@ export function brand<TId extends string, TInput = unknown, TOutput = unknown>(
 ): Schema<TInput, Brand<TOutput, TId>>;
 
 // `TFields` already holds each field's resolved type. A field is optional iff
-// its type admits `undefined`, so an `S.never` field stays required. The split
-// is skipped when no field is optional. Required keys come first, optional last
-// - matching the ordering Zod (and the wider Standard Schema ecosystem) infers,
-// so a Sury type reads the same as its cross-library equivalent.
-type ResolveObject<TFields> = undefined extends TFields[keyof TFields]
-  ? Flatten<
+// its type admits `undefined` or its definition is an `S.exactOptional`, so an
+// `S.never` field stays required. The split is skipped when no field is
+// optional. Required keys come first, optional last - matching the ordering
+// Zod (and the wider Standard Schema ecosystem) infers, so a Sury type reads
+// the same as its cross-library equivalent.
+// A primitive and a readonly tuple reach here as well, and have no fields to
+// mark: read off their apparent members, `length` and the methods would.
+type ResolveObject<TFields, TDef> = SplitObject<
+  TFields,
+  TDef extends readonly unknown[] | string | number | boolean | bigint | symbol | null | undefined
+    ? never
+    : { [K in keyof TDef]: TDef[K] extends ExactOptional ? K : never }[keyof TDef]
+>;
+
+type SplitObject<TFields, TExact> = [TExact] extends [never]
+  ? undefined extends TFields[keyof TFields]
+    ? Flatten<
+        {
+          [K in keyof TFields as undefined extends TFields[K] ? never : K]: TFields[K];
+        } & {
+          [K in keyof TFields as undefined extends TFields[K] ? K : never]?: TFields[K];
+        }
+      >
+    : Flatten<TFields>
+  : Flatten<
       {
-        [K in keyof TFields as undefined extends TFields[K] ? never : K]: TFields[K];
+        [K in keyof TFields as K extends TExact
+          ? never
+          : undefined extends TFields[K]
+          ? never
+          : K]: TFields[K];
       } & {
-        [K in keyof TFields as undefined extends TFields[K] ? K : never]?: TFields[K];
+        [K in keyof TFields as K extends TExact
+          ? K
+          : undefined extends TFields[K]
+          ? K
+          : never]?: TFields[K];
       }
-    >
-  : Flatten<TFields>;
+    >;
+
+// Never there at runtime: what lets an object definition tell an
+// `S.exactOptional` field from the schema it wraps, and `.with` tell
+// `S.exactOptional` itself from any other modifier.
+type ExactOptional = { readonly [" exactOptional"]: true };
+// A schema that takes `undefined` already reads a missing key as that.
+type ExactOptionalOf<TInput, TOutput> = undefined extends TInput
+  ? Schema<TInput, TOutput>
+  : Schema<TInput, TOutput> & ExactOptional;
 
 // Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
@@ -501,8 +541,8 @@ type DefinitionMatches<TDef, TOutput> = TDef extends SchemaLike<unknown, unknown
 
 // Field by field, rather than building the definition's whole output type and
 // comparing that in one go. The answer is the same - Sury reads a field's
-// optionality off whether its type admits `undefined`, which is what a
-// per-field comparison sees - but the whole-object form pays for
+// optionality off whether its type admits `undefined` (or off the definition,
+// for an `S.exactOptional`), which is what a per-field comparison sees - but the whole-object form pays for
 // `UnknownToOutput`'s optional-key split on every call, and that split is a
 // quarter of what the check costs. Arrays keep the whole-object form: `keyof`
 // a tuple carries every array method, which is not a field list.
@@ -511,12 +551,22 @@ type DefinitionFieldsMatch<TDef, TOutput> =
   | Exclude<keyof TDef, keyof TOutput> extends never
   ? {
       [K in keyof TDef]: K extends keyof TOutput
-        ? DefinitionMatches<TDef[K], TOutput[K]>
+        ? FieldMatches<TDef[K], TOutput, K>
         : false;
     }[keyof TDef] extends true
     ? true
     : false
   : false;
+
+// An `S.exactOptional` field matches a key the type may lack, by the value it
+// holds when there. `Required` keeps an explicit `| undefined` only under
+// `exactOptionalPropertyTypes`, the one reading where `age?: number` and
+// `age?: number | undefined` differ.
+type FieldMatches<TField, TOutput, K extends keyof TOutput> = TField extends ExactOptional
+  ? {} extends Pick<TOutput, K>
+    ? DefinitionMatches<TField, Required<Pick<TOutput, K>>[K]>
+    : false
+  : DefinitionMatches<TField, TOutput[K]>;
 
 // What the definition should have been, so TypeScript reports the mismatch on
 // the field that carries it rather than against the whole call. A field that
@@ -536,7 +586,7 @@ type DefinitionMismatch<TDef, TOutput> = TDef extends SchemaLike<unknown, unknow
   : [TOutput] extends [object]
   ? {
       [K in keyof TDef]: K extends keyof TOutput
-        ? DefinitionMatches<TDef[K], TOutput[K]> extends true
+        ? FieldMatches<TDef[K], TOutput, K> extends true
           ? TDef[K]
           : {
               "types do not match": {
@@ -2636,6 +2686,26 @@ export function optional<
   TOr extends undefined ? TOutput | undefined : TOutput
 >;
 
+/**
+ * An object field whose key may be missing, while a value that is there is the
+ * schema's own: an explicit `undefined` fails, as it does under TypeScript's
+ * `exactOptionalPropertyTypes`.
+ *
+ * ```ts
+ * const user = S.schema({ name: S.string, age: S.exactOptional(S.number) });
+ * //? S.Schema<{ name: string; age?: number }>
+ * S.parseOrThrow(user, { name: "Ann" }); // { name: "Ann" }
+ * S.parseOrThrow(user, { name: "Ann", age: undefined }); // throws
+ * ```
+ *
+ * `S.optional` is the one that also takes `undefined`. Over a schema that
+ * already takes it, and outside an object, it is the schema it wraps.
+ */
+export const exactOptional: ExactOptional &
+  (<const TDef = never, TInput = UnknownToInput<TDef>, TOutput = UnknownToOutput<TDef>>(
+    schema: SchemaLike<TInput, TOutput> | TDef
+  ) => ExactOptionalOf<TInput, TOutput>);
+
 export function nullable<
   const TDef = never,
   TInput = UnknownToInput<TDef>,
@@ -2689,10 +2759,15 @@ export const record: <
 ) => Schema<Record<string, TInput>, Record<string, TOutput>>;
 
 type ObjectCtx<TInput extends Record<string, unknown>> = {
-  field: <TFieldOutput>(
-    name: string,
-    schema: SchemaLike<unknown, TFieldOutput>
-  ) => TFieldOutput;
+  field: {
+    // An `S.exactOptional` field's key may be missing; the shape still writes
+    // its own key, holding `undefined`.
+    <TFieldOutput>(
+      name: string,
+      schema: SchemaLike<unknown, TFieldOutput> & ExactOptional
+    ): TFieldOutput | undefined;
+    <TFieldOutput>(name: string, schema: SchemaLike<unknown, TFieldOutput>): TFieldOutput;
+  };
   fieldOr: <TFieldOutput>(
     name: string,
     schema: SchemaLike<unknown, TFieldOutput>,

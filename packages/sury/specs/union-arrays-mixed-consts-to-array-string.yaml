@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.array(S.literal(1)), S.array(S.literal(false)), S.string]).with(S.to, S.union([S.array(S.literal(false)), S.string]))
   input: string | 1[] | false[]
   output: string | false[]
-  instantiations: 6504
+  instantiations: 6805
 jsonSchema:
   input: '{ anyOf: [{ items: { type: "boolean", const: false }, type: "array" }, { type: "string" }] }'
   fromInputType: string | false[]

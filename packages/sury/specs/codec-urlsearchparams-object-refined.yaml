@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.string.with(S.nonEmpty) }).with(S.refine, (v) => v.c !== "bad", { error: "obj refused" }).with(S.to, S.urlSearchParams)'
   input: "{ c: string; }"
   output: URLSearchParams
-  instantiations: 6267
+  instantiations: 6448
 jsonSchema:
   input: '{ type: "object", properties: { c: { type: "string", minLength: 1 } }, required: ["c"] }'
   output: Expected JSON, received URLSearchParams

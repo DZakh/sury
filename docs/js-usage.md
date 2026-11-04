@@ -21,6 +21,7 @@
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
 - [Optionals](#optionals)
+  - [Exact optionals](#exact-optionals)
 - [Nullables](#nullables)
 - [Nullish](#nullish)
 - [Objects](#objects)
@@ -700,6 +701,37 @@ const itemsSchema = S.optional(S.array(item), [{ kind: "a", value: "x" }]);
 
 S.parseOrThrow(itemsSchema, undefined); // => [{ kind: "a", value: "x" }]
 S.optional(S.array(item), [{ v: "x" }]); // throws: Invalid default
+```
+
+### Exact optionals
+
+`S.exactOptional` makes an object field's key optional while the value stays the schema's own, matching TypeScript's [`exactOptionalPropertyTypes`](https://www.typescriptlang.org/tsconfig/#exactOptionalPropertyTypes):
+
+```ts
+const userSchema = S.schema({
+  name: S.string,
+  age: S.exactOptional(S.number),
+});
+type User = S.Infer<typeof userSchema>; // { name: string; age?: number }
+
+S.parseOrThrow(userSchema, { name: "Ann", age: 30 }); // => { name: "Ann", age: 30 }
+S.parseOrThrow(userSchema, { name: "Ann" }); // => { name: "Ann" }
+S.parseOrThrow(userSchema, { name: "Ann", age: undefined }); // throws: Failed at age: Expected number, received undefined
+```
+
+With `S.optional(S.number)` the same field is `age?: number | undefined`: it takes `undefined`, and a missing key is read as `age: undefined`.
+
+The field is left out of the JSON Schema's `required`, and encoding leaves out a key that isn't there. Outside an object, and over a schema that already takes `undefined` (`S.optional(x)`, `S.unknown`), `S.exactOptional(schema)` is `schema`. A modifier applied on top of it, such as `.with(S.refine, ...)`, makes the field required again, so apply `S.exactOptional` last.
+
+In [`S.object`](#advanced-object-schema), `s.field` reads a missing key as `undefined`:
+
+```ts
+const schema = S.object((s) => ({
+  age: s.field("user_age", S.exactOptional(S.number)),
+}));
+
+S.parseOrThrow(schema, {}); // => { age: undefined }
+S.encodeOrThrow(schema, { age: undefined }); // => {}
 ```
 
 ## Nullables

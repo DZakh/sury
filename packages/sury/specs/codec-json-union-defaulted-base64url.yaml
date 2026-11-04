@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.nullable(S.base64url, "aGk"), S.literal(1)]))
   input: JSON
   output: string | 1
-  instantiations: 5662
+  instantiations: 5890
 jsonSchema:
   input: '{ anyOf: [{ type: "string", contentEncoding: "base64url" }, { type: "number", const: 1 }] }'
   fromInputType: string | 1

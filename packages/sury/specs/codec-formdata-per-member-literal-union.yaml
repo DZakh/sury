@@ -3,7 +3,7 @@ ts:
   schema: 'S.formData.with(S.to, S.schema({ k: S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]) }))'
   input: FormData
   output: "{ k: 0 | 1; }"
-  instantiations: 7319
+  instantiations: 7679
 jsonSchema:
   input: Expected JSON, received FormData
   output: '{ type: "object", properties: { k: { enum: [0, 1] } }, required: ["k"] }'

@@ -30,6 +30,8 @@ import {
   initialOnAdditionalItems,
   inputExpression,
   isOptional,
+  isExactOptional,
+  copySchema,
   type Internal,
   objectTag,
   panic,
@@ -38,6 +40,7 @@ import {
   stringTag,
   U,
   unknown,
+  unknownTag,
   type Val
 } from "./base";
 import {
@@ -420,6 +423,16 @@ export const optional = (definition: unknown, maybeOr: unknown): Internal => {
 };
 
 // @__NO_SIDE_EFFECTS__
+export const exactOptional = (definition: unknown): Internal => {
+  const schema = definitionToSchema(definition);
+  // A missing key already reads as the `undefined` such a schema takes.
+  if (isOptional(schema) || schema.type === unknownTag) return schema;
+  const mut = copySchema(schema);
+  Object.defineProperty(mut, "exactOptional", { value: unionWrap(schema, [unit]) });
+  return mut;
+};
+
+// @__NO_SIDE_EFFECTS__
 export const nullable = (definition: unknown, maybeOr: unknown): Internal => {
   const schema = unionWrap(definitionToSchema(definition), [maybeOr === U ? nullLiteral : nullAsUnit]);
   return maybeOr === U ? schema : emptyOr(schema, maybeOr);
@@ -447,7 +460,9 @@ export const merge = (s1: Internal, s2: Internal): Internal => {
   const properties = { ...s1.properties!, ...s2.properties! };
 
   const mut = baseSchema(objectTag, false, objectDecoder);
-  mut.required = Object.keys(properties).filter((k) => !isOptional(properties[k]!));
+  mut.required = Object.keys(properties).filter(
+    (k) => !isOptional(properties[k]!) && !isExactOptional(k in s2.properties! ? s2 : s1, k)
+  );
   mut.properties = properties;
   mut.additionalItems = s1.additionalItems;
   return mut;

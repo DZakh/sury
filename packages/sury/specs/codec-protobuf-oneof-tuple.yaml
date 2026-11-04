@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ id: S.int32.with(S.protobufField, 1), contact: S.union([S.tuple(["email", S.string.with(S.protobufField, 2)]), S.tuple(["home", S.protobufField(S.schema({ street: S.string.with(S.protobufField, 1) }), { number: 3, type: "message" })]), S.tuple(["none"])]) }).with(S.to, S.protobuf)'
   input: '{ id: number; contact: ["email", string] | ["home", { street: string; }] | ["none"]; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11357
+  instantiations: 11746
 jsonSchema:
   input: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, contact: { anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "email" }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "home" }, { type: "object", properties: { street: { type: "string" } }, required: ["street"] }] }, { type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "none" }] }] } }, required: ["id", "contact"] }'
   output: Expected JSON, received Uint8Array

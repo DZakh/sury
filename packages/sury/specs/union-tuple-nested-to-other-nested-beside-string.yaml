@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.tuple([S.tuple([S.literal("a")]), S.string]).with(S.to, S.union([S.tuple([S.tuple([S.literal("b")]), S.string]), S.tuple([S.tuple([S.literal("c")]), S.string])])), S.string])
   input: string | [["a"], string]
   output: string | [["b"], string] | [["c"], string]
-  instantiations: 11858
+  instantiations: 12100
 jsonSchema:
   input: '{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "a" }] }, { type: "string" }] }, { type: "string" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "b" }] }, { type: "string" }] }, { type: "array", minItems: 2, maxItems: 2, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "c" }] }, { type: "string" }] }] }, { type: "string" }] }'

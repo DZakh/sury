@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.string.with(S.to, S.number, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value.length } }, encode: (value) => "x".repeat(value) }), S.string])'
   input: string
   output: string | number
-  instantiations: 5327
+  instantiations: 5459
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'

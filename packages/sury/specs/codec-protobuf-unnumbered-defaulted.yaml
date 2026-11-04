@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.optional(S.string, "x") }).with(S.to, S.protobuf)'
   input: "{ a?: string | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5821
+  instantiations: 6005
 jsonSchema:
   input: '{ type: "object", properties: { a: { default: "x", type: "string" } } }'
   output: '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value'

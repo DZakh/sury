@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ id: S.protobufField(S.int32, { number: 1, type: "int32" }), contact: S.union([S.schema({ case: "email", value: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema({ case: "home", value: S.protobufField(S.schema({ street: S.protobufField(S.string, { number: 1, type: "string" }) }), { number: 3, type: "message" }) }), S.schema({ case: undefined, value: S.optional(S.schema(undefined)) })]) }).with(S.to, S.protobuf)'
   input: '{ id: number; contact: { case: "email"; value: string; } | { case: "home"; value: { street: string; }; } | { case?: undefined; value?: undefined; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 14123
+  instantiations: 14712
 jsonSchema:
   input: "Failed at contact.case: Expected JSON, received undefined"
   output: Expected JSON, received Uint8Array

@@ -3,7 +3,7 @@ ts:
   schema: '((R) => S.union([S.schema({ t: "a", n: S.array(R) }), S.schema({ t: "c", n: S.array(R) })]).with(S.to, R))(S.recursive("R", (self) => S.schema({ t: S.union(["a", "b"]), n: S.array(self) })))'
   input: '{ t: "a"; n: unknown[]; } | { t: "c"; n: unknown[]; }'
   output: unknown
-  instantiations: 10709
+  instantiations: 11167
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "c" }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R: { type: "object", properties: { t: { enum: ["a", "b"] }, n: { items: { $ref: "#/$defs/R" }, type: "array" } }, required: ["t", "n"] } } }'
   fromInputType: '{ t: "a"; n: { t: "a" | "b"; n: ...[]; }[]; } | { t: "c"; n: { t: "a" | "b"; n: ...[]; }[]; }'

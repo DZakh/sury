@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.union([S.tuple([S.literal("a").with(S.to, S.literal("A")), S.string.with(S.protobufField, 2)]), S.tuple([S.literal("n").with(S.to, S.literal("N"))])]) }).with(S.to, S.protobuf)'
   input: '{ c: ["a", string] | ["n"]; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11357
+  instantiations: 11766
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "a" }, { type: "string" }] }, { type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "n" }] }] } }, required: ["c"] }'
   output: Expected JSON, received Uint8Array

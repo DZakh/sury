@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.union([S.date, S.schema({ kind: "k", v: S.string })]))'
   input: JSON
   output: 'Date | { kind: "k"; v: string; }'
-  instantiations: 6908
+  instantiations: 7174
 jsonSchema:
   input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "object", properties: { kind: { type: "string", const: "k" }, v: { type: "string" } }, additionalProperties: false, required: ["kind", "v"] }] }'
   fromInputType: 'string | { kind: "k"; v: string; }'

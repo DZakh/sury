@@ -3,7 +3,7 @@ ts:
   schema: "S.array(S.object((s) => s.flatten(S.schema({ a: S.string }).with(S.refine, (v) => v.a.length > 0))))"
   input: Record<string, unknown>[]
   output: "{ a: string; }[]"
-  instantiations: 6086
+  instantiations: 6270
 jsonSchema:
   input: '{ items: { type: "object", properties: { a: { type: "string" } }, required: ["a"] }, type: "array" }'
   fromInputType: "{ a: string; }[]"

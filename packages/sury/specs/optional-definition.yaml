@@ -3,7 +3,7 @@ ts:
   schema: "S.optional({ a: S.boolean })"
   input: "{ a: boolean; } | undefined"
   output: "{ a: boolean; } | undefined"
-  instantiations: 1354
+  instantiations: 1406
 jsonSchema:
   input: "Expected JSON, received { a: boolean; } | undefined"
   output: "Expected JSON, received { a: boolean; } | undefined"

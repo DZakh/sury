@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.protobufField(S.optional(S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))])), { number: 1, type: "enum" }) }).with(S.to, S.protobuf)'
   input: '{ k?: "a" | "b" | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8085
+  instantiations: 8445
 jsonSchema:
   input: '{ type: "object", properties: { k: { enum: ["a", "b"] } } }'
   output: Expected JSON, received Uint8Array

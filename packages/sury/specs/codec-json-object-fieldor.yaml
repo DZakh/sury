@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.int32), 2) })))'
   input: JSON
   output: "{ f: number | null; }"
-  instantiations: 4983
+  instantiations: 5115
 jsonSchema:
   # FIXME: under S.json a field the decode reads as absent (a default, `void`)
   # is still `required` here, because the input side is rendered from what

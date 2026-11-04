@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ n: S.protobufField(S.nullable(S.number), { number: 1, type: "double" }), u: S.protobufField(S.nullable(S.union([S.number, S.schema(NaN)])), { number: 2, type: "float" }) }).with(S.to, S.protobuf)'
   input: "{ n: number | null; u: number | null; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6310
+  instantiations: 6588
 jsonSchema:
   input: "Failed at u: Expected JSON, received number | NaN | null"
   output: Expected JSON, received Uint8Array

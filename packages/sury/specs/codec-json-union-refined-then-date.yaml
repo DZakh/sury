@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.union([S.boolean, S.string.with(S.to, S.number)]).with(S.refine, () => true), S.date]))
   input: JSON
   output: number | boolean | Date
-  instantiations: 6862
+  instantiations: 7077
 jsonSchema:
   input: '{ anyOf: [{ type: "boolean" }, { type: "string" }, { type: "string", format: "date-time" }] }'
   fromInputType: string | boolean

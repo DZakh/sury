@@ -3,7 +3,7 @@ ts:
   schema: '((S as any).$to as typeof S.to)(S.string, S.string.with(S.to, S.number), { decode: "never", encode: "auto" } as any)'
   input: string
   output: number
-  instantiations: 4695
+  instantiations: 4827
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'

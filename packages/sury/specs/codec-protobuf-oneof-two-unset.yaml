@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema({ case: "x" }), S.schema({ case: "y" })]) }).with(S.to, S.protobuf)'
   input: '{ c: { case: "a"; value: number; } | { case: "x"; } | { case: "y"; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10335
+  instantiations: 10720
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "x" } }, required: ["case"] }, { type: "object", properties: { case: { type: "string", const: "y" } }, required: ["case"] }] } }, required: ["c"] }'
   output: "[Sury] S.protobuf: oneof \"c\" has two arms for no member set, which a decode can't choose between. Keep one"

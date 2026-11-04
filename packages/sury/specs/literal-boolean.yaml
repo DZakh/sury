@@ -5,7 +5,7 @@ ts:
     - S.literal(true)
   input: "true"
   output: "true"
-  instantiations: 378
+  instantiations: 398
 jsonSchema:
   input: '{ type: "boolean", const: true }'
   output: '{ type: "boolean", const: true }'

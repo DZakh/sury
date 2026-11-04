@@ -3,7 +3,7 @@ ts:
   schema: S.union(["a", "b", "c"]).with(S.to, S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]))
   input: '"a" | "b" | "c"'
   output: 0 | 1
-  instantiations: 6653
+  instantiations: 6981
 jsonSchema:
   input: '{ enum: ["a", "b"] }'
   fromInputType: '"a" | "b"'

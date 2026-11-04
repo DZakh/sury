@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ x: S.optional(S.schema(0).with(S.to, S.union([1, 2]))) })"
   input: "{ x?: 0 | undefined; }"
   output: "{ x?: 1 | 2 | undefined; }"
-  instantiations: 7070
+  instantiations: 7369
 jsonSchema:
   input: '{ type: "object", properties: { x: { type: "number", const: 0 } } }'
   output: '{ type: "object", properties: { x: { enum: [1, 2] } } }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.number.with(S.to, S.string).with(S.to, S.union([S.literal("1").with(S.to, S.literal(10)), S.literal("2").with(S.to, S.literal(20))])), a: S.array(S.string.with(S.to, S.boolean).with(S.to, S.union([S.literal(true).with(S.to, S.literal(1)), S.literal(false).with(S.to, S.literal(0))]))), r: S.record(S.number.with(S.to, S.string).with(S.to, S.union([S.literal("1").with(S.to, S.literal(10)), S.literal("2").with(S.to, S.literal(20))]))) })'
   input: "{ k: number; a: string[]; r: Record<string, number>; }"
   output: "{ k: 10 | 20; a: (0 | 1)[]; r: Record<string, 10 | 20>; }"
-  instantiations: 11049
+  instantiations: 11503
 jsonSchema:
   input: '{ type: "object", properties: { k: { type: "number" }, a: { items: { enum: ["true", "false"] }, type: "array" }, r: { type: "object", additionalProperties: { type: "number" } } }, required: ["k", "a", "r"] }'
   fromInputType: '{ k: number; a: ("true" | "false")[]; r: { [key: string]: number; }; }'

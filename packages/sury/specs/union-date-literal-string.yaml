@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.literal(new Date(0)), S.string])
   input: "string | { toString: () => string; toDateString: () => string; toTimeString: () => string; toLocaleString: { (): string; (locales?: string | string[] | undefined, options?: DateTimeFormatOptions | undefined): string; (locales?: LocalesArgument, options?: DateTimeFormatOptions | undefined): string; }; ... 40 more ......"
   output: "string | { toString: () => string; toDateString: () => string; toTimeString: () => string; toLocaleString: { (): string; (locales?: string | string[] | undefined, options?: DateTimeFormatOptions | undefined): string; (locales?: LocalesArgument, options?: DateTimeFormatOptions | undefined): string; }; ... 40 more ......"
-  instantiations: 3516
+  instantiations: 3772
 jsonSchema:
   input: Expected JSON, received Date | string
   output: Expected JSON, received Date | string

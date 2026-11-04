@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ payload: S.protobufField(S.union([S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User"), S.protobufTypeName(S.schema({ total: S.protobufField(S.int32, 1) }), "acme.v1.Order")]), 1) }).with(S.to, S.protobuf)'
   input: "{ payload: { id: number; } | { total: number; }; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9450
+  instantiations: 9883
 jsonSchema:
   input: '{ type: "object", properties: { payload: { anyOf: [{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] }, { type: "object", properties: { total: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["total"] }] } }, required: ["payload"] }'
   output: "[Sury] S.protobufAny can't tell its members apart. Give each a literal, such as type: \"user\", beside the message it holds"

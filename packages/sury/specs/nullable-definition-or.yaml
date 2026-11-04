@@ -3,7 +3,7 @@ ts:
   schema: "S.nullable({ a: S.boolean }, { a: false })"
   input: "{ a: boolean; } | null"
   output: "{ a: boolean; }"
-  instantiations: 1303
+  instantiations: 1355
 jsonSchema:
   input: '{ default: { a: false }, anyOf: [{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }, { type: "null" }] }'
   output: '{ type: "object", properties: { a: { type: "boolean" } }, required: ["a"] }'

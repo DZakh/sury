@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ f: S.union([S.refine(S.optional(S.string), (v) => v !== "bad"), S.number]) }))'
   input: JSON
   output: "{ f?: string | number | undefined; }"
-  instantiations: 7103
+  instantiations: 7363
 jsonSchema:
   input: '{ type: "object", properties: { f: { anyOf: [{ type: "string" }, { type: "number" }] } }, additionalProperties: false }'
   fromInputType: "{ f?: string | number | undefined; }"

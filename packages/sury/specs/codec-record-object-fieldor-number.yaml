@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string).with(S.to, S.object((s) => ({ a: s.fieldOr("a", S.number, 9) })))'
   input: "{ [x: string]: string; }"
   output: "{ a: number; }"
-  instantiations: 4964
+  instantiations: 5096
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'

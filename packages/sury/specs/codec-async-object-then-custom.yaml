@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.string.with(S.to, S.string, { decode: { async: async (value) => value }, encode: (value) => value }) }).with(S.to, S.number, { decode: (object) => { if (object.a === "bad") throw new Error("nope"); return object.a.length }, encode: (length) => ({ a: "x".repeat(length) }) })'
   input: "{ a: string; }"
   output: number
-  instantiations: 5637
+  instantiations: 5821
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "number" }'

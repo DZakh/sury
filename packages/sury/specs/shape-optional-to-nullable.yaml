@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ a: S.shape(S.optional(S.string).with(S.to, S.nullable(S.string)), (v) => ({ v })) })"
   input: "{ a?: string | undefined; }"
   output: "{ a: { v: string | null; }; }"
-  instantiations: 6541
+  instantiations: 6728
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } } }'
   output: '{ type: "object", properties: { a: { type: "object", properties: { v: { anyOf: [{ type: "string" }, { type: "null" }] } }, required: ["v"] } }, required: ["a"] }'

@@ -3,7 +3,7 @@ ts:
   schema: S.string.with(S.to, S.number, "unpack")
   input: string
   output: number
-  instantiations: 4446
+  instantiations: 4578
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "number" }'

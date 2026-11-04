@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string).with(S.to, S.schema({ a: S.shape(S.optional(S.string, "d"), (v) => ({ v })) }))'
   input: "{ [x: string]: string; }"
   output: "{ a: { v: string; }; }"
-  instantiations: 6163
+  instantiations: 6426
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "object", properties: { v: { type: "string" } }, required: ["v"] } }, required: ["a"] }'

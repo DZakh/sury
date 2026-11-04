@@ -3,7 +3,7 @@ ts:
   schema: '(() => { let saved: unknown; try { S.parseOrThrow(1, S.string) } catch (e) { saved = e } return S.recursive("N", (n) => S.schema({ v: S.string, kid: S.optional(n) }).with(S.refine, (x) => { if ((x as { v: string }).v === "bad") { throw saved } return true })) })()'
   input: unknown
   output: unknown
-  instantiations: 8322
+  instantiations: 8615
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v"] } } }'
   fromInputType: "{ v: string; kid?: ... | undefined; }"

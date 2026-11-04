@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.env.with(S.to, S.union([S.boolean, S.optional(S.number, 3)])), S.optional(S.string)])
   input: string | undefined
   output: string | number | boolean | undefined
-  instantiations: 6467
+  instantiations: 6682
 jsonSchema:
   input: Expected JSON, received env | string | undefined
   output: Expected JSON, received boolean | number | string | undefined

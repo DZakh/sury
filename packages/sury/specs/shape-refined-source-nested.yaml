@@ -3,7 +3,7 @@ ts:
   schema: 'S.shape(S.schema({ n: S.schema({ x: S.string }).with(S.refine, (v) => v.x !== "bad", { error: "refused" }) }), (v) => ({ w: v.n.x }))'
   input: "{ n: { x: string; }; }"
   output: "{ w: string; }"
-  instantiations: 3219
+  instantiations: 3407
 jsonSchema:
   input: '{ type: "object", properties: { n: { type: "object", properties: { x: { type: "string" } }, required: ["x"] } }, required: ["n"] }'
   output: '{ type: "object", properties: { w: { type: "string" } }, required: ["w"] }'

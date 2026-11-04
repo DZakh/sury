@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.meta(S.union([S.string.with(S.refine, (v) => v.length > 2, { error: "Too short" }), S.number]), { description: "d" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 2683
+  instantiations: 2766
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }], description: "d" }, { type: "boolean" }] }'

@@ -6,7 +6,7 @@ ts:
     - "S.strip(S.strict(S.schema({a: S.string})))"
   input: "{ a: string; }"
   output: "{ a: string; }"
-  instantiations: 1205
+  instantiations: 1257
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'

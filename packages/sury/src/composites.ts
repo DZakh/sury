@@ -22,6 +22,8 @@ import {
   type Internal,
   isLiteral,
   isOptional,
+  isExactOptional,
+  requiredOf,
   isSchemaObject,
   noopDecoder,
   nullTag,
@@ -287,20 +289,21 @@ export const completeObjectVal = (objectVal: Val, inUnion?: boolean): Val => {
     operationInput.io = true;
     let result = "";
     let operationCode = B_detached(objectVal.g, () => {
+      // Inside the `.then`, where the fields the optional ones read are bound,
+      // and before the rest of the pipeline reads the object: the sync branch
+      // below sets them on the literal the same way.
+      let code = "";
+      if (optionalSettingCode !== U) {
+        const objectVar = B_varWithoutAllocation(objectVal.g);
+        code = B_let(objectVal.g, objectVar, operationInput.i) + optionalSettingCode(objectVar);
+        operationInput.i = objectVar;
+        operationInput.v = _var;
+      }
       const operationOutput = parse(operationInput);
-      let code = B_merge(operationOutput);
+      code += B_merge(operationOutput);
       result = operationOutput.i;
       objectVal.s = operationOutput.s;
       objectVal.e = operationOutput.e;
-      // Inside the `.then`, where the fields the optional ones read are bound:
-      // the sync branch below appends the same code after the literal, and
-      // leaving it off here dropped every optional field of an object that had
-      // any async one.
-      if (optionalSettingCode !== U) {
-        const objectVar = B_varWithoutAllocation(objectVal.g);
-        code += B_let(objectVal.g, objectVar, result) + optionalSettingCode(objectVar);
-        result = objectVar;
-      }
       return code;
     });
 
@@ -697,23 +700,42 @@ export const objectDecoder = (unknownInput: Val): Val => {
     for (let idx = 0; idx < keysCount; idx++) {
       const key = keys[idx]!;
       const schema = properties[key]!;
+      const exact = isExactOptional(expectedSchema, key);
+      let presence: string | undefined;
 
       const itemInput = valGet(input, key);
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion;
-      if (isJsonParent && isOptional(schema)) {
+      if (exact) {
+        let read = itemInput.s;
+        if (read.encoder === missingKeyEncoder) read = read.anyOf![0]!;
+        else itemInput.s = wrapDictMissingKeyLight(read);
+        // Only a read that can hold `undefined` has to ask whether the key
+        // is there: a typed field, a dict value or a JSON one is the item or
+        // missing.
+        presence =
+          read.type === unknownTag || isOptional(read)
+            ? key in Object.prototype
+              ? `Object.hasOwn(${input.v()},${inlinedValueFromString(key)})`
+              : `${inlinedValueFromString(key)} in ${input.v()}`
+            : "";
+      } else if (isJsonParent && isOptional(schema)) {
         itemInput.s = wrapDictMissingKeyLight(itemInput.s);
       }
-      if (fused !== U && !(isUnion && isLiteral(schema))) {
+      const tag = !exact && isUnion && isLiteral(schema);
+      if (fused !== U && !tag) {
         B_addObjectField(objectVal, key, itemInput);
         continue;
       }
       B_narrowJsonSourcedJsonString(itemInput);
 
       B_field(objectVal, key, () => {
-        const itemOutput = parse(itemInput);
-        if (isUnion && isLiteral(schema)) {
+        // Called rather than reached through `parse`, which skips a source's
+        // encoder in front of an `unknown`-typed target (`S.list`'s output).
+        const itemOutput = exact ? missingKeyEncoder(itemInput, schema, presence) : parse(itemInput);
+        if (exact) itemOutput.o = true;
+        if (tag) {
           B_hoistChildChecks(input, literalRead(itemOutput, itemInput), key);
         }
         if (!shouldRecreateInput) {
@@ -813,7 +835,7 @@ export const traverseDefinition = (
             node[location] = traverseDefinition(node[location], onNode);
           }
           const mut = baseSchema(objectTag, false, objectDecoder);
-          mut.required = fieldNames;
+          mut.required = requiredOf(node as Record<string, Internal>);
           mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
           return mut;
@@ -829,16 +851,26 @@ export const traverseDefinition = (
 // not put the union compiler on the objectDecoder/arrayDecoder SCC. The key's
 // presence is asked before the item's decode, which would otherwise coerce a
 // missing key into the string `"undefined"`.
-const missingKeyEncoder: Encoder = (input, target) => {
+//
+// `exact` is set when the target key is exact-optional: a missing key is left
+// missing whatever the target is. A non-empty one is the code that tells a key
+// holding `undefined` from a missing one, for a read that can hold it: such a
+// key is decoded like any other, so it fails exactly when the item rejects
+// `undefined`.
+const missingKeyEncoder = (input: Val, target: Internal, exact?: string): Val => {
   const item = input.s.anyOf![0]!;
-  const v = input.v();
+  // Named once something reads it: a typed exact-optional key whose value
+  // needs nothing stays the read it is.
+  let v = exact === U ? input.v() : "";
+  const name = () => (v ||= input.v());
   // An env var's unset state is the item's own `undefined` input, which its
   // converter reads as the target's absent arm or rejects itself, so the
   // key's presence is not asked here, and the item keeps its own check.
   const unsetIsInput = item.format === "env";
 
-  // Final: each branch already runs the target's parser and `.to`.
-  const output = B_nextVarOutput(input, v, getOutputSchema(target));
+  let f = 0;
+  let last = 0;
+  let moved = false;
   const body = (source: Internal, u: boolean, e: Internal = target): string => {
     const scope = B_scope(input);
     scope.io = false;
@@ -847,34 +879,54 @@ const missingKeyEncoder: Encoder = (input, target) => {
     scope.u = u;
     B_narrowJsonSourcedJsonString(scope);
     const out = parse(scope);
-    output.f |= out.f & 1;
-    return B_merge(out) + (out.i === v ? "" : `${v}=${out.i};`);
+    f |= last = out.f & 1;
+    if (out.t) moved = true;
+    const code = B_merge(out);
+    return code + (out.i === (v || input.i) ? "" : `${name()}=${out.i};`);
   };
   // JSON's `null` would bridge to the undefined arm; absence has its own branch.
   const present = item.flags & 16 ? presentTarget(target) : target;
   const presentBody = present
     ? body(item, !unsetIsInput, present)
     : B_failInvalidInput(input, target) + ";";
+  const presentAsync = present ? last : 0;
   // `unit` tells `s.fieldOr` to answer with its default; a dispatching union
   // would coerce it, so it reads `unknown`.
-  const absentBody =
-    !unsetIsInput && readsAbsent(target)
-      ? body(target.decoder === noopDecoder ? unit : unknown, false)
-      : "";
+  const absentRuns = exact === U && !unsetIsInput && readsAbsent(target);
+  const absentBody = absentRuns ? body(target.decoder === noopDecoder ? unit : unknown, false) : "";
+  const absentAsync = absentRuns ? last : 0;
+  if (exact !== U && presentBody === "") {
+    const out = B_refine(input, getOutputSchema(target));
+    out.io = true;
+    return out;
+  }
+  // Final: each branch already runs the target's parser and `.to`.
+  const output = B_nextVarOutput(input, name(), getOutputSchema(target));
+  output.f |= f;
   const noAbsentCheck = isOptional(target) || unsetIsInput;
   output.cp = absentBody
     ? presentBody === ""
       ? `if(${v}===void 0){${absentBody}}`
       : `if(${v}!==void 0){${presentBody}}else{${absentBody}}`
     : presentBody === ""
-      ? noAbsentCheck
+      ? noAbsentCheck || exact !== U
         ? ""
         : B_failInvalidInput(input, target, `${v}!==void 0`)
       : unsetIsInput
         ? presentBody
-        : noAbsentCheck
-          ? `if(${v}!==void 0){${presentBody}}`
+        : noAbsentCheck || exact !== U
+          ? `if(${v}!==void 0${exact ? `||${exact}` : ""}){${presentBody}}`
           : `if(${v}!==void 0){${presentBody}}else${B_block(B_failInvalidInput(input, target))}`;
+  // A path that skips the body making the value a promise leaves a plain one,
+  // and what follows an async val calls `.then` on it.
+  if (
+    (absentRuns
+      ? presentAsync !== absentAsync
+      : presentAsync && !unsetIsInput && (noAbsentCheck || exact !== U))
+  )
+    output.cp += `${v}=Promise.resolve(${v});`;
+  // Left in place, an exact-optional key costs its object no rebuild.
+  if (exact !== U) output.t = moved;
   return output;
 };
 
@@ -951,7 +1003,13 @@ export const valGet = (parent: Val, location: string): Val => {
 
   const existing = vals[location];
   if (existing !== U) {
-    return B_scope(existing);
+    const scope = B_scope(existing);
+    // A decoder's field val holds the value it decoded, which says nothing of
+    // whether the key was there.
+    if (parent.s.type === objectTag && isExactOptional(parent.s, location) && !isOptional(scope.s)) {
+      scope.s = wrapDictMissingKeyLight(scope.s);
+    }
+    return scope;
   } else {
     let locationSchema: Internal | undefined;
     if (parent.s.type === objectTag) {
@@ -961,7 +1019,9 @@ export const valGet = (parent: Val, location: string): Val => {
     }
     let schema: Internal;
     if (locationSchema !== U) {
-      schema = locationSchema;
+      schema = parent.s.type === objectTag && isExactOptional(parent.s, location)
+        ? wrapDictMissingKeyLight(locationSchema)
+        : locationSchema;
     } else {
       const additionalItems = parent.s.additionalItems;
       if (isItemSchema(additionalItems)) {

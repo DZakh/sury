@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ c: S.optional(S.union([S.protobufField(S.json, 2), S.protobufField(S.boolean, 3)])) }).with(S.to, S.protobuf)"
   input: "{ c?: JSON | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7134
+  instantiations: 7403
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{}, { type: "boolean" }] } } }'
   output: "[Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"

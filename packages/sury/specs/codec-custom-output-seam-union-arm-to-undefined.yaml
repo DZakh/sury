@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.schema({ a: S.union([S.string.with(S.to, S.schema(undefined), { decode: () => undefined, encode: () => "u" }), S.number]) }), { decode: (i: { v: any }) => i.v, encode: (o: unknown) => ({ v: o }) } as any).with(S.to, S.json)'
   input: "{ v?: unknown; }"
   output: JSON
-  instantiations: 8753
+  instantiations: 9068
 jsonSchema:
   input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
   fromInputType: "{ v: JSON; }"

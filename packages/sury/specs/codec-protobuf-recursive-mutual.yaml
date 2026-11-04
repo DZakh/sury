@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Branch", (branch) => S.schema({ leaf: S.optional(S.recursive("Leaf", () => S.schema({ kids: S.array(branch).with(S.protobufField, 1) }))).with(S.protobufField, 1), n: S.int32.with(S.protobufField, 2) })).with(S.to, S.protobuf)'
   input: unknown
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10860
+  instantiations: 11298
 jsonSchema:
   input: '{ $ref: "#/$defs/Branch", $defs: { Branch: { type: "object", properties: { leaf: { $ref: "#/$defs/Leaf" }, n: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["n"] }, Leaf: { type: "object", properties: { kids: { items: { $ref: "#/$defs/Branch" }, type: "array" } }, required: ["kids"] } } }'
   fromInputType: "{ n: number; leaf?: { kids: ...[]; } | undefined; }"

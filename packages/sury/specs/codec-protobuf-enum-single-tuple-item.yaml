@@ -3,7 +3,7 @@ ts:
   schema: 'S.tuple((s) => ({ kind: s.item(0, S.protobufField(S.union([0]), { number: 1, type: "enum" })) })).with(S.to, S.protobuf)'
   input: unknown[]
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5077
+  instantiations: 5305
 jsonSchema:
   input: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "number", const: 0 }] }'
   fromInputType: "[0]"

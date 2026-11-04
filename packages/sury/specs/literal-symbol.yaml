@@ -5,7 +5,7 @@ ts:
     - S.literal(Symbol.for("tuna"))
   input: symbol
   output: symbol
-  instantiations: 389
+  instantiations: 409
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.optional(S.union([S.schema({ case: "a", value: S.protobufField(S.string, 1) }), S.schema({ case: "b", value: S.protobufField(S.boolean, 2) })]), { case: "b", value: true }) }).with(S.to, S.protobuf)'
   input: '{ c?: { case: "a"; value: string; } | { case: "b"; value: boolean; } | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10438
+  instantiations: 10851
 jsonSchema:
   input: '{ type: "object", properties: { c: { default: { case: "b", value: true }, anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "string" } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "b" }, value: { type: "boolean" } }, required: ["case", "value"] }] } } }'
   output: "[Sury] S.protobuf: oneof \"c\" can't have a default. Drop it and add an arm for no member set"

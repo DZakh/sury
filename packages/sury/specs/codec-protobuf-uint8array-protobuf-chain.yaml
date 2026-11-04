@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobuf.with(S.to, S.instance(Uint8Array).with(S.refine, (bytes) => bytes.length < 4, { error: "Expected at most 3 bytes" })).with(S.to, S.protobuf).with(S.to, S.schema({ a: S.string.with(S.protobufField, 1) }))'
   input: Uint8Array<ArrayBufferLike>
   output: "{ a: string; }"
-  instantiations: 6918
+  instantiations: 7175
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'

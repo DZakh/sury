@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({ TAG: "a", _0: S.string }), S.nullable(S.array(S.string), ["x"]), S.optional(S.instance(Date), new Date(0))])'
   input: '{ TAG: "a"; _0: string; } | string[] | Date | null | undefined'
   output: '{ TAG: "a"; _0: string; } | string[] | Date'
-  instantiations: 3594
+  instantiations: 3664
 jsonSchema:
   input: Expected JSON, received Date | undefined
   output: Expected JSON, received Date

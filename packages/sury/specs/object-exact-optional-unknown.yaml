@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.exactOptional(S.unknown) })"
+  input: "{ f?: unknown; }"
+  output: "{ f?: unknown; }"
+  instantiations: 2266
+jsonSchema:
+  input: '{ type: "object", properties: { f: {} }, required: ["f"] }'
+  fromInputType: "{ f: JSON; }"
+  output: '{ type: "object", properties: { f: {} }, required: ["f"] }'
+  fromOutputType: "{ f: JSON; }"
+isEqual: (a,b)=>a===b||e[0](a.f,b.f)
+compare: "throws: [Sury] Can't compare { f: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: "z.object({ f: z.unknown().exactOptional() })"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[0](i);return {f:i.f}}catch(v0){e[1](v0)}}
+    examples:
+      # FIXME: an `S.unknown` field reads a missing key as `undefined`, as its
+      # type `f?: unknown` says, but the JSON Schema lists it as required.
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+        divergence:
+          reason: The JSON Schema of an `S.unknown` field lists it as required, while parse reads a missing key as the `undefined` it takes.
+          ajv: "input: data must have required property 'f'"
+      explicit-undefined-is-a-value-unknown-takes:
+        input: "{ f: undefined }"
+        output: "{ f: undefined }"
+      present:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
+  decode: identity
+  encode: identity

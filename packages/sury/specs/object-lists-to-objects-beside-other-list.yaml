@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ x: S.array(S.literal(1)), y: S.array(S.literal(5)) }).with(S.to, S.union([S.schema({ x: S.array(S.literal(2)), y: S.array(S.string) }), S.schema({ x: S.array(S.literal(3)), y: S.array(S.string) })]))"
   input: "{ x: 1[]; y: 5[]; }"
   output: "{ x: 2[]; y: string[]; } | { x: 3[]; y: string[]; }"
-  instantiations: 10229
+  instantiations: 10732
 jsonSchema:
   input: '{ type: "object", properties: { x: { items: { type: "number", const: 1 }, type: "array" }, y: { items: { type: "number", const: 5 }, type: "array" } }, required: ["x", "y"] }'
   output: '{ anyOf: [{ type: "object", properties: { x: { items: { type: "number", const: 2 }, type: "array" }, y: { items: { type: "string", const: "5" }, type: "array" } }, additionalProperties: false, required: ["x", "y"] }, { type: "object", properties: { x: { items: { type: "number", const: 3 }, type: "array" }, y: { items: { type: "string", const: "5" }, type: "array" } }, additionalProperties: false, required: ["x", "y"] }] }'

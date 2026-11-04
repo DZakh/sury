@@ -5,7 +5,7 @@ ts:
     - "S.object({a: S.string, b: S.optional(S.number), c: S.boolean, d: S.optional(S.bigint), e: S.symbol})"
   input: "{ a: string; c: boolean; e: symbol; b?: number | undefined; d?: bigint | undefined; }"
   output: "{ a: string; c: boolean; e: symbol; b?: number | undefined; d?: bigint | undefined; }"
-  instantiations: 3676
+  instantiations: 3812
 jsonSchema:
   input: "Failed at d: Expected JSON, received bigint | undefined"
   output: "Failed at d: Expected JSON, received bigint | undefined"

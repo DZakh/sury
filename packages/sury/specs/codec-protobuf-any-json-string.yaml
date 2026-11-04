@@ -3,7 +3,7 @@ ts:
   schema: S.protobufAny.with(S.to, S.jsonString)
   input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
   output: string
-  instantiations: 4537
+  instantiations: 4669
 jsonSchema:
   input: "Failed at value: Expected JSON, received Uint8Array"
   output: '{ type: "string", contentMediaType: "application/json" }'

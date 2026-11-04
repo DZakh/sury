@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ count: S.optional(S.int32).with(S.protobufField, { number: 1, type: "google.protobuf.Int32Value" }), total: S.optional(S.bigint).with(S.protobufField, { number: 2, type: "google.protobuf.UInt64Value" }), label: S.optional(S.string).with(S.protobufField, { number: 3, type: "google.protobuf.StringValue" }), flag: S.optional(S.boolean).with(S.protobufField, { number: 4, type: "google.protobuf.BoolValue" }), ratio: S.optional(S.number).with(S.protobufField, { number: 5, type: "google.protobuf.FloatValue" }), blob: S.optional(S.uint8Array).with(S.protobufField, { number: 6, type: "google.protobuf.BytesValue" }), counts: S.array(S.int32).with(S.protobufField, { number: 7, type: "google.protobuf.Int32Value" }) }).with(S.to, S.protobuf)'
   input: "{ counts: number[]; count?: number | undefined; total?: bigint | undefined; label?: string | undefined; flag?: boolean | undefined; ratio?: number | undefined; blob?: Uint8Array<ArrayBufferLike> | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11381
+  instantiations: 11672
 jsonSchema:
   input: "Failed at total: Expected JSON, received bigint | undefined"
   output: Expected JSON, received Uint8Array

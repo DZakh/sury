@@ -3,7 +3,7 @@ ts:
   schema: '(() => { const refused = (build: () => unknown) => { try { build(); return "built" } catch (e) { return (e as Error).message } }; return S.tuple([S.literal(refused(() => S.union([S.string, (S as any).recursive("A", (self: unknown) => self)]))), S.literal(refused(() => (S as any).recursive("B", (self: unknown) => (S as any).recursive("C", () => self))))]) })()'
   input: "[string, string]"
   output: "[string, string]"
-  instantiations: 1740
+  instantiations: 1842
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" }, { type: "string", const: "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)" }] }'
   fromInputType: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"]'

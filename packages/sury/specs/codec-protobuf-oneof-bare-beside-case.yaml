@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.optional(S.union([S.protobufField(S.string, 1), S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema({ case: "b", value: S.protobufField(S.boolean, 3) })])) }).with(S.to, S.protobuf)'
   input: '{ c?: string | { case: "a"; value: number; } | { case: "b"; value: boolean; } | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10755
+  instantiations: 11168
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "string" }, { type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "b" }, value: { type: "boolean" } }, required: ["case", "value"] }] } } }'
   output: Expected JSON, received Uint8Array

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ payload: S.protobufField(S.schema({ value: S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User") }), { number: 1, type: "google.protobuf.Any" }) }).with(S.to, S.protobuf)'
   input: "{ payload: { value: { id: number; }; }; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7513
+  instantiations: 7899
 jsonSchema:
   input: '{ type: "object", properties: { payload: { type: "object", properties: { value: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] } }, required: ["value"] } }, required: ["payload"] }'
   output: Expected JSON, received Uint8Array

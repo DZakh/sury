@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ f: S.optional(S.jsonString) })"
   input: "{ f?: string | undefined; }"
   output: "{ f?: string | undefined; }"
-  instantiations: 2251
+  instantiations: 2303
 jsonSchema:
   input: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }'
   output: '{ type: "object", properties: { f: { type: "string", contentMediaType: "application/json" } } }'

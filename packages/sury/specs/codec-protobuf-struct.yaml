@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ meta: S.record(S.json).with(S.protobufField, { number: 1, type: "google.protobuf.Struct" }), tags: S.array(S.json).with(S.protobufField, { number: 2, type: "google.protobuf.ListValue" }), mask: S.array(S.string).with(S.protobufField, { number: 3, type: "google.protobuf.FieldMask" }), masks: S.array(S.array(S.string)).with(S.protobufField, { number: 4, type: "google.protobuf.FieldMask" }), none: S.optional(S.schema({})).with(S.protobufField, { number: 5, type: "google.protobuf.Empty" }) }).with(S.to, S.protobuf)'
   input: "{ meta: Record<string, JSON>; tags: JSON[]; mask: string[]; masks: string[][]; none?: {} | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11588
+  instantiations: 11977
 jsonSchema:
   input: '{ type: "object", properties: { meta: { type: "object" }, tags: { items: {}, type: "array" }, mask: { items: { type: "string" }, type: "array" }, masks: { items: { items: { type: "string" }, type: "array" }, type: "array" }, none: { type: "object", properties: {} } }, required: ["meta", "tags", "mask", "masks"] }'
   output: Expected JSON, received Uint8Array

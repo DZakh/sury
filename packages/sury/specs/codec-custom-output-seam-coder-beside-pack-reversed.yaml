@@ -3,7 +3,7 @@ ts:
   schema: 'S.reverse(((S as any).$to as typeof S.to)(S.jsonString, S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }) }), { decode: (v: string) => JSON.parse(v), encode: "pack" } as any))'
   input: "{ name: string; }"
   output: string
-  instantiations: 5854
+  instantiations: 6114
 jsonSchema:
   input: '{ type: "object", properties: { name: { type: "string" } }, required: ["name"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

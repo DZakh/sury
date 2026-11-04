@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ v: S.unknown }).with((S as any).$to as typeof S.to, S.recursive("Node", (self) => S.schema({ name: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }), kids: S.array(self) })), { decode: (i: any) => i.v, encode: (o: any) => ({ v: o }) } as any)'
   input: "{ v?: unknown; }"
   output: unknown
-  instantiations: 9931
+  instantiations: 10342
 jsonSchema:
   input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
   fromInputType: "{ v: JSON; }"

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ o: S.protobufField(S.optional(S.number), { number: 1, type: "double" }), u: S.protobufField(S.nullish(S.number), { number: 2, type: "double" }), l: S.protobufField(S.array(S.nullable(S.number)), { number: 3, type: "double" }) }).with(S.to, S.protobuf)'
   input: "{ l: (number | null)[]; o?: number | undefined; u?: number | null | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7259
+  instantiations: 7485
 jsonSchema:
   input: '{ type: "object", properties: { o: { type: "number" }, u: { anyOf: [{ type: "number" }, { type: "null" }] }, l: { items: { anyOf: [{ type: "number" }, { type: "null" }] }, type: "array" } }, required: ["l"] }'
   output: Expected JSON, received Uint8Array

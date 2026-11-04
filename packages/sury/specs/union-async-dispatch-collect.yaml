@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ f: S.union([S.schema({ t: "b", x: S.string }).with(S.refine, (v) => v.x !== ""), S.schema({ t: "a", v: S.string.with(S.to, S.string, { decode: { async: (value) => Promise.resolve(value) }, encode: (value) => value }) }), S.schema({ t: "a", n: S.number })]) })'
   input: '{ f: { t: "b"; x: string; } | { t: "a"; v: string; } | { t: "a"; n: number; }; }'
   output: '{ f: { t: "b"; x: string; } | { t: "a"; v: string; } | { t: "a"; n: number; }; }'
-  instantiations: 11410
+  instantiations: 11808
 jsonSchema:
   input: '{ type: "object", properties: { f: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "b" }, x: { type: "string" } }, required: ["t", "x"] }, { type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "a" }, n: { type: "number" } }, required: ["t", "n"] }] } }, required: ["f"] }'
   output: '{ type: "object", properties: { f: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "b" }, x: { type: "string" } }, required: ["t", "x"] }, { type: "object", properties: { t: { type: "string", const: "a" }, v: { type: "string" } }, required: ["t", "v"] }, { type: "object", properties: { t: { type: "string", const: "a" }, n: { type: "number" } }, required: ["t", "n"] }] } }, required: ["f"] }'

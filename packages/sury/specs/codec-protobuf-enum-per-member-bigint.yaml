@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.protobufField(S.union([S.literal(1n).with(S.to, S.literal(0)), S.literal(2n).with(S.to, S.literal(1))]), { number: 1, type: "enum" }) }).with(S.to, S.protobuf)'
   input: "{ k: 1n | 2n; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7264
+  instantiations: 7636
 jsonSchema:
   input: "Failed at k: Expected JSON, received 1n | 2n"
   output: Expected JSON, received Uint8Array

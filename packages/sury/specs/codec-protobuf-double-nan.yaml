@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ d: S.protobufField(S.union([S.number, S.schema(NaN)]), { number: 1, type: "double" }), f: S.protobufField(S.array(S.union([S.number, S.schema(NaN)])), { number: 2, type: "float" }), o: S.union([S.schema({ case: "n", value: S.protobufField(S.union([S.number, S.schema(NaN)]), { number: 3, type: "double" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
   input: '{ d: number; f: number[]; o: { case: "n"; value: number; } | { case?: undefined; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11690
+  instantiations: 12151
 jsonSchema:
   input: "Failed at d: Expected JSON, received number | NaN"
   output: Expected JSON, received Uint8Array

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ k: S.protobufField(S.union([0, 1]), { number: 1, type: "enum" }).with(S.to, S.union([S.literal(0).with(S.to, S.literal(1n)), S.literal(1).with(S.to, S.literal(2n))])) }).with(S.to, S.protobuf)'
   input: "{ k: 0 | 1; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 7668
+  instantiations: 8040
 jsonSchema:
   input: '{ type: "object", properties: { k: { enum: [0, 1] } }, required: ["k"] }'
   output: "[Sury] S.protobuf: field \"k\" is an enum holding 1n, which isn't a number. Map it to one with S.to, such as S.literal(1n).with(S.to, S.literal(0))"

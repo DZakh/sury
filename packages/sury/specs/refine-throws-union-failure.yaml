@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ o: S.unknown.with(S.refine, (v: unknown) => { const r = S.parseAsResult(v, S.union([S.schema({ a: S.string }), S.schema({ b: S.number })])); if (!r.success) throw r.error; return true }) })"
   input: "{ o?: unknown; }"
   output: "{ o?: unknown; }"
-  instantiations: 9340
+  instantiations: 9684
 jsonSchema:
   input: '{ type: "object", properties: { o: {} }, required: ["o"] }'
   fromInputType: "{ o: JSON; }"

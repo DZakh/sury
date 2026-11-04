@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.url.with(S.refine, () => true)), null) })).with(S.to, S.jsonString)'
   input: "{ [x: string]: unknown; }"
   output: string
-  instantiations: 5416
+  instantiations: 5548
 jsonSchema:
   input: "Failed at f: Expected JSON, received URL | null"
   output: '{ type: "string", contentMediaType: "application/json" }'

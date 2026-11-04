@@ -29,6 +29,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  isExactOptional,
   jsonName,
   neverTag,
   noopDecoder,
@@ -354,10 +355,15 @@ const objectExpr = (ctx: Ctx, schema: Internal, a: string, b: string): string =>
   let out = "";
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
-    out = ctx.k.join(
-      out,
-      eqExpr(ctx, properties![key]!, inlinedProperty(a, key), inlinedProperty(b, key)),
-    );
+    const property = properties![key]!;
+    const ak = inlinedProperty(a, key), bk = inlinedProperty(b, key);
+    let expr = eqExpr(ctx, property, ak, bk);
+    // An absent key reads `undefined`, which only a primitive's `===` takes
+    // in stride: the rest would read into it or call a literal equal to it.
+    // string 2, number 4, boolean 8, null 32, bigint 1024, symbol 16384.
+    if (isExactOptional(schema, key) && (isLiteral(property) || !(tagFlags[property.type]! & (2 | 4 | 8 | 32 | 1024 | 16384))))
+      expr = ctx.k.nullish(["", `${V}===void 0`], 0, expr, ak, bk, `${bk}!==void 0`);
+    out = ctx.k.join(out, expr);
   }
   return out;
 };

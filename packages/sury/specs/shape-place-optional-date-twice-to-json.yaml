@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ w: S.schema({ a: S.string, d: S.optional(S.string.with(S.to, S.date)) }) }).with(S.shape, (v) => ({ D: v.w.d, W: v.w })).with(S.to, S.json)"
   input: "{ w: { a: string; d?: string | undefined; }; }"
   output: JSON
-  instantiations: 8277
+  instantiations: 8575
 jsonSchema:
   input: '{ type: "object", properties: { w: { type: "object", properties: { a: { type: "string" }, d: { type: "string", format: "date-time" } }, required: ["a"] } }, required: ["w"] }'
   output: '{ type: "object", properties: { D: { type: "string", format: "date-time" }, W: { type: "object", properties: { a: { type: "string" }, d: { type: "string", format: "date-time" } }, additionalProperties: false, required: ["a"] } }, additionalProperties: false, required: ["W"] }'

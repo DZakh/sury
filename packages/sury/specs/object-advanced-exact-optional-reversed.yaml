@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.reverse(S.object((s) => ({ name: s.field("a", S.string), age: s.field("f", S.exactOptional(S.number)) })))'
+  input: "{ name: string; age: number | undefined; }"
+  output: "{ [x: string]: unknown; }"
+  instantiations: 1043
+jsonSchema:
+  input: '{ type: "object", properties: { name: { type: "string" }, age: { type: "number" } }, required: ["name"] }'
+  fromInputType: "{ name: string; age?: number | undefined; }"
+  output: '{ type: "object", properties: { a: { type: "string" }, f: { type: "number" } }, required: ["a"] }'
+  fromOutputType: "{ a: string; f?: number | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||a.name===b.name&&a.age===b.age
+  output: (a,b)=>a===b||a.a===b.a&&a.f===b.f
+compare:
+  input: "throws: [Sury] Can't compare { name: string; age: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string; f?: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.name,v1=i.age;typeof v0==="string"||e[0](v0);(typeof v1==="number"&&v1==v1||v1===void 0)||e[1](v1);let v2={a:v0};if(v1!==void 0){v2.f=v1}return v2}catch(v3){e[3](v3)}}
+    examples:
+      present:
+        input: '{ name: "x", age: 1 }'
+        output: '{ a: "x", f: 1 }'
+      undefined-leaves-the-key-out:
+        input: '{ name: "x", age: undefined }'
+        output: '{ a: "x" }'
+      missing-age-reads-undefined:
+        input: '{ name: "x" }'
+        output: '{ a: "x" }'
+      wrong-type:
+        input: '{ name: "x", age: "1" }'
+        error: 'Failed at age: Expected number | undefined, received "1"'
+  decode:
+    expression: i=>{let v1=i.age;let v0={a:i.name};if(v1!==void 0){v0.f=v1}return v0}
+    examples:
+      undefined:
+        input: '{ name: "x", age: undefined }'
+        output: '{ a: "x" }'
+  encode:
+    expression: i=>{return {name:i.a,age:i.f}}
+    examples:
+      absent:
+        input: '{ a: "x" }'
+        output: '{ name: "x", age: undefined }'
+      present:
+        input: '{ a: "x", f: 1 }'
+        output: '{ name: "x", age: 1 }'

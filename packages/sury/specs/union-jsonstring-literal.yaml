@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.jsonString, S.literal("x")])
   input: string
   output: string
-  instantiations: 1044
+  instantiations: 1064
 jsonSchema:
   input: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", const: "x" }] }'
   output: '{ anyOf: [{ type: "string", contentMediaType: "application/json" }, { type: "string", const: "x" }] }'

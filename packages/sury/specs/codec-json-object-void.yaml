@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.schema({ kind: "k", v: S.void }))'
   input: JSON
   output: '{ kind: "k"; v?: void | undefined; }'
-  instantiations: 6231
+  instantiations: 6497
 jsonSchema:
   # FIXME: under S.json a field the decode reads as absent (a default, `void`)
   # is still `required` here, because the input side is rendered from what

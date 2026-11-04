@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ t: S.exactOptional("a"), x: S.number }), S.schema({ y: S.string })])'
+  input: '{ x: number; t?: "a" | undefined; } | { y: string; }'
+  output: '{ x: number; t?: "a" | undefined; } | { y: string; }'
+  instantiations: 5961
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, x: { type: "number" } }, required: ["x"] }, { type: "object", properties: { y: { type: "string" } }, required: ["y"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, x: { type: "number" } }, required: ["x"] }, { type: "object", properties: { y: { type: "string" } }, required: ["y"] }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, x: { type: "number" } }, required: ["x"] }, { type: "object", properties: { y: { type: "string" } }, required: ["y"] }] }'
+    output: '{ anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["a"] }, x: { type: "number" } }, required: ["x"] }, { type: "object", properties: { y: { type: "string" } }, required: ["y"] }] }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare { t?: \"a\"; x: number; } | { y: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: 'z.union([z.object({ t: z.literal("a").exactOptional(), x: z.number() }), z.object({ y: z.string() })])'
+operations:
+  parse:
+    expression: i=>{try{let v1;for(;;){l7:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.t,v3=i.x;if(v0!==void 0||"t" in i){if(!(v0==="a")){v1=[v1,e[0],v0];break l2}}if(!(typeof v3==="number"&&v3==v3)){v1=[v1,e[1],v3];break l2}let v4={x:v3};if(v0!==void 0){v4.t=v0}i=v4;break}l6:{let v5=i.y;if(!(typeof v5==="string")){v1=[v1,e[2],v5];break l6}i={y:v5};break}break l7}break}}throw e[3](i,v1)}return i}catch(v8){e[4](v8)}}
+    examples:
+      tag-present:
+        input: '{ t: "a", x: 1 }'
+        output: '{ x: 1, t: "a" }'
+      tag-absent:
+        input: "{ x: 1 }"
+        output: "{ x: 1 }"
+      tag-undefined:
+        input: "{ t: undefined, x: 1 }"
+        error: |-
+          Expected { t?: "a"; x: number; } | { y: string; }, received { t: undefined; x: 1; }
+          - At t: Expected "a", received undefined
+          - At y: Expected string, received undefined
+      tag-wrong:
+        input: '{ t: "b", x: 1 }'
+        error: |-
+          Expected { t?: "a"; x: number; } | { y: string; }, received { t: "b"; x: 1; }
+          - At t: Expected "a", received "b"
+          - At y: Expected string, received undefined
+      other-member:
+        input: '{ y: "s" }'
+        output: '{ y: "s" }'
+      neither:
+        input: "{}"
+        error: |-
+          Expected { t?: "a"; x: number; } | { y: string; }, received {}
+          - At x: Expected number, received undefined
+          - At y: Expected string, received undefined
+  decode: identity
+  encode: identity

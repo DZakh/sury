@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.env.with(S.to, S.port), S.schema(undefined)])
   input: string | undefined
   output: number | undefined
-  instantiations: 5406
+  instantiations: 5558
 jsonSchema:
   input: Expected JSON, received env | undefined
   output: Expected JSON, received port | undefined

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ v: S.optional(S.string.with(S.to, S.string, { decode: { async: async (x) => { if (x === "bad") { throw new Error("rejected") } return x } }, encode: "auto" })) })'
   input: "{ v?: string | undefined; }"
   output: "{ v?: string | undefined; }"
-  instantiations: 6607
+  instantiations: 6791
 jsonSchema:
   input: '{ type: "object", properties: { v: { type: "string" } } }'
   output: '{ type: "object", properties: { v: { type: "string" } } }'

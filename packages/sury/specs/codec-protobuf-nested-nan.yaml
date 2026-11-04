@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ inner: S.optional(S.schema({ xs: S.array(S.number).with(S.protobufField, 1), next: S.optional(S.recursive("Node", (self) => S.schema({ n: S.int32.with(S.protobufField, 1), next: S.optional(self).with(S.protobufField, 2) }))).with(S.protobufField, 2) })).with(S.protobufField, 1) }).with(S.to, S.protobuf)'
   input: "{ inner?: { xs: number[]; next?: unknown; } | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 13823
+  instantiations: 14338
 jsonSchema:
   input: '{ type: "object", properties: { inner: { type: "object", properties: { xs: { items: { type: "number" }, type: "array" }, next: { $ref: "#/$defs/Node" } }, required: ["xs"] } }, $defs: { Node: { type: "object", properties: { n: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, next: { $ref: "#/$defs/Node" } }, required: ["n"] } } }'
   fromInputType: "{ inner?: { xs: number[]; next?: { n: number; next?: ... | undefined; } | undefined; } | undefined; }"

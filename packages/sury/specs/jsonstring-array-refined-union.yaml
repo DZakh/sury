@@ -3,7 +3,7 @@ ts:
   schema: 'S.array(S.union([S.schema({ f: S.string }), S.number]).with(S.refine, (value) => value !== 0, { error: "Expected a non-zero item" })).with(S.to, S.jsonString)'
   input: "(number | { f: string; })[]"
   output: string
-  instantiations: 7739
+  instantiations: 7920
 jsonSchema:
   input: '{ items: { anyOf: [{ type: "object", properties: { f: { type: "string" } }, required: ["f"] }, { type: "number" }] }, type: "array" }'
   output: '{ type: "string", contentMediaType: "application/json" }'

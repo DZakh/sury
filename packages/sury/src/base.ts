@@ -491,8 +491,21 @@ export type Internal = {
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
+  // Keys the value always has. A property outside it whose schema has no
+  // place for `undefined` is exact-optional (`isExactOptional`): absent or the
+  // value, never an explicit `undefined`. An optional one reads the same
+  // either way, which is why `S.schema` lists every key and `S.merge` only the
+  // non-optional ones.
   required?: string[];
   properties?: Record<string, Internal>;
+  // Set by `S.exactOptional` alone, and what an object factory reads to leave
+  // the key out of `required` - whether a key may be absent is then the
+  // object's `required`, never this (`isExactOptional`). It holds what an
+  // `S.object` definer places for the field: the schema, or `undefined` for a
+  // missing key. Non-enumerable, so a modifier's copy on top drops it: that
+  // copy is typed as required again. Built here, not where it is read, so only
+  // a bundle using `S.exactOptional` carries the union compiler for it.
+  exactOptional?: Internal;
 
   noValidation?: boolean;
   minimum?: number | bigint;
@@ -770,6 +783,12 @@ export const isLiteral = (schema: Internal): boolean => "const" in schema;
 export const isOptional = (schema: Internal): boolean =>
   schema.type === undefinedTag || (schema.type === anyOfTag && undefinedTag in schema.has!);
 
+export const isExactOptional = (object: Internal, key: string): boolean =>
+  !!object.required && !object.required.includes(key) && !isOptional(object.properties![key]!);
+
+export const requiredOf = (properties: Record<string, Internal>): string[] =>
+  Object.keys(properties).filter((key) => !properties[key]!.exactOptional);
+
 // The constructor name worth printing, or a falsy value for anything a reader
 // would learn nothing from: a plain object, a null prototype, an anonymous
 // class (whose `name` is the empty string). Both callers below key off exactly
@@ -890,7 +909,7 @@ export const inputExpression = (schema: Internal, skipOverride?: boolean): strin
     const additionalItems = schema.additionalItems;
     let body = "";
     for (const location in properties) {
-      body += location + ": " + inputExpression(properties[location]!) + "; ";
+      body += location + (isExactOptional(schema, location) ? "?: " : ": ") + inputExpression(properties[location]!) + "; ";
     }
     if (typeof additionalItems === objectTag) {
       body += "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";

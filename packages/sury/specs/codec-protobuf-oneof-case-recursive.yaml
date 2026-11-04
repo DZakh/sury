@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Tree", (self) => S.schema({ kids: S.union([S.schema({ case: "leaf", value: S.protobufField(S.int32, { number: 1, type: "int32" }) }), S.schema({ case: "node", value: S.protobufField(self, { number: 2, type: "message" }) }), S.schema({ case: undefined })]) })).with(S.to, S.protobuf)'
   input: unknown
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 16245
+  instantiations: 16863
 jsonSchema:
   input: "Failed at kids.case: Expected JSON, received undefined"
   output: Expected JSON, received Uint8Array

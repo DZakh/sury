@@ -63,6 +63,10 @@ const check = (ctx: Ctx): void => {
       report("first", `first issue of ${show(value)} is ${result.error?.message}, parseOrThrow threw ${reason(thrown)}`);
     }
     const standard = validate(value) as Result;
+    // Promisable: a schema that can go async answers a promise even for a value
+    // whose path stayed sync, such as a missing `S.exactOptional` key in front
+    // of a file, which is the only way such a value passes a sync parse.
+    if (standard instanceof Promise) return result;
     if (
       standard.success !== result.success ||
       (standard.issues ?? []).map(said).join("|") !== (result.issues ?? []).map(said).join("|")

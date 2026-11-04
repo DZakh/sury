@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobufAny.with(S.to, S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User"))'
   input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
   output: "{ id: number; }"
-  instantiations: 5748
+  instantiations: 6008
 jsonSchema:
   input: "Failed at value: Expected JSON, received Uint8Array"
   output: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["id"] }'

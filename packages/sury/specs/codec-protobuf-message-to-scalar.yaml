@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ m: S.protobufField(S.schema({ a: S.protobufField(S.int32, 1) }).with(S.to, S.string, { decode: (m) => String(m.a), encode: (s) => ({ a: Number(s) }) }), { number: 1, type: "message" }) }).with(S.to, S.protobuf)'
   input: "{ m: { a: number; }; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6481
+  instantiations: 6722
 jsonSchema:
   input: '{ type: "object", properties: { m: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a"] } }, required: ["m"] }'
   output: "[Sury] S.protobuf: { a: int32; } converts with S.to into something other than a message"

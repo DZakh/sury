@@ -5,7 +5,7 @@ ts:
     - "S.union([S.schema({ a: S.string }), S.number])"
   input: "number | { a: string; }"
   output: "number | { a: string; }"
-  instantiations: 1727
+  instantiations: 1779
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'

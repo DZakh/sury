@@ -3,7 +3,7 @@ ts:
   schema: S.nullable("foo")
   input: '"foo" | null'
   output: '"foo" | null'
-  instantiations: 435
+  instantiations: 455
 jsonSchema:
   input: '{ enum: ["foo", null] }'
   output: '{ enum: ["foo", null] }'

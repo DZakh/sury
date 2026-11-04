@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({ v: S.unknown })"
   input: "{ v?: unknown; }"
   output: "{ v?: unknown; }"
-  instantiations: 2085
+  instantiations: 2137
 jsonSchema:
   input: '{ type: "object", properties: { v: {} }, required: ["v"] }'
   fromInputType: "{ v: JSON; }"

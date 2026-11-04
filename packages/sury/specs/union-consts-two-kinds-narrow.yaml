@@ -3,7 +3,7 @@ ts:
   schema: S.union([1, 2, "x"]).with(S.to, S.union([1, "x"]))
   input: 1 | 2 | "x"
   output: 1 | "x"
-  instantiations: 5096
+  instantiations: 5338
 jsonSchema:
   input: '{ enum: [1, "x"] }'
   fromInputType: 1 | "x"

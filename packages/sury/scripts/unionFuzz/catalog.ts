@@ -74,6 +74,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   enableStandardJSONSchema: skip("mutates global JSON Schema converter"),
   enum: build(),
   env: schema((S) => S.env),
+  exactOptional: skip("marks an object field; outside an object it is the schema it wraps, which the grammar already draws"),
   extendJSONSchema: skip("JSON Schema document helper, not a schema factory"),
   file: schema((S) => S.file),
   formData: schema((S) => S.formData),

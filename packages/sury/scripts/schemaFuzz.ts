@@ -55,7 +55,7 @@ import { eq } from "./schemaFuzz/eq";
 import { issues } from "./schemaFuzz/issues";
 import { option } from "./schemaFuzz/option";
 import { seam } from "./schemaFuzz/seam";
-import { generateSchema, rngFromSeed, takeRefused } from "./unionFuzz/generate";
+import { exactOptionalField, generateSchema, type MemberSpec, rngFromSeed, takeRefused } from "./unionFuzz/generate";
 import { NO_SAMPLE, sample } from "./unionFuzz/sample";
 import type { Sury } from "./unionFuzz/types";
 
@@ -98,14 +98,7 @@ const sury = S as unknown as Sury;
 let stream = seed;
 let next = rngFromSeed(stream);
 
-for (let c = 0; c < cases * seeds; c++) {
-  const at = c % cases;
-  if (c && !at) next = rngFromSeed(++stream);
-
-  const member = generateSchema(sury, next);
-  // A default the library refused. The grammar built the shape without it and
-  // carried on, so the draw still lines up with any other build's.
-  for (const refusal of takeRefused()) findings.push(`creation: ${refusal}`);
+const check = (member: MemberSpec, at: number): void => {
   const { id, schema } = member;
   count("schemas");
 
@@ -124,7 +117,7 @@ for (let c = 0; c < cases * seeds; c++) {
       !running.some(([name]) => knownFor(name as Fuzzer, member.shape, "setup", reason(error)))
     )
       findings.push(`${id}: setup: ${reason(error)}`);
-    continue;
+    return;
   }
 
   const inputs: [unknown, unknown][] = [];
@@ -174,6 +167,19 @@ for (let c = 0; c < cases * seeds; c++) {
     };
     family.check(ctx);
   }
+};
+
+for (let c = 0; c < cases * seeds; c++) {
+  const at = c % cases;
+  if (c && !at) next = rngFromSeed(++stream);
+
+  const member = generateSchema(sury, next);
+  // A default the library refused. The grammar built the shape without it and
+  // carried on, so the draw still lines up with any other build's.
+  for (const refusal of takeRefused()) findings.push(`creation: ${refusal}`);
+  check(member, at);
+  const field = exactOptionalField(sury, member);
+  if (field) check(field, at);
 }
 
 if (gate) findings.push(...staleFor(running.map(([name]) => name as Fuzzer)));

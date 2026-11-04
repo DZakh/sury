@@ -3,7 +3,7 @@ ts:
   schema: 'S.optional(S.union([S.string, S.number.with(S.to, S.string)]).with(S.refine, (v) => v !== "", { error: "empty" }))'
   input: string | number | undefined
   output: string | undefined
-  instantiations: 6074
+  instantiations: 6206
 jsonSchema:
   input: Expected JSON, received string | number | undefined
   output: Expected JSON, received string | undefined

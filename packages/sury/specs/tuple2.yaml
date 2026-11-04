@@ -5,7 +5,7 @@ ts:
     - S.tuple(["bar", S.number])
   input: '["bar", number]'
   output: '["bar", number]'
-  instantiations: 967
+  instantiations: 987
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'

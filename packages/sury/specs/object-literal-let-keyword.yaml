@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ t: S.literal("let x"), a: S.string })'
   input: '{ t: "let x"; a: string; }'
   output: '{ t: "let x"; a: string; }'
-  instantiations: 1603
+  instantiations: 1689
 jsonSchema:
   input: '{ type: "object", properties: { t: { type: "string", const: "let x" }, a: { type: "string" } }, required: ["t", "a"] }'
   output: '{ type: "object", properties: { t: { type: "string", const: "let x" }, a: { type: "string" } }, required: ["t", "a"] }'

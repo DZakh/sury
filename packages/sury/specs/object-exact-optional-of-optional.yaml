@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({ f: S.exactOptional(S.optional(S.number)) })"
+  input: "{ f?: number | undefined; }"
+  output: "{ f?: number | undefined; }"
+  instantiations: 2467
+jsonSchema:
+  input: '{ type: "object", properties: { f: { type: "number" } } }'
+  output: '{ type: "object", properties: { f: { type: "number" } } }'
+isEqual: (a,b)=>a===b||a.f===b.f
+compare: "throws: [Sury] Can't compare { f: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: "z.object({ f: z.number().optional().exactOptional() })"
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i.f;(typeof v0==="number"&&v0==v0||v0===void 0)||e[0](v0);return {f:v0}}catch(v1){e[2](v1)}}
+    examples:
+      absent:
+        input: "{}"
+        output: "{ f: undefined }"
+      explicit-undefined:
+        input: "{ f: undefined }"
+        output: "{ f: undefined }"
+      present:
+        input: "{ f: 1 }"
+        output: "{ f: 1 }"
+  decode: identity
+  encode: identity

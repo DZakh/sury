@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("T", (self: any) => S.schema({ a: (S as any).$Option_getOr((S as any).$option((S as any).$option(self)), undefined) })) as unknown as S.Schema<{ a?: unknown }, { a?: unknown }>'
   input: "{ a?: unknown; }"
   output: "{ a?: unknown; }"
-  instantiations: 5398
+  instantiations: 5220
 jsonSchema:
   input: '{ $ref: "#/$defs/T", $defs: { T: { type: "object", properties: { a: { $ref: "#/$defs/T" } } } } }'
   fromInputType: "{ a?: ... | undefined; }"

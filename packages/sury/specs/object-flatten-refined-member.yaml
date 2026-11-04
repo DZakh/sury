@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ x: s.flatten(S.schema({ a: S.string }).with(S.refine, (v) => v.a !== "bad", { error: "Bad" })).a, b: s.field("b", S.string) }))'
   input: "{ [x: string]: unknown; }"
   output: "{ x: string; b: string; }"
-  instantiations: 1935
+  instantiations: 2012
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a", "b"] }'
   fromInputType: "{ a: string; b: string; }"

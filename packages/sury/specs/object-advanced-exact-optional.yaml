@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ name: s.field("a", S.string), age: s.field("f", S.exactOptional(S.number)) }))'
+  input: "{ [x: string]: unknown; }"
+  output: "{ name: string; age: number | undefined; }"
+  instantiations: 835
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, f: { type: "number" } }, required: ["a"] }'
+  fromInputType: "{ a: string; f?: number | undefined; }"
+  output: '{ type: "object", properties: { name: { type: "string" }, age: { type: "number" } }, required: ["name"] }'
+  fromOutputType: "{ name: string; age?: number | undefined; }"
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a&&a.f===b.f
+  output: (a,b)=>a===b||a.name===b.name&&a.age===b.age
+compare:
+  input: "throws: [Sury] Can't compare { a: string; f?: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { name: string; age: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i.a,v1=i.f;typeof v0==="string"||e[0](v0);if(v1!==void 0||"f" in i){typeof v1==="number"&&v1==v1||e[1](v1);}let v2={a:v0};if(v1!==void 0){v2.f=v1}return {name:v0,age:v1}}catch(v3){e[3](v3)}}
+    examples:
+      present:
+        input: '{ a: "x", f: 1 }'
+        output: '{ name: "x", age: 1 }'
+      absent:
+        input: '{ a: "x" }'
+        output: '{ name: "x", age: undefined }'
+      explicit-undefined:
+        input: '{ a: "x", f: undefined }'
+        error: "Failed at f: Expected number, received undefined"
+      wrong-type:
+        input: '{ a: "x", f: "1" }'
+        error: 'Failed at f: Expected number, received "1"'
+  decode:
+    expression: i=>{return {name:i.a,age:i.f}}
+    examples:
+      present:
+        input: '{ a: "x", f: 1 }'
+        output: '{ name: "x", age: 1 }'
+      absent:
+        input: '{ a: "x" }'
+        output: '{ name: "x", age: undefined }'
+  encode:
+    expression: i=>{let v1=i.age;let v0={a:i.name};if(v1!==void 0){v0.f=v1}return v0}
+    examples:
+      present:
+        input: '{ name: "x", age: 1 }'
+        output: '{ a: "x", f: 1 }'
+      undefined-leaves-the-key-out:
+        input: '{ name: "x", age: undefined }'
+        output: '{ a: "x" }'

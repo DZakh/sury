@@ -3,7 +3,7 @@ ts:
   schema: S.union(["a", "b"]).with(S.to, S.protobufTypeName(S.union([0, 1]), "pkg.Kind"))
   input: '"a" | "b"'
   output: 0 | 1
-  instantiations: 5221
+  instantiations: 5476
 jsonSchema:
   input: '{ enum: ["a", "b"] }'
   output: "{ enum: [0, 1] }"

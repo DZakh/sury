@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.optional(S.number) }).with(S.to, S.object((s) => ({ a: s.fieldOr("a", S.number, 9) })))'
   input: "{ a?: number | undefined; }"
   output: "{ a: number; }"
-  instantiations: 6186
+  instantiations: 6370
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "number" } } }'
   output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'

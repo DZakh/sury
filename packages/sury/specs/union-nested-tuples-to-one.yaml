@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.tuple([S.tuple(["a"])]), S.tuple([S.tuple(["b"])])]).with(S.to, S.tuple([S.tuple(["a"])]))
   input: '[["a"]] | [["b"]]'
   output: '[["a"]]'
-  instantiations: 6999
+  instantiations: 7164
 jsonSchema:
   input: '{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "array", minItems: 1, maxItems: 1, items: [{ type: "string", const: "a" }] }] }'
   fromInputType: '[["a"]]'

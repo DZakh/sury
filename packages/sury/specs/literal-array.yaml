@@ -5,7 +5,7 @@ ts:
     - S.literal(["bar", true])
   input: '["bar", true]'
   output: '["bar", true]'
-  instantiations: 532
+  instantiations: 565
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'

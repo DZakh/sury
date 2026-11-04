@@ -3,7 +3,7 @@ ts:
   schema: "S.json.with(S.to, S.schema({ a: S.shape(S.nullable(S.uint8Array), (v) => ({ v })) }))"
   input: JSON
   output: "{ a: { v: Uint8Array<ArrayBufferLike> | null; }; }"
-  instantiations: 5890
+  instantiations: 6153
 jsonSchema:
   input: "{}"
   output: "Failed at a.v: Expected JSON, received Uint8Array | null"

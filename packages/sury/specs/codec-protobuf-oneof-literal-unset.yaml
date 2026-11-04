@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ channel: S.union([S.schema({ kind: "email", email: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema({ kind: "sms", phone: S.protobufField(S.string, { number: 2, type: "string" }) }), S.schema("none")]) }).with(S.to, S.protobuf)'
   input: '{ channel: { kind: "email"; email: string; } | { kind: "sms"; phone: string; } | "none"; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9273
+  instantiations: 9619
 jsonSchema:
   input: '{ type: "object", properties: { channel: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "email" }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "object", properties: { kind: { type: "string", const: "sms" }, phone: { type: "string" } }, required: ["kind", "phone"] }, { type: "string", const: "none" }] } }, required: ["channel"] }'
   output: Expected JSON, received Uint8Array

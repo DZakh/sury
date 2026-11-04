@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.union([S.schema({ case: "a", value: S.protobufField(S.int32, 2) }), S.schema({ x: S.string, y: S.string }), S.schema({ case: "none" })]) }).with(S.to, S.protobuf)'
   input: '{ c: { case: "a"; value: number; } | { x: string; y: string; } | { case: "none"; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10563
+  instantiations: 10956
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "a" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }, { type: "object", properties: { x: { type: "string" }, y: { type: "string" } }, required: ["x", "y"] }, { type: "object", properties: { case: { type: "string", const: "none" } }, required: ["case"] }] } }, required: ["c"] }'
   output: "[Sury] S.protobuf: oneof \"c\" has an arm that doesn't hold one numbered value beside literals"

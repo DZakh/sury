@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobuf.with(S.to, S.schema({ s: S.protobufField(S.optional(S.string.with(S.minLength, 2), "zz"), 1), m: S.protobufField(S.optional(S.schema({ a: S.protobufField(S.int32, 1) }), { a: 7 }), 2) }))'
   input: Uint8Array<ArrayBufferLike>
   output: "{ s: string; m: { a: number; }; }"
-  instantiations: 8345
+  instantiations: 8693
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { s: { type: "string", minLength: 2 }, m: { type: "object", properties: { a: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["a"] } }, required: ["s", "m"] }'

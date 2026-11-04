@@ -3,7 +3,7 @@ ts:
   schema: '((R3) => S.union([S.schema({ t: "a", n: S.array(R3) }), S.schema({ t: "b", n: S.array(R3) }), S.schema({ t: "c", n: S.array(R3) })]).with(S.to, R3))(S.recursive("R3", (self) => S.union([S.schema({ t: "a", n: S.array(self) }), S.schema({ t: "b", n: S.array(self) })])))'
   input: '{ t: "a"; n: unknown[]; } | { t: "b"; n: unknown[]; } | { t: "c"; n: unknown[]; }'
   output: unknown
-  instantiations: 13608
+  instantiations: 14112
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "c" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, additionalProperties: false, required: ["t", "n"] }], $defs: { R3: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }, { type: "object", properties: { t: { type: "string", const: "b" }, n: { items: { $ref: "#/$defs/R3" }, type: "array" } }, required: ["t", "n"] }] } } }'
   fromInputType: '{ t: "a"; n: ({ t: "a"; n: (... | { t: "b"; n: (... | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | ...)[]; } | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | { t: "b"; n: (... | ...)[]; })[]; } | { t: "b"; n: ({ t: "a"; n: (... | ...)[]; } | ...)[]; })[]; } | { ...; }'

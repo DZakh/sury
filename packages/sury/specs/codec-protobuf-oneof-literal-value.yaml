@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ kind: S.union([S.schema({ case: "nullValue", value: S.protobufField(S.schema(0), { number: 1, type: "enum" }) }), S.schema({ case: "numberValue", value: S.protobufField(S.number, { number: 2, type: "double" }) }), S.schema({ case: undefined })]) }).with(S.to, S.protobuf)'
   input: '{ kind: { case: "nullValue"; value: 0; } | { case: "numberValue"; value: number; } | { case?: undefined; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 12638
+  instantiations: 13151
 jsonSchema:
   input: "Failed at kind.case: Expected JSON, received undefined"
   output: Expected JSON, received Uint8Array

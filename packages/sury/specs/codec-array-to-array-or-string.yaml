@@ -3,7 +3,7 @@ ts:
   schema: S.array(S.literal(1)).with(S.to, S.union([S.array(S.literal(2)), S.string]))
   input: 1[]
   output: string | 2[]
-  instantiations: 5998
+  instantiations: 6299
 jsonSchema:
   input: '{ items: { type: "number", const: 1 }, type: "array" }'
   output: '{ anyOf: [{ items: { type: "number", const: 2 }, type: "array" }, { type: "string" }] }'

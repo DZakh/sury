@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.to, S.literal("$&"), { decode: { async: async (value: string) => value as "$&" }, encode: (value) => value })'
   input: string
   output: '"$&"'
-  instantiations: 4860
+  instantiations: 5076
 jsonSchema:
   input: '{ type: "string", const: "$&" }'
   fromInputType: '"$&"'

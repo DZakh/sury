@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string).with(S.to, S.schema({ a: S.optional(S.string.with(S.to, S.string, { decode: (v) => v + "!", encode: (v) => v.slice(0, -1) })) }))'
   input: "{ [x: string]: string; }"
   output: "{ a?: string | undefined; }"
-  instantiations: 6717
+  instantiations: 6977
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "string" } } }'

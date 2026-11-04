@@ -16,7 +16,9 @@ export type Internal = {
   const?: unknown;
   class?: unknown;
   anyOf?: Internal[];
+  has?: Record<string, boolean>;
   properties?: Record<string, Internal>;
+  required?: string[];
   items?: Internal[];
   additionalItems?: Internal | string;
   $ref?: unknown;
@@ -65,7 +67,8 @@ export const structural = (a: unknown, b: unknown): boolean => {
   // does not read the schema - while `S.record(S.void)` is a case where they
   // are genuinely two values, since a record's keys are its content. The
   // sampler writes every declared property, optional ones included, so no pair
-  // it builds turns on the distinction.
+  // it builds turns on the distinction. An `S.exactOptional` key it leaves out
+  // instead holds no `undefined` to be confused with.
   const keys = Object.keys(ao);
   if (keys.length !== Object.keys(bo).length) return false;
   for (const key of keys) if (!(key in bo) || !structural(ao[key], bo[key])) return false;
@@ -75,6 +78,8 @@ export const structural = (a: unknown, b: unknown): boolean => {
 // ---- sampling --------------------------------------------------------------
 
 export const NO_SAMPLE = Symbol("no-sample");
+
+let leaveOut = false;
 
 const FORMAT_STRINGS: Record<string, string[]> = {
   email: ["jane@example.com", "bob@example.com"],
@@ -140,6 +145,8 @@ const instanceSample = (ctor: unknown, pick: number): unknown => {
 // seed build the same value TWICE - two objects, not one reference - which is
 // the pair reflexivity is about.
 export const sample = (schema: unknown, rng: Rng, depth = 0): unknown => {
+  // Per value, so a finding replays from its seed alone.
+  if (!depth) leaveOut = false;
   const s = schema as Internal;
   if (!s || typeof s !== "object") return schema;
   if ("const" in s) return s.const;
@@ -196,6 +203,12 @@ export const sample = (schema: unknown, rng: Rng, depth = 0): unknown => {
       for (const key of Object.keys(properties)) {
         const inner = sample(properties[key]!, rng, depth + 1);
         if (inner === NO_SAMPLE) return NO_SAMPLE;
+        // Every other one is left out. Not a draw, which would shift every
+        // value after it in the seed.
+        const property = properties[key]!;
+        const exact =
+          s.required && !s.required.includes(key) && property.type !== "undefined" && !property.has?.undefined;
+        if (exact && (leaveOut = !leaveOut)) continue;
         out[key] = inner;
       }
       const rest = s.additionalItems;

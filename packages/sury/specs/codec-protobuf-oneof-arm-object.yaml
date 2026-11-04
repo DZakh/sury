@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.union([S.object((s) => ({ type: "a", a: s.field("x", S.string.with(S.protobufField, 1)) })), S.schema({ type: "none" })]) }).with(S.to, S.protobuf)'
   input: '{ c: Record<string, unknown> | { type: "none"; }; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8280
+  instantiations: 8488
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { x: { type: "string" } }, required: ["x"] }, { type: "object", properties: { type: { type: "string", const: "none" } }, required: ["type"] }] } }, required: ["c"] }'
   fromInputType: '{ c: { x: string; } | { type: "none"; }; }'

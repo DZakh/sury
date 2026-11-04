@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.optional(S.array(S.object((s) => ({ b: s.field("a", S.string) }))), [{ b: "x" }]).with(S.to, S.jsonString)'
+  input: Record<string, unknown>[] | undefined
+  output: string
+  instantiations: 5251
+jsonSchema:
+  input: '{ items: { type: "object", properties: { a: { type: "string" } }, additionalProperties: false, required: ["a"] }, type: "array" }'
+  fromInputType: "{ a: string; }[]"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { type: "object", properties: { b: { type: "string" } }, required: ["b"] }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&e[0](a,b))
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { a: string; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,[v0]);let v3=v2.a;typeof v3==="string"||e[0](v3,[v0,"a"]);v1+=(v0?",":"")+"{\"b\":"+e[1](v3)+"}"}i="["+v1+"]";break}if(i===void 0){let v4=e[3];let v6="";for(let v5=0;v5<v4.length;++v5){let v7=v4[v5];v6+=(v5?",":"")+"{\"b\":"+e[1](v7.a)+"}"}i="["+v6+"]";break}throw e[4](i)}return i}catch(v8){e[5](v8)}}
+    examples:
+      present:
+        input: '[{ a: "y" }]'
+        output: '"[{\"b\":\"y\"}]"'
+      # FIXME: a default carried into S.jsonString is rendered by reading its items
+      # as the container's Input, though it is written in its Output shape: this
+      # should read "[{\"b\":\"x\"}]".
+      default:
+        input: undefined
+        output: '"[{\"b\":null}]"'
+  decode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];v1+=(v0?",":"")+"{\"b\":"+e[0](v2.a)+"}"}i="["+v1+"]";break}if(i===void 0){let v3=e[1];let v5="";for(let v4=0;v4<v3.length;++v4){let v6=v3[v4];v5+=(v4?",":"")+"{\"b\":"+e[0](v6.a)+"}"}i="["+v5+"]";break}throw e[2](i)}return i}catch(v7){e[3](v7)}}
+    examples:
+      # FIXME: the same default, rendered by the decode.
+      default:
+        input: undefined
+        output: '"[{\"b\":null}]"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(Array.isArray(v0)){let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,[v1]);let v3=v2.b;typeof v3==="string"||e[1](v3,[v1,"b"]);v4[v1]={a:v3}}v0=v4;}else{throw e[3](v0)}return v0}catch(v5){e[4](v5)}}
+    examples:
+      present:
+        input: '"[{\"b\":\"y\"}]"'
+        output: '[{ a: "y" }]'

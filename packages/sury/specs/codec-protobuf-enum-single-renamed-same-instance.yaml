@@ -3,7 +3,7 @@ ts:
   schema: '(() => { const kind = S.protobufField(S.union([0]), { number: 1, type: "enum" }); return S.schema({ k: kind }).with(S.to, S.object((s) => ({ kind: s.field("k", kind) }))).with(S.to, S.protobuf) })()'
   input: "{ k: 0; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6046
+  instantiations: 6348
 jsonSchema:
   input: '{ type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] }'
   output: Expected JSON, received Uint8Array

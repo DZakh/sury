@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.nullable(S.number, 1), S.number.with(S.to, S.string)]))
   input: JSON
   output: string | number
-  instantiations: 5881
+  instantiations: 6096
 jsonSchema:
   input: '{ type: "number" }'
   fromInputType: number

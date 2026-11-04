@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Node", (self) => S.schema({ n: S.number, next: S.optional(self) }))'
   input: unknown
   output: unknown
-  instantiations: 7709
+  instantiations: 8078
 jsonSchema:
   input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { n: { type: "number" }, next: { $ref: "#/$defs/Node" } }, required: ["n"] } } }'
   fromInputType: "{ n: number; next?: ... | undefined; }"

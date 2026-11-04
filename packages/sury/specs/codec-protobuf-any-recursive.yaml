@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("Node", (self) => S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node")).with(S.to, S.protobuf)'
   input: unknown
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8430
+  instantiations: 8799
 jsonSchema:
   input: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, child: { $ref: "#/$defs/Node" } }, required: ["id"] } } }'
   fromInputType: "{ id: number; child?: ... | undefined; }"

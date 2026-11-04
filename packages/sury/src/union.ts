@@ -29,6 +29,7 @@ import {
   inputExpression,
   type Internal,
   isLiteral,
+  isExactOptional,
   nanTag,
   neverTag,
   nullTag,
@@ -514,7 +515,7 @@ const unionDiscriminator = (schema: Internal): UnionDiscriminator | undefined =>
     | undefined;
   for (const key in fields) {
     const field = fields[key]!;
-    if (isLiteral(field)) {
+    if (isLiteral(field) && !(schema.properties && isExactOptional(schema, key))) {
       return [key, field.const];
     }
   }

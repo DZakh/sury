@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ w: S.union([S.schema({ t: "a", a: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) }), S.schema({ t: "b", b: S.string.with(S.to, S.string, { decode: { async: async (x) => x + "!" }, encode: { async: async (x) => x.slice(0, -1) } }) })]) }).with(S.shape, (v) => ({ W: v.w }))'
   input: '{ w: { t: "a"; a: string; } | { t: "b"; b: string; }; }'
   output: '{ W: { t: "a"; a: string; } | { t: "b"; b: string; }; }'
-  instantiations: 9314
+  instantiations: 9647
 jsonSchema:
   input: '{ type: "object", properties: { w: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", const: "b" }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["w"] }'
   output: '{ type: "object", properties: { W: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "a" }, a: { type: "string" } }, required: ["t", "a"] }, { type: "object", properties: { t: { type: "string", const: "b" }, b: { type: "string" } }, required: ["t", "b"] }] } }, required: ["W"] }'

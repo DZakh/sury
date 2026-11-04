@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string).with(S.to, S.schema({ a: S.union([S.env.with(S.to, S.optional(S.string, "dev")), S.optional(S.env)]) }))'
   input: "{ [x: string]: string; }"
   output: "{ a?: string | undefined; }"
-  instantiations: 7245
+  instantiations: 7505
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", properties: { a: { type: "string" } } }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ o: S.optional(S.union([S.schema({ c: S.string.with(S.protobufField, 1) }).with(S.refine, (v) => v.c !== "bad", { error: "refused" }).with(S.protobufField, 1), S.string.with(S.protobufField, 2)])) }).with(S.to, S.protobuf)'
   input: "{ o?: string | { c: string; } | undefined; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 9775
+  instantiations: 10101
 jsonSchema:
   input: '{ type: "object", properties: { o: { anyOf: [{ type: "object", properties: { c: { type: "string" } }, required: ["c"] }, { type: "string" }] } } }'
   output: Expected JSON, received Uint8Array

@@ -3,7 +3,7 @@ ts:
   schema: 'S.urlSearchParams.with(S.to, S.schema({ k: S.union([S.literal("a").with(S.to, S.literal(0)), S.literal("b").with(S.to, S.literal(1))]) }))'
   input: URLSearchParams
   output: "{ k: 0 | 1; }"
-  instantiations: 7321
+  instantiations: 7681
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { k: { enum: [0, 1] } }, required: ["k"] }'

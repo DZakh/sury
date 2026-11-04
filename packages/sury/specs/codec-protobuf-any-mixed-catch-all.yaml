@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ p: S.protobufField(S.optional(S.union([S.tuple(["user", S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User")]), S.schema({ type: "order", value: S.protobufTypeName(S.schema({ total: S.protobufField(S.bigint, { number: 1, type: "int64" }) }), "acme.v1.Order") }), S.schema({ type: "other", value: S.protobufAny })])), 1) }).with(S.to, S.protobuf)'
   input: '{ p?: ["user", { id: number; }] | { type: "order"; value: { total: bigint; }; } | { type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; } | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 15256
+  instantiations: 15880
 jsonSchema:
   input: "Failed at p.value.total: Expected JSON, received bigint"
   output: Expected JSON, received Uint8Array

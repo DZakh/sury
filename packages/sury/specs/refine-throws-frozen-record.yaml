@@ -3,7 +3,7 @@ ts:
   schema: 'S.string.with(S.refine, (value: string) => { if (value === "bad") { throw Object.freeze(S.parseAsResult(value, S.number).error) } return true })'
   input: string
   output: string
-  instantiations: 4706
+  instantiations: 4838
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

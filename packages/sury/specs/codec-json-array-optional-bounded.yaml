@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.array(S.optional(S.number.with(S.lte, 1))))
   input: JSON
   output: (number | undefined)[]
-  instantiations: 5347
+  instantiations: 5479
 jsonSchema:
   input: '{ items: { anyOf: [{ type: "number", maximum: 1 }, { type: "null" }] }, type: "array" }'
   fromInputType: (number | null)[]

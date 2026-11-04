@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.union([S.nullable(S.boolean, false), S.schema(null)]), b: S.union([S.optional(S.string, "none"), S.optional(S.number)]), c: S.union([S.optional(S.string, "none"), S.optional(S.number, 1)]) })'
   input: "{ a: boolean | null; b?: string | number | undefined; c?: string | number | undefined; }"
   output: "{ a: boolean | null; c: string | number; b?: string | number | undefined; }"
-  instantiations: 5206
+  instantiations: 5313
 jsonSchema:
   input: '{ type: "object", properties: { a: { anyOf: [{ default: false, anyOf: [{ type: "boolean" }, { type: "null" }] }, { type: "null" }] }, b: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] }, c: { anyOf: [{ default: "none", type: "string" }, { type: "number" }] } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { anyOf: [{ type: "boolean" }, { type: "null" }] }, b: { anyOf: [{ type: "string" }, { type: "number" }] }, c: { anyOf: [{ type: "string" }, { type: "number" }] } }, required: ["a", "c"] }'

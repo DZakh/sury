@@ -3,7 +3,7 @@ ts:
   schema: S.optional(S.optional(S.string).with(S.to, S.nullable(S.string)))
   input: string | undefined
   output: string | null | undefined
-  instantiations: 5015
+  instantiations: 5147
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: Expected JSON, received string | null | undefined

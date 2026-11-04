@@ -3,7 +3,7 @@ ts:
   schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), name: S.string}), S.schema({code: S.string, _deleted: S.optional(S.boolean)}))"
   input: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   output: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
-  instantiations: 7723
+  instantiations: 8037
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'

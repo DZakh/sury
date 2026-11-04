@@ -3,7 +3,7 @@ ts:
   schema: 'S.json.with(S.to, S.union([S.recursive("Tree", (self) => S.union([S.string, S.array(self)])), S.array(S.unknown).with(S.to, S.number, { decode: (a) => a.length, encode: (n) => Array(n).fill(0) })]))'
   input: JSON
   output: unknown
-  instantiations: 8693
+  instantiations: 8996
 jsonSchema:
   input: '{ anyOf: [{}, { items: {}, type: "array" }] }'
   output: '{ anyOf: [{ $ref: "#/$defs/Tree" }, { type: "number" }], $defs: { Tree: { anyOf: [{ type: "string" }, { items: { $ref: "#/$defs/Tree" }, type: "array" }] } } }'

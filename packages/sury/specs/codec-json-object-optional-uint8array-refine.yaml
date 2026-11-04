@@ -3,7 +3,7 @@ ts:
   schema: "S.json.with(S.to, S.schema({ a: S.optional(S.uint8Array).with(S.refine, (x) => x === undefined || x.length > 1) }))"
   input: JSON
   output: "{ a?: Uint8Array<ArrayBufferLike> | undefined; }"
-  instantiations: 6693
+  instantiations: 6953
 jsonSchema:
   input: "{}"
   output: "Failed at a: Expected JSON, received Uint8Array | undefined"

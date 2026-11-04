@@ -3,7 +3,7 @@ ts:
   schema: 'S.reverse(S.union([S.schema({ kind: "k3", b: S.boolean }), S.object((s) => ({ f: s.fieldOr("f", S.string, "d") }))])).with(S.to, S.unknown.with(S.noValidation, true)).with(S.to, S.jsonString)'
   input: '{ kind: "k3"; b: boolean; } | { f: string; }'
   output: string
-  instantiations: 8016
+  instantiations: 8282
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "k3" }, b: { type: "boolean" } }, additionalProperties: false, required: ["kind", "b"] }, { type: "object", properties: { f: { type: "string" } }, additionalProperties: false, required: ["f"] }] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

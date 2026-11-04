@@ -3,7 +3,7 @@ ts:
   schema: S.json.with(S.to, S.union([S.date, S.literal("x"), S.optional(S.date, new Date(0))]))
   input: JSON
   output: Date | "x"
-  instantiations: 5957
+  instantiations: 6173
 jsonSchema:
   input: '{ anyOf: [{ type: "string", format: "date-time" }, { type: "string", const: "x" }] }'
   fromInputType: string

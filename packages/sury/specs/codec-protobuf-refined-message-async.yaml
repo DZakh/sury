@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.string.with(S.to, S.string, { decode: (x) => x.slice(0, -1), encode: { async: async (x) => x + "!" } }).with(S.protobufField, 1) }).with(S.refine, (v) => v.c !== "bad!", { error: "refused" }).with(S.to, S.protobuf)'
   input: "{ c: string; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 6387
+  instantiations: 6568
 jsonSchema:
   input: '{ type: "object", properties: { c: { type: "string" } }, required: ["c"] }'
   output: Expected JSON, received Uint8Array

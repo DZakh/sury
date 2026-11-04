@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobufAny.with(S.to, S.union([S.schema({ type: "node", value: S.recursive("Node", (self) => S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1), child: S.protobufField(S.optional(self), { number: 2, type: "google.protobuf.Any" }) }), "acme.v1.Node")) }), S.schema({ type: "other", value: S.protobufAny })]))'
   input: "{ typeUrl: string; value: Uint8Array<ArrayBufferLike>; }"
   output: '{ type: "node"; value?: unknown; } | { type: "other"; value: { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }; }'
-  instantiations: 13455
+  instantiations: 13985
 jsonSchema:
   input: "Failed at value: Expected JSON, received Uint8Array"
   output: "Failed at value.value: Expected JSON, received Uint8Array"

@@ -3,7 +3,7 @@ ts:
   schema: 'S.urlSearchParams.with(S.to, S.schema({ a: S.optional(S.array(S.string), ["m"]) }))'
   input: URLSearchParams
   output: "{ a: string[]; }"
-  instantiations: 5976
+  instantiations: 6236
 jsonSchema:
   input: Expected JSON, received URLSearchParams
   output: '{ type: "object", properties: { a: { items: { type: "string" }, type: "array" } }, required: ["a"] }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.protobuf.with(S.to, S.recursive("Cons", (cons) => S.schema({ v: S.int32.with(S.protobufField, 1), next: S.optional(cons).with(S.protobufField, 2) })).with(S.to, S.schema({ depth: S.int32 }), { decode: (c) => ({ depth: (c as { next?: unknown }).next ? 2 : 1 }), encode: (d) => ({ v: d.depth, next: undefined }) }))'
   input: Uint8Array<ArrayBufferLike>
   output: "{ depth: number; }"
-  instantiations: 9567
+  instantiations: 9962
 jsonSchema:
   input: Expected JSON, received Uint8Array
   output: '{ type: "object", properties: { depth: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["depth"] }'

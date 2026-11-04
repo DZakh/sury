@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ n: S.number, a: S.string.with(S.to, S.string, { decode: { async: (value) => (value === "t" ? Promise.reject(new Error("a is taken")) : Promise.resolve(value)) }, encode: (value) => value }), list: S.array(S.string.with(S.to, S.string, { decode: { async: (value) => (value === "t" ? Promise.reject(new Error("item is taken")) : Promise.resolve(value)) }, encode: (value) => value })) })'
   input: "{ n: number; a: string; list: string[]; }"
   output: "{ n: number; a: string; list: string[]; }"
-  instantiations: 6324
+  instantiations: 6550
 jsonSchema:
   input: '{ type: "object", properties: { n: { type: "number" }, a: { type: "string" }, list: { items: { type: "string" }, type: "array" } }, required: ["n", "a", "list"] }'
   output: '{ type: "object", properties: { n: { type: "number" }, a: { type: "string" }, list: { items: { type: "string" }, type: "array" } }, required: ["n", "a", "list"] }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.meta(S.union([S.fromJSONSchemaOrThrow({ type: "string", not: { const: "zz" } }), S.number]), { description: "d" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 2269
+  instantiations: 2352
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string", not: { const: "zz" } }, { type: "number" }], description: "d" }, { type: "boolean" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "string", not: { const: "zz" } }, { type: "number" }], description: "d" }, { type: "boolean" }] }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ plain: S.union(["a", "b"]), quoted: S.union(["a\"q", "b"]), three: S.union(["a", "b", "c"]), nested: S.schema({ f: S.union(["a", "b"]) }), items: S.array(S.schema({ f: S.union(["a", "b"]) })), opt: S.optional(S.union(["a", "b"])) }).with(S.to, S.jsonString)'
   input: '{ plain: "a" | "b"; quoted: "b" | "a\"q"; three: "a" | "b" | "c"; nested: { f: "a" | "b"; }; items: { f: "a" | "b"; }[]; opt?: "a" | "b" | undefined; }'
   output: string
-  instantiations: 10195
+  instantiations: 10760
 jsonSchema:
   input: '{ type: "object", properties: { plain: { enum: ["a", "b"] }, quoted: { enum: ["a\"q", "b"] }, three: { enum: ["a", "b", "c"] }, nested: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, items: { items: { type: "object", properties: { f: { enum: ["a", "b"] } }, required: ["f"] }, type: "array" }, opt: { enum: ["a", "b"] } }, required: ["plain", "quoted", "three", "nested", "items"] }'
   output: '{ type: "string", contentMediaType: "application/json" }'

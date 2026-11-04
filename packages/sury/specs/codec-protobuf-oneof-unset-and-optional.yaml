@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ c: S.optional(S.union([S.schema({ kind: "email", email: S.protobufField(S.string, { number: 1, type: "string" }) }), S.schema("none")])) }).with(S.to, S.protobuf)'
   input: '{ c?: { kind: "email"; email: string; } | "none" | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 8880
+  instantiations: 9228
 jsonSchema:
   input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", const: "email" }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", const: "none" }] } } }'
   output: "[Sury] S.protobuf: oneof \"c\" is both optional and has an arm for no member set, which the wire can't tell apart. Drop S.optional or that arm"

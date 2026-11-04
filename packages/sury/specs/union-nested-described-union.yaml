@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.meta(S.union([S.int32, S.string.with(S.minLength, 3)]), { description: "d" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
-  instantiations: 2714
+  instantiations: 2797
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string", minLength: 3 }], description: "d" }, { type: "boolean" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "string", minLength: 3 }], description: "d" }, { type: "boolean" }] }'

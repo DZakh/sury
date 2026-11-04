@@ -3,7 +3,7 @@ ts:
   schema: 'S.record(S.string.with(S.to, S.string, { decode: { async: (value) => (value === "t" ? Promise.reject(new Error("taken")) : Promise.resolve(value)) }, encode: (value) => value }))'
   input: "{ [x: string]: string; }"
   output: "{ [x: string]: string; }"
-  instantiations: 4842
+  instantiations: 4974
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: '{ type: "object", additionalProperties: { type: "string" } }'

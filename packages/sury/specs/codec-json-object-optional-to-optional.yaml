@@ -3,7 +3,7 @@ ts:
   schema: "S.json.with(S.to, S.schema({ f: S.optional(S.date).with(S.to, S.optional(S.date)) }))"
   input: JSON
   output: "{ f?: Date | undefined; }"
-  instantiations: 6561
+  instantiations: 6821
 jsonSchema:
   input: '{ type: "object", properties: { f: { type: "string", format: "date-time" } }, additionalProperties: false }'
   fromInputType: "{ f?: string | undefined; }"

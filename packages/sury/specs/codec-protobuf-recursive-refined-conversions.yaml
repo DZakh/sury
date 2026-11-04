@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("N", (n) => S.schema({ v: S.string.with(S.to, S.string, { decode: (x) => x + "!", encode: (x) => x.slice(0, -1) }).with(S.protobufField, 1), e: S.union([0, 1]).with(S.protobufField, { number: 2, type: "enum" }), s: S.optional(S.string, "def").with(S.protobufField, 3), kid: S.optional(n).with(S.protobufField, 4) })).with(S.refine, () => true).with(S.to, S.protobuf)'
   input: unknown
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 10836
+  instantiations: 11270
 jsonSchema:
   input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "string" }, e: { enum: [0, 1] }, s: { default: "def", type: "string" }, kid: { $ref: "#/$defs/N" } }, required: ["v", "e"] } } }'
   fromInputType: "{ v: string; e: 0 | 1; s?: string | undefined; kid?: ... | undefined; }"

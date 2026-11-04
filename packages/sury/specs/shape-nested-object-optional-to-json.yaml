@@ -3,7 +3,7 @@ ts:
   schema: 'S.reverse(S.schema({ a: S.string, b: S.optional(S.string) }).with(S.shape, (v) => ({ TAG: "Wrap" as const, x: { y: v } }))).with(S.to, S.json)'
   input: '{ TAG: "Wrap"; x: { y: { a: string; b?: string | undefined; }; }; }'
   output: JSON
-  instantiations: 6325
+  instantiations: 6530
 jsonSchema:
   input: '{ type: "object", properties: { TAG: { type: "string", const: "Wrap" }, x: { type: "object", properties: { y: { type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, required: ["a"] } }, required: ["y"] } }, required: ["TAG", "x"] }'
   output: '{ type: "object", properties: { a: { type: "string" }, b: { type: "string" } }, additionalProperties: false, required: ["a"] }'

@@ -3,7 +3,7 @@ ts:
   schema: "S.optional(S.string).with(S.to, S.meta(S.nullable(S.string), { deprecated: true }))"
   input: string | undefined
   output: string | null
-  instantiations: 4842
+  instantiations: 4974
 jsonSchema:
   input: Expected JSON, received string | undefined
   output: '{ anyOf: [{ type: "string" }, { type: "null" }], deprecated: true }'

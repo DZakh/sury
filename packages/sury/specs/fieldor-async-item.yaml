@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ a: s.fieldOr("a", S.string.with(S.to, S.string, { decode: { async: (v) => Promise.resolve(v + "!") }, encode: (v) => v.slice(0, -1) }), "d") }))'
   input: "{ [x: string]: unknown; }"
   output: "{ a: string; }"
-  instantiations: 4929
+  instantiations: 5061
 jsonSchema:
   input: '{ type: "object", properties: { a: { default: "", type: "string" } } }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'

@@ -3,7 +3,7 @@ ts:
   schema: 'S.recursive("A", (a) => S.schema({ v: S.string, kids: S.array(a) })).with(S.to, S.recursive("B", (b) => S.schema({ v: S.string.with(S.to, S.number), kids: S.array(b) })))'
   input: unknown
   output: unknown
-  instantiations: 9626
+  instantiations: 10086
 jsonSchema:
   input: '{ $ref: "#/$defs/A", $defs: { A: { type: "object", properties: { v: { type: "string" }, kids: { items: { $ref: "#/$defs/A" }, type: "array" } }, required: ["v", "kids"] } } }'
   fromInputType: "{ v: string; kids: ...[]; }"

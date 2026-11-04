@@ -3,7 +3,7 @@ ts:
   schema: 'S.object({["__proto__"]: S.string})'
   input: "{ __proto__: string; }"
   output: "{ __proto__: string; }"
-  instantiations: 1204
+  instantiations: 1256
 jsonSchema:
   input: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'
   output: '{ type: "object", properties: { ["__proto__"]: { type: "string" } }, required: ["__proto__"] }'

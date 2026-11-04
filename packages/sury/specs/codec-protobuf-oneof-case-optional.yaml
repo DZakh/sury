@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ pick: S.optional(S.union([S.schema({ case: "id", value: S.protobufField(S.schema({ id: S.protobufField(S.string, { number: 1, type: "uint32" }) }), { number: 1, type: "message" }) }), S.schema({ case: "n", value: S.protobufField(S.int32, { number: 2, type: "int32" }) })])) }).with(S.to, S.protobuf)'
   input: '{ pick?: { case: "id"; value: { id: string; }; } | { case: "n"; value: number; } | undefined; }'
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 11582
+  instantiations: 12118
 jsonSchema:
   input: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", const: "id" }, value: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", const: "n" }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
   output: Expected JSON, received Uint8Array

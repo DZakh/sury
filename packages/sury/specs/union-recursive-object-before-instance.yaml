@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.recursive("R", (self) => S.schema({ n: S.optional(self) })), S.date])'
   input: unknown
   output: unknown
-  instantiations: 7862
+  instantiations: 8210
 jsonSchema:
   input: Expected JSON, received R | Date
   output: Expected JSON, received R | Date

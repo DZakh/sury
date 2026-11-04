@@ -3,7 +3,7 @@ ts:
   schema: 'S.object((s) => ({ kind: s.nested("o").field("k", S.protobufField(S.union([0]), { number: 1, type: "enum" })) })).with(S.to, S.protobuf)'
   input: "{ [x: string]: unknown; }"
   output: Uint8Array<ArrayBufferLike>
-  instantiations: 5125
+  instantiations: 5354
 jsonSchema:
   input: '{ type: "object", properties: { o: { type: "object", properties: { k: { type: "number", const: 0 } }, required: ["k"] } }, required: ["o"] }'
   fromInputType: "{ o: { k: 0; }; }"

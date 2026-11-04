@@ -3,7 +3,7 @@ ts:
   schema: "S.record(S.string).with(S.to, S.schema({ a: S.schema(undefined), b: S.optional(S.string).with(S.refine, (v) => v !== undefined), c: S.union([S.string, S.schema(undefined).with(S.refine, () => false)]), d: S.union([S.unknown.with(S.to, S.string, { decode: String, encode: (v) => v }), S.schema(undefined)]) }))"
   input: "{ [x: string]: string; }"
   output: "{ a?: undefined; b?: string | undefined; c?: string | undefined; d?: string | undefined; }"
-  instantiations: 9131
+  instantiations: 9451
 jsonSchema:
   input: '{ type: "object", additionalProperties: { type: "string" } }'
   output: "Failed at a: Expected JSON, received undefined"

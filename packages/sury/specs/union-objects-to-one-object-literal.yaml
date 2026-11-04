@@ -3,7 +3,7 @@ ts:
   schema: "S.union([S.schema({ o: S.literal(1) }), S.schema({ o: S.literal(2) })]).with(S.to, S.schema({ o: S.literal(1) }))"
   input: "{ o: 1; } | { o: 2; }"
   output: "{ o: 1; }"
-  instantiations: 8399
+  instantiations: 8753
 jsonSchema:
   input: '{ type: "object", properties: { o: { type: "number", const: 1 } }, required: ["o"] }'
   fromInputType: "{ o: 1; }"

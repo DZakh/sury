@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.tuple(["c"]), S.string]).with(S.to, S.union([S.tuple(["a"]), S.string]))
   input: string | ["c"]
   output: string | ["a"]
-  instantiations: 6062
+  instantiations: 6291
 jsonSchema:
   input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
   fromInputType: string

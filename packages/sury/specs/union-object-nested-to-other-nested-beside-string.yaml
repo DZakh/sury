@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({ o: { t: "a" } }).with(S.to, S.union([S.schema({ o: { t: "b" } }), S.schema({ o: { t: "c" } })])), S.string])'
   input: 'string | { o: { t: "a"; }; }'
   output: 'string | { o: { t: "b"; }; } | { o: { t: "c"; }; }'
-  instantiations: 10069
+  instantiations: 10470
 jsonSchema:
   input: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] } }, required: ["o"] }, { type: "string" }] }'
   output: '{ anyOf: [{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "c" } }, required: ["t"] } }, required: ["o"] }] }, { type: "string" }] }'

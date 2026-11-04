@@ -3,7 +3,7 @@ ts:
   schema: 'S.schema({ a: S.string.with(S.to, S.number, { decode: { async: ((value: string) => { const p = () => (value === "bad" ? Promise.reject(new Error("rejected")) : Promise.resolve(value.length)); return { then: (ok: (v: number) => unknown, no: (e: unknown) => unknown) => p().then(ok, no), catch: (no: (e: unknown) => unknown) => p().catch(no) } }) as never }, encode: (value: number) => "x".repeat(value) }) })'
   input: "{ a: string; }"
   output: "{ a: number; }"
-  instantiations: 5676
+  instantiations: 5860
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "number" } }, required: ["a"] }'

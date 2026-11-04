@@ -3,7 +3,7 @@ ts:
   schema: S.optional(S.env.with(S.to, S.optional(S.string, "dev")))
   input: string | undefined
   output: string | undefined
-  instantiations: 4873
+  instantiations: 5005
 jsonSchema:
   input: Expected JSON, received env | undefined
   output: Expected JSON, received string | undefined
