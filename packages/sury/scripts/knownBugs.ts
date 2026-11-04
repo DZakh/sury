@@ -52,6 +52,33 @@ const intoJsonString = (shape: Shape): boolean =>
 
 export const KNOWN_BUGS: Known[] = [
   {
+    id: "container-default-read-as-input-to-jsonstring",
+    kind: "bug",
+    summary:
+      "A default over a container of a renamed field, carried into `S.jsonString`, is rendered as if it " +
+      "were Input: `S.nullable(S.array(S.object((s) => ({ _0: s.field(\"a\", S.number) }))), [{ _0: 1 }])` " +
+      "reads the default's `a` where it holds `_0`, so `null` fails and an `unknown` field is dropped. The " +
+      "Result renders the default by another path, so it can answer differently from the throw.",
+    spec: "nullable-array-renamed-default-to-jsonstring",
+    fuzzers: ["issues"],
+    matches: (f) =>
+      f.fuzzer === "issues" &&
+      f.property === "first" &&
+      intoJsonString(f.shape) &&
+      some(
+        f.shape,
+        (node) =>
+          (node.name === "optional" || node.name === "nullable" || node.name === "nullish") &&
+          node.args.length === 2 &&
+          some(
+            node.args[0]!,
+            (container) =>
+              (container.name === "array" || container.name === "record") &&
+              some(container, (inner) => inner.name === "renamed"),
+          ),
+      ),
+  },
+  {
     id: "union-object-field-from-null",
     kind: "bug",
     summary:

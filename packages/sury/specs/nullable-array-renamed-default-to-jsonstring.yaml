@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.nullable(S.array(S.object((s) => ({ _0: s.field("a", S.number) }))), [{ _0: 1 }]).with(S.to, S.jsonString)'
+  input: Record<string, unknown>[] | null
+  output: string
+  instantiations: 5148
+jsonSchema:
+  input: '{ items: { type: "object", properties: { a: { type: "number" } }, additionalProperties: false, required: ["a"] }, type: "array" }'
+  fromInputType: "{ a: number; }[]"
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { items: { type: "object", properties: { _0: { type: "number" } }, required: ["_0"] }, type: "array" }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||(a===null?b===null:b!==null&&e[0](a,b))
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { a: number; }[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,[v0]);let v3=v2.a;typeof v3==="number"&&v3==v3||e[0](v3,[v0,"a"]);v1+=(v0?",":"")+"{\"_0\":"+(Number.isFinite(v3)?v3:e[1](v3,[v0,"a"]))+"}"}i="["+v1+"]";break}if(i===null){let v4=e[3];let v6="";for(let v5=0;v5<v4.length;++v5){let v7=v4[v5];let v8=v7.a;v6+=(v5?",":"")+"{\"_0\":"+(Number.isFinite(v8)?v8:e[4](v8,[v5,"a"]))+"}"}i="["+v6+"]";break}throw e[5](i)}return i}catch(v9){e[6](v9)}}
+    examples:
+      valid:
+        input: "[{ a: 2 }]"
+        output: '"[{\"_0\":2}]"'
+      # FIXME: known bug container-default-read-as-input-to-jsonstring
+      default:
+        input: "null"
+        error: "Failed at [0].a: Expected JSON, received undefined"
+  decode:
+    expression: i=>{try{for(;;){if(Array.isArray(i)){let v1="";for(let v0=0;v0<i.length;++v0){let v2=i[v0];let v3=v2.a;v1+=(v0?",":"")+"{\"_0\":"+(Number.isFinite(v3)?v3:e[0](v3,[v0,"a"]))+"}"}i="["+v1+"]";break}if(i===null){let v4=e[1];let v6="";for(let v5=0;v5<v4.length;++v5){let v7=v4[v5];let v8=v7.a;v6+=(v5?",":"")+"{\"_0\":"+(Number.isFinite(v8)?v8:e[2](v8,[v5,"a"]))+"}"}i="["+v6+"]";break}throw e[3](i)}return i}catch(v9){e[4](v9)}}
+    examples:
+      # FIXME: known bug container-default-read-as-input-to-jsonstring
+      default:
+        input: "null"
+        error: "Failed at [0].a: Expected JSON, received undefined"
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(Array.isArray(v0)){let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v2=v0[v1];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[2](v2,[v1]);let v3=v2._0;typeof v3==="number"&&v3==v3||e[1](v3,[v1,"_0"]);v4[v1]={a:v3}}v0=v4;}else{throw e[3](v0)}return v0}catch(v5){e[4](v5)}}
+    examples:
+      valid:
+        input: '"[{\"_0\":2}]"'
+        output: "[{ a: 2 }]"
