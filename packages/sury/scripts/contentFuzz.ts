@@ -38,7 +38,7 @@ const doc = S.schema({ a: S.number });
 // One source per way a value relates to a document: plain text (the one that is
 // both), a format or a literal (a value), a number (no text), bytes and their
 // text forms (a representation of another kind), an entry (text that is a
-// representation), and the document format itself.
+// representation), and the document format itself, as text and as a value.
 const SOURCES: Record<string, Source> = {
   string: { schema: S.string, inputs: ["hi", '{"a":1}', '"x"', "42", "", '{"f":"aGk="}'] },
   trimmed: { schema: S.string.with(S.trim), inputs: [' {"a":1} ', "hi"] },
@@ -56,6 +56,7 @@ const SOURCES: Record<string, Source> = {
   file: { schema: S.file, inputs: [new File(['{"a":1}'], "a.json"), new File(["hi"], "b.txt")] },
   blob: { schema: S.blob, inputs: [new Blob(['{"f":"aGk="}']), new Blob(["hi"])] },
   "json-string": { schema: S.jsonString, inputs: ['{"a":1}', '"x"', "42"] },
+  json: { schema: S.json, inputs: [{ a: 1 }, { a: 1, b: "x" }, "x", 42] },
 };
 
 // Every shape a target can take on the axis: the document with and without a
@@ -80,6 +81,7 @@ const TARGETS: Record<string, unknown> = {
   "field-string": S.jsonString.with(S.to, S.schema({ f: S.string })),
   "field-bytes": S.jsonString.with(S.to, S.schema({ f: S.uint8Array })),
   "field-optional-json-string": S.jsonString.with(S.to, S.schema({ f: S.optional(S.jsonString) })),
+  "shaped-doc-optional-field": S.schema({ a: S.number, b: S.optional(S.string) }).with(S.shape, (v: unknown) => ({ TAG: "W", _0: v })),
 };
 
 const SLOTS = ["", "unpack", "pack"] as const;
@@ -91,6 +93,8 @@ const ONE_WAY: Record<string, string> = {
     "`S.json` is the document, not a rendering of one, so an entry's text has no decoder into it; encode passes a JSON value that already is a string straight through as the entry",
   "env/string":
     "a bare string target must say what a blank entry means, with `S.nonEmpty`, `S.minLength(0)` or `S.optional`; an encode writes no blank entry, so it has no question to ask",
+  "env/json-string-or-number":
+    "an entry's text that the number arm reads is also JSON text, so decode is refused rather than guess which arm takes \"42\" (codec-env-jsonstring-or-number); encode writes each arm's own text, so it has no question to ask",
   "env/file":
     "a `File`'s own encoder writes its text into any text target, an entry included, while an entry reads no `File` back - the converter the search params share keeps files out, and there they are refused both ways",
   "blob/file":

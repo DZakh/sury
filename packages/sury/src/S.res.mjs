@@ -62,9 +62,9 @@ function unwrapConversion(conversion) {
 
 function to(from, target, custom) {
   if (custom !== undefined) {
-    return Sury.to(from, target, {
-      decodeToOutput: unwrapConversion(custom.decode),
-      encodeFromOutput: unwrapConversion(custom.encode)
+    return Sury.$to(from, target, {
+      decode: unwrapConversion(custom.decode),
+      encode: unwrapConversion(custom.encode)
     });
   } else {
     return Sury.to(from, target);
@@ -204,6 +204,99 @@ function fromJSONSchemaOrThrow(jsonSchema) {
   return Sury.fromJSONSchemaOrThrow(jsonSchema);
 }
 
+let Any = {};
+
+let SourceContext = {};
+
+let Field_Kind = {};
+
+let Field_Cardinality = {};
+
+let Syntax = {};
+
+let Option$1 = {};
+
+let Field = {};
+
+let Type = {};
+
+let EnumValue = {};
+
+let Enum = {};
+
+let Method = {};
+
+let Mixin = {};
+
+let Api = {};
+
+let Duration = {};
+
+let Empty = {};
+
+let FieldMask = {};
+
+let NullValue = {};
+
+let Struct = {};
+
+let Value = {};
+
+let ListValue = {};
+
+let Timestamp = {};
+
+let DoubleValue = {};
+
+let FloatValue = {};
+
+let Int64Value = {};
+
+let UInt64Value = {};
+
+let Int32Value = {};
+
+let UInt32Value = {};
+
+let BoolValue = {};
+
+let StringValue = {};
+
+let BytesValue = {};
+
+let Protobuf = {
+  Any: Any,
+  SourceContext: SourceContext,
+  Field_Kind: Field_Kind,
+  Field_Cardinality: Field_Cardinality,
+  Syntax: Syntax,
+  Option: Option$1,
+  Field: Field,
+  Type: Type,
+  EnumValue: EnumValue,
+  Enum: Enum,
+  Method: Method,
+  Mixin: Mixin,
+  Api: Api,
+  Duration: Duration,
+  Empty: Empty,
+  FieldMask: FieldMask,
+  NullValue: NullValue,
+  Struct: Struct,
+  Value: Value,
+  ListValue: ListValue,
+  Timestamp: Timestamp,
+  DoubleValue: DoubleValue,
+  FloatValue: FloatValue,
+  Int64Value: Int64Value,
+  UInt64Value: UInt64Value,
+  Int32Value: Int32Value,
+  UInt32Value: UInt32Value,
+  BoolValue: BoolValue,
+  StringValue: StringValue,
+  BytesValue: BytesValue
+};
+
 export {
   Path,
   Exn,
@@ -234,5 +327,6 @@ export {
   Option,
   Metadata,
   fromJSONSchemaOrThrow,
+  Protobuf,
 }
 /*  Not a pure module */

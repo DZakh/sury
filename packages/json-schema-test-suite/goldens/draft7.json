@@ -12,9 +12,9 @@
     "rate": "93.4%",
     "assertOpPassed": 866,
     "assertOpRate": "93.4%",
-    "identityPassed": 499,
+    "identityPassed": 500,
     "identityAssertions": 520,
-    "identityRate": "96.0%",
+    "identityRate": "96.2%",
     "divergent": 0
   },
   "erroredCases": [
@@ -52,7 +52,6 @@
   ],
   "mutated": [
     "additionalProperties.json :: additionalProperties are allowed by default :: additional properties are allowed",
-    "allOf.json :: allOf with base schema :: valid",
     "anyOf.json :: anyOf complex types :: both anyOf valid (complex)",
     "default.json :: invalid type for default :: still valid when the invalid default is used",
     "default.json :: invalid string value for default :: still valid when the invalid default is used",

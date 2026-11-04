@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ c: S.union([S.object((s) => ({ type: "a", a: s.field("x", S.string.with(S.protobufField, 1)) })), S.schema({ type: "none" })]) }).with(S.to, S.protobuf)'
+  input: '{ c: Record<string, unknown> | { type: "none"; }; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 8280
+jsonSchema:
+  input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { x: { type: "string" } }, required: ["x"] }, { type: "object", properties: { type: { type: "string", const: "none" } }, required: ["type"] }] } }, required: ["c"] }'
+  fromInputType: '{ c: { x: string; } | { type: "none"; }; }'
+  output: Expected JSON, received Uint8Array
+  openapi-3.0:
+    input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { x: { type: "string" } }, required: ["x"] }, { type: "object", properties: { type: { type: "string", enum: ["none"] } }, required: ["type"] }] } }, required: ["c"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a.c,b.c)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { c: { x: string; } | { type: \"none\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i.c;let v2;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){l3:{let v1=v0.x;if(!(typeof v1==="string")){v2=[v2,e[0],v1];break l3}v0={type:"a",a:v1};break}}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.type==="none"){v0={type:v0.type};break}throw e[1](v0,v2)}let v4;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){v4=v0.a;break}if(v0.type==="none")break;throw e[2](v0)}}else{throw e[2](v0)}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v5}catch(v6){e[8](v6)}}
+    examples:
+      arm-holding-the-member:
+        input: '{ c: { x: "v" } }'
+        output: new Uint8Array([10, 1, 118])
+      arm-for-none:
+        input: '{ c: { type: "none" } }'
+        output: new Uint8Array([])
+      wrong-member-type:
+        input: "{ c: { x: 1 } }"
+        error: |-
+          Failed at c: Expected { x: string; } | { type: "none"; }, received { x: 1; }
+          - At c.x: Expected string, received 1
+  decode:
+    expression: i=>{try{let v0=i.c;let v2;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){l3:{let v1=v0.x;if(!(typeof v1==="string")){v2=[v2,e[0],v1];break l3}v0={type:"a",a:v1};break}}if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.type==="none"){v0={type:v0.type};break}throw e[1](v0,v2)}let v4;if(typeof v0==="object"&&v0&&!Array.isArray(v0)){for(;;){if(v0.type==="a"){v4=v0.a;break}if(v0.type==="none")break;throw e[2](v0)}}else{throw e[2](v0)}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[5].acquire();f=0;v=v4;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);w.string(v)};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[3](x,e[4],f,j,a);e[6](x)}}return v5}catch(v6){e[7](v6)}}
+    examples:
+      arm-holding-the-member:
+        input: '{ c: { x: "v" } }'
+        output: new Uint8Array([10, 1, 118])
+      arm-for-none:
+        input: '{ c: { type: "none" } }'
+        output: new Uint8Array([])
+  encode:
+    creationError: "Error: [Sury] S.protobuf: oneof \"c\" can't tell its arms apart. Give each a literal, such as case: \"email\", beside the value it holds"

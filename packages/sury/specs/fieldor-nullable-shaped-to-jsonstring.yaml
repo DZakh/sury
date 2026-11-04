@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object((s) => ({ f: s.fieldOr("f", S.nullable(S.schema({ a: S.string }).with(S.shape, (x) => ({ TAG: "R", _0: x.a }))), { TAG: "R", _0: "d" }) })).with(S.to, S.jsonString)'
+  input: "{ [x: string]: unknown; }"
+  output: string
+  instantiations: 5736
+jsonSchema:
+  input: '{ type: "object", properties: { f: { default: { a: "d" }, anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "null" }] } } }'
+  output: '{ type: "string", contentMediaType: "application/json" }'
+  draft-2020-12:
+    output: '{ type: "string", contentMediaType: "application/json", contentSchema: { type: "object", properties: { f: { anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "R" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "null" }] } }, required: ["f"] }, $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { f: { default: { a: "d" }, type: "object", properties: { a: { type: "string" } }, required: ["a"], nullable: true } } }'
+    output: '{ type: "string" }'
+isEqual:
+  input: (a,b)=>a===b||(a.f===null?b.f===null:a.f===void 0?b.f===void 0:b.f!=null&&a.f.a===b.f.a)
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare { f: { a: string; } | null | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i.f;if(v0===void 0){v0=e[0]}else{for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"R",_0:v1};break}if(v0===null)break;throw e[2](v0)}}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.TAG==="R"){v0="{\"TAG\":\"R\",\"_0\":"+e[3](v0._0)+"}";break}if(v0===null){v0="null";break}throw e[4](v0)}return "{\"f\":"+v0+"}"}catch(v2){e[6](v2)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: '"{\"f\":{\"TAG\":\"R\",\"_0\":\"d\"}}"'
+      present:
+        input: '{ f: { a: "x" } }'
+        output: '"{\"f\":{\"TAG\":\"R\",\"_0\":\"x\"}}"'
+      "null":
+        input: "{ f: null }"
+        output: '"{\"f\":null}"'
+  decode:
+    expression: i=>{try{let v0=i.f;if(v0===void 0){v0=e[0]}else{for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.a;typeof v1==="string"||e[1](v1);v0={TAG:"R",_0:v1};break}if(v0===null)break;throw e[2](v0)}}for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.TAG==="R"){v0="{\"TAG\":\"R\",\"_0\":"+e[3](v0._0)+"}";break}if(v0===null){v0="null";break}throw e[4](v0)}return "{\"f\":"+v0+"}"}catch(v2){e[5](v2)}}
+    examples:
+      absent-takes-the-default:
+        input: "{}"
+        output: '"{\"f\":{\"TAG\":\"R\",\"_0\":\"d\"}}"'
+      present:
+        input: '{ f: { a: "x" } }'
+        output: '"{\"f\":{\"TAG\":\"R\",\"_0\":\"x\"}}"'
+      "null":
+        input: "{ f: null }"
+        output: '"{\"f\":null}"'
+  encode:
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0.f;for(;;){if(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.TAG==="R"){let v2=v1._0;typeof v2==="string"||e[1](v2);v1={a:v2};break}if(v1===null)break;throw e[2](v1)}return {f:v1}}catch(v3){e[4](v3)}}
+    examples:
+      present:
+        input: '"{\"f\":{\"TAG\":\"R\",\"_0\":\"x\"}}"'
+        output: '{ f: { a: "x" } }'

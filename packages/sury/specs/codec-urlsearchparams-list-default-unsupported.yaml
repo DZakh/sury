@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.urlSearchParams.with(S.to, S.schema({ a: S.optional(S.array(S.string), ["m"]) }))'
+  input: URLSearchParams
+  output: "{ a: string[]; }"
+  instantiations: 5976
+jsonSchema:
+  input: Expected JSON, received URLSearchParams
+  output: '{ type: "object", properties: { a: { items: { type: "string" }, type: "array" } }, required: ["a"] }'
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.a,b.a)
+compare:
+  input: "throws: [Sury] Can't compare URLSearchParams. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: string[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at a: Can't decode search param -> string[] with a default. No entries is the empty list, so the default is never read"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.a;Array.isArray(v0)||e[0](v0);let v2=new e[1]();for(let v3=0;v3<v0.length;++v3){v2.append("a",v0[v3]);}return v2}catch(v4){e[2](v4)}}
+    examples:
+      built:
+        input: '{ a: ["m"] }'
+        output: ((p) => (p.append("a", "m"), p))(new URLSearchParams())

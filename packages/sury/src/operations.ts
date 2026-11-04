@@ -107,17 +107,15 @@ const dispatch = (
   // encode direction. `tail` closes the chain: `assertResult` for the families
   // that validate and discard (`is`, `assert`, `make`).
   const first = (rev ? reverse(a as Internal) : a) as Internal;
-  // The chain, in order: the caller's schemas, then the tail. `getOp` reads
-  // exactly as many positional arguments as it is told, so the tail has to sit
-  // right after the last schema - which is why each arity is written out with
-  // its own count rather than padded with `U`; it also allocates nothing on a
-  // cache hit.
+  // Each operation passes `tail` alongside its flag 1024 rather than this
+  // deriving it from the flag: naming `assertResult` here would put it in the
+  // bundle of every operation, `parse*` included.
   const op =
     k > 2
-      ? getOp(flag, tail ? 4 : 3, first, b as Internal, c as Internal, tail)
+      ? getOp(flag, 3, first, b as Internal, c as Internal, tail)
       : k > 1
-        ? getOp(flag, tail ? 3 : 2, first, b as Internal, tail)
-        : getOp(flag, tail ? 2 : 1, first, tail);
+        ? getOp(flag, 2, first, b as Internal, tail)
+        : getOp(flag, 1, first, tail);
   return immediate ? op(data) : op;
 };
 
@@ -224,19 +222,19 @@ export function encodeAsPromisableResult(a?: unknown, b?: unknown, c?: unknown, 
 // discarded, and the value keeps its identity. One schema only: a chain is
 // `.with(S.to, ...)` on the schema first.
 export function makeInputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, false, 8 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, false, 8 | 1024 | 2048);
 }
 
 export function makeInputAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, false, 8 | 128 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, false, 8 | 128 | 1024 | 2048);
 }
 
 export function makeInputAsPromiseOrReject(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 1024 | 2048);
 }
 
 export function makeInputAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 128 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 128 | 1024 | 2048);
 }
 
 export const makeInputAsPromisableResult = function (
@@ -245,23 +243,23 @@ export const makeInputAsPromisableResult = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 128 | 512 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, false, 1 | 8 | 128 | 512 | 1024 | 2048);
 }
 
 export function makeOutputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 1024 | 2048);
 }
 
 export function makeOutputAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 128 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 128 | 1024 | 2048);
 }
 
 export function makeOutputAsPromiseOrReject(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 1024 | 2048);
 }
 
 export function makeOutputAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 128 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 128 | 1024 | 2048);
 }
 
 export const makeOutputAsPromisableResult = function (
@@ -270,7 +268,7 @@ export const makeOutputAsPromisableResult = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 128 | 512 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 128 | 512 | 1024 | 2048);
 }
 
 // ── Checks ───────────────────────────────────────────────────────────────────
@@ -280,19 +278,19 @@ export const makeOutputAsPromisableResult = function (
 // `is*AsPromise` resolves to one and never rejects.
 
 export function isInput(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, false, 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 8 | 1024 | 4096);
 }
 
 export function isOutput(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, true, 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 8 | 1024 | 4096);
 }
 
 export function isInputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8 | 1024 | 4096);
 }
 
 export function isOutputAsPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 4096);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 1024 | 4096);
 }
 
 // Equality and compare take a PAIR, so they share a dispatch: the schema is
@@ -334,11 +332,11 @@ export function compareOutput(a?: unknown, b?: unknown, c?: unknown): unknown {
 }
 
 export function assertInputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, false, 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 8 | 1024);
 }
 
 export function assertOutputOrThrow(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, true, 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 8 | 1024);
 }
 
 export const assertInputAsPromiseOrReject = function (
@@ -347,7 +345,7 @@ export const assertInputAsPromiseOrReject = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, false, 1 | 8 | 1024);
 }
 
 export const assertOutputAsPromiseOrReject = function (
@@ -356,7 +354,7 @@ export const assertOutputAsPromiseOrReject = function (
   c?: unknown,
   d?: unknown,
 ): unknown {
-  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8);
+  return dispatch(arguments.length, a, b, c, d, assertResult, true, 1 | 8 | 1024);
 }
 
 // ── ReScript result surface ──────────────────────────────────────────────────
@@ -384,9 +382,9 @@ export function $encodeAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?
 }
 
 export function $makeAsResult(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 256 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 8 | 256 | 1024 | 2048);
 }
 
 export function $makeAsResultPromise(a?: unknown, b?: unknown, c?: unknown, d?: unknown): unknown {
-  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 256 | 2048);
+  return makeDispatch(arguments.length, a, b, assertResult, true, 1 | 8 | 256 | 1024 | 2048);
 }

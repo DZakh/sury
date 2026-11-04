@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.literal(0).with(S.to, S.union([1, 2, S.number]))
+  input: "0"
+  output: number
+  instantiations: 5262
+jsonSchema:
+  input: '{ type: "number", const: 0 }'
+  output: '{ type: "number", const: 0 }'
+  fromOutputType: "0"
+  openapi-3.0:
+    input: '{ type: "number", enum: [0] }'
+    output: '{ type: "number", enum: [0] }'
+isEqual:
+  input: alwaysEqual
+  output: strictEqual
+compare:
+  input: alwaysCompare
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i===0||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      zero:
+        input: "0"
+        output: "0"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Ambiguous 1 | 2 | number -> 0. 1 isn't 0. Choose with S.to for 1 -> 0, or S.never -> 1"

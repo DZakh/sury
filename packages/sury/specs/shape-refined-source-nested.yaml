@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.shape(S.schema({ n: S.schema({ x: S.string }).with(S.refine, (v) => v.x !== "bad", { error: "refused" }) }), (v) => ({ w: v.n.x }))'
+  input: "{ n: { x: string; }; }"
+  output: "{ w: string; }"
+  instantiations: 3219
+jsonSchema:
+  input: '{ type: "object", properties: { n: { type: "object", properties: { x: { type: "string" } }, required: ["x"] } }, required: ["n"] }'
+  output: '{ type: "object", properties: { w: { type: "string" } }, required: ["w"] }'
+isEqual:
+  input: (a,b)=>a===b||a.n.x===b.n.x
+  output: (a,b)=>a===b||a.w===b.w
+compare:
+  input: "throws: [Sury] Can't compare { n: { x: string; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { w: string; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i.n;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0.x;typeof v1==="string"||e[0](v1);let v2={x:v1};e[1](v2)||e[2](v2);return {w:v1}}catch(v3){e[5](v3)}}
+    examples:
+      accepted:
+        input: '{ n: { x: "ok" } }'
+        output: '{ w: "ok" }'
+      refused:
+        input: '{ n: { x: "bad" } }'
+        error: "Failed at n: refused"
+  decode:
+    expression: i=>{try{let v0=i.n;e[0](v0)||e[1](v0);return {w:v0.x}}catch(v1){e[2](v1)}}
+    examples:
+      accepted:
+        input: '{ n: { x: "ok" } }'
+        output: '{ w: "ok" }'
+  encode:
+    expression: i=>{try{let v0={x:i.w};e[0](v0)||e[1](v0);return {n:v0}}catch(v1){e[2](v1)}}
+    examples:
+      accepted:
+        input: '{ w: "ok" }'
+        output: '{ n: { x: "ok" } }'
+      refused:
+        input: '{ w: "bad" }'
+        error: "Failed at n: refused"

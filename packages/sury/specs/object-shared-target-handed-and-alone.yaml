@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((to) => S.schema({ a: S.union([S.schema({ t: "c" }), S.schema({ t: "a" })]).with(S.to, to), b: S.schema({ t: "c" }).with(S.to, to) }))(S.schema({ t: S.union(["a", "b"]) }))'
+  input: '{ a: { t: "c"; } | { t: "a"; }; b: { t: "c"; }; }'
+  output: '{ a: { t: "a" | "b"; }; b: { t: "a" | "b"; }; }'
+  instantiations: 10336
+jsonSchema:
+  input: '{ type: "object", properties: { a: { anyOf: [{ type: "object", properties: { t: { type: "string", const: "c" } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] }] }, b: { type: "object", properties: { t: { type: "string", const: "c" } }, required: ["t"] } }, required: ["a", "b"] }'
+  output: '{ type: "object", properties: { a: { type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] }, b: { type: "object", properties: { t: { enum: ["a", "b"] } }, required: ["t"] } }, required: ["a", "b"] }'
+  openapi-3.0:
+    input: '{ type: "object", properties: { a: { anyOf: [{ type: "object", properties: { t: { type: "string", enum: ["c"] } }, required: ["t"] }, { type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] }] }, b: { type: "object", properties: { t: { type: "string", enum: ["c"] } }, required: ["t"] } }, required: ["a", "b"] }'
+isEqual:
+  input: (a,b)=>a===b||(a.a.t==="c"?b.a.t==="c":b.a.t==="a")
+  output: (a,b)=>a===b||a.a.t===b.a.t&&a.b.t===b.b.t
+compare:
+  input: "throws: [Sury] Can't compare { a: { t: \"c\"; } | { t: \"a\"; }; b: { t: \"c\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: { t: \"a\" | \"b\"; }; b: { t: \"a\" | \"b\"; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at b.t: Can't decode \"c\" -> \"a\" | \"b\": it is none of them. Choose one with S.to, such as S.union([S.literal(\"c\").with(S.to, S.literal(\"a\")), S.never.with(S.to, S.literal(\"b\"))])"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Failed at a.t: Ambiguous \"a\" | \"b\" -> \"a\". \"b\" isn't \"a\". Choose with S.to for \"b\" -> \"a\", or S.never -> \"b\", or split what holds it into a union with a member per value"

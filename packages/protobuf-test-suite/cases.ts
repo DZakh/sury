@@ -758,6 +758,25 @@ export const nestedCases: RoundTripCase[] = [
     },
   },
   {
+    id: "nested/three-byte-length",
+    fields: [
+      field("inner", 1, "message", { fields: [field("data", 1, "bytes")] }),
+      field("tail", 2, "string"),
+    ],
+    value: { inner: { data: new Uint8Array(20000).fill(7) }, tail: "end" },
+  },
+  // A length is written after its payload, into a one-byte hole the payload
+  // slides forward to widen: each side of the two- and three-byte boundaries,
+  // with the message around it crossing one too.
+  ...[16380, 16381, 2097147, 2097148].map((size) => ({
+    id: `nested/payload-of-${size + 3 + (size >= 16384 ? 1 : 0)}-bytes`,
+    fields: [
+      field("mid", 1, "message", { fields: [field("inner", 1, "message", { fields: [field("data", 1, "bytes")] })] }),
+      field("tail", 2, "string"),
+    ],
+    value: { mid: { inner: { data: new Uint8Array(size).fill(3) } }, tail: "end" },
+  })),
+  {
     id: "nested/larger-than-a-slab",
     fields: [
       field("items", 1, "message", { repeated: true, fields: [field("blob", 1, "bytes"), field("n", 2, "int32")] }),
@@ -1452,7 +1471,9 @@ const scalarSchema = (type: S.ProtobufType): S.Schema<unknown, unknown> => {
   ) {
     return S.bigint;
   }
-  if (type === "float" || type === "double") return S.number;
+  // A double holds NaN, which S.number refuses, so the suite spells it the way
+  // protoc-gen-sury does.
+  if (type === "float" || type === "double") return S.union([S.number, S.schema(NaN)]);
   if (type === "int32" || type === "sint32" || type === "sfixed32" || type === "enum") {
     return S.int32;
   }

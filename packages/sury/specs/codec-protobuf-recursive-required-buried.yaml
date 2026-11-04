@@ -5,7 +5,8 @@ ts:
   output: Uint8Array<ArrayBufferLike>
   instantiations: 11454
 jsonSchema:
-  input: '[Sury] S.protobuf: field "y" makes "M" hold itself with no way to end. Make it optional or repeated'
+  input: '{ $ref: "#/$defs/Root", $defs: { Root: { type: "object", properties: { a: { $ref: "#/$defs/M" } } }, M: { type: "object", properties: { x: { $ref: "#/$defs/N" } }, required: ["x"] }, N: { type: "object", properties: { y: { $ref: "#/$defs/M" } }, required: ["y"] } } }'
+  fromInputType: "{ a?: { x: { y: ...; }; } | undefined; }"
   output: '[Sury] S.protobuf: field "y" makes "M" hold itself with no way to end. Make it optional or repeated'
 isEqual:
   input: (a,b)=>a===b||e[0](a,b)

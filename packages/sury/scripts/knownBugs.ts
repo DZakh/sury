@@ -24,7 +24,7 @@ import {
   some,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union" | "issues";
+export type Fuzzer = "eq" | "codec" | "union" | "narrowing" | "issues" | "seam" | "option";
 
 export type Finding = {
   fuzzer: Fuzzer;
@@ -52,6 +52,57 @@ const intoJsonString = (shape: Shape): boolean =>
 
 export const KNOWN_BUGS: Known[] = [
   {
+    id: "union-object-field-from-null",
+    kind: "bug",
+    summary:
+      "A union dispatches an object member on its fields' Output types, so " +
+      "`S.optional(S.schema({ a: S.schema(null).with(S.to, S.number, ...) }))` rejects `{ a: null }`, " +
+      "the one Input the object takes.",
+    spec: "optional-object-field-from-null",
+    fuzzers: ["option"],
+    matches: (f) =>
+      f.fuzzer === "option" &&
+      f.property === "some" &&
+      some(
+        f.shape,
+        (node) =>
+          (node.name === "renamed" || node.name === "field") &&
+          some(node.args[0]!, (leaf) => leaf.name === "fromEmpty"),
+      ),
+  },
+  {
+    id: "option-arm-takes-undefined",
+    kind: "limitation",
+    summary:
+      "An arm that takes `undefined` itself - `any`, `unknown`, `env`, `void` - answers it before " +
+      "the option's own `undefined` arm, so `S.nullAsOption(S.option(S.unknown))` reads `undefined` as the " +
+      "inner value rather than Some(None). The first member that accepts a value wins, which is the documented " +
+      "rule, and the type cannot tell the two apart either.",
+    fuzzers: ["option"],
+    matches: (f) =>
+      f.fuzzer === "option" &&
+      f.property === "some" &&
+      f.detail.includes("parsed undefined to undefined") &&
+      some(f.shape, (node) => ["any", "unknown", "env", "void"].includes(node.name)),
+  },
+  {
+    id: "to-output-keeps-source-refinement",
+    kind: "limitation",
+    summary:
+      "The grammar's `to` decodes a string to its length and encodes it back with \"auto\", which writes the " +
+      "number's digits. No refined string format accepts those, so the schema does not round-trip: a decoded " +
+      "value would not encode, and `isOutput`, which asks whether it would, says no. The property reads that " +
+      "as a wrong `isOutput`; it is the codec not inverting itself.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "conformance" &&
+      f.detail.includes("isOutput rejects") &&
+      // The catalog's leaf string-to-length link, not a container carried
+      // into a JSON string (`intoJsonString`).
+      some(f.shape, (node) => node.name === "with" && node.raw === "to" && !(node.args[0]?.args.length ?? 0)),
+  },
+  {
     id: "fieldor-absent-item-output",
     kind: "bug",
     summary:
@@ -65,31 +116,52 @@ export const KNOWN_BUGS: Known[] = [
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "union-never-member",
+    id: "json-absent-recursive-undefined",
     kind: "bug",
     summary:
-      "A union member with an `S.never` field makes the whole union's encode refuse to compile, " +
-      "instead of that one member yielding to its siblings.",
-    spec: "union-never-member",
-    fuzzers: ["union"],
+      "Read through `S.json`, a field whose `undefined` sits behind a recursive ref " +
+      "(`S.recursive(\"R\", (self) => S.union([S.void, S.array(self)]))`) misreads its key: the object " +
+      "branch sees no `undefined` member, so an absent key reaches the union as present, and a present " +
+      "`null` is still read as the missing value parse rejects.",
+    spec: "codec-json-object-recursive-void",
+    fuzzers: ["codec"],
     matches: (f) =>
-      f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
+      f.fuzzer === "codec" &&
+      (f.property === "absent" || f.property === "present null") &&
+      some(f.shape, (node) => node.name === "recursive" && admitsUndefined(node.args[0]!)),
   },
   {
-    id: "jsonstring-null-default-inlined",
+    id: "json-null-member-conversion",
     kind: "bug",
     summary:
-      "`S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)` fails to compile " +
-      "its parse: the `null` default is inlined as a literal, and the field's conversion to JSON text then " +
-      "assigns to it as if it were a variable (`null=...`).",
-    spec: "jsonstring-object-optional-null-default",
-    fuzzers: ["issues"],
+      "Under `S.json` a present `null` reaches the `undefined` arm of a member converted out of an optional: " +
+      "`S.optional(S.optional(S.string).with(S.to, S.nullable(S.string)))` reads `{a: null}` as `{a: null}`, " +
+      "where parse rejects it and encode never writes it.",
+    spec: "codec-json-object-optional-nested-to-nullable",
+    fuzzers: ["codec"],
     matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("Invalid left-hand side in assignment") &&
-      intoJsonString(f.shape) &&
-      some(f.shape, (node) => node.name === "optional" && node.args[1]?.raw === "null"),
+      f.fuzzer === "codec" &&
+      f.property === "present null" &&
+      some(
+        f.shape,
+        (node) =>
+          ["optional", "nullable", "nullish", "union"].includes(node.name) &&
+          node.args.some((member) => member.name === "optTo"),
+      ),
+  },
+  {
+    id: "union-never-member-yields",
+    kind: "limitation",
+    summary:
+      "A member that needs a value at an `S.never` field holds none, so it yields to its siblings and the " +
+      "union compiles (spec union-never-member). The member-by-member reference meets that member alone, " +
+      "where nothing is left to yield to and refusing it is right, so it cannot tell the two apart.",
+    fuzzers: ["union"],
+    matches: (f) =>
+      f.fuzzer === "union" &&
+      f.property === "acceptance" &&
+      f.detail.includes("Missing input for never") &&
+      some(f.shape, (n) => n.name === "never"),
   },
   {
     id: "union-json-document-member",
@@ -105,6 +177,38 @@ export const KNOWN_BUGS: Known[] = [
       f.shape.name === "jsonTo" &&
       f.property === "acceptance" &&
       some(f.shape, (node) => node.name === "jsonString" || node.name === "jsonStringWithSpace"),
+  },
+  {
+    id: "json-null-spells-nan",
+    kind: "limitation",
+    summary:
+      "JSON writes NaN as `null`, so a field that can hold both NaN and `null` (`S.nullable(S.nan)`), or " +
+      "NaN where parse rejects `null`, reads a present `null` through `S.json` as NaN: the document " +
+      "cannot tell the two apart, and parse never meets that spelling.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" && f.property === "present null" && some(f.shape, (node) => node.name === "nan"),
+  },
+  {
+    id: "json-null-reaches-nested-default",
+    kind: "limitation",
+    summary:
+      "A member's own `undefined` is written to JSON as `null`, unlike an object field's, which leaves its " +
+      "key out. So under `S.json` a present `null` reaches a nested member's missing value and its default " +
+      "(`S.nullable(S.optional(S.string, \"d\"))` reads it as \"d\") where parse gives it to a later `null` " +
+      "member or rejects it. The first member that accepts a value wins, the documented rule.",
+    fuzzers: ["codec"],
+    matches: (f) =>
+      f.fuzzer === "codec" &&
+      f.property === "present null" &&
+      some(
+        f.shape,
+        (node) =>
+          ["optional", "nullable", "nullish", "union"].includes(node.name) &&
+          node.args.some(
+            (member) => member.name === "optDefaultTo" || member.args.some((arg) => arg.name === "#value"),
+          ),
+      ),
   },
   {
     id: "union-overlapping-members",
@@ -124,20 +228,6 @@ export const KNOWN_BUGS: Known[] = [
           node.name === "union" &&
           (node.args.slice(0, -1).some(absorbs) || (f.fuzzer === "codec" && shadowsEmpty(node))),
       ),
-  },
-  {
-    id: "jsonstring-fieldor-refined-url-encode",
-    kind: "bug",
-    summary:
-      "`S.object((s) => ({ f: s.fieldOr(\"f\", S.nullable(S.url.with(S.refine, check)), null) })).with(S.to, S.jsonString)` " +
-      "crashes the encode compile (`isOutput`, `encodeOrThrow`) with a TypeError from `B_merge` instead of building it.",
-    spec: "jsonstring-fieldor-refined-url",
-    fuzzers: ["issues"],
-    matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("reading 't'") &&
-      some(f.shape, (node) => node.name === "fieldOr"),
   },
   {
     id: "conversion-after-failed-container",

@@ -10,6 +10,7 @@ import {
   baseSchema,
   type Builder,
   copySchema,
+  inlinedProperty,
   globalConfig,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -25,6 +26,7 @@ import {
   compilePath,
   pathEmpty,
   pathToText,
+  reversedKey,
   setHas,
   U,
   undefinedTag,
@@ -35,6 +37,8 @@ import {
 import {
   _notVarAtParent,
   _var,
+  B_let,
+  B_varWithoutAllocation,
   B_addObjectField,
   B_field,
   B_unlessCollected,
@@ -56,6 +60,7 @@ import {
   makeObjectVal,
   objectDecoder,
   traverseDefinition,
+  valAt,
   valGet,
 } from "./composites";
 import { getOutputSchema, parse, reverse, setDefault } from "./parse";
@@ -108,13 +113,98 @@ const makeObjectCtx = (
   flatten,
 });
 
+// A ref met while its own definer still runs has no definition to ask yet, and
+// is viewed on demand like one that converts. A parser always sits beside a
+// `.to`, so `to` stands for both.
+const converting = (schema: Internal, seen: Set<Internal>): boolean =>
+  !seen.has(schema) &&
+  (seen.add(schema),
+  !!(schema.to || schema.serializer || (schema.definition && !schema.definition())) ||
+    [
+      schema.definition?.(),
+      schema.additionalItems,
+      ...Object.values(schema.properties || {}),
+      ...(schema.items || []),
+      ...(schema.anyOf || []),
+    ].some((child) => typeof child === "object" && converting(child, seen)));
+
+// One view per definition: compiled operations are cached on the object a ref's
+// `definition` answers, and the view of a recursive definition holds refs back
+// to it.
+const outputViews = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// The definition each output view (`outputView`) was built from.
+const viewSources = /* @__PURE__ */ new WeakMap<Internal, Internal>();
+
+// A view claims exactly its source's output, so whoever names definitions
+// (jsonschema.ts `refKey`) names both as one. Reversed too, which is how an
+// output is described, but only through a reverse already built. A view
+// converts nothing, so it is its own view and never another's source.
+export const viewSource = (def: Internal): Internal => {
+  const reversed = Object.hasOwn(def, reversedKey) && viewSources.has(def.r!);
+  const source = viewSources.get(reversed ? def.r! : def);
+  return source === U ? def : reversed ? source.r! : source;
+};
+
+// What a schema's output claims, as a schema of its own: every node at the end
+// of its chain, children likewise, its refinements kept and its conversions
+// dropped. A value already converted is checked against it without converting
+// it again.
+export const outputView = (schema: Internal): Internal => {
+  let last = schema;
+  while (last.to) last = last.to;
+  let converts = last !== schema || !!last.serializer;
+  const viewOf = (child: Internal): Internal => {
+    const view = outputView(child);
+    if (view !== child) converts = true;
+    return view;
+  };
+  const view = copySchema(last);
+  delete view.serializer;
+  if (view.properties) {
+    const views: Record<string, Internal> = Object.create(null);
+    for (const key in view.properties) views[key] = viewOf(view.properties[key]!);
+    view.properties = views;
+  }
+  if (view.items) view.items = view.items.map(viewOf);
+  if (typeof view.additionalItems === "object") view.additionalItems = viewOf(view.additionalItems);
+  if (view.anyOf) {
+    view.anyOf = view.anyOf.map(viewOf);
+    view.has = {};
+    for (const member of view.anyOf) setHas(view.has, member);
+  }
+  const definition = last.definition;
+  if (definition) {
+    const def = definition();
+    if (def === U || converting(def, new Set())) converts = true;
+    // Answered on demand: viewing the definition now would view the refs
+    // inside it, and through them the definition again.
+    view.definition = () => {
+      const def = definition();
+      if (def === U) return def;
+      let defView = outputViews.get(def);
+      // While it is built, a ref inside it asking is told the definition itself:
+      // only whether it converts is read then, never compiled.
+      if (defView === U) {
+        outputViews.set(def, def);
+        outputViews.set(def, (defView = outputView(def)));
+        if (defView !== def) viewSources.set(defView, def);
+      }
+      return defView;
+    };
+  }
+  return converts ? view : schema;
+};
+
 // Field-with-default as `if(v===void 0)v=def` plus the item's own decoder -
 // not `union([unit, item])` + Option_getOr. The anyOf/has/undefined shape is
 // what isOptional, JSON Schema (skip the unit arm, emit `default`) and json
 // omit still read; unionDecoder is what would pull the planner into every
 // object export, and measuring it says +55% on `object`.
 const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
-  const item = getOutputSchema(schema);
+  const item = outputView(schema);
+  // missingKeyEncoder tells this apart by `noopDecoder` and passes `unit` for
+  // an absent key.
   const mut = baseSchema(anyOfTag, false, noopDecoder);
   mut.anyOf = [schema, unit];
   mut.has = { [undefinedTag]: true };
@@ -139,16 +229,33 @@ const fieldOrSchema = (schema: Internal, or: unknown): Internal => {
   mut.parser = (input: Val) => {
     const v = input.v();
     const defCode = B_inlineConst(input, Literal_parse(or));
+    const output = B_nextVarOutput(input, v, item, item);
+    if (input.s.type === undefinedTag) {
+      output.cp = `${v}=${defCode};`;
+      return output;
+    }
     const itemInput = B_scope(input);
     itemInput.io = false;
-    itemInput.s = unknown;
+    // The present value, as the source has it: a record's string still
+    // decodes to the item's number.
+    const present = input.s.anyOf ? input.s.anyOf.filter((member) => member.type !== undefinedTag) : [input.s];
+    // The item itself as the source is the field's own decode, from unknown.
+    itemInput.s = present.length === 1 && present[0] !== schema ? present[0]! : unknown;
     itemInput.e = parseAs;
     itemInput.u = input.u;
     const itemOutput = parse(itemInput);
     const itemCode = B_merge(itemOutput);
-    const assign = itemOutput.i === v ? "" : `${v}=${itemOutput.i};`;
-    const output = B_nextVarOutput(input, v, item, item);
-    const presentBody = itemCode + assign;
+    if (itemOutput.f & 1) {
+      // A promise of its own: a collected failure leaves the field's input in
+      // `v`, which the join would read as one. The default is a promise too,
+      // as the collecting join reads both branches through `.then`.
+      const promise = B_varWithoutAllocation(input.g);
+      output.i = promise;
+      output.f |= 1;
+      output.cp = `${B_let(input.g, promise)}if(${v}===void 0){${promise}=Promise.resolve(${defCode})}else{${itemCode}${promise}=${itemOutput.i};}`;
+      return output;
+    }
+    const presentBody = itemCode + (itemOutput.i === v ? "" : `${v}=${itemOutput.i};`);
     output.cp =
       presentBody === ""
         ? `if(${v}===void 0)${v}=${defCode};`
@@ -165,6 +272,9 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
 
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
+  // The link into it from the node before is not part of the shape, and a
+  // reverse would make it a parser that skips whatever `.to` is put after it.
+  delete mut.serializer;
   mut.from = from;
   if (fromFlattened !== U) {
     mut.fromFlattened = fromFlattened;
@@ -311,7 +421,7 @@ export const schemaObject = (
   };
 
   const field = (fieldName: string, schema: Internal): unknown => {
-    if (fieldName in properties) {
+    if (fieldName in properties && properties[fieldName] !== schema) {
       panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
     properties[fieldName] = schema;
@@ -378,18 +488,6 @@ export const schemaTuple = (
   return mut;
 }
 
-const getValByFrom = (input: Val, from: string[], idx: number): Val => {
-  // Flattened schemas are resolved by the caller (getShapedParserOutput picks
-  // the right `input.fv[fromFlattened]` before calling this) - this walk only
-  // needs to handle a plain nested `from` path.
-  const key = from[idx];
-  if (key !== U) {
-    return getValByFrom(input.d![key]!, from, idx + 1);
-  } else {
-    return input;
-  }
-}
-
 // Owns the shaped structure walk: assembles an object/tuple val from a
 // per-location field producer. `init` wires the fresh objectVal before the
 // walk and may pre-populate `d` (flattened merge) - pre-populated locations
@@ -433,14 +531,21 @@ const assembleShapedObject = (
   return completeObjectVal(output);
 }
 
+const shapePlaced = (val: Val): void => {
+  val.sp = (val.sp || 0) + 1;
+  for (const key in val.d) shapePlaced(val.d[key]!);
+};
+
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== U) {
-    v = B_scope(
-      getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
-    );
+    const at = valAt(input.fv![targetSchema.fromFlattened]!, targetSchema.from!);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (targetSchema.from !== U) {
-    v = B_scope(getValByFrom(input, targetSchema.from, 0));
+    const at = valAt(input, targetSchema.from);
+    shapePlaced(at);
+    v = B_scope(at);
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
@@ -500,7 +605,9 @@ const shapedParser: Builder = (input: Val) => {
   const output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return B_markOutput(output, input);
+  // The source's input checks ran with its own decode; handing `input` here
+  // would emit them a second time.
+  return B_markOutput(output, output);
 }
 
 const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
@@ -552,26 +659,30 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
+// Returns an unparsed head with no chain of its own, like getShapedParserOutput:
+// the root links `input` as its `prev`, and a chain parsed here would be cut
+// off there - at the root the compile pipeline advances it (#471).
 const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
   targetSchema: Internal,
-  path: Path
+  path: Path,
+  root?: boolean
 ): Val => {
+  let v: Val;
   if (acc !== U && acc.val !== U) {
-    // Placement of an already-decoded val - don't overwrite its schema (#284);
-    // parse only re-advances `e` and emits nothing for an output val
-    const v = B_scope(acc.val);
+    // Placement of an already-decoded val - don't overwrite its schema (#284)
+    v = B_scope(acc.val);
     v.t = true;
     v.e = targetSchema;
-    return parse(v);
+    if (root) v.prev = input;
+    return v;
   } else if (isLiteral(targetSchema)) {
-    const v = B_nextConst(input, targetSchema, targetSchema);
+    v = B_nextConst(input, targetSchema, targetSchema);
     v.prev = U;
     v.p = input;
     v.v = _notVarAtParent;
     v.io = true;
-    return parse(v);
   } else {
     // When acc is undefined (discriminant field with no input), follow the to chain
     // to get the actual output schema properties (e.g., for reversed transformed objects)
@@ -592,31 +703,30 @@ const getShapedSerializerOutput = (
       return missingInput();
     }
 
-    const assembled = assembleShapedObject(
+    v = assembleShapedObject(
       input,
       resolvedTargetSchema,
       (location, childSchema) =>
-        getShapedSerializerOutput(
-          input,
-          acc !== U && acc.properties !== U ? acc.properties[location] : U,
-          childSchema,
-          pathConcat(path, [location])
+        parse(
+          getShapedSerializerOutput(
+            input,
+            acc !== U && acc.properties !== U ? acc.properties[location] : U,
+            childSchema,
+            pathConcat(path, [location])
+          )
         ),
       (v) => {
         v.e = resolvedTargetSchema;
+        // Keeps its own `v` (declared after its own code): a decl hoisted onto
+        // `input` lands ahead of the field code an async object's join reads.
         v.prev = U;
-        v.p = input;
-        v.v = _notVarAtParent;
         const flattened = resolvedTargetSchema.flattened;
         if (flattened !== U && acc !== U && acc.flattened !== U) {
           const flattenedSchemas = flattened;
           const flattenedAcc = acc.flattened;
           flattenedAcc.forEach((acc, idx) => {
-            const flattenedOutput = getShapedSerializerOutput(
-              input,
-              acc,
-              reverse(flattenedSchemas[idx]!),
-              path
+            const flattenedOutput = parse(
+              getShapedSerializerOutput(input, acc, reverse(flattenedSchemas[idx]!), path)
             );
             // Only the member's fields are placed here, so take its code once
             // and read each field back out of it. `valGet` scopes a field the
@@ -625,32 +735,40 @@ const getShapedSerializerOutput = (
             // unscoped is what emitted their `let`s a second time (#368) - and
             // synthesizes a read when the member ends in its own transform,
             // whose result carries no field vals of its own (B_next).
+            const promise = flattenedOutput.f & 1 ? flattenedOutput.v() : U;
             v.cp = v.cp + B_merge(flattenedOutput);
             for (const key of Object.keys(flattenedOutput.d!)) {
-              B_addObjectField(v, key, valGet(flattenedOutput, key));
+              const field = valGet(flattenedOutput, key);
+              if (promise !== U) {
+                const name = B_varWithoutAllocation(v.g);
+                v.cp += B_let(v.g, name, `${promise}.then(v=>v${inlinedProperty("", key)})`);
+                field.i = name;
+                field.v = _var;
+                field.f |= 1;
+              }
+              B_addObjectField(v, key, field);
             }
           });
         }
       },
       missingInput
     );
-    // The walk built the head of `targetSchema`'s chain. If the schema also
-    // carries a transform of its own, run it here: the assembled head is its
-    // input, and nobody else will apply it (a pending operation-level `to`
-    // with no parser is the compile pipeline's job, not ours).
-    return targetSchema.parser === U ? assembled : parse(assembled);
   }
+  // A value placed whole was checked by its own decode; one assembled from the
+  // shape has had only its fields checked, so its own refinements run here.
+  if (root) {
+    v.t = true;
+    v.prev = input;
+  }
+  v.path = pathConcat(v.path, path);
+  return B_markOutput(v);
 }
 
 const shapedSerializer: Builder = (input: Val) => {
   const acc: ShapedSerializerAcc = {};
   prepareShapedSerializerAcc(acc, input);
 
-  const targetSchema = input.e.to!;
-  const output = getShapedSerializerOutput(input, acc, targetSchema, pathEmpty);
-  output.t = true;
-  output.prev = input;
-  return output;
+  return getShapedSerializerOutput(input, acc, input.e.to!, pathEmpty, true);
 }
 
 const definitionToShapedSchema = (definition: unknown): Internal => {

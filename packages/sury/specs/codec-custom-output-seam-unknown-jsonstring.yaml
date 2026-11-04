@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '((S as any).$to as typeof S.to)(S.meta(S.unknown, { description: "seam" }), S.schema({ f: S.jsonString.with(S.to, S.unknown) }), { decode: (v: unknown) => v, encode: (v: unknown) => v } as any)'
+  input: unknown
+  output: "{ f?: unknown; }"
+  instantiations: 6143
+jsonSchema:
+  input: '{ description: "seam" }'
+  fromInputType: JSON
+  output: '{ type: "object", properties: { f: {} }, required: ["f"] }'
+  fromOutputType: "{ f: JSON; }"
+isEqual:
+  input: (a,b)=>a===b||e[0](a,b)
+  output: (a,b)=>a===b||e[0](a.f,b.f)
+compare:
+  input: "throws: [Sury] Can't compare unknown. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { f: unknown; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      coder-result:
+        input: "{ f: { a: 1 } }"
+        output: "{ f: { a: 1 } }"
+  decode: eq-to-parse
+  encode: eq-to-parse
