@@ -96,22 +96,20 @@ type Layout = {
   r?: number;
 };
 
-// [size, read into a bigint, the range a number holds].
-const numbers: Record<string, [size: number, big: boolean, min?: number, max?: number]> = {
-  u8: [1, false, 0, 255],
-  i8: [1, false, -128, 127],
-  u16: [2, false, 0, 65535],
-  i16: [2, false, -32768, 32767],
-  u32: [4, false, 0, 4294967295],
-  i32: [4, false, -2147483648, 2147483647],
-  f32: [4, false],
-  f64: [8, false],
-  u64: [8, true],
-  i64: [8, true],
-  u128: [16, true],
-  i128: [16, true],
-  // alloy's and ruint's U256, archived as four little-endian u64 limbs.
-  U256: [32, true],
+// Byte sizes. Every other fact about a number type follows from its name: a
+// float, a signed or an unsigned integer, and a bigint past 32 bits. U256 is
+// alloy's and ruint's, archived as four little-endian u64 limbs.
+const numbers: Record<string, number> = { u8: 1, i8: 1, u16: 2, i16: 2, u32: 4, i32: 4, f32: 4, f64: 8, u64: 8, i64: 8, u128: 16, i128: 16, U256: 32 };
+
+const isBig = (t: string): boolean => numbers[t]! > 4 && t[0] !== "f";
+
+// The DataView accessor suffix: `Uint16`, `Float64`, `BigInt64`.
+const view = (t: string, size = numbers[t]!): string =>
+  `${size > 4 && t[0] !== "f" ? "Big" : ""}${t[0] === "f" ? "Float" : t[0] === "i" ? "Int" : "Uint"}${size * 8}`;
+
+const intRange = (t: string): [number, number] => {
+  const bits = numbers[t]! * 8;
+  return t[0] === "i" ? [-(2 ** (bits - 1)), 2 ** (bits - 1) - 1] : [0, 2 ** bits - 1];
 };
 
 const alignUp = (n: number, a: number): number => (n + a - 1) & -a;
@@ -149,9 +147,8 @@ const unrepresentable = (schema: Internal): never =>
 const numberLayout = (schema: Internal, type: string | undefined, nan?: Internal): Layout => {
   const format = schema.format;
   if (type === U) type = format === "int32" ? "i32" : format === "port" ? "u16" : format === "integer" ? "i64" : "f64";
-  const known = numbers[type];
-  if (known === U) return panic(`S.rkyvType ${type} can't store a number`);
-  const [size, big, min = -Infinity, max = Infinity] = known;
+  const size = numbers[type];
+  if (size === U) return panic(`S.rkyvType ${type} can't store a number`);
   if (size > 8) return panic(`S.rkyvType ${type} needs S.bigint`);
   if (type[0] === "f") {
     const layout = leaf(0, type, size, nan ?? float);
@@ -160,7 +157,8 @@ const numberLayout = (schema: Internal, type: string | undefined, nan?: Internal
     return layout;
   }
   const wire = format === "int32" ? int : format === "port" ? port : format === "integer" ? integer : float;
-  const layout = leaf(big ? 12 : 0, type, size, wire);
+  const layout = leaf(isBig(type) ? 12 : 0, type, size, wire);
+  const [min, max] = intRange(type);
   if (wire !== float && (min < wire.minimum! || max > wire.maximum!)) layout.m = [wire.minimum as number, wire.maximum as number, format!];
   return layout;
 };
@@ -210,8 +208,8 @@ const layoutOf = (schema: Internal, ctx: Ctx): Layout => {
       return numberLayout(schema, type);
     case bigintTag: {
       const t = type ?? "i64";
-      if (numbers[t]?.[1] !== true) return panic(`S.rkyvType ${t} can't store a bigint`);
-      const layout = leaf(1, t, numbers[t]![0], bigint);
+      if (numbers[t] === U || !isBig(t)) return panic(`S.rkyvType ${t} can't store a bigint`);
+      const layout = leaf(1, t, numbers[t]!, bigint);
       if (t === "U256") layout.a = 8;
       return layout;
     }
@@ -422,22 +420,18 @@ const scopeCatch = (gen: Gen, scope: Scope, index?: string): string => {
   return `catch(x){throw P(x,${index === U ? at : `[${index}].concat(${at})`})}`;
 };
 
-const reads: Record<string, (p: string) => string> = {
-  u8: (p) => `b[${p}]`,
-  i8: (p) => `b[${p}]<<24>>24`,
-  u16: (p) => `d.getUint16(${p},true)`,
-  i16: (p) => `d.getInt16(${p},true)`,
-  u32: (p) => `d.getUint32(${p},true)`,
-  i32: (p) => `d.getInt32(${p},true)`,
-  f32: (p) => `d.getFloat32(${p},true)`,
-  f64: (p) => `d.getFloat64(${p},true)`,
-  u64: (p) => `d.getBigUint64(${p},true)`,
-  i64: (p) => `d.getBigInt64(${p},true)`,
-  // A value that fits 64 bits, as most do, costs one BigInt rather than three.
-  u128: (p) => `(d.getUint32(${p}+8,true)|d.getUint32(${p}+12,true)?d.getBigUint64(${p}+8,true)<<64n|d.getBigUint64(${p},true):d.getBigUint64(${p},true))`,
-  i128: (p) => `(d.getBigInt64(${p}+8,true)<<64n|d.getBigUint64(${p},true))`,
-  U256: (p) =>
-    `(d.getUint32(${p}+8,true)|d.getUint32(${p}+12,true)|d.getUint32(${p}+16,true)|d.getUint32(${p}+20,true)|d.getUint32(${p}+24,true)|d.getUint32(${p}+28,true)?((d.getBigUint64(${p}+24,true)<<64n|d.getBigUint64(${p}+16,true))<<64n|d.getBigUint64(${p}+8,true))<<64n|d.getBigUint64(${p},true):d.getBigUint64(${p},true))`,
+// A value wider than 64 bits is read limb by limb. One that fits the lowest
+// limb, as most do, costs one BigInt rather than one per limb.
+const read = (t: string, p: string): string => {
+  const size = numbers[t]!;
+  if (size === 1 && t === "u8") return `b[${p}]`;
+  if (size <= 8) return `d.get${view(t)}(${p},true)`;
+  let value = `d.get${view(t, 8)}(${p}+${size - 8},true)`;
+  for (let off = size - 16; off >= 0; off -= 8) value = `(${value}<<64n|d.getBigUint64(${at(p, off)},true))`;
+  if (t[0] === "i") return value;
+  let high = "";
+  for (let off = 8; off < size; off += 4) high += `${high && "|"}d.getUint32(${p}+${off},true)`;
+  return `(${high}?${value}:d.getBigUint64(${p},true))`;
 };
 
 const at = (p: string, off: number): string => (off === 0 ? p : `${p}+${off}`);
@@ -453,15 +447,15 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
     case 0:
       if (layout.c === 1) {
         const x = newVar(gen);
-        return [`${mark(scope, path)}${x}=${reads[layout.t]!(p)};${x}===${x}||F("Expected number, received NaN");`, x];
+        return [`${mark(scope, path)}${x}=${read(layout.t, p)};${x}===${x}||F("Expected number, received NaN");`, x];
       }
       if (layout.m !== U) {
         const x = newVar(gen);
-        return [`${mark(scope, path)}${x}=${reads[layout.t]!(p)};${bounded(layout, x)}`, x];
+        return [`${mark(scope, path)}${x}=${read(layout.t, p)};${bounded(layout, x)}`, x];
       }
-      return ["", reads[layout.t]!(p)];
+      return ["", read(layout.t, p)];
     case 1:
-      return ["", reads[layout.t]!(p)];
+      return ["", read(layout.t, p)];
     case 12: {
       const x = newVar(gen);
       return [
@@ -610,41 +604,29 @@ const utf8 = (bytes: Uint8Array, p: number, n: number): string => {
 };
 
 
-const writes: Record<string, (p: string, v: string) => string> = {
-  u8: (p, v) => `w[${p}]=${v}`,
-  i8: (p, v) => `w[${p}]=${v}`,
-  u16: (p, v) => `wd.setUint16(${p},${v},true)`,
-  i16: (p, v) => `wd.setInt16(${p},${v},true)`,
-  u32: (p, v) => `wd.setUint32(${p},${v},true)`,
-  i32: (p, v) => `wd.setInt32(${p},${v},true)`,
-  f32: (p, v) => `wd.setFloat32(${p},${v},true)`,
-  f64: (p, v) => `wd.setFloat64(${p},${v},true)`,
-  u64: (p, v) => `wd.setBigUint64(${p},${v},true)`,
-  i64: (p, v) => `wd.setBigInt64(${p},${v},true)`,
-  u128: (p, v) => `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigUint64(${p}+8,BigInt.asUintN(64,${v}>>64n),true)`,
-  i128: (p, v) => `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigInt64(${p}+8,BigInt.asIntN(64,${v}>>64n),true)`,
-  U256: (p, v) =>
-    `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigUint64(${p}+8,BigInt.asUintN(64,${v}>>64n),true),wd.setBigUint64(${p}+16,BigInt.asUintN(64,${v}>>128n),true),wd.setBigUint64(${p}+24,${v}>>192n,true)`,
+const write = (t: string, p: string, v: string): string => {
+  const size = numbers[t]!;
+  if (size === 1) return `w[${p}]=${v}`;
+  if (size <= 8) return `wd.set${view(t)}(${p},${v},true)`;
+  let code = "";
+  for (let off = 0; off < size; off += 8) {
+    const top = off === size - 8;
+    code += `${off ? "," : ""}wd.set${top ? view(t, 8) : "BigUint64"}(${at(p, off)},BigInt.as${top && t[0] === "i" ? "Int" : "Uint"}N(64,${off ? `${v}>>${off * 8}n` : v}),true)`;
+  }
+  return code;
 };
 
-const ranges: Record<string, (v: string) => string> = {
-  u8: (v) => `(${v}&255)===${v}`,
-  i8: (v) => `(${v}<<24>>24)===${v}`,
-  u16: (v) => `(${v}&65535)===${v}`,
-  i16: (v) => `(${v}<<16>>16)===${v}`,
-  u32: (v) => `${v}>>>0===${v}`,
-  i32: (v) => `(${v}|0)===${v}`,
-  u64: (v) => `BigInt.asUintN(64,${v})===${v}`,
-  i64: (v) => `BigInt.asIntN(64,${v})===${v}`,
-  u128: (v) => `BigInt.asUintN(128,${v})===${v}`,
-  i128: (v) => `BigInt.asIntN(128,${v})===${v}`,
-  U256: (v) => `BigInt.asUintN(256,${v})===${v}`,
+const range = (t: string, v: string): string | undefined => {
+  if (t[0] === "f") return U;
+  if (isBig(t)) return `BigInt.as${t[0] === "i" ? "Int" : "Uint"}N(${numbers[t]! * 8},${v})===${v}`;
+  const [min, max] = intRange(t);
+  return `${v}%1===0&&${v}>=${min}&&${v}<=${max}`;
 };
 
 const rangeCheck = (scope: Scope, layout: Layout, v: string, path: Path): string => {
   // A typed value already holds its format's range.
   if ((layout.w === int && layout.t === "i32") || (layout.w === port && layout.t === "u16")) return "";
-  const check = layout.k === 12 ? `Number.isSafeInteger(${v})${layout.t === "u64" ? `&&${v}>=0` : ""}` : ranges[layout.t]?.(v);
+  const check = layout.k === 12 ? `Number.isSafeInteger(${v})${layout.t === "u64" ? `&&${v}>=0` : ""}` : range(layout.t, v);
   return check === U ? "" : `${mark(scope, path)}${check}||E(${v},"${layout.t}");`;
 };
 
@@ -694,9 +676,12 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
       const o = newVar(gen),
         e = newVar(gen);
       const resolve = emitResolve(gen, item, e, arrays.map((a) => `${a}[${i}]`), o);
-      code += `A(${item.a});${r}=wp;Z(${list}.length*${item.s});`;
-      if (resolve !== "") code += `for(${i}=0,${o}=${r};${i}<${list}.length;${i}++,${o}+=${item.s}){${e}=${list}[${i}];${resolve}}`;
-      return [code, [r, `${list}.length`]];
+      // The length is a resolver of its own: a list inside an enum variant
+      // is copied out per item whatever variant the item holds.
+      const n = newVar(gen);
+      code += `${n}=${list}.length;A(${item.a});${r}=wp;Z(${n}*${item.s});`;
+      if (resolve !== "") code += `for(${i}=0,${o}=${r};${i}<${n};${i}++,${o}+=${item.s}){${e}=${list}[${i}];${resolve}}`;
+      return [code, [r, n]];
     }
     case 7: {
       const [bound, x] = bind(gen, v);
@@ -754,7 +739,7 @@ const emitResolve = (gen: Gen, layout: Layout, v: string, resolvers: string[], p
   switch (layout.k) {
     case 0:
     case 1:
-      return `${writes[layout.t]!(p, v)};`;
+      return `${write(layout.t, p, v)};`;
     case 12:
       return `wd.${layout.t === "i64" ? "setBigInt64" : "setBigUint64"}(${p},BigInt(${v}),true);`;
     case 2:
@@ -772,29 +757,15 @@ const emitResolve = (gen: Gen, layout: Layout, v: string, resolvers: string[], p
       const [x, ...rest] = resolvers;
       return `if(${x}!==${literalSource(layout.n)}){w[${p}]=1;${emitResolve(gen, layout.i!, x!, rest, at(p, layout.o!))}}`;
     }
-    case 8: {
-      let code = "";
-      let cursor = 0;
-      for (const [key, field, off] of layout.f!) {
-        const count = resolverCount(field);
-        code += emitResolve(gen, field, property(v, key), resolvers.slice(cursor, cursor + count), at(p, off));
-        cursor += count;
-      }
-      return code;
-    }
+    case 8:
+      return resolveFields(gen, layout, v, resolvers, 0, p)[0];
     case 9: {
       const [t] = resolvers;
       let cursor = 1;
       let cases = "";
       layout.v!.forEach(([, body], idx) => {
         let code = "";
-        if (body !== U) {
-          for (const [key, field, off] of body.f!) {
-            const count = resolverCount(field);
-            code += emitResolve(gen, field, property(v, key), resolvers.slice(cursor, cursor + count), at(p, off));
-            cursor += count;
-          }
-        }
+        if (body !== U) [code, cursor] = resolveFields(gen, body, v, resolvers, cursor, p);
         cases += `case ${idx}:${code}break;`;
       });
       return `w[${p}]=${t};${layout.v!.every(([, body]) => body === U || body.f!.length === 0) ? "" : `switch(${t}){${cases}}`}`;
@@ -803,6 +774,17 @@ const emitResolve = (gen: Gen, layout: Layout, v: string, resolvers: string[], p
       return `wd.setInt32(${p},${resolvers[0]}-(${p}),true);`;
   }
   return "";
+};
+
+// A struct's fields, each taking its own run of the resolvers from `cursor`.
+const resolveFields = (gen: Gen, layout: Layout, v: string, resolvers: string[], cursor: number, p: string): [code: string, cursor: number] => {
+  let code = "";
+  for (const [key, field, off] of layout.f!) {
+    const count = resolverCount(field);
+    code += emitResolve(gen, field, property(v, key), resolvers.slice(cursor, cursor + count), at(p, off));
+    cursor += count;
+  }
+  return [code, cursor];
 };
 
 const resolverCount = (layout: Layout): number => {
