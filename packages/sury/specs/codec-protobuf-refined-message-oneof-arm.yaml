@@ -8,7 +8,7 @@ jsonSchema:
   input: '{ type: "object", properties: { o: { anyOf: [{ type: "object", properties: { c: { type: "string" } }, required: ["c"] }, { type: "string" }] } } }'
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||!!(typeof a.o==="object"&&a.o&&!Array.isArray(a.o)?typeof b.o==="object"&&b.o&&!Array.isArray(b.o)&&a.o.c===b.o.c:typeof a.o==="string"?typeof b.o==="string"&&a.o===b.o:b.o===void 0)
+  input: (a,b)=>a===b||(a.o===void 0?b.o===void 0:b.o!==void 0&&!!(typeof a.o==="object"&&a.o&&!Array.isArray(a.o)?typeof b.o==="object"&&b.o&&!Array.isArray(b.o)&&a.o.c===b.o.c:typeof b.o==="string"&&a.o===b.o))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { o: { c: string; } | string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

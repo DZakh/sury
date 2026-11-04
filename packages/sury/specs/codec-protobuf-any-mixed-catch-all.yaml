@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at p.value.total: Expected JSON, received bigint"
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||(Array.isArray(a.p)?Array.isArray(b.p)&&a.p[1].id===b.p[1].id:a.p?.type==="order"?b.p?.type==="order"&&a.p.value.total===b.p.value.total:a.p?.type==="other"?b.p?.type==="other"&&a.p.value.typeUrl===b.p.value.typeUrl&&e[0](a.p.value.value,b.p.value.value):b.p===void 0)
+  input: (a,b)=>a===b||(a.p===void 0?b.p===void 0:b.p!==void 0&&(Array.isArray(a.p)?Array.isArray(b.p)&&a.p[1].id===b.p[1].id:a.p.type==="order"?b.p.type==="order"&&a.p.value.total===b.p.value.total:b.p.type==="other"&&a.p.value.typeUrl===b.p.value.typeUrl&&e[0](a.p.value.value,b.p.value.value)))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { p: [\"user\", { id: int32; }] | { type: \"order\"; value: { total: bigint; }; } | { type: \"other\"; value: Any; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

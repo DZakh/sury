@@ -164,6 +164,7 @@ export const sample = (schema: unknown, rng: Rng, depth = 0): unknown => {
       if (s.format === "int32") return pick ? 7 : 1;
       return pick ? 2 : 1;
     case "string": {
+      if (s.format === "env") return pick ? "x" : undefined;
       const options = s.format ? FORMAT_STRINGS[s.format] : undefined;
       if (options) return options[pick]!;
       // An unrecognised format would be a string the refinement rejects, and a

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ TAG: "A", _0: S.string }), S.schema({ TAG: "B", _0: S.number }), S.env])'
+  input: 'string | { TAG: "A"; _0: string; } | { TAG: "B"; _0: number; } | undefined'
+  output: 'string | { TAG: "A"; _0: string; } | { TAG: "B"; _0: number; } | undefined'
+  instantiations: 4410
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "B" }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "string" }] }'
+  fromInputType: 'string | { TAG: "A"; _0: string; } | { TAG: "B"; _0: number; }'
+  output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "A" }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", const: "B" }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "string" }] }'
+  fromOutputType: 'string | { TAG: "A"; _0: string; } | { TAG: "B"; _0: number; }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "string" }] }'
+    output: '{ anyOf: [{ type: "object", properties: { TAG: { type: "string", enum: ["A"] }, _0: { type: "string" } }, required: ["TAG", "_0"] }, { type: "object", properties: { TAG: { type: "string", enum: ["B"] }, _0: { type: "number" } }, required: ["TAG", "_0"] }, { type: "string" }] }'
+isEqual: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&(a.TAG==="A"?b.TAG==="A"&&a._0===b._0:a.TAG==="B"?b.TAG==="B"&&a._0===b._0:(typeof b==="string"||b===void 0)&&a===b))
+compare: "throws: [Sury] Can't compare { TAG: \"A\"; _0: string; } | { TAG: \"B\"; _0: number; } | env. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.TAG==="A"){let v0=i._0;typeof v0==="string"||e[0](v0);i={TAG:i.TAG,_0:v0};break}if(i.TAG==="B"){let v1=i._0;typeof v1==="number"&&v1==v1||e[1](v1);i={TAG:i.TAG,_0:v1};break}throw e[2](i)}break}if((typeof i==="string"||i===void 0))break;throw e[2](i)}return i}catch(v2){e[3](v2)}}
+    examples:
+      member-a:
+        input: '{ TAG: "A", _0: "x" }'
+        output: '{ TAG: "A", _0: "x" }'
+      env-set:
+        input: '"x"'
+        output: '"x"'
+      env-unset:
+        input: undefined
+        output: undefined
+  decode: identity
+  encode: identity

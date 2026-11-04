@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at o: Expected JSON, received { s: string | undefined; } | Date | undefined"
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||!!(typeof a.o==="object"&&a.o&&!Array.isArray(a.o)&&!(a.o instanceof e[0])?typeof b.o==="object"&&b.o&&!Array.isArray(b.o)&&!(b.o instanceof e[0])&&a.o.s===b.o.s:a.o instanceof e[0]?b.o instanceof e[0]&&+a.o===+b.o:b.o===void 0)
+  input: (a,b)=>a===b||(a.o===void 0?b.o===void 0:b.o!==void 0&&!!(typeof a.o==="object"&&a.o&&!Array.isArray(a.o)&&!(a.o instanceof e[0])?typeof b.o==="object"&&b.o&&!Array.isArray(b.o)&&!(b.o instanceof e[0])&&a.o.s===b.o.s:b.o instanceof e[0]&&+a.o===+b.o))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { o: { s: string | undefined; } | Date | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

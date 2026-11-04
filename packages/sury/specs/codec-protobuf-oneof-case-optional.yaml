@@ -10,7 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["id"] }, value: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", enum: ["n"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
 isEqual:
-  input: (a,b)=>a===b||(a.pick?.case==="id"?b.pick?.case==="id"&&a.pick.value.id===b.pick.value.id:a.pick?.case==="n"?b.pick?.case==="n"&&a.pick.value===b.pick.value:b.pick===void 0)
+  input: (a,b)=>a===b||(a.pick===void 0?b.pick===void 0:b.pick!==void 0&&(a.pick.case==="id"?b.pick.case==="id"&&a.pick.value.id===b.pick.value.id:b.pick.case==="n"&&a.pick.value===b.pick.value))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { pick: { case: \"id\"; value: { id: string; }; } | { case: \"n\"; value: int32; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

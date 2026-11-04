@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at payload.value.total: Expected JSON, received bigint"
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||(a.payload?.type==="user"?b.payload?.type==="user"&&a.payload.value.id===b.payload.value.id&&a.payload.value.name===b.payload.value.name:a.payload?.type==="order"?b.payload?.type==="order"&&a.payload.value.total===b.payload.value.total:a.payload?.type==="other"?b.payload?.type==="other"&&a.payload.value.typeUrl===b.payload.value.typeUrl&&e[0](a.payload.value.value,b.payload.value.value):b.payload===void 0)&&e[1](a.many,b.many)
+  input: (a,b)=>a===b||(a.payload===void 0?b.payload===void 0:b.payload!==void 0&&(a.payload.type==="user"?b.payload.type==="user"&&a.payload.value.id===b.payload.value.id&&a.payload.value.name===b.payload.value.name:a.payload.type==="order"?b.payload.type==="order"&&a.payload.value.total===b.payload.value.total:b.payload.type==="other"&&a.payload.value.typeUrl===b.payload.value.typeUrl&&e[0](a.payload.value.value,b.payload.value.value)))&&e[1](a.many,b.many)
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { payload: { type: \"user\"; value: { id: int32; name: string; }; } | { type: \"order\"; value: { total: bigint; }; } | { type: \"other\"; value: { typeUrl: string; value: Uint8Array; }; } | undefined; many: ({ type: \"user\"; value: { id: int32; name: string; }; } | { type: \"order\"; value: { total: bigint; }; })[]; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

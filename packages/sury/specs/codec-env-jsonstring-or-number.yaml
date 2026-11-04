@@ -12,7 +12,7 @@ jsonSchema:
     output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
 isEqual: strictEqual
 compare:
-  input: (a,b)=>a===b?0:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0
+  input: (a,b)=>a===b?0:(b===void 0)-(a===void 0)||(a<b?-1:a>b?1:0)
   output: "throws: [Sury] Can't compare JSON string | number. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod:
