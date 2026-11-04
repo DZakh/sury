@@ -1505,8 +1505,6 @@ let recursiveNames = 0;
 // that reaches one again refers to it instead of building it forever. A
 // message built while one is open refers to it by a ref only its definer can
 // resolve, so it is not cached for use elsewhere.
-// `enumSchema` stands for every enum field: ProtoJSON reads and prints an enum
-// by the names one carries.
 export const suryMessage = (
   fields: FieldDef[],
   seen = new Map<FieldDef[], S.Schema<unknown, unknown>>(),

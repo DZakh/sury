@@ -21,6 +21,7 @@ import {
   compileMessage,
   type Encoding,
   emitDefault,
+  enumSchemaOf,
   encodeFrame,
   encodeHelpers,
   fail,
@@ -46,16 +47,9 @@ import {
 } from "./protobuf";
 import type { ProtobufType, WellKnownType } from "./protobufField";
 
-// ProtoJSON (https://protobuf.dev/programming-guides/json) is another wire for
-// the message `S.protobuf` compiles: the same fields, oneofs, Any members and
-// well-known types, each read into the locals the binary reader fills and
-// built into the value by the same `valueOf`, and written from the same
-// `writesOf` reads. Only what a field's value looks like on the wire differs.
-
 const bad = (type: string, value: unknown): never => fail(`Expected ${type}, received ${stringify(value)}`);
 
-// A number may arrive as a JSON string too, in decimal: not padded with
-// blanks, and not the hex `Number` would also read.
+// Decimal only: `Number` would also read blanks and hex.
 const numeric = (value: unknown): unknown =>
   typeof value === "string" && /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value) ? Number(value) : value;
 
@@ -72,15 +66,14 @@ const int64 = (value: unknown, min: bigint, max: bigint, type: string): bigint =
   return bad(type, value);
 };
 
-// `finite` is the failure a NaN is to a number schema that refuses one.
-const float = (value: unknown, f32: number, finite?: string): number => {
+const float = (value: unknown, f32: number, nanFailure?: string): number => {
   let n = value === "NaN" ? NaN : value === "Infinity" ? Infinity : value === "-Infinity" ? -Infinity : U;
   if (n === U) {
     const parsed = numeric(value);
     n = typeof parsed === "number" && Number.isFinite(parsed) ? parsed : bad(f32 ? "float" : "double", value);
   }
   if (f32 && Math.abs(n) > 3.4028234663852886e38 && Number.isFinite(n)) bad("float", value);
-  if (n !== n && finite !== U) fail(finite);
+  if (n !== n && nanFailure !== U) fail(nanFailure);
   return f32 ? Math.fround(n) : n;
 };
 
@@ -89,15 +82,13 @@ const bool = (value: unknown): boolean => (value === true || value === false ? v
 const string = (value: unknown): string =>
   typeof value === "string" && (value as { isWellFormed?: () => boolean }).isWellFormed?.() !== false ? value : bad("string", value);
 
-// Standard or URL-safe, padded or not.
 const bytes = (value: unknown): Uint8Array => {
   const text = typeof value === "string" && /^[A-Za-z0-9+/_-]*=*$/.test(value) ? value.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/") : U;
   if (text === U || text.length % 4 === 1) return bad("bytes", value);
   return stdCodec.toBytes(text + "===".slice((text.length + 3) % 4));
 };
 
-// An enum by number, or by name where the schema names its values. An unknown
-// name is a value the reader skips (`undefined`), unless `strict`.
+// An unknown name answers `undefined`, which the reader skips, unless `strict`.
 const enumValue = (value: unknown, names: Record<string, number> | undefined, strict: number): number | undefined =>
   typeof value === "number" ? int32(value, -2147483648, 2147483647, "enum")
   : typeof value === "string" && names !== U && Object.hasOwn(names, value) ? names[value]
@@ -121,7 +112,6 @@ const twice = (what: string): never => fail(`ProtoJSON ${what} is set more than 
 
 const unknownKey = (key: string): never => fail(`Unrecognized ProtoJSON field "${key}"`);
 
-// JSON as `S.json` holds it: no `undefined`, no non-finite number.
 const jsonValue = (value: unknown, d: number): unknown => {
   if (d >= 100) fail("Protobuf message nesting limit exceeded");
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
@@ -141,7 +131,6 @@ const timestampMin = -62135596800;
 const timestampMax = 253402300799;
 const durationMax = 315576000000;
 
-// RFC 3339 in UTC or with an offset, to the nanosecond.
 const timestampOf = (value: unknown): [seconds: number, nanos: number] => {
   const match = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(value) : null;
   const ms = match === null ? NaN : Date.parse(match[1]! + match[3]);
@@ -158,7 +147,7 @@ const durationOf = (value: unknown): [seconds: number, nanos: number] => {
   return match![1] ? [-seconds, -nanos] : [seconds, nanos];
 };
 
-// Nanos print in groups of three digits, as many as they need.
+// ProtoJSON prints 0, 3, 6 or 9 fractional digits.
 const fraction = (nanos: number): string => {
   if (nanos === 0) return "";
   const digits = `${nanos + 1e9}`.slice(1);
@@ -293,8 +282,6 @@ const formOf = (msg: Message): Form | undefined =>
 
 const anyTypeName = "google.protobuf.Any";
 
-// A `google.protobuf.Any` kept as its type URL and bytes: its ProtoJSON is the
-// message it holds, which only a schema for that message can print or read.
 const opaqueAny = (what: string) => fail(`ProtoJSON can't ${what} a google.protobuf.Any without the schema of the message it holds. Convert it with S.to to a message S.protobufTypeName names`);
 
 const readOpaqueAny = (value: unknown): unknown => {
@@ -308,35 +295,17 @@ const writeOpaqueAny = (value: unknown): unknown =>
 const isOpaqueAny = (msg: Message): boolean => msg.typeName === anyTypeName && msg.any === U;
 
 // A message that prints as something other than an object of its fields.
-const custom = (msg: Message): boolean => (msg.wellKnown !== U && msg.wellKnown !== "google.protobuf.Empty") || formOf(msg) !== U;
+const printsBare = (msg: Message): boolean => (msg.wellKnown !== U && msg.wellKnown !== "google.protobuf.Empty") || formOf(msg) !== U;
 
 const nullValueNames = { NULL_VALUE: 0 };
 
-const isNullValue = (schema: Internal | undefined): boolean => findIn(schema, (s) => s.protobufTypeName === "google.protobuf.NullValue") !== U;
-
-const findIn = (schema: Internal | undefined, test: (schema: Internal) => boolean, seen = new Set<Internal>()): Internal | undefined => {
-  for (let current = schema; current !== U && !seen.has(current); current = current.to) {
-    seen.add(current);
-    if (test(current)) return current;
-    const output = getOutputSchema(current);
-    if (output !== current && test(output)) return output;
-    for (const member of output.anyOf ?? []) {
-      const found = findIn(member, test, seen);
-      if (found !== U) return found;
-    }
-    if (typeof output.additionalItems === objectTag) {
-      const found = findIn(output.additionalItems as Internal, test, seen);
-      if (found !== U) return found;
-    }
-  }
-  return U;
-};
+const isNullValue = (field: Field): boolean =>
+  enumSchemaOf(field.armValue ?? field.held, (s) => s.protobufTypeName === "google.protobuf.NullValue" || U) !== U;
 
 const enumNames = (field: Field): Record<string, number> | undefined => protobufEnumOf(field.armValue ?? field.held);
 
-// `null` is a value only to a Value, and to the NullValue enum.
 const nullIsValue = (field: Field): boolean =>
-  (field.message?.wellKnown ?? field.message?.typeName) === "google.protobuf.Value" || (field.type === "enum" && isNullValue(field.armValue ?? field.held));
+  (field.message?.wellKnown ?? field.message?.typeName) === "google.protobuf.Value" || (field.type === "enum" && isNullValue(field));
 
 const property = (name: string): string => (/^[A-Za-z_$][\w$]*$/.test(name) ? `.${name}` : `[${JSON.stringify(name)}]`);
 
@@ -363,15 +332,13 @@ const decodeHelpers = {
 };
 type DecodeHelper = keyof typeof decodeHelpers;
 
-// The expression reading JSON `v` as a scalar of the field's type, into what
-// the binary reader would have read: `undefined` for an enum name skipped.
 const readScalar = (field: Field, type: ProtobufType, v: string, h: (helper: DecodeHelper) => string, nan: boolean, strict: number, emb: (value: unknown) => string): string => {
   if (type === "bool") return `${h("$o")}(${v})`;
   if (type === "string") return `${h("$s")}(${v})`;
   if (type === "bytes") return `${h("$b")}(${v})`;
   if (type === "double" || type === "float") return `${h("$f")}(${v},${type === "float" ? 1 : 0}${nan && field.finite !== U ? `,${JSON.stringify(field.finite)}` : ""})`;
   if (type === "enum") {
-    if (isNullValue(field.armValue ?? field.held)) return `${v}===null?0:${h("$e")}(${v},${emb(nullValueNames)},1)`;
+    if (isNullValue(field)) return `${v}===null?0:${h("$e")}(${v},${emb(nullValueNames)},1)`;
     const enumNamesOf = enumNames(field);
     return `${h("$e")}(${v},${enumNamesOf === U ? "void 0" : emb(enumNamesOf)},${strict})`;
   }
@@ -410,13 +377,11 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
     const nulls = nullIsValue(field);
     const read = (v: string): string =>
       field.type === "message" ? `${fn(field.message!)}(${v},d+1)` : readScalar(field, field.type, v, h, nan, strict, emb);
-    // Only an enum's reader can answer `undefined`: a name it skips.
-    const skips = field.type === "enum" && !strict && !isNullValue(field.armValue ?? field.held);
+    const skips = field.type === "enum" && !strict && !isNullValue(field);
     const present = (v: string, set: string): string =>
       skips ? `if((${v}=${read(v)})!==void 0){${set}}` : `${v}=${read(v)};${set};`;
     const unlessNull = (body: string): string => (nulls ? body : `if(v!==null){${body}}`);
     if (field.name !== U || field.oneof !== U) {
-      // One member per oneof: a second one set is a message no reader agrees on.
       let set: string;
       let mark: string;
       if (field.name !== U) {
@@ -448,11 +413,11 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         : `if(Object.hasOwn(${value},y))${h("$t")}("map key "+y);${value}[y]=c`;
       cases.push(`${head}if(v!==null){${h("$j")}(v);for(p in v){y=void 0;c=v[p];y=${field.map === "string" ? "p" : `${h("$k")}(p,"${field.map}")`};${item("c", () => store, "map value")}}}continue;`);
     } else if (field.repeated) {
-      // Under a tag of no wire type the frame names the list, not an element.
+      // A tag of no wire type: the frame names the list, not an element, as
+      // it does for bytes no element of the list was read from.
       cases.push(`${head}if(v!==null){t=${field.number * 8 + 7};${h("$a")}(v);t=${field.number * 8 + field.wire};for(n=0;n<v.length;n++){c=v[n];${item("c", (c) => `${value}.push(${c})`, "list item")}}}continue;`);
     } else {
       cases.push(`${head}${unlessNull(present("v", `${value}=v`))}continue;`);
-      // A required message read from nothing is its default instance.
       if (field.type === "message" && !field.optional) after += `if(${value}===void 0){t=${field.number * 8 + 2};${value}=${fn(field.message!)}(void 0,d+1)}`;
     }
   }
@@ -471,7 +436,7 @@ const anyParts = (msg: Message, fns: Map<Message, string>) => {
   const expected = listed.map((field) => field.name).join(" or ");
   const read = (field: Field): string => {
     const idx = msg.fields.indexOf(field);
-    return `t=${field.number * 8 + 2};c2=${field.number};f${idx}=${fns.get(field.message!)}(${field === other ? "void 0" : custom(field.message!) ? "j.value" : "j"},d+1,1)`;
+    return `t=${field.number * 8 + 2};c2=${field.number};f${idx}=${fns.get(field.message!)}(${field === other ? "void 0" : printsBare(field.message!) ? "j.value" : "j"},d+1,1)`;
   };
   const pick =
     listed.map((field) => `if(n===${JSON.stringify(field.name)}){${read(field)}}else `).join("") +
@@ -484,8 +449,6 @@ const anyParts = (msg: Message, fns: Map<Message, string>) => {
   };
 };
 
-// Every message's reader but the root's, which reads in the operation unless a
-// field under it refers back to it.
 const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number): Record<string, Function> => {
   let src = "";
   const messages: Message[] = [];
@@ -541,8 +504,7 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
 const encodeJsonHelpers = /* @__PURE__ */ Object.assign({ b64: bytesText, str: stringText, flt: floatText, mask: maskText }, encodeHelpers);
 type JsonHelper = keyof typeof encodeJsonHelpers;
 
-// The JSON of a scalar `v` of the field's type, checked as the binary writer
-// checks it. `v` is read once.
+// `v` is read once: callers pass `v[j++]`.
 const scalarJson = (field: Field, type: ProtobufType, v: string, enc: (helper: JsonHelper) => string, emb: (value: unknown) => string, known = 0): string => {
   if (type === "bool") return `!!${v}`;
   if (type === "string") return `${enc("str")}(${v})`;
@@ -552,7 +514,7 @@ const scalarJson = (field: Field, type: ProtobufType, v: string, enc: (helper: J
   if (type.includes("64")) return `""+${enc(field.int64String ? "digits" : "check")}(${v},${min},${max})`;
   const n = `${enc("check")}(${known ? v : `Number(${v})`},${min},${max})`;
   if (type !== "enum") return n;
-  if (isNullValue(field.armValue ?? field.held)) return `(${n},null)`;
+  if (isNullValue(field)) return `(${n},null)`;
   const enumNamesOf = enumNames(field);
   if (enumNamesOf === U) return n;
   const printed: Record<number, string> = {};
@@ -587,7 +549,6 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: (h
   return body;
 };
 
-// The member set, as the message it holds with its type URL beside it.
 const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read): string => {
   const { fields, other } = msg.any!;
   let body = "";
@@ -595,7 +556,7 @@ const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read): str
     const write = `${fns.get(field.message!)}(v)`;
     const url = JSON.stringify(`type.googleapis.com/${field.name}`);
     body += `f=${idx + 2};v=${read(field).expr};if(v!==void 0){J=${
-      field === other ? write : custom(field.message!) ? `{"@type":${url},value:${write}}` : `Object.assign({"@type":${url}},${write})`
+      field === other ? write : printsBare(field.message!) ? `{"@type":${url},value:${write}}` : `Object.assign({"@type":${url}},${write})`
     }}`;
   });
   return body;
@@ -603,7 +564,6 @@ const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read): str
 
 const encodeLocals = "var v,j,n,s,a,k,c,o,q,f,J={}";
 
-// Message writers are built once per operation, as `S.protobuf`'s are.
 const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number): Record<string, Function> => {
   let src = "";
   const messages: Message[] = [];
@@ -724,8 +684,6 @@ const protobufJsonEncoder = (input: Val, target: Internal): Val => {
   return valueOf(read, message, local);
 };
 
-// `S.protobuf`'s message as ProtoJSON: a JSON object, which converts with
-// `S.to` into the message and out of it.
 export const protobufJson: Internal = /* @__PURE__ */ (() => {
   const schema = dictFactory(json);
   schema.decoder = protobufJsonDecoder;

@@ -21,10 +21,9 @@
 // a list item, a map value, a oneof arm): a refinement that passes leaves every
 // read as it was, one that refuses fails at the path it sits on. Each seed also
 // draws values for every well-known type, against protobuf-es's own, and an
-// enum spelled as a union of members each mapped to its number. ProtoJSON is
-// held to protobuf-es's `toJson` and `fromJson` throughout: every graph
-// (`jsonFuzz.ts`, mutated JSON included), every well-known type, and every
-// oneof spelled as a union, keyed as the `.proto` Sury prints for it names it.
+// enum spelled as a union of members each mapped to its number. Every
+// well-known type and union oneof is held to protobuf-es's ProtoJSON too, and
+// every graph in `jsonFuzz.ts`.
 import { create, toBinary, fromBinary, fromJson, toJson, type DescMessage } from "@bufbuild/protobuf";
 import { anyPack, anyUnpack } from "@bufbuild/protobuf/wkt";
 import * as wkt from "@bufbuild/protobuf/wkt";
@@ -585,8 +584,6 @@ const wellKnownFindings = (r: Random, seed: number, count: number): Finding[] =>
         if (!equalValue(key(c.fromEs(fromBinary(c.es, sury) as never)), key(value))) {
           findings.push({ kind: `wkt: protobuf-es reads Sury's ${c.type} as another`, seed, detail: `value=${show(value)}` });
         }
-        // ProtoJSON: printed as protobuf-es prints it, or refused where it
-        // refuses, and read back as what protobuf-es reads.
         let esJson: unknown;
         let suryJson: unknown;
         let esError: unknown;
@@ -1060,6 +1057,7 @@ export const runFuzz = ({ seeds, values, mutants, corruptions, from }: FuzzOptio
     checks += oneofChecks(findings, seed, fields, values);
     checks += refineChecks(findings, seed, fields, values);
     checks += enumChecks(findings, seed, values);
+    // Its own stream: a new check must not shift the draws a seed replays.
     const jr = rng(seed ^ 0x1b873593);
     checks += jsonChecks(findings, jr, seed, fields, () => genValue(jr, fields, 0), values, mutants);
     for (let v = 0; v < values; v++) {

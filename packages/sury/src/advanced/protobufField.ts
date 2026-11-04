@@ -259,9 +259,6 @@ export const protobufTypeName = (schema: Internal, typeName: string): Internal =
   return mut;
 };
 
-// A protobuf enum by the names of its values: the union of the numbers, which
-// ProtoJSON reads and prints by name and `toProtoOrThrow` declares. A name
-// after the first for a number is an alias.
 // @__NO_SIDE_EFFECTS__
 export const protobufEnum = (values: Record<string, number>): Internal => {
   const numbers: number[] = [];

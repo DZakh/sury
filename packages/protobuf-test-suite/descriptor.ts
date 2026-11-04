@@ -126,7 +126,7 @@ const resolve = (declared: Declared, scope: string, reference: string): string =
 };
 
 // What protoc writes into every field's `json_name`, which ProtoJSON keys the
-// field by: each underscore dropped and the letter after it capitalized.
+// field by.
 const jsonNameOf = (name: string): string => {
   let out = "";
   let upper = false;

@@ -25,7 +25,6 @@ export const canonical = (value: unknown): string =>
 
 const names = Object.keys(ENUM_NAMES);
 
-// Another spelling of a leaf, or a value no field of its kind takes.
 const respell = (r: Random, value: unknown): unknown => {
   const any = (): unknown => pick(r, [null, true, {}, [], "x", "", 1.5, -1, 1e40, "1e2", " 1", "0x10", "NaN", "-0"]);
   if (typeof value === "number") return pick(r, [String(value), `${value}e0`, value + 0.5, -value, any()]);
@@ -38,7 +37,6 @@ const respell = (r: Random, value: unknown): unknown => {
   return any();
 };
 
-// Every place a value sits: `holder[key]`.
 const places = (value: unknown, out: [holder: Record<string, unknown> | unknown[], key: string | number][] = []) => {
   if (Array.isArray(value)) value.forEach((item, idx) => (out.push([value, idx]), places(item, out)));
   else if (value !== null && typeof value === "object") {
@@ -65,7 +63,6 @@ const mutateJson = (r: Random, json: JsonValue): JsonValue => {
 
 const reason = (e: unknown): string => String((e as S.Error).reason ?? (e as Error).message);
 
-// Its own stream, as every family beside the round trip.
 export const jsonChecks = (
   findings: JsonFinding[],
   r: Random,

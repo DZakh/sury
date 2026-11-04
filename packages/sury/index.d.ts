@@ -729,19 +729,13 @@ export type ProtobufField = {
 
 /**
  * Gives an object schema's field its protobuf field number, and optionally the
- * wire type, packing, map key type and `oneof` it belongs to.
+ * wire type, packing, map key type, `oneof` it belongs to and `.proto` name.
  */
 export function protobufField<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   field: number | ProtobufField
 ): Schema<TInput, TOutput>;
 
-/**
- * Names a message or enum schema with its full proto name, such as
- * `"acme.v1.User"`. `S.toProtoOrThrow` imports a `google.protobuf.*` type
- * instead of declaring it, and a `google.protobuf.Any` field holds the messages
- * named this way: see `S.protobuf`.
- */
 /**
  * A protobuf enum by the names of its values: the union of their numbers, read
  * and printed by name in ProtoJSON and declared with them by
@@ -754,6 +748,12 @@ export function protobufField<TInput, TOutput>(
  */
 export function protobufEnum<const T extends Record<string, number>>(values: T): Schema<T[keyof T], T[keyof T]>;
 
+/**
+ * Names a message or enum schema with its full proto name, such as
+ * `"acme.v1.User"`. `S.toProtoOrThrow` imports a `google.protobuf.*` type
+ * instead of declaring it, and a `google.protobuf.Any` field holds the messages
+ * named this way: see `S.protobuf`.
+ */
 export function protobufTypeName<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   typeName: string

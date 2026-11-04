@@ -16,7 +16,6 @@ if (fileURLToPath(import.meta.url) !== process.argv[1]) {
 
 const GOLDEN_PATH = join(PKG_DIR, "goldens", "conformance.json");
 const FAILURE_LIST = join(PKG_DIR, "failing_tests.txt");
-// What protoc-gen-sury's schema fails beyond the hand-written one.
 const GENERATED_FAILURE_LIST = join(PKG_DIR, "failing_tests_generated.txt");
 
 const red = (s: string): string => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);

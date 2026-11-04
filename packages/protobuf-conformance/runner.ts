@@ -68,7 +68,6 @@ const skip = (why: string): ConformanceResponse => {
 };
 
 const test = (request: S.Output<typeof conformanceRequest>): ConformanceResponse => {
-  // Text format is a wire format Sury does not speak.
   if (request.textPayload !== undefined) return skip("text format input is not supported");
   if (request.jspbPayload !== undefined) return skip("JSPB is Google-internal");
   if (request.requestedOutputFormat === TEXT_FORMAT) return skip("text format output is not supported");

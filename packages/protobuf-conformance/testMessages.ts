@@ -46,15 +46,13 @@ const map = <TIn, TOut>(
   type?: S.ProtobufType,
 ) => S.record(value).with(S.protobufField, { number, key, ...(type ? { type } : {}) });
 
-// Named, as ProtoJSON reads and prints them. Open in proto3: a number the
-// schema does not list still decodes as that number.
+// Open in proto3: a number the schema does not list still decodes as that
+// number.
 const nestedEnum = S.protobufEnum({ FOO: 0, BAR: 1, BAZ: 2, NEG: -1 });
 const aliasedEnum = S.protobufEnum({ ALIAS_FOO: 0, ALIAS_BAR: 1, ALIAS_BAZ: 2, MOO: 2, moo: 2, bAz: 2 });
 const foreignEnum = S.protobufEnum({ FOREIGN_FOO: 0, FOREIGN_BAR: 1, FOREIGN_BAZ: 2 });
 const enm = (schema: S.Schema<number, number>, n: number) => schema.with(S.protobufField, n);
 
-// ProtoJSON refuses a key the message doesn't declare unless asked to ignore it,
-// which is S.strict's answer and the default's. Built twice for that.
 type Shape = Record<string, S.Schema<unknown, unknown>>;
 type Message = (shape: Shape) => S.Schema<unknown, unknown>;
 const lenient: Message = (shape) => S.schema(shape);

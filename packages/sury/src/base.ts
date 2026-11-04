@@ -445,9 +445,10 @@ export type Internal = {
   //     already typed as, so a dispatched case may convert from its own
   //     variant instead of re-validating it. Set anywhere else it licenses
   //     skipping checks the value never passed.
-  //   256 `S.protobuf`: `toProtoOrThrow` finds it on a chain by this rather
-  //     than by the codec's encoder, which would drag the codec into a
-  //     `toProtoOrThrow`-only bundle.
+  //   256 `S.protobuf` and `S.protobufJson`, a wire: `toProtoOrThrow` finds it
+  //     on a chain by this rather than by the codec's encoder, which would drag
+  //     the codec into a `toProtoOrThrow`-only bundle, and a message walk steps
+  //     over it, `S.protobufJson` being an object that is no message.
   //   512 · 1024 a per-operation copy (`fuse` below) whose container decoder
   //     left its contents to jsonStringAggregate, which walks them once inside
   //     its own serialize pass: 512 UNVALIDATED, the aggregate parses each
@@ -524,7 +525,6 @@ export type Internal = {
   // CODEC_SPEC.md, "Protobuf enum".
   openLiteral?: true;
   protobufTypeName?: string;
-  // `S.protobufEnum`'s names for its numbers.
   protobufEnum?: Record<string, number>;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with

@@ -81,8 +81,7 @@ export type Field = {
   message?: Message;
   // Key type of a map field; unset for anything else.
   map?: ProtobufType;
-  // Its name in the .proto, when `S.protobufField` was given one.
-  proto?: string;
+  protoName?: string;
   oneof?: string;
   // A member of a union oneof or of a typed Any, sharing the property `key`
   // with the others: the name it prints as, and the value it declares.
@@ -752,7 +751,7 @@ export const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnown
           oneof: key,
           wire: wireType(type),
           name: arm.name,
-          proto: m.name,
+          protoName: m.name,
           armValue: arm.value,
           int64String: armShape.type === stringTag && type.includes("64"),
           fromWire: raw,
@@ -829,7 +828,7 @@ export const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnown
       optional,
       message,
       map,
-      proto: metadata.name,
+      protoName: metadata.name,
       oneof: metadata.oneof,
       wire: wireType(type),
       int64String: shape.type === stringTag && type.includes("64"),
@@ -2171,8 +2170,6 @@ export const fieldLive = (field: Field, numeric: boolean): string =>
 
 export type Read = (field: Field) => { expr: string; numeric: boolean };
 
-// `f=` before a field's writes is what the message's frame (`encodeFrame`)
-// reads to name the field a failure hit.
 export const oneofGuards = (msg: Message, enc: Encoding): [init: string, guard: (field: Field) => string] => {
   // proto3 lets at most one member of a oneof be set, and decode enforces it
   // by clearing the siblings. Encode is handed a value the schema cannot
@@ -2204,6 +2201,8 @@ export const oneofGuards = (msg: Message, enc: Encoding): [init: string, guard: 
   return [bits.size ? "o=0;" : "", guard];
 };
 
+// `f=` before a field's writes is what the message's frame (`encodeFrame`)
+// reads to name the field a failure hit, here and in protobufJson.ts.
 const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
   const body: string[] = [];
   const writer = (field: Field): string => fns.get(field.message!)!;
@@ -3154,12 +3153,11 @@ const snakeCase = (name: string): string =>
 
 // A camelCase key prints snake_case, which every generator turns back into the
 // same lowerCamel property. Anything else is made an identifier verbatim.
+// protoc-gen-sury's `suryProtoName` (shared.ts) must answer the same.
 const protoFieldName = (key: string): string =>
   /^[a-z][a-zA-Z0-9]*$/.test(key) ? snakeCase(key) : key.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=[0-9])/, "_") || "_";
 
-// The field's name in the .proto, and the JSON name protoc derives from it: an
-// underscore dropped and what follows it capitalized.
-export const printedName = (field: Field): string => field.proto ?? protoFieldName(field.name ?? field.key);
+export const printedName = (field: Field): string => field.protoName ?? protoFieldName(field.name ?? field.key);
 
 export const jsonFieldName = (printed: string): string =>
   printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : ""));
@@ -3256,21 +3254,21 @@ const googleType = (use: Use): string | undefined => {
   return name?.startsWith("google.protobuf.") ? name : U;
 };
 
-// `S.protobufEnum`'s names, wherever the field's schema holds them: past
-// `S.optional`, `S.array` or `S.record`, the members it was flattened into.
-export const protobufEnumOf = (schema: Internal): Record<string, number> | undefined => {
+export const enumSchemaOf = <T>(schema: Internal, pick: (schema: Internal) => T | undefined): T | undefined => {
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
     const output = getOutputSchema(current);
-    const names = current.protobufEnum ?? output.protobufEnum;
-    if (names !== U) return names;
+    const found = pick(current) ?? pick(output);
+    if (found !== U) return found;
     for (const member of output.anyOf ?? []) {
-      const found = protobufEnumOf(member);
-      if (found !== U) return found;
+      const inMember = enumSchemaOf(member, pick);
+      if (inMember !== U) return inMember;
     }
-    if (typeof output.additionalItems === objectTag) return protobufEnumOf(output.additionalItems as Internal);
+    if (typeof output.additionalItems === objectTag) return enumSchemaOf(output.additionalItems as Internal, pick);
   }
   return U;
 };
+
+export const protobufEnumOf = (schema: Internal): Record<string, number> | undefined => enumSchemaOf(schema, (s) => s.protobufEnum);
 
 const typeKey = (proto: Proto, use: Use): unknown => {
   const { field, shape } = use;
