@@ -509,25 +509,51 @@ const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Inte
     if (items === U) return;
     const outputItems: Internal[] = [];
     const originalItems: Internal[] = [];
+    let unbuilt: Internal | undefined;
+
+    let opaque = false;
+
+    // The definition being built is left out of the check: a default read as
+    // it would find the same absent field in it, and read its default, without
+    // end. The arms already built answer instead. A union kept whole as one
+    // arm (S.option's item, a described union) can hold the ref at any depth,
+    // so each is opened down to it; one with its own refinement can't be split
+    // without dropping that check, so the default is refused there.
+    const unbuiltIn = (variant: Internal): Internal | undefined => {
+      const outputSchema = getOutputSchema(variant);
+      if (outputSchema.type === refTag && !outputSchema.definition!()) return outputSchema;
+      if (outputSchema === variant && variant.anyOf) {
+        for (const arm of variant.anyOf) {
+          const found = unbuiltIn(arm);
+          if (found) return found;
+        }
+      }
+      return U;
+    };
+    const check = (variant: Internal): void => {
+      const found = unbuiltIn(variant);
+      if (found === U) {
+        if (getOutputSchema(variant).type !== undefinedTag) originalItems.push(variant);
+      } else if (found === variant || getOutputSchema(variant) === found) {
+        unbuilt = found;
+      } else if (variant.refiner || variant.inputRefiner) {
+        unbuilt = found;
+        opaque = true;
+      } else {
+        variant.anyOf!.forEach(check);
+      }
+    };
 
     for (let idx = 0; idx < anyOf.length; idx++) {
       if (getOutputSchema(anyOf[idx]!).type !== undefinedTag) {
         const variant = items[idx]!;
         const outputSchema = getOutputSchema(variant);
-        // The default is read as the item on every decode, so an item that is
-        // the definition being built would read the default as that definition,
-        // find the same absent field in it, and read its default, without end.
-        if (outputSchema.type === refTag && !outputSchema.definition!()) {
-          panic(
-            `Can't set default for ${inputExpression(mut)}: the default is read as ${outputSchema.name}, which would need a default of its own`
-          );
-        }
         // Dedupe by identity: two arms sharing one output instance (the bool
         // singleton) would otherwise make every rule-4 match ambiguous.
         if (!outputItems.includes(outputSchema)) {
           outputItems.push(outputSchema);
         }
-        originalItems.push(variant);
+        check(variant);
       }
     }
 
@@ -538,11 +564,21 @@ const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Inte
           ? outputItems[0]!
           : unionFactory(outputItems);
 
-    if (default_.type === "value") {
-      setDefault(
-        mut,
-        originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
-        default_.value
+    if (default_.type === "value" && originalItems.length && !opaque) {
+      try {
+        setDefault(
+          mut,
+          originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems),
+          default_.value
+        );
+        unbuilt = U;
+      } catch (exn) {
+        if (!unbuilt) throw exn;
+      }
+    }
+    if (unbuilt) {
+      panic(
+        `Can't set default for ${inputExpression(mut)}: the default is read as ${unbuilt.name}, which would need a default of its own`
       );
     }
 

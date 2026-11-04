@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(S.union([self, S.string]), "x") }))'
+  input: unknown
+  output: unknown
+  instantiations: 8413
+jsonSchema:
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { default: "x", anyOf: [{ $ref: "#/$defs/N" }, { type: "string" }] } }, required: ["v"] } } }'
+  fromInputType: "{ v: number; kid?: string | ... | undefined; }"
+  # FIXME: the defaulted output repeats the inner N | string arm, as nullish-default-nullable-inner does
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, kid: { anyOf: [{ anyOf: [{ $ref: "#/$defs/N" }, { type: "string" }] }, { $ref: "#/$defs/N" }, { type: "string" }] } }, required: ["v", "kid"] } } }'
+  fromOutputType: "{ v: number; kid: string | ...; }"
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      kid-missing:
+        input: "{ v: 1 }"
+        output: '{ v: 1, kid: "x" }'
+      nested-kid-missing:
+        input: "{ v: 1, kid: { v: 2 } }"
+        output: '{ v: 1, kid: { v: 2, kid: "x" } }'
+      kid-invalid:
+        input: "{ v: 1, kid: 5 }"
+        error: "Failed at kid: Expected N | string | undefined, received 5"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      kid-default:
+        input: '{ v: 1, kid: "x" }'
+        output: '{ v: 1, kid: "x" }'
+      kid-missing:
+        input: "{ v: 1 }"
+        error: "Failed at kid: Expected N | string, received undefined"

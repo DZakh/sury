@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchemaOrThrow({ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N", examples: [{ v: 1 }] } } } } })'
+  input: "{ v?: number | undefined; next?: ... | undefined; }"
+  output: "{ v?: number | undefined; next?: ... | undefined; }"
+  instantiations: 3717
+jsonSchema:
+  # FIXME: the examples beside the cyclic ref are dropped, should carry examples: [{ v: 1 }] (the root document keeps its own)
+  input: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N" } } } } }'
+  # FIXME: same dropped examples
+  output: '{ $ref: "#/$defs/N", $defs: { N: { type: "object", properties: { v: { type: "number" }, next: { $ref: "#/$defs/N" } } } } }'
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare N. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0;v0=e[0](i);return v0}catch(v1){e[1](v1)}}
+    examples:
+      nested:
+        input: "{ v: 2, next: { v: 1 } }"
+        output: "{ v: 2, next: { v: 1, next: undefined } }"
+  decode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: "{ v: 2, next: { v: 1 } }"
+        output: "{ v: 2, next: { v: 1 } }"
+  encode:
+    expression: i=>{try{e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      nested:
+        input: "{ v: 2, next: { v: 1 } }"
+        output: "{ v: 2, next: { v: 1 } }"

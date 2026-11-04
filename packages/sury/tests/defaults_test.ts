@@ -67,3 +67,42 @@ test("getOr after a lazy Some(None) default is refused", () => {
 test("getOr after a value default is refused, since it never applies", () => {
   expect(() => R.$Option_getOr!(R.$Option_getOr!(nested(), "x"), "y")).toThrow(refused);
 });
+
+// Beside a recursive ref still being defined, the default is checked against
+// the arms already built. A union with its own refinement can't be split into
+// them without dropping that check, and a ref under two described unions is
+// still the definition being built.
+const unbuilt = "the default is read as N, which would need a default of its own";
+
+test("a recursive union's own refinement refuses a default beside its ref", () => {
+  expect(() =>
+    S.recursive("N", (self) =>
+      S.schema({
+        v: S.number,
+        kid: S.optional(
+          S.union([self, S.string]).with(S.refine, (x) => x !== "bad", { error: "no bad" }),
+          "bad",
+        ),
+      }),
+    ),
+  ).toThrow(unbuilt);
+});
+
+test("a recursive ref under two described unions is found for the default check", () => {
+  const kid = (self: S.Schema<unknown>) =>
+    S.union([S.union([self, S.literal(null)]).with(S.meta, { description: "inner" }), S.string]).with(S.meta, {
+      description: "outer",
+    });
+  expect(() =>
+    S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(kid(self), 5 as never) })),
+  ).toThrow(unbuilt);
+  expect(() =>
+    S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(kid(self), () => "x") })),
+  ).toThrow(unbuilt);
+  expect(
+    S.parseOrThrow(
+      { v: 1 },
+      S.recursive("N", (self) => S.schema({ v: S.number, kid: S.optional(kid(self), "x") })),
+    ),
+  ).toEqual({ v: 1, kid: "x" });
+});
