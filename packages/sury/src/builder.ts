@@ -768,12 +768,12 @@ export const B_pushCheck = (val: Val, check: Check): void => {
   (val.vc ??= []).push(check);
 }
 
-// Applies both refiners. Output checks wrap `val` via refine; input checks push
-// onto `valInput.vc`, which emits ahead of the decoder body - they have to read
-// what the decoder was *handed*. A schema that narrows leaves nothing else to
-// read it from: a union assigns its result over the operation argument, so an
-// `allOf` refinement placed after it looks for keys the object arm just
-// stripped. Sets isOutput on the result.
+// Applies both refiners. Output checks wrap `val` via refine, or via a `.then`
+// when it is a promise; input checks push onto `valInput.vc`, which emits ahead
+// of the decoder body - they have to read what the decoder was *handed*. A
+// schema that narrows leaves nothing else to read it from: a union assigns its
+// result over the operation argument, so an `allOf` refinement placed after it
+// looks for keys the object arm just stripped. Sets isOutput on the result.
 //
 // The parse loop applies refiners itself only for primitive decoders, so every
 // decoder that sets isOutput - object, array, tuple, union, recursive - has to
@@ -863,6 +863,74 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   };
 }
 
+// B_dynamicScope for a container iterated by value rather than by index: the
+// loop variable IS the item (`for (let v1 of set)`), so there's no location
+// to read the item back through and no `additionalItems` to take the schemas
+// from. Both sides are passed in, and so is `location`, the expression a
+// failing item is located by.
+export const B_iterScope = (
+  from: Val,
+  inline: string,
+  schema: Internal,
+  expected: Internal,
+  location: string,
+): Val => {
+  // Canonical Val field order (see B_operationArg).
+  return {
+    b: U,
+    p: from,
+    v: _notVarBeforeValidation,
+    i: inline,
+    s: schema,
+    io: U,
+    e: expected,
+    prev: U,
+    f: from.f,
+    d: U,
+    fv: U,
+    cp: "",
+    fu: U,
+    fs: U,
+    hd: "",
+    fz: U,
+    vc: U,
+    u: U,
+    t: U,
+    path: pathConcat(from.path, [{ e: location }]),
+    g: from.g,
+    o: U,
+  };
+}
+
+// The loop of a container iterated by value, once its body is merged. A body
+// that can fail is located by position, so `counterVar` counts the iterations.
+// A sync body reads the count where it fails, and with `advances` the loop
+// moves it on at the body's end, after the labelled block a collected failure
+// leaves. An async body is read from a callback that outlives the iteration,
+// so the body copies the count into a binding of its own as it starts
+// (`B_countCopy`) and advances it there.
+export const B_forOf = (
+  out: Val,
+  itemVar: string,
+  sourceVar: string,
+  body: string,
+  counterVar?: string,
+  advances?: boolean,
+): void => {
+  if (body !== "") {
+    out.cp =
+      out.cp +
+      `${counterVar ? B_let(out.g, counterVar, "0") : ""}for(let ${itemVar} of ${sourceVar}){${body}${
+        advances ? `${counterVar}++;` : ""
+      }}`;
+  }
+}
+
+// Called inside the body's B_sink, which is what declares the copy fresh on
+// every iteration.
+export const B_countCopy = (g: BGlobal, indexVar: string, counterVar: string): string =>
+  B_let(g, indexVar, `${counterVar}++`);
+
 export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val =>
   B_next(from, B_inlineConst(from, schema), schema, expected);
 
@@ -938,6 +1006,41 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
   v.f = 1; // 1
   return v;
+}
+
+// A collection whose entries arrive as promises: `from` holds them accumulated
+// in an array, and the constructor rebuilds the collection only once they have
+// all settled. `ctor` is the constructor's name, written literally: an embed
+// would cost `e[n]` at every use for what is a global. In an operation that
+// collects, the entries were settled (`B_settle`), so the join raises what
+// they found before the constructor reads them. With `pairs` the list holds
+// each entry's two halves one after the other, rather than an entry per item.
+// A Map's entry would otherwise be a promise of its own over the two, which
+// nothing reads when a later entry fails, and its rejection would reach Node's
+// unhandled-rejection exit.
+export const B_collectAsync = (from: Val, ctor: string, schema: Internal, pairs?: boolean): Val => {
+  const g = from.g;
+  const resolvedVar = B_varWithoutAllocation(g);
+  const whole = `new ${ctor}(${resolvedVar})`;
+  const joins = B_collects(g) && g.k;
+  // Outside the sink: what the join declares is read before the callback.
+  const join = joins ? B_join(from, resolvedVar) : "";
+  // Its own sink: the body is a callback's.
+  const body = B_sink(g, () => {
+    let code = join;
+    if (pairs) {
+      const outVar = B_varWithoutAllocation(g);
+      const idxVar = B_varWithoutAllocation(g);
+      code += `${B_let(g, outVar, `new ${ctor}`)}for(let ${idxVar}=0;${idxVar}<${resolvedVar}.length;)${outVar}.set(${resolvedVar}[${idxVar}++],${resolvedVar}[${idxVar}++]);return ${outVar}`;
+    } else code += `return ${whole}`;
+    return code;
+  });
+  const output = B_asyncVal(
+    from,
+    `Promise.all(${from.i}).then(${resolvedVar}=>${pairs || joins ? `{${body}}` : whole})`,
+  );
+  output.s = schema;
+  return output;
 }
 
 // A val the rest of the pipeline continues from inside a `.then`. Async is

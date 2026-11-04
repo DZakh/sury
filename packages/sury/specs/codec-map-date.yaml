@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.map(S.isoDateTime.with(S.to, S.date), S.number)
+  input: Map<string, number>
+  output: Map<Date, number>
+  instantiations: 4881
+jsonSchema:
+  input: Expected JSON, received Map<date-time, number>
+  output: Expected JSON, received Map<Date, number>
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Map<date-time, number>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Map<Date, number>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v4=new Map;for(let v0 of i){let v2=v0[0];typeof v2==="string"||e[3](v2,[v0[0]]);e[1](v2)||e[2](v2,[v0[0]]);let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2,[v0[0]]);let v3=v0[1];typeof v3==="number"&&v3==v3||e[4](v3,[v0[0]]);v4.set(v1,v3);}return v4}catch(v5){e[7](v5)}}
+    examples:
+      valid:
+        input: new Map([["1970-01-01T00:00:00.000Z", 1]])
+        output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+      invalid-key:
+        input: new Map([["nope", 1]])
+        error: 'Failed at nope: Expected date-time, received "nope"'
+      invalid-value:
+        input: new Map([["1970-01-01T00:00:00.000Z", "1"]])
+        error: 'Failed at ["1970-01-01T00:00:00.000Z"]: Expected number, received "1"'
+      bad-key-and-bad-value-of-one-entry-are-both-collected:
+        input: new Map([["nope", "1"], ["1970-01-01T00:00:00.000Z", 2]])
+        error: 'Failed at nope: Expected date-time, received "nope"'
+        issues:
+          - 'Failed at nope: Expected date-time, received "nope"'
+          - 'Failed at nope: Expected number, received "1"'
+  decode:
+    expression: i=>{try{let v3=new Map;for(let v0 of i){let v2=v0[0];e[1](v2)||e[2](v2,[v0[0]]);let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2,[v0[0]]);v3.set(v1,v0[1]);}return v3}catch(v4){e[3](v4)}}
+    examples:
+      valid:
+        input: new Map([["1970-01-01T00:00:00.000Z", 1]])
+        output: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+  encode:
+    expression: i=>{try{let v4=new Map;let v1=0;for(let v0 of i){let v3=v0[0];let v2;try{v2=v3.toISOString()}catch(_){e[0](v3,[v1])}e[1](v2)||e[2](v2,[v1]);v4.set(v2,v0[1]);v1++;}return v4}catch(v5){e[3](v5)}}
+    examples:
+      valid:
+        input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1]])
+        output: new Map([["1970-01-01T00:00:00.000Z", 1]])
+      two-keys-encoding-alike-are-one-entry-the-last-winning:
+        input: new Map([[new Date("1970-01-01T00:00:00.000Z"), 1], [new Date("1970-01-01T00:00:00.000Z"), 2]])
+        output: new Map([["1970-01-01T00:00:00.000Z", 2]])

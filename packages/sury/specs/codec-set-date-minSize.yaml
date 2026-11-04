@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.isoDateTime.with(S.to, S.date)).with(S.minSize, 2)
+  input: Set<string>
+  output: Set<Date>
+  instantiations: 5041
+jsonSchema:
+  input: Expected JSON, received Set<date-time>.size >= 2
+  output: Expected JSON, received Set<Date>.size >= 2
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Set<date-time>.size >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Set<Date>.size >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[5]||e[6](i);let v3=new Set;let v1=0;for(let v0 of i){typeof v0==="string"||e[3](v0,[v1]);e[1](v0)||e[2](v0,[v1]);let v2=new Date(v0);!Number.isNaN(v2.getTime())||e[0](v0,[v1]);v3.add(v2);v1++;}v3.size>1||e[4](v3);return v3}catch(v4){e[7](v4)}}
+    examples:
+      valid:
+        input: new Set(["1970-01-01T00:00:00.000Z", "1970-01-02T00:00:00.000Z"])
+        output: new Set([new Date("1970-01-01T00:00:00.000Z"), new Date("1970-01-02T00:00:00.000Z")])
+      too-small:
+        input: new Set(["1970-01-01T00:00:00.000Z"])
+        error: Expected Set<date-time>.size >= 2, received Set
+  decode:
+    expression: i=>{try{let v3=new Set;let v1=0;for(let v0 of i){e[1](v0)||e[2](v0,[v1]);let v2=new Date(v0);!Number.isNaN(v2.getTime())||e[0](v0,[v1]);v3.add(v2);v1++;}v3.size>1||e[3](v3);return v3}catch(v4){e[4](v4)}}
+    examples:
+      valid:
+        input: new Set(["1970-01-01T00:00:00.000Z", "1970-01-02T00:00:00.000Z"])
+        output: new Set([new Date("1970-01-01T00:00:00.000Z"), new Date("1970-01-02T00:00:00.000Z")])
+  encode:
+    expression: i=>{try{i.size>1||e[3](i);let v3=new Set;let v1=0;for(let v0 of i){let v2;try{v2=v0.toISOString()}catch(_){e[0](v0,[v1])}e[1](v2)||e[2](v2,[v1]);v3.add(v2);v1++;}return v3}catch(v4){e[4](v4)}}
+    examples:
+      valid:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z"), new Date("1970-01-02T00:00:00.000Z")])
+        output: new Set(["1970-01-01T00:00:00.000Z", "1970-01-02T00:00:00.000Z"])
+      two-dates-encoding-alike-satisfy-the-bound-the-input-met:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z"), new Date("1970-01-01T00:00:00.000Z")])
+        output: new Set(["1970-01-01T00:00:00.000Z"])
+      too-small:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z")])
+        error: Expected Set<Date>.size >= 2, received Set

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.isoDateTime.with(S.to, S.date)).with(S.to, S.set(S.date))
+  input: string[]
+  output: Set<Date>
+  instantiations: 5081
+jsonSchema:
+  input: '{ items: { type: "string", format: "date-time" }, type: "array" }'
+  output: Expected JSON, received Set<Date>
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare date-time[]. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Set<Date>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)||e[4](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0];typeof v2==="string"||e[3](v2,[v0]);e[1](v2)||e[2](v2,[v0]);let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2,[v0]);v3[v0]=v1}return new Set(v3)}catch(v6){e[5](v6)}}
+    examples:
+      valid:
+        input: '["1970-01-01T00:00:00.000Z"]'
+        output: new Set([new Date("1970-01-01T00:00:00.000Z")])
+      invalid-item:
+        input: '["not-a-date"]'
+        error: 'Failed at [0]: Expected date-time, received "not-a-date"'
+  decode:
+    expression: i=>{try{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0];e[1](v2)||e[2](v2,[v0]);let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2,[v0]);v3[v0]=v1}return new Set(v3)}catch(v6){e[3](v6)}}
+    examples:
+      valid:
+        input: '["1970-01-01T00:00:00.000Z"]'
+        output: new Set([new Date("1970-01-01T00:00:00.000Z")])
+  encode:
+    expression: i=>{try{let v2=Array.from(i);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){let v5=v2[v3];let v4;try{v4=v5.toISOString()}catch(_){e[0](v5,[v3])}e[1](v4)||e[2](v4,[v3]);v6[v3]=v4}return v6}catch(v7){e[3](v7)}}
+    examples:
+      valid:
+        input: new Set([new Date("1970-01-01T00:00:00.000Z")])
+        output: '["1970-01-01T00:00:00.000Z"]'

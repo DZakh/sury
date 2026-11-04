@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.set(S.string.with(S.to, S.string, { decode: { async: async (value) => value }, encode: "auto" })).with(S.minSize, 2)'
+  input: Set<string>
+  output: Set<string>
+  instantiations: 5073
+jsonSchema:
+  input: Expected JSON, received Set<string>.size >= 2
+  output: Expected JSON, received Set<string>.size >= 2
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Set<string>.size >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v3=[];let v4=0;for(let v0 of i){let v1=v4++;typeof v0==="string"||e[4](v0,[v1]);let v2;try{v2=e[2](e[0](v0),v2=>{typeof v2==="string"||e[3](v2,[v1]);return v2},x=>e[1](x,[v1]))}catch(x){e[1](x,[v1])}v3.push(v2);}let v6=Promise.all(v3).then(v5=>new Set(v5));return v6.then(v6=>{v6.size>1||e[5](v6);return v6}).catch(e[8])}catch(v7){return e[9](v7)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small-after-resolving:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+  decode:
+    isAsync: true
+    expression: i=>{try{let v3=[];let v4=0;for(let v0 of i){let v1=v4++;let v2;try{v2=e[2](e[0](v0),v2=>{typeof v2==="string"||e[3](v2,[v1]);return v2},x=>e[1](x,[v1]))}catch(x){e[1](x,[v1])}v3.push(v2);}let v6=Promise.all(v3).then(v5=>new Set(v5));return v6.then(v6=>{v6.size>1||e[4](v6);return v6}).catch(e[5])}catch(v7){return e[6](v7)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+  encode:
+    expression: i=>{try{i.size>1||e[0](i);return i}catch(v2){e[1](v2)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set

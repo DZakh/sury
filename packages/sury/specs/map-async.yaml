@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.map(S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected key") } return value } }, encode: "auto" }), S.string.with(S.to, S.string, { decode: { async: async (value) => { if (value === "bad") { throw new Error("rejected") } return value } }, encode: "auto" }))'
+  input: Map<string, string>
+  output: Map<string, string>
+  instantiations: 4938
+jsonSchema:
+  input: Expected JSON, received Map<string, string>
+  output: Expected JSON, received Map<string, string>
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Map<string, string>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    isAsync: true
+    expression: i=>{try{i instanceof e[10]||e[11](i);let v5=[];for(let v0 of i){let v2=v0[0];typeof v2==="string"||e[4](v2,[v0[0]]);let v1;try{v1=e[2](e[0](v2),v1=>{typeof v1==="string"||e[3](v1,[v0[0]]);return v1},x=>e[1](x,[v0[0]]))}catch(x){e[1](x,[v0[0]])}let v4=v0[1];typeof v4==="string"||e[9](v4,[v0[0]]);let v3;try{v3=e[7](e[5](v4),v3=>{typeof v3==="string"||e[8](v3,[v0[0]]);return v3},x=>e[6](x,[v0[0]]))}catch(x){e[6](x,[v0[0]])}v5.push(v1,v3);}return Promise.all(v5).then(v6=>{let v7=new Map;for(let v8=0;v8<v6.length;)v7.set(v6[v8++],v6[v8++]);return v7}).catch(e[12])}catch(v9){return e[13](v9)}}
+    examples:
+      valid:
+        input: new Map([["k", "a"]])
+        output: new Map([["k", "a"]])
+      rejected-value-is-located-by-its-key:
+        input: new Map([["k", "bad"]])
+        error: "Failed at k: rejected"
+      rejected-key:
+        input: new Map([["bad", "a"]])
+        error: "Failed at bad: rejected key"
+      rejected-entry-before-a-failing-one-is-not-left-unhandled:
+        input: new Map([["k", "bad"], [1, "a"]])
+        error: "Failed at [1]: Expected string, received 1"
+        issues:
+          - "Failed at [1]: Expected string, received 1"
+          - "Failed at k: rejected"
+      every-failed-entry-is-collected:
+        input: new Map([["k", "bad"], ["j", "a"], ["bad", "bad"], [1, "a"]])
+        error: "Failed at [1]: Expected string, received 1"
+        issues:
+          - "Failed at [1]: Expected string, received 1"
+          - "Failed at k: rejected"
+          - "Failed at bad: rejected key"
+          - "Failed at bad: rejected"
+  decode:
+    isAsync: true
+    expression: i=>{try{let v3=[];for(let v0 of i){let v1;try{v1=e[2](e[0](v0[0]),v1=>{typeof v1==="string"||e[3](v1,[v0[0]]);return v1},x=>e[1](x,[v0[0]]))}catch(x){e[1](x,[v0[0]])}let v2;try{v2=e[6](e[4](v0[1]),v2=>{typeof v2==="string"||e[7](v2,[v0[0]]);return v2},x=>e[5](x,[v0[0]]))}catch(x){e[5](x,[v0[0]])}v3.push(v1,v2);}return Promise.all(v3).then(v4=>{let v5=new Map;for(let v6=0;v6<v4.length;)v5.set(v4[v6++],v4[v6++]);return v5}).catch(e[8])}catch(v7){return e[9](v7)}}
+    examples:
+      valid:
+        input: new Map([["k", "a"]])
+        output: new Map([["k", "a"]])
+  encode: identity

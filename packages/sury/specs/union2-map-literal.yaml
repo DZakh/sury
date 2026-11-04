@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.map(S.string, S.literal(1)), S.map(S.string, S.literal(2))])
+  input: Map<string, 1> | Map<string, 2>
+  output: Map<string, 1> | Map<string, 2>
+  instantiations: 1822
+jsonSchema:
+  input: Expected JSON, received Map<string, 1> | Map<string, 2>
+  output: Expected JSON, received Map<string, 1> | Map<string, 2>
+isEqual: (a,b)=>a===b||(a instanceof e[0]?b instanceof e[0]&&e[2](a,b):b instanceof e[1]&&e[2](a,b))
+compare: "throws: [Sury] Can't compare Map<string, 1> | Map<string, 2>. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v2;for(;;){l9:{if(i instanceof e[4]){for(;;){l3:{for(let v0 of i){let v1=v0[0];if(!(typeof v1==="string")){v2=[v2,e[0],v1,[v0[0]]];break l3}let v4=v0[1];if(!(v4===1)){v2=[v2,e[1],v4,[v0[0]]];break l3}}break}l7:{for(let v5 of i){let v6=v5[0];if(!(typeof v6==="string")){v2=[v2,e[2],v6,[v5[0]]];break l7}let v8=v5[1];if(!(v8===2)){v2=[v2,e[3],v8,[v5[0]]];break l7}}break}break l9}break}}throw e[5](i,v2)}return i}catch(v10){e[6](v10)}}
+    examples:
+      first-member:
+        input: new Map([["a", 1]])
+        output: new Map([["a", 1]])
+      second-member:
+        input: new Map([["a", 2]])
+        output: new Map([["a", 2]])
+      neither:
+        input: new Map([["a", 3]])
+        error: |-
+          Expected Map<string, 1> | Map<string, 2>, received Map
+          - At a: Expected 1, received 3
+          - At a: Expected 2, received 3
+      not-a-map:
+        input: '[["a", 1]]'
+        error: Expected Map<string, 1> | Map<string, 2>, received [Array(2)]
+  decode: identity
+  encode: identity

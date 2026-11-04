@@ -370,7 +370,13 @@ const memberAt = (S: Sury, rng: Rng, depth: number): MemberSpec => {
 // id rather than a draw of its own, so every seed still replays the same
 // schemas and only some of them gain the wrapper.
 export const generateSchema = (S: Sury, rng: Rng): MemberSpec => {
-  const member = memberAt(S, rng, 0);
+  let member = memberAt(S, rng, 0);
+  // The option gate reaches union-object-field-from-null only through this: it
+  // needs an object field over the `null->0` taker, which the grammar draws
+  // when two rare rolls line up, and a catalog entry added anywhere can take
+  // the gate's last such draw. Chosen off the drawn shape and built without a
+  // draw, so every seed still replays the same schemas.
+  if (member.shape.name === "fromEmpty") member = renamedObject(S, rng, member);
   const type = (member.schema as { type?: string }).type;
   if ((type !== "object" && type !== "array") || member.id.length % 4) return member;
   return {

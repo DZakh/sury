@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.set(S.string).with(S.minSize, 2)
+  input: Set<string>
+  output: Set<string>
+  instantiations: 744
+jsonSchema:
+  input: Expected JSON, received Set<string>.size >= 2
+  output: Expected JSON, received Set<string>.size >= 2
+isEqual: (a,b)=>a===b||e[0](a,b)
+compare: "throws: [Sury] Can't compare Set<string>.size >= 2. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod: z.set(z.string()).min(2)
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v1=0;for(let v0 of i){typeof v0==="string"||e[0](v0,[v1]);v1++;}i.size>1||e[1](i);return i}catch(v2){e[4](v2)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+      invalid-item-beats-the-bound:
+        input: new Set(["a", 2])
+        error: "Failed at [1]: Expected string, received 2"
+  decode:
+    expression: i=>{try{i.size>1||e[0](i);return i}catch(v2){e[1](v2)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set
+  encode:
+    expression: i=>{try{i.size>1||e[0](i);return i}catch(v2){e[1](v2)}}
+    examples:
+      valid:
+        input: new Set(["a", "b"])
+        output: new Set(["a", "b"])
+      too-small:
+        input: new Set(["a"])
+        error: Expected Set<string>.size >= 2, received Set

@@ -44,10 +44,29 @@ export const structural = (a: unknown, b: unknown): boolean => {
   }
   if (proto === Date.prototype) return +(a as Date) === +(b as Date);
   if (proto === URL.prototype) return `${a}` === `${b}`;
-  if (proto === Set.prototype) {
-    const as = a as Set<unknown>;
-    const bs = b as Set<unknown>;
-    return as.size === bs.size && [...as].every((v) => bs.has(v));
+  // A Set by its members and a Map by its entries, matched rather than read in
+  // order, since both key their content by identity. See eq.ts's deepEqual,
+  // which this mirrors.
+  if (proto === Set.prototype || proto === Map.prototype) {
+    const isMap = proto === Map.prototype;
+    const as = a as Set<unknown> & Map<unknown, unknown>;
+    const bs = b as Set<unknown> & Map<unknown, unknown>;
+    if (as.size !== bs.size) return false;
+    const settled = (side: typeof as, entry: unknown): boolean => {
+      if (!isMap) return side.has(entry);
+      const pair = entry as [unknown, unknown];
+      return side.has(pair[0]) && structural(side.get(pair[0]), pair[1]);
+    };
+    const rest = [...as].filter((entry) => !settled(bs, entry));
+    if (!rest.length) return true;
+    const left = [...bs].filter((entry) => !settled(as, entry));
+    for (const entry of rest) {
+      let i = left.length;
+      while (i--) if (structural(entry, left[i])) break;
+      if (i < 0) return false;
+      left.splice(i, 1);
+    }
+    return true;
   }
   if (typeof FormData !== "undefined" && proto === FormData.prototype) {
     const ae = [...(a as FormData)];
@@ -172,8 +191,21 @@ export const sample = (schema: unknown, rng: Rng, depth = 0): unknown => {
     }
     case "unknown":
       return pick ? { deep: [1, { x: NaN }] } : "x";
-    case "instance":
+    case "instance": {
+      // `S.set` and `S.map` hold their item, or their `[key, value]` entry, on
+      // `additionalItems`; a bare `S.instance(Set)` has none.
+      const rest = s.additionalItems;
+      if ((s.class === Set || s.class === Map) && rest !== undefined && typeof rest !== "string") {
+        const entries: unknown[] = [];
+        for (let i = 0; i < pick + 1; i++) {
+          const inner = sample(rest, rng, depth + 1);
+          if (inner === NO_SAMPLE) return NO_SAMPLE;
+          entries.push(inner);
+        }
+        return s.class === Set ? new Set(entries) : new Map(entries as [unknown, unknown][]);
+      }
       return instanceSample(s.class, pick);
+    }
     case "ref":
       // `S.json` and the recursive schemas: no shape to walk, and the fallback
       // is what compares them.
@@ -237,7 +269,9 @@ export const show = (value: unknown): string => {
     return `FormData(${[...value].map(([k, v]) => `${k}=${String(v)}`).join(",")})`;
   if (typeof URLSearchParams !== "undefined" && value instanceof URLSearchParams)
     return `URLSearchParams(${[...value].map(([k, v]) => `${k}=${v}`).join(",")})`;
-  if (value instanceof Set) return `Set(${[...value].map(String).join(",")})`;
+  if (value instanceof Set) return `Set(${[...value].map(show).join(",")})`;
+  if (value instanceof Map)
+    return `Map(${[...value].map(([k, v]) => `${show(k)}=>${show(v)}`).join(",")})`;
   if (value instanceof Date) return `Date(${value.toISOString()})`;
   if (value instanceof URL) return `URL(${value.href})`;
   if (value instanceof Error) return `${value.constructor.name}(${value.message})`;
