@@ -6,12 +6,12 @@ import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
 let addressSchema = Sury.$schema(s => ({
-  street: s.m(S.protobufField(Sury.string, 1, undefined, undefined, undefined, undefined))
+  street: s.m(S.protobufField(Sury.string, 1, undefined, undefined, undefined, undefined, undefined))
 }));
 
 let userSchema = Sury.$schema(s => ({
-  id: s.m(S.protobufField(Sury.int32, 1, undefined, undefined, undefined, undefined)),
-  home: s.m(S.protobufField(Sury.$option(addressSchema), 2, undefined, undefined, undefined, undefined))
+  id: s.m(S.protobufField(Sury.int32, 1, undefined, undefined, undefined, undefined, undefined)),
+  home: s.m(S.protobufField(Sury.$option(addressSchema), 2, undefined, undefined, undefined, undefined, undefined))
 }));
 
 Vitest$1.test("A PPX record numbered with @s.with is a protobuf message", t => {
