@@ -194,7 +194,7 @@ const maskText = (paths: unknown): string =>
   (paths as unknown[])
     .map((path) => {
       const camel = typeof path === "string" ? jsonFieldName(path) : U;
-      return camel && snake(camel) === path ? camel : fail(`Expected FieldMask path, received ${stringify(path)}`);
+      return camel !== U && snake(camel) === path ? camel : fail(`Expected FieldMask path, received ${stringify(path)}`);
     })
     .join(",");
 

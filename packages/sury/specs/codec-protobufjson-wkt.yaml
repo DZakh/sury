@@ -86,7 +86,7 @@ operations:
         error: "Failed at at: Expected Timestamp, received +010000-01-01T00:00:00.000Z"
       mask-empty-path:
         input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [""] }'
-        error: 'Failed at mask: Expected FieldMask path, received ""'
+        output: '{ at: "1970-01-01T00:00:00Z", took: "0s", payload: null, meta: {}, mask: "" }'
       mask-path-irreversible:
         input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: ["foo__bar"] }'
         error: 'Failed at mask: Expected FieldMask path, received "foo__bar"'
