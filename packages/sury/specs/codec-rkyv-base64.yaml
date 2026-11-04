@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.rkyv.with(S.to, S.base64)
+  input: Uint8Array<ArrayBufferLike>
+  output: string
+  instantiations: 4419
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "string", contentEncoding: "base64" }'
+  openapi-3.0:
+    output: '{ type: "string", format: "byte" }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[1]||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
+    examples:
+      bytes:
+        input: new Uint8Array([1, 2, 3])
+        output: '"AQID"'
+  decode:
+    expression: i=>{try{return e[0](i)}catch(v0){e[1](v0)}}
+    examples:
+      bytes:
+        input: new Uint8Array([1, 2, 3])
+        output: '"AQID"'
+  encode:
+    expression: i=>{try{e[1](i)||e[2](i);return e[0](i)}catch(v0){e[3](v0)}}
+    examples:
+      text:
+        input: '"AQID"'
+        output: new Uint8Array([1, 2, 3])
+      not-base64:
+        input: '"example.com"'
+        error: Expected base64, received "example.com"

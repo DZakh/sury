@@ -46,7 +46,7 @@ import {
 import { arrayFactory, definitionToSchema } from "../composites";
 import { instanceDecoder } from "../parse";
 import { bigint, bool, float, int, integer, nan, nullLiteral, string, unit } from "../primitives";
-import { port, uint8Array } from "../refinements";
+import { base64Content, port, uint8Array } from "../refinements";
 import { unionFactory } from "../union";
 import { recursive } from "./recursive";
 
@@ -894,7 +894,11 @@ const guard = (input: Val, output: Val, target: Internal, call: string): string 
 // to the target like any typed value - so only what the target adds on top
 // (a refinement, a transform) is emitted.
 const rkyvEncoder: Encoder = (input, target) => {
-  if (tagFlags[target.type]! & 8192 && target.rkyvType === U) return input;
+  if (target.rkyvType === U) {
+    if (tagFlags[target.type]! & 8192) return input;
+    // Into a document or text the archive goes as the bytes it is.
+    if (target.flags & 3) return uint8Array.encoder!(input, target);
+  }
   const entry = compiledOf(target);
   const read = (entry.read ??= compileReader(entry.layout, entry.fns));
   const output = B_nextVar(input, entry.layout.w, target);
@@ -905,6 +909,9 @@ const rkyvEncoder: Encoder = (input, target) => {
 const rkyvDecoder: Builder = (input) => {
   const sourceTagFlag = tagFlags[input.s.type]!;
   if (sourceTagFlag & 1) return instanceDecoder(input);
+  // Text that carries bytes (base64, how a JSON document holds them) is the
+  // archive's bytes; a plain string is a Rust String.
+  if (sourceTagFlag & 2 && input.s.flags & 1) return uint8Array.decoder(input);
   // Bytes are an archive already, unless S.rkyvType says what they are.
   if (sourceTagFlag & 8192 && input.s.rkyvType === U)
     return input.s.class === Uint8Array || (input.s.class as Function).prototype instanceof Uint8Array
@@ -924,8 +931,11 @@ const rkyvDecoder: Builder = (input) => {
 
 export const rkyv: Internal = /* @__PURE__ */ initSchema(instanceTag, rkyvDecoder, (schema) => {
   schema.class = Uint8Array;
+  // Bytes in a JSON document, as S.uint8Array: base64 text.
+  schema.storedAs = base64Content;
   schema.encoder = rkyvEncoder;
-  schema.flags = schema.flags | 65536;
+  schema.flags = schema.flags | 65537;
+  schema.reverseReading = uint8Array.reverseReading;
 });
 
 // @__NO_SIDE_EFFECTS__

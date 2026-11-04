@@ -460,8 +460,18 @@ S.uint8Array.with(S.to, S.rkyv);                               // passes as it i
 S.uint8Array.with(S.rkyvType, "Box").with(S.to, S.rkyv);       // a Box<Vec<u8>>
 ```
 
+Next to another rendering of bytes, an archive is the bytes it is, as
+`S.uint8Array`: base64 text decodes to the archive and the archive encodes to
+it, and a plain JSON document doesn't hold one.
+
+```ts
+S.rkyv.with(S.to, S.base64);  // [1, 2, 3] is "AQID"
+S.rkyv.with(S.to, S.json);    // refused, as S.uint8Array.with(S.to, S.json)
+```
+
 The specs: `codec-rkyv-refined`, `codec-rkyv-enum-root`,
-`codec-rkyv-option-root`, `rkyv`, `codec-rkyv-boxed-bytes-root`.
+`codec-rkyv-option-root`, `rkyv`, `codec-rkyv-boxed-bytes-root`,
+`codec-rkyv-base64`, `codec-rkyv-json-unsupported`.
 
 ## Protobuf oneof
 

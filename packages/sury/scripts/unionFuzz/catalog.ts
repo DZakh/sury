@@ -190,7 +190,7 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   ),
   relativeJsonPointer: schema((S) => S.relativeJsonPointer),
   reverse: skip("operation, not a schema factory"),
-  rkyv: schema((S) => S.rkyv),
+  rkyv: skip("a bytes carrier as a member, as S.uint8Array, which is drawn already; its archive conversions need a Rust type, which rkyv:fuzz holds to the crate"),
   rkyvType: skip("Rust type metadata, does not change parse"),
   schema: build(),
   schemaOf: build(),
