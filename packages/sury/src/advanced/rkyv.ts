@@ -9,6 +9,7 @@ import {
   type Encoder,
   type ErrorDetails,
   initSchema,
+  inlinedObjectKey,
   inlinedProperty,
   inputExpression,
   instanceTag,
@@ -388,9 +389,6 @@ const literalSource = (value: unknown): string =>
           : `${value}`
         : JSON.stringify(value);
 
-// Computed, so `__proto__` in a literal is a key and not the prototype.
-const objectKey = (key: string): string => `[${JSON.stringify(key)}]`;
-
 const literalCheck = (value: unknown, v: string): string =>
   typeof value === "number" && value !== value ? `${v}!==${v}` : `${v}===${literalSource(value)}`;
 
@@ -510,14 +508,8 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
       ];
     }
     case 8: {
-      let code = "",
-        fields = "";
       const tuple = layout.t === "tuple";
-      for (const [key, field, off] of layout.f!) {
-        const [c, value] = emitRead(gen, scope, field, at(p, off), hi, [...path, key]);
-        code += c;
-        fields += tuple ? `${value},` : `${objectKey(key as string)}:${value},`;
-      }
+      const [code, fields] = readFields(gen, scope, layout, p, hi, path, tuple);
       if (layout.f!.length === 0) return [code, tuple ? "[]" : "{}"];
       const x = newVar(gen);
       return [`${code}${x}=${tuple ? `[${fields}]` : `{${fields}}`};`, x];
@@ -531,14 +523,8 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
           cases += `case ${idx}:${x}=${literalSource(lit)};break;`;
           return;
         }
-        let code = "",
-          fields = `${objectKey(layout.tk!)}:${literalSource(lit)},`;
-        for (const [key, field, off] of body.f!) {
-          const [c, value] = emitRead(gen, scope, field, at(p, off), hi, [...path, key]);
-          code += c;
-          fields += `${objectKey(key as string)}:${value},`;
-        }
-        cases += `case ${idx}:${code}${x}={${fields}};break;`;
+        const [code, fields] = readFields(gen, scope, body, p, hi, path);
+        cases += `case ${idx}:${code}${x}={${inlinedObjectKey(layout.tk!)}:${literalSource(lit)},${fields}};break;`;
       });
       return [`${mark(scope, path)}${t}=b[${p}];switch(${t}){${cases}default:F("Invalid rkyv enum tag "+${t})}`, x];
     }
@@ -554,6 +540,17 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
     }
   }
   return ["", literalSource(layout.c)];
+};
+
+const readFields = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string, path: Path, tuple?: boolean): [code: string, fields: string] => {
+  let code = "",
+    fields = "";
+  for (const [key, field, off] of layout.f!) {
+    const [c, value] = emitRead(gen, scope, field, at(p, off), hi, [...path, key]);
+    code += c;
+    fields += tuple ? `${value},` : `${inlinedObjectKey(key as string)}:${value},`;
+  }
+  return [code, fields];
 };
 
 const bounded = (layout: Layout, x: string): string => {
@@ -690,14 +687,8 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
     }
     case 8: {
       const [bound, x] = bind(gen, v);
-      let code = bound;
       const resolvers: string[] = [];
-      for (const [key, field] of layout.f!) {
-        const [deps, fieldResolvers] = emitDeps(gen, scope, field, property(x, key), [...path, key]);
-        code += deps;
-        resolvers.push(...fieldResolvers);
-      }
-      return [code, resolvers];
+      return [bound + depsFields(gen, scope, layout, x, path, resolvers), resolvers];
     }
     case 9: {
       const [bound, x] = bind(gen, v);
@@ -707,14 +698,7 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
       let code = `${bound}${mark(scope, path)}`;
       let cases = "";
       layout.v!.forEach(([lit, body], idx) => {
-        let deps = "";
-        if (body !== U) {
-          for (const [key, field] of body.f!) {
-            const [c, fieldResolvers] = emitDeps(gen, scope, field, property(x, key), [...path, key]);
-            deps += c;
-            resolvers.push(...fieldResolvers);
-          }
-        }
+        const deps = body === U ? "" : depsFields(gen, scope, body, x, path, resolvers);
         cases += `if(${literalCheck(lit, body === U ? x : read)}){${t}=${idx};${deps}}else `;
       });
       code += `${cases}E(${read},"${layout.tk === U ? "enum" : `enum tag ${layout.tk}`}");`;
@@ -728,6 +712,16 @@ const emitDeps = (gen: Gen, scope: Scope, layout: Layout, v: string, path: Path)
     }
   }
   return ["", []];
+};
+
+const depsFields = (gen: Gen, scope: Scope, layout: Layout, x: string, path: Path, resolvers: string[]): string => {
+  let code = "";
+  for (const [key, field] of layout.f!) {
+    const [deps, fieldResolvers] = emitDeps(gen, scope, field, property(x, key), [...path, key]);
+    code += deps;
+    resolvers.push(...fieldResolvers);
+  }
+  return code;
 };
 
 const property = (x: string, key: string | number): string =>
