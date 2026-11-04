@@ -127,7 +127,7 @@ test("toProtoOrThrow rejects what the wire rejects, with the same message", (t) 
     '[Sury] S.protobuf: field "me" makes "Endless" hold itself with no way to end. Make it optional or repeated',
   );
   t.expect(() => S.toProtoOrThrow(S.schema({ a: S.string }))).toThrow(
-    '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField',
+    '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value',
   );
 });
 
@@ -535,9 +535,8 @@ test("toProtoOrThrow prints the first object of a .to chain, which the wire spea
   t.expect(S.toProtoOrThrow(S.arrayBuffer.with(S.to, S.protobuf).with(S.to, S.schema({ c: S.boolean.with(S.protobufField, 1) })))).toContain(
     "message Message {\n  bool c = 1;\n}",
   );
-  t.expect(() => S.toProtoOrThrow(S.schema({ m: M.with(S.protobufField, 1) }))).toThrow(
-    '[Sury] S.protobuf: field "m" is a message that converts further with S.to, which a nested field can\'t',
-  );
+  t.expect(S.toProtoOrThrow(S.schema({ m: M.with(S.protobufField, 1) }))).toContain("message M {\n    int32 a = 1;\n  }");
+  t.expect(S.toProtoOrThrow(S.schema({ m: M.with(S.protobufField, 1) }).with(S.to, S.protobuf))).toContain("message M {\n    string b = 1;\n  }");
   t.expect(S.toProtoOrThrow(S.schema({ a: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf))).toContain("message Message {\n  int32 a = 1;\n}");
 });
 
@@ -646,4 +645,168 @@ message Leaf {
   repeated Root kids = 1;
 }
 `);
+});
+
+test("toProtoOrThrow prints a { case, value } oneof and names each member after its case", (t) => {
+  const schema = S.schema({
+    id: S.protobufField(S.int32, 1),
+    contact: S.union([
+      S.schema({ case: "emailAddress", value: S.protobufField(S.string, 2) }),
+      S.schema({ case: "phone", value: S.protobufField(S.bigint, { number: 3, type: "int64" }) }),
+      S.schema({ case: undefined }),
+    ]),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "User" })).toBe(`syntax = "proto3";
+
+message User {
+  int32 id = 1;
+  oneof contact {
+    string email_address = 2;
+    int64 phone = 3;
+  }
+}
+`);
+});
+
+test("toProtoOrThrow names a oneof member after its number when its case is no string", (t) => {
+  const numbered = S.schema({
+    c: S.optional(
+      S.union([
+        S.schema({ case: 1, value: S.string.with(S.protobufField, 2) }),
+        S.schema({ case: 2, value: S.int32.with(S.protobufField, 3) }),
+      ]),
+    ),
+  }).with(S.meta, { name: "N" });
+  t.expect(S.toProtoOrThrow(numbered)).toBe(`syntax = "proto3";
+
+message N {
+  oneof c {
+    string c_2 = 2;
+    int32 c_3 = 3;
+  }
+}
+`);
+  const flagged = S.schema({
+    c: S.optional(
+      S.union([
+        S.schema({ case: true, value: S.string.with(S.protobufField, 2) }),
+        S.schema({ case: false, value: S.int32.with(S.protobufField, 3) }),
+      ]),
+    ),
+  });
+  t.expect(S.toProtoOrThrow(flagged, { name: "B" })).toContain("  oneof c {\n    string c_2 = 2;\n    int32 c_3 = 3;\n  }");
+});
+
+test("toProtoOrThrow names a oneof member after the case telling it from the members of its own type", (t) => {
+  const schema = S.schema({
+    c: S.optional(
+      S.union([
+        S.protobufField(S.string, 1),
+        S.schema({ case: "a", value: S.protobufField(S.int32, 2) }),
+        S.schema({ case: "b", value: S.protobufField(S.boolean, 3) }),
+      ]),
+    ),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M" })).toBe(`syntax = "proto3";
+
+message M {
+  oneof c {
+    string c_1 = 1;
+    int32 a = 2;
+    bool b = 3;
+  }
+}
+`);
+});
+
+test("toProtoOrThrow prints a message S.protobufTypeName names at the top level, under its last segment", (t) => {
+  const User = S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User");
+  const schema = S.schema({
+    owner: S.protobufField(User, 1),
+    c: S.optional(S.union([S.schema({ case: "u", value: S.protobufField(User, 2) }), S.schema({ case: "s", value: S.protobufField(S.string, 3) })])),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M", package: "acme.v1" })).toBe(`syntax = "proto3";
+
+package acme.v1;
+
+message M {
+  User owner = 1;
+  oneof c {
+    User u = 2;
+    string s = 3;
+  }
+}
+
+message User {
+  int32 id = 1;
+}
+`);
+  t.expect(S.toProtoOrThrow(User)).toContain("message User {");
+});
+
+test("toProtoOrThrow prints an enum field with no members to declare as int32", (t) => {
+  t.expect(S.toProtoOrThrow(S.schema({ k: S.int32.with(S.protobufField, { number: 1, type: "enum" }) }))).toContain("  int32 k = 1;\n");
+});
+
+test("toProtoOrThrow prints wrapper and Struct fields under the files that declare them", (t) => {
+  const schema = S.schema({
+    count: S.protobufField(S.optional(S.int32), { number: 1, type: "google.protobuf.Int32Value" }),
+    meta: S.protobufField(S.optional(S.record(S.json)), { number: 2, type: "google.protobuf.Struct" }),
+    metas: S.protobufField(S.array(S.record(S.json)), { number: 3, type: "google.protobuf.Struct" }),
+  });
+  t.expect(S.toProtoOrThrow(schema, { name: "M", package: "p" })).toBe(`syntax = "proto3";
+
+package p;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+
+message M {
+  optional google.protobuf.Int32Value count = 1;
+  optional google.protobuf.Struct meta = 2;
+  repeated google.protobuf.Struct metas = 3;
+}
+`);
+});
+
+test("A message or enum S.protobufTypeName names google.protobuf.* prints as an import", (t) => {
+  const kind = S.protobufTypeName(S.union([0, 1]), "google.protobuf.Field.Kind");
+  const any = S.protobufTypeName(
+    S.meta(S.schema({ typeUrl: S.string.with(S.protobufField, 1), value: S.uint8Array.with(S.protobufField, 2) }), { name: "Any" }),
+    "google.protobuf.Any",
+  );
+  const holder = S.schema({ kind: S.protobufField(kind, { number: 1, type: "enum" }), detail: S.optional(any).with(S.protobufField, 2) });
+  t.expect(S.toProtoOrThrow(holder, { name: "Holder" })).toBe(`syntax = "proto3";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/type.proto";
+
+message Holder {
+  google.protobuf.Field.Kind kind = 1;
+  optional google.protobuf.Any detail = 2;
+}
+`);
+  t.expect(S.toProtoOrThrow(any)).toBe(`syntax = "proto3";
+
+message Any {
+  string type_url = 1;
+  bytes value = 2;
+}
+`);
+  const unknown = S.protobufTypeName(S.schema({ a: S.string.with(S.protobufField, 1) }), "google.protobuf.Nope");
+  t.expect(() => S.toProtoOrThrow(S.schema({ x: S.optional(unknown).with(S.protobufField, 1) }))).toThrow(
+    "[Sury] S.toProtoOrThrow: google.protobuf.Nope is no well-known type, so there is no file to import it from",
+  );
+});
+
+test("A display name of google.protobuf.* declares rather than imports", (t) => {
+  const named = S.meta(S.schema({ a: S.string.with(S.protobufField, 1) }), { name: "google.protobuf.Nope" });
+  t.expect(S.toProtoOrThrow(S.schema({ x: S.optional(named).with(S.protobufField, 1) }), { name: "Holder" })).not.toContain("import");
+});
+
+test("protobufTypeName takes a full name, not a type URL", (t) => {
+  for (const name of ["type.googleapis.com/acme.v1.User", ".acme.v1.User", "acme..User", "", "1acme"]) {
+    t.expect(() => S.protobufTypeName(S.schema({}), name)).toThrow("[Sury] S.protobufTypeName requires a full name such as");
+  }
+  t.expect(S.protobufTypeName(S.schema({}), "acme.v1.User_2")).toBeDefined();
 });

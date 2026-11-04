@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.nullable(S.number), 1).with(S.to, S.nullable(S.number).with(S.refine, (v) => v !== 5))
+  input: number | null | undefined
+  output: number | null
+  instantiations: 5339
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "null" }] }'
+  fromInputType: number | null
+  output: '{ anyOf: [{ type: "number" }, { type: "null" }] }'
+  openapi-3.0:
+    input: '{ type: "number", nullable: true }'
+    output: '{ type: "number", nullable: true }'
+isEqual: strictEqual
+compare:
+  input: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a===void 0?b===void 0?0:-1:b===void 0?1:a<b?-1:a>b?1:0)
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){let v0=i;e[0](v0)||e[1](v0);break}if(i===null){let v1=i;e[2](v1)||e[3](v1);break}if(i===void 0){let v2=1;for(;;){if(typeof v2==="number"&&v2==v2){e[4](v2)||e[5](v2);break}if(v2===null){e[6](v2)||e[7](v2);break}throw e[8](v2)}i=v2;break}throw e[9](i)}return i}catch(v3){e[10](v3)}}
+    examples:
+      absent-takes-the-default:
+        input: undefined
+        output: "1"
+      "null":
+        input: "null"
+        output: "null"
+      refused:
+        input: "5"
+        error: Refinement failed
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{for(;;){if(typeof i==="number"&&i==i){e[0](i)||e[1](i);break}if(i===null){e[0](i)||e[2](i);break}throw e[3](i)}return i}catch(v0){e[4](v0)}}
+    examples:
+      "null":
+        input: "null"
+        output: "null"

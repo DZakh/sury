@@ -26,9 +26,6 @@ operations:
       preserved-string:
         input: '"ok"'
         output: '"ok"'
-        divergence:
-          reason: the checks compile the reverse direction, which this codec leaves ambiguous, so they raise on the schema instead of answering about the value
-          check: Ambiguous number -> number | string. Should string be decoded or ignored? Choose with S.to for number -> string, or S.never -> string
   decode: eq-to-parse
   encode:
     creationError: "SuryError: Ambiguous never | string -> number | string. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number"

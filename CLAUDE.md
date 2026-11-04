@@ -72,6 +72,15 @@ base → builder → primitives → parse → union → composites → factory
   `S.res` and adapt there.
 - `S.res` is the only ReScript module, and reaches the runtime through the
   package's own `"."` export so both languages share one instance.
+- The protobuf well-known types are the exception, written by protoc-gen-sury
+  and never by hand: `src/protobuf/wkt/` (bundled as `sury/protobuf/wkt`, a
+  second entry that imports only `"sury"`), and its ReScript binding
+  `S.Protobuf`, the `@generated` region at the end of `S.res`. That region is
+  types and `external`s only. An external is inlined into the module that
+  names it, while a `let` there would build every well-known type at startup
+  for every ReScript user, since `S.res.mjs` is in `sideEffects`. An external
+  is also an unchecked cast, so each type spells the value the TS schema
+  holds, and `tests/S_Protobuf_wkt_test.res` holds it to that.
 
 ## Writing code
 
@@ -183,6 +192,25 @@ command. Rules that bind whichever you run:
 comparator is compiled. Widening that set is adding an emit for the shape, not
 relaxing the refusal: `compare(a,b)===0` exactly when `isEqual`, and
 `compare(a,b)` is `-compare(b,a)`.
+
+## Changing protoc-gen-sury
+
+Its output is held to protoc-gen-es, not to itself. `pnpm protobuf:codegen`
+regenerates the corpus in `packages/protoc-gen-sury/test/proto` and checks, in
+order: that the descriptor decoding equals protobuf-es's, the committed goldens
+(the corpus, `src/protobuf/wkt`, `S.Protobuf`), that the bin over stdin and over
+`--descriptor_set_in` writes what `generate()` does, every option and refusal,
+that the TypeScript and ReScript compile, that every type equals protoc-gen-es's
+once the differences `docs/js-protobuf.md` lists are normalized, that values and
+typed Anys round-trip through both libraries in both directions byte for byte
+from both targets, that `S.toProtoOrThrow` reprints every message's fields, and
+that importing one message keeps none of its siblings in a Rollup 4 bundle.
+`SEED=N` widens the value search. `update` rewrites the goldens.
+`pnpm protobuf:conformance:generated` runs Google's suite over the generated
+`TestAllTypesProto3`.
+
+A codec change a generated shape needs lands in `packages/sury/src` with its
+spec first, like any other.
 
 ## Codecs
 

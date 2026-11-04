@@ -19,22 +19,20 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0.a,v3=v0.d;typeof v1==="string"||e[0](v1);for(;;){if(typeof v3==="string"){let v2=new Date(v3);!Number.isNaN(v2.getTime())||e[1](v3);v3=v2;break}if(v3===void 0)break;throw e[2](v3)}for(;;){if(v3 instanceof e[5]){let v4;try{v4=v3.toISOString()}catch(_){e[4](v3)}v3=v4;break}if(v3===void 0)break;throw e[6](v3)}for(;;){if(v3 instanceof e[8]){let v5;try{v5=v3.toISOString()}catch(_){e[7](v3)}v3=v5;break}if(v3===void 0)break;throw e[9](v3)}let v6={a:v1};if(v3!==void 0){v6.d=v3}let v7={W:v6};if(v3!==void 0){v7.D=v3}return v7}catch(v8){e[11](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i.w;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[3](v0);let v1=v0.a,v3=v0.d;typeof v1==="string"||e[0](v1);for(;;){if(typeof v3==="string"){let v2=new Date(v3);!Number.isNaN(v2.getTime())||e[1](v3);v3=v2;break}if(v3===void 0)break;throw e[2](v3)}let v4=v3;for(;;){if(v4 instanceof e[5]){let v5;try{v5=v4.toISOString()}catch(_){e[4](v4)}v4=v5;break}if(v4===void 0)break;throw e[6](v4)}let v6=v3;for(;;){if(v6 instanceof e[8]){let v7;try{v7=v6.toISOString()}catch(_){e[7](v6)}v6=v7;break}if(v6===void 0)break;throw e[9](v6)}let v8={a:v1};if(v6!==void 0){v8.d=v6}let v9={W:v8};if(v4!==void 0){v9.D=v4}return v9}catch(v10){e[11](v10)}}
     examples:
-      # FIXME: a converted field's var is converted to text once per placement, so the second sees a string; a non-optional union field does the same
       with-date:
         input: '{ w: { a: "1", d: "2020-01-01T00:00:00.000Z" } }'
-        error: 'Failed at w.d: Expected Date | undefined, received "2020-01-01T00:00:00.000Z"'
+        output: '{ W: { a: "1", d: "2020-01-01T00:00:00.000Z" }, D: "2020-01-01T00:00:00.000Z" }'
       without-date:
         input: '{ w: { a: "1" } }'
         output: '{ W: { a: "1" } }'
   decode:
-    expression: i=>{try{let v0=i.w;let v2=v0.d;for(;;){if(typeof v2==="string"){let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2);v2=v1;break}if(v2===void 0)break;throw e[1](v2)}for(;;){if(v2 instanceof e[3]){let v3;try{v3=v2.toISOString()}catch(_){e[2](v2)}v2=v3;break}if(v2===void 0)break;throw e[4](v2)}for(;;){if(v2 instanceof e[6]){let v4;try{v4=v2.toISOString()}catch(_){e[5](v2)}v2=v4;break}if(v2===void 0)break;throw e[7](v2)}let v5={a:v0.a};if(v2!==void 0){v5.d=v2}let v6={W:v5};if(v2!==void 0){v6.D=v2}return v6}catch(v7){e[8](v7)}}
+    expression: i=>{try{let v0=i.w;let v2=v0.d;for(;;){if(typeof v2==="string"){let v1=new Date(v2);!Number.isNaN(v1.getTime())||e[0](v2);v2=v1;break}if(v2===void 0)break;throw e[1](v2)}let v3=v2;for(;;){if(v3 instanceof e[3]){let v4;try{v4=v3.toISOString()}catch(_){e[2](v3)}v3=v4;break}if(v3===void 0)break;throw e[4](v3)}let v5=v2;for(;;){if(v5 instanceof e[6]){let v6;try{v6=v5.toISOString()}catch(_){e[5](v5)}v5=v6;break}if(v5===void 0)break;throw e[7](v5)}let v7={a:v0.a};if(v5!==void 0){v7.d=v5}let v8={W:v7};if(v3!==void 0){v8.D=v3}return v8}catch(v9){e[8](v9)}}
     examples:
-      # FIXME: a converted field's var is converted to text once per placement, so the second sees a string; a non-optional union field does the same
       with-date:
         input: '{ w: { a: "1", d: "2020-01-01T00:00:00.000Z" } }'
-        error: 'Failed at w.d: Expected Date | undefined, received "2020-01-01T00:00:00.000Z"'
+        output: '{ W: { a: "1", d: "2020-01-01T00:00:00.000Z" }, D: "2020-01-01T00:00:00.000Z" }'
       without-date:
         input: '{ w: { a: "1" } }'
         output: '{ W: { a: "1" } }'

@@ -577,12 +577,10 @@ test("Custom codecs type their coders against the junction, and stay assignable"
 test("An output-seam codec rejects a target that already converts", (t) => {
   const target = S.string.with(S.to, S.number);
 
-  // Only the ReScript adapter can reach this seam, and only it is restricted:
-  // the JS pair feeds the target's chain instead of replacing it.
   t.expect(() =>
-    (S.to as any)(S.string, target, {
-      decodeToOutput: (value: string) => value.length,
-      encodeFromOutput: (value: number) => String(value),
+    (S as any).$to(S.string, target, {
+      decode: (value: string) => value.length,
+      encode: (value: number) => String(value),
     }),
   ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
 
@@ -2310,10 +2308,10 @@ test("fromJSONSchemaOrThrow: composition keywords constrain in addition to the b
   const parse = S.parseOrThrow(schema) as (d: unknown) => unknown;
 
   const input = { bar: 2, foo: "x" };
-  t.expect(parse(input)).toEqual({ bar: 2 });
+  t.expect(parse(input)).toEqual({ bar: 2, foo: "x" });
   // Fails the base shape.
   t.expect(caught(() => parse({ bar: "no", foo: "x" }))).toBeDefined();
-  // Fails only the allOf branch - the base shape alone used to win.
+  // Fails only the allOf branch.
   t.expect(caught(() => parse({ bar: 2 }))).toBeDefined();
 });
 

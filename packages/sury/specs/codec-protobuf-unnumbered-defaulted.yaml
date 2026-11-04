@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ a: S.optional(S.string, "x") }).with(S.to, S.protobuf)'
+  input: "{ a?: string | undefined; }"
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 5821
+jsonSchema:
+  input: '{ type: "object", properties: { a: { default: "x", type: "string" } } }'
+  output: '[Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value'
+isEqual:
+  input: (a,b)=>a===b||a.a===b.a
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: 'Error: [Sury] S.protobuf: field "a" has no field number. Give it one with S.protobufField, or make it a oneof: a union of arms, each holding one numbered value'
+  decode: eq-to-parse
+  encode: eq-to-parse

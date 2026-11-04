@@ -24,7 +24,7 @@ import {
   some,
 } from "./unionFuzz/shape";
 
-export type Fuzzer = "eq" | "codec" | "union" | "issues" | "option";
+export type Fuzzer = "eq" | "codec" | "union" | "narrowing" | "issues" | "seam" | "option";
 
 export type Finding = {
   fuzzer: Fuzzer;
@@ -87,17 +87,20 @@ export const KNOWN_BUGS: Known[] = [
   },
   {
     id: "to-output-keeps-source-refinement",
-    kind: "bug",
+    kind: "limitation",
     summary:
-      "After `S.to` with a custom coder, `isOutput` still runs the source's refinement: " +
-      "`Schema<uuid, number>` tests the uuid pattern against the number, so every decoded value is rejected.",
-    spec: "to-refined-source-output",
+      "The grammar's `to` decodes a string to its length and encodes it back with \"auto\", which writes the " +
+      "number's digits. No refined string format accepts those, so the schema does not round-trip: a decoded " +
+      "value would not encode, and `isOutput`, which asks whether it would, says no. The property reads that " +
+      "as a wrong `isOutput`; it is the codec not inverting itself.",
     fuzzers: ["codec"],
     matches: (f) =>
       f.fuzzer === "codec" &&
       f.property === "conformance" &&
       f.detail.includes("isOutput rejects") &&
-      some(f.shape, (node) => node.name === "with" && node.raw === "to"),
+      // The catalog's leaf string-to-length link, not a container carried
+      // into a JSON string (`intoJsonString`).
+      some(f.shape, (node) => node.name === "with" && node.raw === "to" && !(node.args[0]?.args.length ?? 0)),
   },
   {
     id: "fieldor-absent-item-output",
@@ -111,20 +114,6 @@ export const KNOWN_BUGS: Known[] = [
       f.fuzzer === "codec" &&
       f.property === "round-trip" &&
       some(f.shape, (node) => node.name === "fieldOr" && admitsUndefined(node.args[0]!)),
-  },
-  {
-    id: "json-union-instance-tagged-crash",
-    kind: "bug",
-    summary:
-      "`S.json.with(S.to, S.union([S.date, S.schema({ kind: \"k\", v: S.string })]))` crashes the compiler " +
-      "with `values is not iterable`: a union holding a string-stored instance and a tagged object.",
-    spec: "codec-json-union-date-tagged",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "absent" &&
-      f.detail.includes("values is not iterable") &&
-      some(f.shape, (node) => node.name === "union" && node.args.some((member) => member.name === "tagged")),
   },
   {
     id: "json-absent-recursive-undefined",
@@ -161,48 +150,18 @@ export const KNOWN_BUGS: Known[] = [
       ),
   },
   {
-    id: "missing-key-env-member-default",
-    kind: "bug",
+    id: "union-never-member-yields",
+    kind: "limitation",
     summary:
-      "A missing key never reaches the default of an `S.env` member in its field's union: " +
-      "`S.union([S.env.with(S.to, S.optional(S.string, \"dev\")), S.optional(S.env)])` reads it as " +
-      "`undefined` through `S.json` or a record, where parse reads `\"dev\"`.",
-    spec: "codec-record-object-union-env-default",
-    fuzzers: ["codec"],
-    matches: (f) =>
-      f.fuzzer === "codec" &&
-      f.property === "absent" &&
-      some(
-        f.shape,
-        (node) => node.name === "union" && node.args.some((member) => some(member, (n) => n.name === "envTo")),
-      ),
-  },
-  {
-    id: "union-never-member",
-    kind: "bug",
-    summary:
-      "A union member with an `S.never` field makes the whole union's encode refuse to compile, " +
-      "instead of that one member yielding to its siblings.",
-    spec: "union-never-member",
+      "A member that needs a value at an `S.never` field holds none, so it yields to its siblings and the " +
+      "union compiles (spec union-never-member). The member-by-member reference meets that member alone, " +
+      "where nothing is left to yield to and refusing it is right, so it cannot tell the two apart.",
     fuzzers: ["union"],
     matches: (f) =>
-      f.fuzzer === "union" && f.detail.includes("Missing input for never") && some(f.shape, (n) => n.name === "never"),
-  },
-  {
-    id: "jsonstring-null-default-inlined",
-    kind: "bug",
-    summary:
-      "`S.schema({ f: S.optional(S.nullable(S.string), null) }).with(S.to, S.jsonString)` fails to compile " +
-      "its parse: the `null` default is inlined as a literal, and the field's conversion to JSON text then " +
-      "assigns to it as if it were a variable (`null=...`).",
-    spec: "jsonstring-object-optional-null-default",
-    fuzzers: ["issues"],
-    matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("Invalid left-hand side in assignment") &&
-      intoJsonString(f.shape) &&
-      some(f.shape, (node) => node.name === "optional" && node.args[1]?.raw === "null"),
+      f.fuzzer === "union" &&
+      f.property === "acceptance" &&
+      f.detail.includes("Missing input for never") &&
+      some(f.shape, (n) => n.name === "never"),
   },
   {
     id: "union-json-document-member",
@@ -269,20 +228,6 @@ export const KNOWN_BUGS: Known[] = [
           node.name === "union" &&
           (node.args.slice(0, -1).some(absorbs) || (f.fuzzer === "codec" && shadowsEmpty(node))),
       ),
-  },
-  {
-    id: "jsonstring-fieldor-refined-url-encode",
-    kind: "bug",
-    summary:
-      "`S.object((s) => ({ f: s.fieldOr(\"f\", S.nullable(S.url.with(S.refine, check)), null) })).with(S.to, S.jsonString)` " +
-      "crashes the encode compile (`isOutput`, `encodeOrThrow`) with a TypeError from `B_merge` instead of building it.",
-    spec: "jsonstring-fieldor-refined-url",
-    fuzzers: ["issues"],
-    matches: (f) =>
-      f.fuzzer === "issues" &&
-      f.property === "setup" &&
-      f.detail.includes("reading 't'") &&
-      some(f.shape, (node) => node.name === "fieldOr"),
   },
   {
     id: "conversion-after-failed-container",
