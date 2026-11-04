@@ -190,6 +190,8 @@ export const FUZZ_EXPORTS: Record<string, FuzzExport> = {
   ),
   relativeJsonPointer: schema((S) => S.relativeJsonPointer),
   reverse: skip("operation, not a schema factory"),
+  rkyv: schema((S) => S.rkyv),
+  rkyvType: skip("Rust type metadata, does not change parse"),
   schema: build(),
   schemaOf: build(),
   shape: skip("output reshape; not a union-member combinator"),

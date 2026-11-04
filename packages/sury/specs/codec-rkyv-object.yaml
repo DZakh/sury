@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.schema({ id: S.int32, name: S.string, tags: S.array(S.string), score: S.optional(S.number), ok: S.boolean, small: S.int32.with(S.rkyvType, "u8"), count: S.optional(S.number.with(S.rkyvType, "u32")) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ id: number; name: string; tags: string[]; ok: boolean; small: number; score?: number | undefined; count?: number | undefined; }"
+  instantiations: 8372
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { id: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, name: { type: "string" }, tags: { items: { type: "string" }, type: "array" }, score: { type: "number" }, ok: { type: "boolean" }, small: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, count: { type: "number" } }, required: ["id", "name", "tags", "ok", "small"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.id===b.id&&a.name===b.name&&e[0](a.tags,b.tags)&&a.score===b.score&&a.ok===b.ok&&a.small===b.small&&a.count===b.count
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: int32; name: string; tags: string[]; score: number | undefined; ok: boolean; small: int32; count: number | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.tags;return v0}catch(v3){e[4](v3)}}
+    examples:
+      not-bytes:
+        input: "{ id: 1 }"
+        error: "Expected Uint8Array, received { id: 1; }"
+      too-short:
+        input: new Uint8Array([1, 2, 3])
+        error: rkyv struct needs 56 bytes, received 3
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.tags;return v0}catch(v3){e[2](v3)}}
+    examples:
+      inline-name:
+        input: new Uint8Array([150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255, 244, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ id: 150, name: "Ada", tags: [], score: undefined, ok: true, small: 7, count: undefined }'
+      out-of-line:
+        input: new Uint8Array([65, 100, 97, 32, 76, 111, 118, 101, 108, 97, 99, 101, 109, 97, 116, 104, 101, 109, 97, 116, 105, 99, 115, 0, 109, 108, 255, 255, 255, 255, 255, 255, 139, 0, 0, 0, 236, 255, 255, 255, 255, 255, 255, 255, 140, 0, 0, 0, 212, 255, 255, 255, 228, 255, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 248, 63, 0, 255, 0, 0, 1, 0, 0, 0, 0, 40, 107, 238, 0, 0, 0, 0])
+        output: '{ id: -1, name: "Ada Lovelace", tags: ["ml", "mathematics"], score: 1.5, ok: false, small: 255, count: 4000000000 }'
+      bool-two:
+        input: new Uint8Array([150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255, 244, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        error: "Failed at ok: Invalid rkyv bool 2"
+      pointer-past-root:
+        input: new Uint8Array([150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255, 4, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        error: "Failed at tags: rkyv pointer out of bounds"
+      option-tag:
+        input: new Uint8Array([150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255, 244, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        error: "Failed at count: Invalid rkyv Option tag 3"
+  encode:
+    expression: i=>{try{let v0=i.tags;let v2;try{v2=e[0](i)}catch(x){e[1](x)}return v2}catch(v3){e[2](v3)}}
+    examples:
+      inline-name:
+        input: '{ id: 150, name: "Ada", tags: [], ok: true, small: 7 }'
+        output: new Uint8Array([150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255, 244, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+      out-of-line:
+        input: '{ id: -1, name: "Ada Lovelace", tags: ["ml", "mathematics"], score: 1.5, ok: false, small: 255, count: 4000000000 }'
+        output: new Uint8Array([65, 100, 97, 32, 76, 111, 118, 101, 108, 97, 99, 101, 109, 97, 116, 104, 101, 109, 97, 116, 105, 99, 115, 0, 109, 108, 255, 255, 255, 255, 255, 255, 139, 0, 0, 0, 236, 255, 255, 255, 255, 255, 255, 255, 140, 0, 0, 0, 212, 255, 255, 255, 228, 255, 255, 255, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 248, 63, 0, 255, 0, 0, 1, 0, 0, 0, 0, 40, 107, 238, 0, 0, 0, 0])
+      u8-overflow:
+        input: '{ id: 1, name: "", tags: [], ok: true, small: 256 }'
+        error: "Failed at small: Expected u8, received 256"
+      u32-fraction:
+        input: '{ id: 1, name: "", tags: [], ok: true, small: 0, count: 1.5 }'
+        error: "Failed at count: Expected u32, received 1.5"

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.recursive("Node", (self) => S.schema({ value: S.int32, kids: S.array(self), next: S.optional(self.with(S.rkyvType, "Box")) })))'
+  input: Uint8Array<ArrayBufferLike>
+  output: unknown
+  instantiations: 8908
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ $ref: "#/$defs/Node", $defs: { Node: { type: "object", properties: { value: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, kids: { items: { $ref: "#/$defs/Node" }, type: "array" }, next: { $ref: "#/$defs/Node" } }, required: ["value", "kids"] } } }'
+  fromOutputType: "{ value: number; kids: ...[]; next?: ... | undefined; }"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Node. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[5](v2)}}
+    examples:
+      first-decode-example:
+        input: new Uint8Array([1, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: "{ value: 1, kids: [], next: undefined }"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}catch(v2){e[3](v2)}}
+    examples:
+      leaf:
+        input: new Uint8Array([1, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: "{ value: 1, kids: [], next: undefined }"
+      tree:
+        input: new Uint8Array([2, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 212, 255, 255, 255, 1, 0, 0, 0, 1, 0, 0, 0, 220, 255, 255, 255])
+        output: "{ value: 1, kids: [{ value: 2, kids: [], next: undefined }], next: { value: 3, kids: [], next: undefined } }"
+  encode:
+    expression: i=>{try{e[0](i);let v0;try{v0=e[1](i)}catch(x){e[2](x)}return v0}catch(v1){e[3](v1)}}
+    examples:
+      leaf:
+        input: "{ value: 1, kids: [], next: undefined }"
+        output: new Uint8Array([1, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+      tree:
+        input: "{ value: 1, kids: [{ value: 2, kids: [], next: undefined }], next: { value: 3, kids: [], next: undefined } }"
+        output: new Uint8Array([2, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 252, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 212, 255, 255, 255, 1, 0, 0, 0, 1, 0, 0, 0, 220, 255, 255, 255])

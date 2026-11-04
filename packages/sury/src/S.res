@@ -655,6 +655,26 @@ let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
   protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
 @module("sury") external protobufTypeName: (t<'value>, string) => t<'value> = "protobufTypeName"
 
+@module("sury") external rkyv: t<Uint8Array.t> = "rkyv"
+type rkyvType = [
+  | #u8
+  | #i8
+  | #u16
+  | #i16
+  | #u32
+  | #i32
+  | #u64
+  | #i64
+  | #u128
+  | #i128
+  | #f32
+  | #f64
+  | #char
+  | #String
+  | #Box
+]
+@module("sury") external rkyvType: (t<'value>, rkyvType) => t<'value> = "rkyvType"
+
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: Path.t}

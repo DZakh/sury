@@ -732,6 +732,44 @@ export function protobufTypeName<TInput, TOutput>(
   typeName: string
 ): Schema<TInput, TOutput>;
 
+/**
+ * The [rkyv](https://rkyv.org) archive format, as rkyv 0.8 writes it by
+ * default: little-endian, aligned, 32-bit relative pointers. A schema reads as
+ * the Rust type it describes, fields in declaration order, so the bytes a
+ * Rust `#[derive(Archive)]` type serializes to decode with `S.rkyv` and back.
+ * Convert to this with `S.to`; `S.rkyvType` picks a Rust type the schema
+ * doesn't imply.
+ */
+export const rkyv: Schema<Uint8Array, Uint8Array>;
+
+/** A Rust type `S.rkyv` stores a schema as. See `S.rkyvType`. */
+export type RkyvType =
+  | "u8"
+  | "i8"
+  | "u16"
+  | "i16"
+  | "u32"
+  | "i32"
+  | "u64"
+  | "i64"
+  | "u128"
+  | "i128"
+  | "f32"
+  | "f64"
+  | "char"
+  | "String"
+  | "Box";
+
+/**
+ * The Rust type `S.rkyv` stores the schema as, where the schema implies
+ * another: an integer width, `f32`, `char` for a one-character string, or
+ * `Box` to put a value behind a pointer, as a recursive type needs.
+ */
+export function rkyvType<TInput, TOutput>(
+  schema: SchemaLike<TInput, TOutput>,
+  type: RkyvType
+): Schema<TInput, TOutput>;
+
 // `Blob` and `File` are ambient globals, from lib.dom or @types/node. Naming
 // them bare fails to typecheck for a consumer who has neither - including one
 // who never touches these schemas - so they resolve through `globalThis`: the

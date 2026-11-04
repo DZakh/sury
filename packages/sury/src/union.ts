@@ -182,7 +182,7 @@ const unionIsTransparent = (schema: Internal, converts?: boolean): boolean => {
   return fields === 6 && (!converts || schema.encoder !== U);
 };
 
-const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, parser: 1, to: 1 };
+const unionDescribing = { name: 1, title: 1, description: 1, deprecated: 1, examples: 1, protobufField: 1, protobufTypeName: 1, rkyvType: 1, parser: 1, to: 1 };
 
 // One bounded structural walk supplies every recursive effect fact used by
 // analysis. Refs, nested unions, functions, and custom parsers stop the walk,
@@ -1617,9 +1617,10 @@ export const unionDecoder: Builder = (input: Val) => {
   // custom parser owns the conversion, or when the target is the `noValidation`
   // sentinel `S.assertInputOrThrow` appends: fusing that into every case replaces each
   // member's own check with the sentinel's, which silently breaks dispatch.
+  // None either for a target that takes the union whole (flag 65536).
   // Left alone, it converts the union's assembled output once instead.
   const toPerCase =
-    self.parser === U && self.to !== U && self.to.noValidation !== true ? self.to : U;
+    self.parser === U && self.to !== U && self.to.noValidation !== true && !(self.to.flags & 65536) ? self.to : U;
   let variants = self.anyOf!;
 
   if (
@@ -1868,6 +1869,7 @@ export const unionRewriteTo = (input: Val, target: Internal): Val =>
 // sentinel's.
 const unionTargetOwns = (target: Internal) =>
   target.noValidation === true ||
+  target.flags & 65536 ||
   (tagFlags[unionOutput(target).type]! & 512) ||
   (target.type === anyOfTag && target.anyOf!.some((v) => tagFlags[v.type]! & 512));
 

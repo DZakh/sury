@@ -184,6 +184,28 @@ jobs:
           pnpm protobuf:conformance:generated | tee conformance-generated.txt
           echo "### $(tail -n 1 conformance-generated.txt)" >> "$GITHUB_STEP_SUMMARY"
 
+  rkyv:
+    name: rkyv - against the Rust crate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            packages/rkyv-test-suite/rust/target
+          key: rkyv-oracle-${{ hashFiles('packages/rkyv-test-suite/rust/Cargo.toml') }}
+      # Generated types compiled as Rust: rkyv must accept, read and re-serialize
+      # what S.rkyv writes byte for byte, and both must accept exactly the same
+      # mutated archives.
+      - run: pnpm rkyv:fuzz
+
   # The four pages under docs/benchmarks/ are generated, and this is what keeps
   # them true. Three of their four sections are the same on any machine, so
   # every run checks them and fails on a page that no longer matches a fresh

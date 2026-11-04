@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.schema({ shape: S.union([S.schema({ type: "circle", r: S.number }), S.schema({ type: "rect", w: S.int32.with(S.rkyvType, "u16"), h: S.int32.with(S.rkyvType, "u16") }), "none"]), color: S.union(["red", "green", "blue"]) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: '{ shape: { type: "circle"; r: number; } | { type: "rect"; w: number; h: number; } | "none"; color: "red" | "green" | "blue"; }'
+  instantiations: 10027
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { shape: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "circle" }, r: { type: "number" } }, required: ["type", "r"] }, { type: "object", properties: { type: { type: "string", const: "rect" }, w: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, h: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["type", "w", "h"] }, { type: "string", const: "none" }] }, color: { enum: ["red", "green", "blue"] } }, required: ["shape", "color"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { shape: { anyOf: [{ type: "object", properties: { type: { type: "string", enum: ["circle"] }, r: { type: "number" } }, required: ["type", "r"] }, { type: "object", properties: { type: { type: "string", enum: ["rect"] }, w: { type: "integer", minimum: -2147483648, maximum: 2147483647 }, h: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["type", "w", "h"] }, { type: "string", enum: ["none"] }] }, color: { enum: ["red", "green", "blue"] } }, required: ["shape", "color"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(a.shape.type==="circle"?b.shape.type==="circle"&&a.shape.r===b.shape.r:a.shape.type==="rect"?b.shape.type==="rect"&&a.shape.w===b.shape.w&&a.shape.h===b.shape.h:b.shape==="none")&&a.color===b.color
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { shape: { type: \"circle\"; r: number; } | { type: \"rect\"; w: int32; h: int32; } | \"none\"; color: \"red\" | \"green\" | \"blue\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.shape;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&(v1.type==="circle"||v1.type==="rect")||typeof v1==="string"&&v1==="none")||e[2](v1);return v0}catch(v2){e[5](v2)}}
+    examples:
+      circle:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 2, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ shape: { type: "circle", r: 2 }, color: "blue" }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.shape;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&(v1.type==="circle"||v1.type==="rect")||typeof v1==="string"&&v1==="none")||e[2](v1);return v0}catch(v2){e[3](v2)}}
+    examples:
+      circle:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 2, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ shape: { type: "circle", r: 2 }, color: "blue" }'
+      rect:
+        input: new Uint8Array([1, 0, 3, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ shape: { type: "rect", w: 3, h: 65535 }, color: "red" }'
+      unit-variant:
+        input: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ shape: "none", color: "green" }'
+      unknown-variant:
+        input: new Uint8Array([3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0])
+        error: "Failed at shape: Invalid rkyv enum tag 3"
+      unknown-color:
+        input: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0])
+        error: "Failed at color: Invalid rkyv enum tag 3"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      circle:
+        input: '{ shape: { type: "circle", r: 2 }, color: "blue" }'
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 2, 0, 0, 0, 0, 0, 0, 0])
+      rect:
+        input: '{ shape: { type: "rect", w: 3, h: 65535 }, color: "red" }'
+        output: new Uint8Array([1, 0, 3, 0, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+      unit-variant:
+        input: '{ shape: "none", color: "green" }'
+        output: new Uint8Array([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])

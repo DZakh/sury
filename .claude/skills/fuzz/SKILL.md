@@ -1,11 +1,11 @@
 ---
 name: fuzz
-description: Which Sury fuzzer to run for what you changed, what each checks, and its flags. Use after touching unions, equality/compare, defaults, containers, reverse, formData, S.to links, protobuf or string formats, or when a fuzzer fails in CI.
+description: Which Sury fuzzer to run for what you changed, what each checks, and its flags. Use after touching unions, equality/compare, defaults, containers, reverse, formData, S.to links, protobuf, rkyv or string formats, or when a fuzzer fails in CI.
 ---
 
 # Fuzzers
 
-Run from `packages/sury` (`protobuf:fuzz` from the root). These are CI's exact
+Run from `packages/sury` (`protobuf:fuzz` and `rkyv:fuzz` from the root). These are CI's exact
 invocations, so a red CI run reproduces with the same command. A finding is a
 bug until shown otherwise; triage it by CLAUDE.md's Fuzzers rules. A gate that reports a stale entry may
 mean the bug is fixed or that the grammar stopped drawing its shape: run the
@@ -19,6 +19,7 @@ correct its `FIXME: known bug` example.
 | `S.formData` | `pnpm fuzz:formdata` | every wrapper × leaf works both ways or neither, encode doesn't mutate, round trip, any client entry list is rejected or valid |
 | `S.to` links, pack/unpack | `pnpm fuzz:content` | every source × target × slot compiles both ways or neither, reverse mirrors, round trip, an ambiguous link refuses; any crash is a finding |
 | the protobuf codec | `pnpm protobuf:fuzz` | generated message graphs and mutated bytes against protobufjs and protobuf-es; one leaf or map key corrupted, and the encode error's path must walk from the value to it |
+| the rkyv codec | `pnpm rkyv:fuzz` | generated types compiled into a Rust oracle against rkyv 0.8: rkyv accepts, reads and re-serializes byte for byte what `S.rkyv` writes, and both accept exactly the same mutated archives, reading the same value. Needs `cargo`; `--seed`, `--seeds`, `--types`, `--values` |
 | a format's regex or `escapeFree` | `pnpm fuzz:escfree` | a flagged format never needs JSON escaping |
 
 Unsure: run all six, a few minutes in total.

@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.tuple([])
+  input: "[]"
+  output: "[]"
+  instantiations: 329
+jsonSchema:
+  input: '{ type: "array", maxItems: 0 }'
+  output: '{ type: "array", maxItems: 0 }'
+isEqual: alwaysEqual
+compare: alwaysCompare
+vs:
+  zod: z.tuple([])
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)&&i.length===0||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      empty:
+        input: "[]"
+        output: "[]"
+      one-item:
+        input: "[1]"
+        error: Expected [], received [1]
+      not-array:
+        input: "{}"
+        error: Expected [], received {}
+  decode: identity
+  encode: identity

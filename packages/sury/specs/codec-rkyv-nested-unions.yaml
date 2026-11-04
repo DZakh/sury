@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.schema({ unit: S.nullable(S.tuple([])), level: S.nullable(S.union([1, 2, 3]).with(S.rkyvType, "Box")) }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ unit: [] | null; level: 1 | 2 | 3 | null; }"
+  instantiations: 6939
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ type: "object", properties: { unit: { anyOf: [{ type: "array", maxItems: 0 }, { type: "null" }] }, level: { anyOf: [{ enum: [1, 2, 3] }, { type: "null" }] } }, required: ["unit", "level"] }'
+  openapi-3.0:
+    output: '{ type: "object", properties: { unit: { type: "array", maxItems: 0, nullable: true }, level: { enum: [1, 2, 3], nullable: true } }, required: ["unit", "level"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(a.unit===null?b.unit===null:b.unit!==null)&&a.level===b.level
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { unit: [] | null; level: 1 | 2 | 3 | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[4]||e[5](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.unit,v2=v0.level;(Array.isArray(v1)||v1===null)||e[2](v1);(typeof v2==="number"&&v2==v2&&(v2===1||v2===2||v2===3)||v2===null)||e[3](v2);return v0}catch(v3){e[6](v3)}}
+    examples:
+      some:
+        input: new Uint8Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 244, 255, 255, 255])
+        output: "{ unit: [], level: 2 }"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.unit,v2=v0.level;(Array.isArray(v1)||v1===null)||e[2](v1);(typeof v2==="number"&&v2==v2&&(v2===1||v2===2||v2===3)||v2===null)||e[3](v2);return v0}catch(v3){e[4](v3)}}
+    examples:
+      some:
+        input: new Uint8Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 244, 255, 255, 255])
+        output: "{ unit: [], level: 2 }"
+      none:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: "{ unit: null, level: null }"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      some:
+        input: "{ unit: [], level: 2 }"
+        output: new Uint8Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 244, 255, 255, 255])
+      none:
+        input: "{ unit: null, level: null }"
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])

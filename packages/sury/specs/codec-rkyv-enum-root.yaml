@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.rkyv.with(S.to, S.union(["a", "b", "c"]))
+  input: Uint8Array<ArrayBufferLike>
+  output: '"a" | "b" | "c"'
+  instantiations: 5007
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ enum: ["a", "b", "c"] }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      first-decode-example:
+        input: new Uint8Array([1])
+        output: '"b"'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      b:
+        input: new Uint8Array([1])
+        output: '"b"'
+      bad-tag:
+        input: new Uint8Array([3])
+        error: Invalid rkyv enum tag 3
+      empty:
+        input: new Uint8Array([])
+        error: rkyv enum needs 1 bytes, received 0
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      a:
+        input: '"a"'
+        output: new Uint8Array([0])
+      c:
+        input: '"c"'
+        output: new Uint8Array([2])

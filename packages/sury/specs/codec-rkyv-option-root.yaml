@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.rkyv.with(S.to, S.nullable(S.string))
+  input: Uint8Array<ArrayBufferLike>
+  output: string | null
+  instantiations: 4620
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  openapi-3.0:
+    output: '{ type: "string", nullable: true }'
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: strictEqual
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: (a,b)=>a===b?0:(a===null?b===null?0:-1:b===null?1:a<b?-1:a>b?1:0)
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      first-decode-example:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: "null"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      none:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        output: "null"
+      some:
+        input: new Uint8Array([1, 0, 0, 0, 104, 105, 255, 255, 255, 255, 255, 255])
+        output: '"hi"'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      none:
+        input: "null"
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+      some:
+        input: '"hi"'
+        output: new Uint8Array([1, 0, 0, 0, 104, 105, 255, 255, 255, 255, 255, 255])
+      long:
+        input: '"a string past eight bytes"'
+        output: new Uint8Array([97, 32, 115, 116, 114, 105, 110, 103, 32, 112, 97, 115, 116, 32, 101, 105, 103, 104, 116, 32, 98, 121, 116, 101, 115, 0, 0, 0, 1, 0, 0, 0, 153, 0, 0, 0, 224, 255, 255, 255])

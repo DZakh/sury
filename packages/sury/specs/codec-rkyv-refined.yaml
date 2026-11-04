@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.rkyv.with(S.to, S.schema({ name: S.string.with(S.minLength, 2), id: S.string.with(S.to, S.bigint), tags: S.array(S.string).with(S.maxLength, 1) }))"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ name: string; id: bigint; tags: string[]; }"
+  instantiations: 7248
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: "Failed at id: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.name===b.name&&a.id===b.id&&e[0](a.tags,b.tags)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { name: string.length >= 2; id: bigint; tags: string[].length <= 1; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[6]||e[7](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.name,v3=v0.id,v4=v0.tags;v1.length>1||e[2](v1);let v2;try{v2=BigInt(v3)}catch(_){e[3](v3)}v2||v3.trim()||e[4](v3);v4.length<2||e[5](v4);return {name:v1,id:v2,tags:v4}}catch(v6){e[8](v6)}}
+    examples:
+      valid:
+        input: new Uint8Array([49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 120, 255, 255, 255, 255, 255, 255, 255, 111, 107, 255, 255, 255, 255, 255, 255, 148, 0, 0, 0, 220, 255, 255, 255, 232, 255, 255, 255, 1, 0, 0, 0])
+        output: '{ name: "ok", id: 12345678901234567890n, tags: ["x"] }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.name,v3=v0.id,v4=v0.tags;v1.length>1||e[2](v1);let v2;try{v2=BigInt(v3)}catch(_){e[3](v3)}v2||v3.trim()||e[4](v3);v4.length<2||e[5](v4);return {name:v1,id:v2,tags:v4}}catch(v6){e[6](v6)}}
+    examples:
+      valid:
+        input: new Uint8Array([49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 120, 255, 255, 255, 255, 255, 255, 255, 111, 107, 255, 255, 255, 255, 255, 255, 148, 0, 0, 0, 220, 255, 255, 255, 232, 255, 255, 255, 1, 0, 0, 0])
+        output: '{ name: "ok", id: 12345678901234567890n, tags: ["x"] }'
+      short-name:
+        input: new Uint8Array([120, 255, 255, 255, 255, 255, 255, 255, 49, 255, 255, 255, 255, 255, 255, 255, 240, 255, 255, 255, 0, 0, 0, 0])
+        error: 'Failed at name: Expected string.length >= 2, received "x"'
+      id-not-digits:
+        input: new Uint8Array([111, 107, 255, 255, 255, 255, 255, 255, 111, 110, 101, 255, 255, 255, 255, 255, 240, 255, 255, 255, 0, 0, 0, 0])
+        error: 'Failed at id: Expected bigint, received "one"'
+  encode:
+    expression: i=>{try{let v0=i.name,v1=i.tags;v0.length>1||e[0](v0);v1.length<2||e[1](v1);let v4={name:v0,id:""+i.id,tags:v1};let v3;try{v3=e[2](v4)}catch(x){e[3](x)}return v3}catch(v5){e[4](v5)}}
+    examples:
+      valid:
+        input: '{ name: "ok", id: 12345678901234567890n, tags: ["x"] }'
+        output: new Uint8Array([49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 120, 255, 255, 255, 255, 255, 255, 255, 111, 107, 255, 255, 255, 255, 255, 255, 148, 0, 0, 0, 220, 255, 255, 255, 232, 255, 255, 255, 1, 0, 0, 0])
+      too-many-tags:
+        input: '{ name: "ok", id: 1n, tags: ["x", "y"] }'
+        error: 'Failed at tags: Expected string[].length <= 1, received ["x", "y"]'

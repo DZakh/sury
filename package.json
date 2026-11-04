@@ -11,6 +11,7 @@
     "protobuf:conformance": "pnpm --filter=sury build:entry && tsx packages/protobuf-conformance/cli.ts",
     "protobuf:conformance:generated": "pnpm --filter=sury build:entry && tsx packages/protobuf-conformance/cli.ts generated",
     "protobuf:codegen": "pnpm --filter=sury build:entry && tsx packages/protoc-gen-sury/test/cli.ts",
+    "rkyv:fuzz": "pnpm --filter=sury build:entry && tsx packages/rkyv-test-suite/fuzz.ts",
     "benchmarks": "pnpm --filter=sury build:entry && tsx packages/benchmarks/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "verify": "bash scripts/verify.sh",

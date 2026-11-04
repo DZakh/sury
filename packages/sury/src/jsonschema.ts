@@ -588,7 +588,10 @@ const internalToJSONSchemaBase = (
       if (schema.maxItems !== U || typeof additionalItems !== "object") {
         jsonSchema.maxItems = schema.maxItems ?? itemsNumber;
       }
-      if (target === draft202012) jsonSchema.prefixItems = itemDefinitions;
+      // No dialect takes an empty list of positions, and `maxItems` already
+      // says there are none.
+      if (itemsNumber === 0) {
+      } else if (target === draft202012) jsonSchema.prefixItems = itemDefinitions;
       else jsonSchema.items = target === openApi30 ? { anyOf: itemDefinitions } : itemDefinitions;
       if (typeof additionalItems === "object") {
         const rest: JSONSchemaDefinition =

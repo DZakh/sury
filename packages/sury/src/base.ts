@@ -464,6 +464,9 @@ export type Internal = {
   //   32768 a hand-off link: a source union member's output link, copied for
   //     that union alone, whose `.to` is the target it converts into
   //     (union.ts `unionHand`). The parse loop sets `g.o` 32 on following it.
+  //   65536 a target that takes a union-typed value whole rather than one
+  //     member at a time (`S.rkyv`: an enum is one value on the wire, its
+  //     variant written beside it), so the union hands it over unconverted.
   // Reads 0 off the prototype when a schema claims nothing. Never write 0 on
   // a schema a union could hold: `unionIsTransparent` counts own fields, and
   // the key alone would stop every union from flattening. The two container
@@ -524,6 +527,8 @@ export type Internal = {
   // CODEC_SPEC.md, "Protobuf enum".
   openLiteral?: true;
   protobufTypeName?: string;
+  // What `S.rkyvType` chose: the Rust type `S.rkyv` stores the schema as.
+  rkyvType?: string;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema

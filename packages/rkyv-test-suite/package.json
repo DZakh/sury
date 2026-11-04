@@ -1,0 +1,17 @@
+{
+  "name": "rkyv-test-suite",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Holds S.rkyv to the Rust rkyv crate: generated types round-tripped and mutated against rkyv's own serializer and validator",
+  "scripts": {
+    "fuzz": "pnpm --filter=sury build:entry && tsx ./fuzz.ts"
+  },
+  "dependencies": {
+    "sury": "file:../sury"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.41",
+    "tsx": "4.22.4"
+  }
+}

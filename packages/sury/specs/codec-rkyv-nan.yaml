@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.rkyv.with(S.to, S.schema({ a: S.number, b: S.union([S.number, S.schema(NaN)]) }))"
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ a: number; b: number; }"
+  instantiations: 5811
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: "Failed at b: Expected JSON, received number | NaN"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.a===b.a&&(typeof a.b==="number"&&a.b==a.b?typeof b.b==="number"&&b.b==b.b&&a.b===b.b:b.b!=b.b)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: number; b: number | NaN; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      first-decode-example:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 0, 0, 240, 63])
+        error: "Failed at a: Expected number, received NaN"
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      nan-in-number:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 0, 0, 240, 63])
+        error: "Failed at a: Expected number, received NaN"
+      nan-in-union:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])
+        output: "{ a: 1, b: NaN }"
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      nan:
+        input: "{ a: 1, b: NaN }"
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])
+      negative-zero:
+        input: "{ a: -0, b: -0 }"
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 128])

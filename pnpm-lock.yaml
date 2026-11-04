@@ -198,6 +198,19 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
+  packages/rkyv-test-suite:
+    dependencies:
+      sury:
+        specifier: file:../sury
+        version: link:../sury
+    devDependencies:
+      '@types/node':
+        specifier: 20.19.41
+        version: 20.19.41
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
+
   packages/spec:
     dependencies:
       sury-published:

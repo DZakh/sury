@@ -96,6 +96,7 @@ export { json, jsonString } from "./advanced/json";
 export { arrayBuffer } from "./advanced/arrayBuffer";
 export { protobuf, protobufAny, toProtoOrThrow } from "./advanced/protobuf";
 export { protobufField, protobufTypeName } from "./advanced/protobufField";
+export { rkyv, rkyvType } from "./advanced/rkyv";
 export { date } from "./advanced/date";
 export { url } from "./advanced/url";
 export { blob, file } from "./advanced/file";

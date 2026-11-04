@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.schema({ a: S.bigint.with(S.rkyvType, "u64").with(S.rkyvType, "Box"), b: S.bigint.with(S.rkyvType, "i128"), c: S.number.with(S.rkyvType, "f32"), d: S.string.with(S.rkyvType, "char"), e: S.integer, f: S.int32.with(S.rkyvType, "i8"), g: S.uint8Array }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: "{ a: bigint; b: bigint; c: number; d: string; e: number; f: number; g: Uint8Array<ArrayBufferLike>; }"
+  instantiations: 7679
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: "Failed at a: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||a.a===b.a&&a.b===b.b&&a.c===b.c&&a.d===b.d&&a.e===b.e&&a.f===b.f&&e[0](a.g,b.g)
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { a: bigint; b: bigint; c: number; d: string; e: integer; f: int32; g: Uint8Array; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[3](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[4](v1)}}
+    examples:
+      first-decode-example:
+        input: new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 1, 2, 3, 0, 0, 0, 0, 0, 240, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 63, 0, 246, 1, 0, 1, 0, 0, 0, 0, 0, 224, 255, 128, 0, 0, 0, 196, 255, 255, 255, 3, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ a: 18446744073709551615n, b: -170141183460469231731687303715884105728n, c: 0.5, d: "😀", e: -9007199254740991, f: -128, g: new Uint8Array([1, 2, 3]) }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      extremes:
+        input: new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 1, 2, 3, 0, 0, 0, 0, 0, 240, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 63, 0, 246, 1, 0, 1, 0, 0, 0, 0, 0, 224, 255, 128, 0, 0, 0, 196, 255, 255, 255, 3, 0, 0, 0, 0, 0, 0, 0])
+        output: '{ a: 18446744073709551615n, b: -170141183460469231731687303715884105728n, c: 0.5, d: "😀", e: -9007199254740991, f: -128, g: new Uint8Array([1, 2, 3]) }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      extremes:
+        input: '{ a: 18446744073709551615n, b: -170141183460469231731687303715884105728n, c: 0.5, d: "😀", e: -9007199254740991, f: -128, g: new Uint8Array([1, 2, 3]) }'
+        output: new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255, 1, 2, 3, 0, 0, 0, 0, 0, 240, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 63, 0, 246, 1, 0, 1, 0, 0, 0, 0, 0, 224, 255, 128, 0, 0, 0, 196, 255, 255, 255, 3, 0, 0, 0, 0, 0, 0, 0])
+      f32-rounds:
+        input: '{ a: 0n, b: 0n, c: 0.1, d: "a", e: 0, f: 0, g: new Uint8Array([]) }'
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 205, 204, 204, 61, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 196, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0])
+      two-chars:
+        input: '{ a: 0n, b: 0n, c: 0, d: "ab", e: 0, f: 0, g: new Uint8Array([]) }'
+        error: 'Failed at d: Expected char, received "ab"'
+      lone-surrogate:
+        input: '{ a: 0n, b: 0n, c: 0, d: "\\ud800", e: 0, f: 0, g: new Uint8Array([]) }'
+        error: 'Failed at d: Expected char, received "\ud800"'
+      u64-negative:
+        input: '{ a: -1n, b: 0n, c: 0, d: "a", e: 0, f: 0, g: new Uint8Array([]) }'
+        error: "Failed at a: Expected u64, received -1n"
+      i8-overflow:
+        input: '{ a: 0n, b: 0n, c: 0, d: "a", e: 0, f: 128, g: new Uint8Array([]) }'
+        error: "Failed at f: Expected i8, received 128"

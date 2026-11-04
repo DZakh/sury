@@ -51,6 +51,7 @@
 - [URLSearchParams](#urlsearchparams)
 - [Query string](#query-string)
 - [Protocol Buffers](#protocol-buffers)
+- [rkyv](#rkyv)
 - [Content](#content)
 - [Meta](#meta)
 - [Brand](#brand)
@@ -452,6 +453,11 @@ S.uint8Array.with(S.to, S.arrayBuffer);
 S.protobuf;
 // Encodes an object with numbered fields to protobuf bytes
 S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf);
+
+// rkyv archive, the zero-copy format of Rust's rkyv crate
+S.rkyv;
+// Encodes an object to the bytes of the Rust struct it describes
+S.schema({ id: S.int32 }).with(S.to, S.rkyv);
 ```
 
 See [Content](#content) for what happens when bytes and a JSON document meet.
@@ -1451,6 +1457,22 @@ S.encodeOrThrow(User, S.protobuf)({ id: 150, name: "Ada" });
 
 Oneofs, well-known types, `google.protobuf.Any`, printing a `.proto` and
 generating schemas from one: [Protocol Buffers](./js-protobuf.md).
+
+## rkyv
+
+`S.rkyv` reads and writes [rkyv](https://rkyv.org) archives, the zero-copy
+format of Rust's `rkyv` crate. The schema describes the Rust type, fields in
+declaration order:
+
+```ts
+// #[derive(Archive)] struct User { id: i32, name: String }
+const User = S.schema({ id: S.int32, name: S.string });
+
+S.encodeOrThrow(User, S.rkyv)({ id: 150, name: "Ada" });
+// Uint8Array [150, 0, 0, 0, 65, 100, 97, 255, 255, 255, 255, 255]
+```
+
+Integer widths, enums, `Box` and recursive types: [rkyv](./js-rkyv.md).
 
 ## Content
 

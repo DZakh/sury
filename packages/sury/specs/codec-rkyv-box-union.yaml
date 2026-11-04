@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.rkyv.with(S.to, S.schema({ ratio: S.union([S.number, S.schema(NaN)]).with(S.rkyvType, "Box"), event: S.union([S.schema({ type: "click", x: S.int32 }), "idle"]).with(S.rkyvType, "Box") }))'
+  input: Uint8Array<ArrayBufferLike>
+  output: '{ ratio: number; event: { type: "click"; x: number; } | "idle"; }'
+  instantiations: 8702
+jsonSchema:
+  input: Expected JSON, received Uint8Array
+  output: "Failed at ratio: Expected JSON, received number | NaN"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+  output: (a,b)=>a===b||(typeof a.ratio==="number"&&a.ratio==a.ratio?typeof b.ratio==="number"&&b.ratio==b.ratio&&a.ratio===b.ratio:b.ratio!=b.ratio)&&!!(typeof a.event==="object"&&a.event&&!Array.isArray(a.event)?typeof b.event==="object"&&b.event&&!Array.isArray(b.event)&&a.event.x===b.event.x:b.event==="idle")
+compare:
+  input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { ratio: number | NaN; event: { type: \"click\"; x: int32; } | \"idle\"; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[3]||e[4](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.event;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.type==="click"||typeof v1==="string"&&v1==="idle")||e[2](v1);return v0}catch(v2){e[5](v2)}}
+    examples:
+      nan-click:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 5, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])
+        output: '{ ratio: NaN, event: { type: "click", x: 5 } }'
+  decode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1=v0.event;(typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1.type==="click"||typeof v1==="string"&&v1==="idle")||e[2](v1);return v0}catch(v2){e[3](v2)}}
+    examples:
+      nan-click:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 5, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])
+        output: '{ ratio: NaN, event: { type: "click", x: 5 } }'
+      idle:
+        input: new Uint8Array([0, 0, 0, 0, 0, 0, 208, 63, 1, 0, 0, 0, 0, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])
+        output: '{ ratio: 0.25, event: "idle" }'
+  encode:
+    expression: i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}catch(v1){e[2](v1)}}
+    examples:
+      nan-click:
+        input: '{ ratio: NaN, event: { type: "click", x: 5 } }'
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 248, 127, 0, 0, 0, 0, 5, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])
+      idle:
+        input: '{ ratio: 0.25, event: "idle" }'
+        output: new Uint8Array([0, 0, 0, 0, 0, 0, 208, 63, 1, 0, 0, 0, 0, 0, 0, 0, 240, 255, 255, 255, 244, 255, 255, 255])

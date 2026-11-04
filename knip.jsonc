@@ -49,6 +49,10 @@
       "entry": ["cli.ts"],
       "project": ["**/*.ts"]
     },
+    "packages/rkyv-test-suite": {
+      "entry": ["fuzz.ts"],
+      "project": ["**/*.ts"]
+    },
     "packages/protobuf-conformance": {
       // runner.ts is the testee Google's conformance_test_runner spawns, so
       // nothing imports it - it and the two modules it pulls in are anchored
