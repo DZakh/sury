@@ -73,7 +73,7 @@ const mapDecoder = (input: Val): Val => {
   // `undefined` out of every item at runtime.
   const source = iterableSource(
     input,
-    unknownMap,
+    (unknownMap ||= mapFactory(unknown, unknown)),
     isArraySource &&
       inputEntry !== U &&
       inputEntry.items?.length === 2 &&
@@ -198,8 +198,11 @@ const mapFactory = (key: Internal, value: Internal): Internal => {
 };
 
 // Shared rather than built per compilation: it is a val's schema, never a
-// consumer's, so one instance keeps the operation cache from re-keying.
-const unknownMap: Internal = /* @__PURE__ */ mapFactory(unknown, unknown);
+// consumer's, so one instance keeps the operation cache from re-keying. Built
+// on first decode, not at module load: a schema built at load time gives the
+// shape every factory starts from a branch of its own, and that alone made
+// creating a literal, an array or a record 15-55% slower.
+let unknownMap: Internal;
 
 // @__NO_SIDE_EFFECTS__
 export const map = (key: unknown, value: unknown): Internal =>

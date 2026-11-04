@@ -46,7 +46,7 @@ const setExpression = (schema: Internal): string =>
 const setDecoder = (input: Val): Val => {
   const expected = input.e;
   const isArraySource = !!(tagFlags[input.s.type]! & 128);
-  const source = iterableSource(input, unknownSet, true);
+  const source = iterableSource(input, (unknownSet ||= setFactory(unknown)), true);
   const g = source.g;
 
   const sourceVar = source.v();
@@ -131,8 +131,11 @@ const setFactory = (item: Internal): Internal => {
 };
 
 // Shared rather than built per compilation: it is a val's schema, never a
-// consumer's, so one instance keeps the operation cache from re-keying.
-const unknownSet: Internal = /* @__PURE__ */ setFactory(unknown);
+// consumer's, so one instance keeps the operation cache from re-keying. Built
+// on first decode, not at module load: a schema built at load time gives the
+// shape every factory starts from a branch of its own, and that alone made
+// creating a literal, an array or a record 15-55% slower.
+let unknownSet: Internal;
 
 // @__NO_SIDE_EFFECTS__
 export const set = (item: unknown): Internal => setFactory(definitionToSchema(item));
