@@ -434,6 +434,22 @@ The specs, in order: `codec-uint8array-protobuf-chain`,
 `codec-buffer-protobuf-chain`, `codec-protobuf-uint8array-protobuf-chain`,
 `codec-arraybuffer-protobuf-chain`.
 
+## ProtoJSON
+
+`S.protobufJson` is a JSON object that converts into the message after it and
+out of the message before it, as `S.protobuf`'s bytes do. With no message on
+the other side it is the object of JSON it holds:
+
+```ts
+S.protobufJson.with(S.to, M);                          // reads { a: "a" } as { a: "a" }
+M.with(S.to, S.protobufJson);                          // writes { a: "" } as {}
+S.jsonString.with(S.to, S.protobufJson).with(S.to, M); // reads '{"a":"a"}'
+M.with(S.to, S.protobufJson).with(S.to, S.jsonString); // writes '{"a":"a"}'
+S.protobufJson;                                        // parses as { [key: string]: JSON }
+```
+
+The specs: `codec-protobufjson-scalars`, `codec-protobufjson-jsonstring`.
+
 ## Protobuf oneof
 
 A union in a message is a oneof, and what decode makes of bytes with no member

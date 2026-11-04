@@ -22,7 +22,7 @@
       {
         "label": "Encode and decode",
         "cells": [
-          39785,
+          39851,
           34928,
           13578,
           17946,
@@ -35,7 +35,7 @@
         "label": "Decode only",
         "note": "what a client that never sends the message gets back from tree-shaking",
         "cells": [
-          39767,
+          39836,
           null,
           13566,
           15469,
@@ -137,11 +137,11 @@
     "rows": [
       {
         "label": "Google's `conformance_test_runner`, binary proto3",
-        "note": "2 known failures, each named with its reason in `failing_tests.txt`",
+        "note": "7 known failures, each named with its reason in `failing_tests.txt`",
         "cells": [
-          698,
-          696,
-          "99.7%"
+          1476,
+          1469,
+          "99.5%"
         ],
         "format": "count"
       },
@@ -156,6 +156,6 @@
         "format": "count"
       }
     ],
-    "note": "<sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 2515 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>"
+    "note": "<sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 1737 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>"
   }
 }

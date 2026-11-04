@@ -452,6 +452,8 @@ S.uint8Array.with(S.to, S.arrayBuffer);
 S.protobuf;
 // Encodes an object with numbered fields to protobuf bytes
 S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobuf);
+// The same message as ProtoJSON, a JSON object
+S.schema({ id: S.int32.with(S.protobufField, 1) }).with(S.to, S.protobufJson);
 ```
 
 See [Content](#content) for what happens when bytes and a JSON document meet.
@@ -1449,8 +1451,8 @@ S.encodeOrThrow(User, S.protobuf)({ id: 150, name: "Ada" });
 // Uint8Array [8, 150, 1, 18, 3, 65, 100, 97]
 ```
 
-Oneofs, well-known types, `google.protobuf.Any`, printing a `.proto` and
-generating schemas from one: [Protocol Buffers](./js-protobuf.md).
+Oneofs, well-known types, `google.protobuf.Any`, ProtoJSON, printing a `.proto`
+and generating schemas from one: [Protocol Buffers](./js-protobuf.md).
 
 ## Content
 

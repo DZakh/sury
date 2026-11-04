@@ -46,7 +46,7 @@ Measured against sury 11.1.0, protobufjs 8.8.0, protobuf-es 2.14.1, pbf 5.1.2.
 
 |  | Cases | Passed | Rate |
 | --- | ---: | ---: | ---: |
-| Google's `conformance_test_runner`, binary proto3<br><sub>2 known failures, each named with its reason in `failing_tests.txt`</sub> | 698 | 696 | 99.7% |
+| Google's `conformance_test_runner`, binary proto3<br><sub>7 known failures, each named with its reason in `failing_tests.txt`</sub> | 1476 | 1469 | 99.5% |
 | This repo's corpus, against protobufjs and protobuf-es<br><sub>every round trip checked against two independent implementations</sub> | 655 | 655 | 100.0% |
 
-<sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 2515 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>
+<sub>Google's runner generates its cases inside the binary rather than reading them from a file, so nothing here can drift from upstream; the corpus is pinned at `faec7c97e35b` and the runner at 33.6.0. Its other 1737 cases are ProtoJSON, text format and proto2 messages, none of which `S.protobuf` claims.</sub>

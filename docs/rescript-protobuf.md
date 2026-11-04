@@ -11,6 +11,7 @@
 - [Recursive messages](#recursive-messages)
 - [Well-known types](#well-known-types)
 - [Unknown fields and errors](#unknown-fields-and-errors)
+- [ProtoJSON](#protojson)
 - [`toProtoOrThrow`](#toprotoorthrow)
 - [Generating modules from `.proto`](#generating-modules-from-proto)
 
@@ -262,6 +263,24 @@ Bad input throws an error that points to the field:
   ~to=userSchema,
 )
 // throws: Failed at home.street: Protobuf string is not valid UTF-8
+```
+
+## ProtoJSON
+
+`S.protobufJson` is the [JSON mapping](https://protobuf.dev/programming-guides/json)
+of the same message, a `dict<JSON.t>`:
+
+```rescript
+value->S.convertOrThrow(~from=userSchema, ~to=S.protobufJson)
+json->S.convertOrThrow(~from=S.protobufJson, ~to=userSchema)
+```
+
+`S.protobufEnum` gives an enum the names ProtoJSON reads and prints, and
+`toProtoOrThrow` declares; without them it is a number:
+
+```rescript
+type kind = | @as(0) Unspecified | @as(1) Person
+let kindSchema = S.protobufEnum(dict{"KIND_UNSPECIFIED": Unspecified, "KIND_PERSON": Person})
 ```
 
 ## `toProtoOrThrow`

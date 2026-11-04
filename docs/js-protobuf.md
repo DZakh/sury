@@ -11,6 +11,7 @@
 - [Recursive messages](#recursive-messages)
 - [Well-known types](#well-known-types)
 - [Any](#any)
+- [ProtoJSON](#protojson)
 - [Generating a `.proto`](#generating-a-proto)
 - [Unknown fields and errors](#unknown-fields-and-errors)
 - [`ArrayBuffer` output](#arraybuffer-output)
@@ -328,6 +329,61 @@ const Event = S.schema({
 });
 ```
 
+## ProtoJSON
+
+`S.protobufJson` is the [JSON mapping](https://protobuf.dev/programming-guides/json)
+of the same message: use it where you'd use `S.protobuf`.
+
+```ts
+const Kind = S.protobufEnum({ KIND_UNSPECIFIED: 0, KIND_PERSON: 1, KIND_ROBOT: 2 });
+
+const User = S.schema({
+  id: S.bigint.with(S.protobufField, { number: 1, type: "int64" }),
+  firstName: S.string.with(S.protobufField, 2),
+  kind: Kind.with(S.protobufField, 3),
+  avatar: S.uint8Array.with(S.protobufField, 4),
+  createdAt: S.date.with(S.protobufField, 5),
+  nickname: S.optional(S.string).with(S.protobufField, { number: 6, type: "google.protobuf.StringValue" }),
+});
+
+S.encodeOrThrow(User, S.protobufJson)({
+  id: 1n, firstName: "Ada", kind: 1, avatar: new Uint8Array([1, 2]), createdAt: new Date(0),
+});
+// { id: "1", firstName: "Ada", kind: "KIND_PERSON", avatar: "AQI=", createdAt: "1970-01-01T00:00:00Z" }
+
+S.decodeOrThrow(S.protobufJson, User)({ id: 1, first_name: "Ada", kind: "KIND_PERSON", nickname: "ada" });
+// { id: 1n, firstName: "Ada", kind: 1, avatar: Uint8Array [], createdAt: Date(0), nickname: "ada" }
+```
+
+A field reads by its JSON name or its proto name, and a default value is left
+out. `S.protobufEnum` gives an enum its names: without them it prints as a
+number. Go through `S.jsonString` for the text:
+
+```ts
+S.parseOrThrow(S.jsonString.with(S.to, S.protobufJson).with(S.to, User))('{"id":"7"}');
+// { id: 7n, firstName: "", kind: 0, avatar: Uint8Array [], createdAt: Date(0) }
+```
+
+A key the message doesn't declare is skipped, and so is an enum name it doesn't
+know. Under `S.strict` both throw:
+
+```ts
+S.decodeOrThrow(S.protobufJson, S.strict(User))({ nope: 1 });
+// throws: Unrecognized ProtoJSON field "nope"
+```
+
+When the `.proto` name isn't the property's snake_case, give it with `name`.
+It sets the JSON name too:
+
+```ts
+const Message = S.schema({ fieldName: S.int32.with(S.protobufField, { number: 1, name: "__field_name" }) });
+S.encodeOrThrow(Message, S.protobufJson)({ fieldName: 2 }); // { FieldName: 2 }
+```
+
+An Any prints the message it holds beside its `"@type"`, so it needs that
+message's schema: an [Any](#any) union reads and prints, a bare
+`S.protobufAny` holding a message throws.
+
 ## Generating a `.proto`
 
 `S.toProtoOrThrow` prints the `.proto` file for a message schema, so other
@@ -370,6 +426,8 @@ message Address {
 ```
 
 - The `name` meta names a message. Without it, the field name does.
+- `S.protobufEnum` prints its value names, and an enum without them gets
+  `<NAME>_UNSPECIFIED`, `<NAME>_1` and so on.
 - The `description` meta prints as a comment, and `deprecated` as
   `[deprecated = true]`.
 - Field names print in snake_case, as the proto3 style guide asks. The wire
@@ -471,7 +529,8 @@ const bytes = S.encodeOrThrow(UserSchema, S.protobuf)({ id: 1, firstName: "Ada",
 
 The names and types are protoc-gen-es's: `User` and `UserSchema`, a nested
 type `User_Address`, a field's lowerCamelCase property, an enum as a const
-object with its prefix dropped (`PhoneType.MOBILE`), a wrapper field as its
+object with its prefix dropped (`PhoneType.MOBILE`) and its schema an
+`S.protobufEnum` of the full names, a wrapper field as its
 scalar, a Struct as a JSON object, a map with 32-bit keys still string-keyed.
 A well-known type is imported from `sury/protobuf/wkt` (`TimestampSchema`,
 `Timestamp`), where the generated code expects it. A field holding one keeps
@@ -511,10 +570,13 @@ schema: validate with it, convert it to JSON Schema, or print it back with
 
 ## Performance and compatibility
 
-`S.protobuf` passes 696 of the 698 binary proto3 cases of Google's conformance
-suite, and so does the schema protoc-gen-sury generates from the suite's
-`.proto`. The two it fails need unknown fields kept through a round trip. JSON and
-text formats, proto2 and extensions aren't supported.
+`S.protobuf` and `S.protobufJson` pass 1469 of the 1476 binary and ProtoJSON
+proto3 cases of Google's conformance suite. Two need unknown fields kept through a
+round trip; the rest are a JSON key given twice (`JSON.parse` keeps the last), a
+`google.protobuf.Value` holding NaN, which `S.json` can't, and an Any inside an
+Any. The schema protoc-gen-sury generates from the suite's `.proto` passes 1453:
+its Any fields are `S.protobufAny` until you convert them. Text format, proto2 and
+extensions aren't supported.
 
 See [Benchmarks: Protobuf](https://github.com/DZakh/sury/blob/main/docs/benchmarks/protobuf.md)
 for bundle size and speed against protobuf.js, protobuf-es and pbf.
