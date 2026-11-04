@@ -12,10 +12,9 @@ import {
   B_scope,
   B_varWithoutAllocation,
 } from "../builder";
-import { dictFactory, objectDecoder } from "../composites";
+import { dictFactory } from "../composites";
 import { getOutputSchema } from "../parse";
 import { stdCodec } from "../refinements";
-import { json } from "./json";
 import {
   bounds,
   compileMessage,
@@ -31,6 +30,7 @@ import {
   fieldValsOf,
   firstObject,
   guarded,
+  framed,
   isStruct,
   jsonFieldName,
   type Message,
@@ -117,15 +117,26 @@ const jsonValue = (value: unknown, d: number): unknown => {
   if (value === null || typeof value === "string" || typeof value === "boolean") return value;
   if (typeof value === "number") return Number.isFinite(value) ? value : bad("JSON", value);
   if (Array.isArray(value)) {
-    for (let idx = 0; idx < value.length; idx++) jsonValue(value[idx], d + 1);
+    for (let idx = 0; idx < value.length; idx++) jsonAt(value[idx], d, idx);
     return value;
   }
   if (isStruct(value)) {
-    for (const key in value) jsonValue(value[key], d + 1);
+    for (const key in value) jsonAt(value[key], d, key);
     return value;
   }
   return bad("JSON", value);
 };
+
+// A failure names where in the JSON it is, built only once one is thrown.
+const jsonAt = (value: unknown, d: number, at: string | number): void => {
+  try {
+    jsonValue(value, d + 1);
+  } catch (x) {
+    throw framed(x, [at]);
+  }
+};
+
+const isJsonObject = (value: unknown): unknown => jsonValue(isStruct(value) ? value : bad("ProtoJSON", value), 0);
 
 const timestampMin = -62135596800;
 const timestampMax = 253402300799;
@@ -623,12 +634,21 @@ const leadsToMessage = (schema: Internal | undefined): boolean => isMessage(sche
 // A value into ProtoJSON. From `unknown` it is JSON to read on: the reader
 // after checks it field by field, and with no message after it checks as the
 // object of JSON it is.
+// With no message on either side it is the object of JSON it holds, which the
+// reader's own walk checks: `S.json` would cost more than ProtoJSON itself.
+const jsonObject = (input: Val): Val => {
+  const output = B_next(input, input.v(), input.e, input.e);
+  output.cp = guarded(input, output, input.e, `${B_embedPure(input, isJsonObject)}(${input.i})`, "");
+  output.io = true;
+  return output;
+};
+
 const protobufJsonDecoder = (input: Val): Val => {
   if (input.s.type === unknownTag || input.s.flags & 256) {
-    return input.s.flags & 256 || leadsToMessage(input.e.to) ? B_refine(input, input.e) : objectDecoder(input);
+    return input.s.flags & 256 || leadsToMessage(input.e.to) ? B_refine(input, input.e) : jsonObject(input);
   }
   const source = objectSchemaOf(input);
-  if (!leadsToMessage(source)) return objectDecoder(input);
+  if (!leadsToMessage(source)) return jsonObject(input);
   const message = compileMessage(source, newCtx(false, true))!;
   const form = rootForm(message);
   const fns = new Map<Message, string>();
@@ -697,7 +717,7 @@ const protobufJsonEncoder = (input: Val, target: Internal): Val => {
 };
 
 export const protobufJson: Internal = /* @__PURE__ */ (() => {
-  const schema = dictFactory(json);
+  const schema = dictFactory(unknown);
   schema.decoder = protobufJsonDecoder;
   schema.encoder = protobufJsonEncoder;
   schema.flags = schema.flags | 256;

@@ -22,7 +22,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[9](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v2=0n,v3=void 0;{let j=v0,t=-1,k,v,c,n,p,y,x,d=0,fail=e[1],$l=e[2],m1=e[3],$j=e[5];try{$j(j);for(k in j){switch(k){case "id":t=8;v=j[k];if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");v2=v;}continue;case "nested":t=18;v=j[k];if(v!==null){v=m1(v,d+1);v3=v;}continue;}}}catch(x){x=e[6](x,e[4],t);e[7](x)}}let v4={id:v2};if(v3!==void 0){v4.nested=v3}return v4}catch(v5){e[10](v5)}}
+    expression: i=>{try{typeof i==="string"||e[11](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[10](v0);try{e[1](v0)}catch(x){e[2](x)}let v3=v0;let v1=0n,v2=void 0;{let j=v3,t=-1,k,v,c,n,p,y,x,d=0,fail=e[3],$l=e[4],m1=e[5],$j=e[7];try{$j(j);for(k in j){switch(k){case "id":t=8;v=j[k];if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");v1=v;}continue;case "nested":t=18;v=j[k];if(v!==null){v=m1(v,d+1);v2=v;}continue;}}}catch(x){x=e[8](x,e[6],t);e[9](x)}}let v4={id:v1};if(v2!==void 0){v4.nested=v2}return v4}catch(v5){e[12](v5)}}
     examples:
       text:
         input: '"{\"id\":\"9007199254740993\",\"nested\":{\"ok\":true}}"'
@@ -34,13 +34,13 @@ operations:
         input: '"1"'
         error: Expected ProtoJSON, received 1
   decode:
-    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[8](v0);let v2=0n,v3=void 0;{let j=v0,t=-1,k,v,c,n,p,y,x,d=0,fail=e[1],$l=e[2],m1=e[3],$j=e[5];try{$j(j);for(k in j){switch(k){case "id":t=8;v=j[k];if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");v2=v;}continue;case "nested":t=18;v=j[k];if(v!==null){v=m1(v,d+1);v3=v;}continue;}}}catch(x){x=e[6](x,e[4],t);e[7](x)}}let v4={id:v2};if(v3!==void 0){v4.nested=v3}return v4}catch(v5){e[9](v5)}}
+    expression: i=>{try{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[10](v0);try{e[1](v0)}catch(x){e[2](x)}let v3=v0;let v1=0n,v2=void 0;{let j=v3,t=-1,k,v,c,n,p,y,x,d=0,fail=e[3],$l=e[4],m1=e[5],$j=e[7];try{$j(j);for(k in j){switch(k){case "id":t=8;v=j[k];if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");v1=v;}continue;case "nested":t=18;v=j[k];if(v!==null){v=m1(v,d+1);v2=v;}continue;}}}catch(x){x=e[8](x,e[6],t);e[9](x)}}let v4={id:v1};if(v2!==void 0){v4.nested=v2}return v4}catch(v5){e[11](v5)}}
     examples:
       text:
         input: '"{\"id\":\"9007199254740993\",\"nested\":{\"ok\":true}}"'
         output: "{ id: 9007199254740993n, nested: { ok: true } }"
   encode:
-    expression: i=>{try{let v0;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=i.id;if(v){J.id=""+e[1](v,-9223372036854775808n,9223372036854775807n)}f=1;v=i.nested;if(v!=null){J.nested=e[0](v)};v0=J}catch(x){x=e[2](x,e[3],f,j,a);e[4](x)}}let v2="";for(let v1 of Object.keys(v0)){let v3=JSON.stringify(v0[v1]);if(v3!==void 0){v2+=(v2?",":"")+e[5](v1)+":"+v3}}return "{"+v2+"}"}catch(v4){e[6](v4)}}
+    expression: i=>{try{let v0;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=i.id;if(v){J.id=""+e[1](v,-9223372036854775808n,9223372036854775807n)}f=1;v=i.nested;if(v!=null){J.nested=e[0](v)};v0=J}catch(x){x=e[2](x,e[3],f,j,a);e[4](x)}}let v2="";for(let v1 of Object.keys(v0)){let v3=v0[v1];let v5;if(v3!==void 0){try{e[6](v3);}catch(v4){e[7](v4,[v1])}v5=JSON.stringify(v3)}if(v5!==void 0){v2+=(v2?",":"")+e[5](v1)+":"+v5}}return "{"+v2+"}"}catch(v6){e[8](v6)}}
     examples:
       value:
         input: "{ id: 9007199254740993n, nested: { ok: true } }"

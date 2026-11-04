@@ -1925,7 +1925,7 @@ export const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unk
 
 // A failure under a field: the codec's own records the path in place, one
 // the core raised in a message's value is copied with it in front.
-const framed = (failure: unknown, at: (string | number)[]): unknown =>
+export const framed = (failure: unknown, at: (string | number)[]): unknown =>
   isFailure(failure) ? ((failure.path = [...at, ...failure.path]), failure)
   : failure && (failure as Failure).s === sury ? B_prefixPath(failure as Failure, at)
   : failure;

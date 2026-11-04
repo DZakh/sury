@@ -67,7 +67,7 @@ operations:
         error: 'Failed at mask: Expected FieldMask path, received "first_name"'
       value-undefined-inside:
         input: "{ payload: { a: undefined } }"
-        error: "Failed at payload: Expected JSON, received undefined"
+        error: "Failed at payload.a: Expected JSON, received undefined"
   decode: eq-to-parse
   encode:
     expression: i=>{try{let v0=i.took,v1=i.meta,v3=i.mask;let v5;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=i.at;if(v!==void 0){J.at=e[0](v)}f=1;v=v0;if(v!=null){J.took=e[1](v)}f=2;v=i.payload;if(v!==void 0){J.payload=e[2](v)}f=3;v=v1;if(v!==void 0){J.meta=e[3](v)}f=4;v=v3;if(v!=null){J.mask=e[4](v)}f=5;v=i.retries;if(v!=null){J.retries=e[5](v)}f=6;v=i.empty;if(v!=null){J.empty=e[6](v)};v5=J}catch(x){x=e[7](x,e[8],f,j,a);e[9](x)}}return v5}catch(v6){e[10](v6)}}
