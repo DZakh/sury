@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufJson.with(S.to, S.schema({ id: S.int32.with(S.protobufField, 1), userName: S.string.with(S.protobufField, 2), big: S.bigint.with(S.protobufField, 3), ratio: S.union([S.number, S.schema(NaN)]).with(S.protobufField, { number: 4, type: "float" }), data: S.uint8Array.with(S.protobufField, 5), on: S.boolean.with(S.protobufField, 6), kind: S.protobufEnum({ KIND_UNSPECIFIED: 0, KIND_USER: 1 }).with(S.protobufField, 7), ids: S.array(S.bigint).with(S.protobufField, { number: 8, type: "uint64" }), counts: S.record(S.int32).with(S.protobufField, { number: 9, key: "int64" }), limit: S.optional(S.int32).with(S.protobufField, 10) }))'
+  input: "{ [key: string]: JSON; }"
+  output: "{ id: number; userName: string; big: bigint; ratio: number; data: Uint8Array<ArrayBufferLike>; on: boolean; kind: 0 | 1; ids: bigint[]; counts: Record<string, number>; limit?: number | undefined; }"
+  instantiations: 13281
+jsonSchema:
+  input: '{ type: "object" }'
+  output: "Failed at big: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.id===b.id&&a.userName===b.userName&&a.big===b.big&&(typeof a.ratio==="number"&&a.ratio==a.ratio?typeof b.ratio==="number"&&b.ratio==b.ratio&&a.ratio===b.ratio:b.ratio!=b.ratio)&&e[0](a.data,b.data)&&a.on===b.on&&a.kind===b.kind&&e[1](a.ids,b.ids)&&e[2](a.counts,b.counts)&&a.limit===b.limit
+compare:
+  input: "throws: [Sury] Can't compare ProtoJSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { id: int32; userName: string; big: bigint; ratio: number | NaN; data: Uint8Array; on: boolean; kind: 0 | 1; ids: bigint[]; counts: { [key: string]: int32; }; limit: int32 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0=0,v1="",v2=0n,v3=0,v4=new Uint8Array,v5=!1,v6=0,v7=[],v8={},v9=void 0;{let j=i,t=-1,k,v,c,n,p,y,x,s1=0,d=0,fail=e[0],$i=e[1],$t=e[2],$s=e[3],$l=e[4],$f=e[5],$b=e[6],$o=e[7],$e=e[8],$a=e[10],$j=e[11],$k=e[12];try{$j(j);for(k in j){switch(k){case "id":t=8;v=j[k];if(v!==null){v=$i(v,-2147483648,2147483647,"int32");v0=v;}continue;case "userName":case "user_name":t=18;v=j[k];if(s1)$t("field \"userName\"");s1=1;if(v!==null){v=$s(v);v1=v;}continue;case "big":t=24;v=j[k];if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");v2=v;}continue;case "ratio":t=37;v=j[k];if(v!==null){v=$f(v,1);v3=v;}continue;case "data":t=42;v=j[k];if(v!==null){v=$b(v);v4=v;}continue;case "on":t=48;v=j[k];if(v!==null){v=$o(v);v5=v;}continue;case "kind":t=56;v=j[k];if(v!==null){if((v=$e(v,e[9],0))!==void 0){v6=v}}continue;case "ids":t=64;v=j[k];if(v!==null){t=71;$a(v);t=64;for(n=0;n<v.length;n++){c=v[n];if(c===null)fail("ProtoJSON list item is null");c=$l(c,0n,18446744073709551615n,"uint64");v7.push(c);}}continue;case "counts":t=72;v=j[k];if(v!==null){$j(v);for(p in v){y=void 0;c=v[p];y=$k(p,"int64");if(c===null)fail("ProtoJSON map value is null");c=$i(c,-2147483648,2147483647,"int32");if(Object.hasOwn(v8,y))$t("map key "+y);v8[y]=c;}}continue;case "limit":t=80;v=j[k];if(v!==null){v=$i(v,-2147483648,2147483647,"int32");v9=v;}continue;}}}catch(x){x=e[14](x,e[13],t,y,v7);e[15](x)}}let v10={id:v0,userName:v1,big:v2,ratio:v3,data:v4,on:v5,kind:v6,ids:v7,counts:v8};if(v9!==void 0){v10.limit=v9}return v10}catch(v11){e[16](v11)}}
+    examples:
+      empty:
+        input: "{}"
+        output: '{ id: 0, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      json-names:
+        input: '{ id: 150, userName: "Ada", big: "9223372036854775807", ratio: 0.5, data: "AQID", on: true, kind: "KIND_USER", ids: ["18446744073709551615"], counts: { "-7": 3 }, limit: 0 }'
+        output: '{ id: 150, userName: "Ada", big: 9223372036854775807n, ratio: 0.5, data: new Uint8Array([1, 2, 3]), on: true, kind: 1, ids: [18446744073709551615n], counts: { "-7": 3 }, limit: 0 }'
+      proto-name-and-spellings:
+        input: '{ id: "150", user_name: "Ada", big: 12, ratio: "NaN", data: "-_8", kind: 1, ids: [1, "2"], counts: { "07": "3" } }'
+        output: '{ id: 150, userName: "Ada", big: 12n, ratio: NaN, data: new Uint8Array([251, 255]), on: false, kind: 1, ids: [1n, 2n], counts: { "7": 3 } }'
+      infinity:
+        input: '{ ratio: "-Infinity" }'
+        output: '{ id: 0, userName: "", big: 0n, ratio: -Infinity, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      nulls-are-defaults:
+        input: "{ id: null, userName: null, ids: null, counts: null, limit: null }"
+        output: '{ id: 0, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      unknown-key-skipped:
+        input: "{ id: 1, nope: [1] }"
+        output: '{ id: 1, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      unknown-enum-name-skipped:
+        input: '{ kind: "KIND_ROBOT" }'
+        output: '{ id: 0, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      int32-fraction:
+        input: "{ id: 1.5 }"
+        error: "Failed at id: Expected int32, received 1.5"
+      int32-hex-string:
+        input: '{ id: "0x10" }'
+        error: 'Failed at id: Expected int32, received "0x10"'
+      int32-padded-string:
+        input: '{ id: " 1" }'
+        error: 'Failed at id: Expected int32, received " 1"'
+      int32-too-large:
+        input: "{ id: 2147483648 }"
+        error: "Failed at id: Expected int32, received 2147483648"
+      int32-exponent:
+        input: "{ id: 100000 }"
+        output: '{ id: 100000, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+      int64-too-large:
+        input: '{ big: "9223372036854775808" }'
+        error: 'Failed at big: Expected int64, received "9223372036854775808"'
+      int64-padded-string:
+        input: '{ big: " 1" }'
+        error: 'Failed at big: Expected int64, received " 1"'
+      uint64-negative:
+        input: '{ ids: ["-1"] }'
+        error: 'Failed at ids[0]: Expected uint64, received "-1"'
+      float-too-large:
+        input: "{ ratio: 3.5e+38 }"
+        error: "Failed at ratio: Expected float, received 3.5e+38"
+      float-nan-number-string:
+        input: '{ ratio: "nan" }'
+        error: 'Failed at ratio: Expected float, received "nan"'
+      bytes-bad-alphabet:
+        input: '{ data: "a*" }'
+        error: 'Failed at data: Expected bytes, received "a*"'
+      bytes-one-char-group:
+        input: '{ data: "QUJDR" }'
+        error: 'Failed at data: Expected bytes, received "QUJDR"'
+      bool-string:
+        input: '{ on: "true" }'
+        error: 'Failed at on: Expected bool, received "true"'
+      list-item-null:
+        input: "{ ids: [null] }"
+        error: "Failed at ids[0]: ProtoJSON list item is null"
+      list-not-array:
+        input: '{ ids: "1" }'
+        error: 'Failed at ids: Expected array, received "1"'
+      map-key-not-int64:
+        input: "{ counts: { x: 1 } }"
+        error: 'Failed at counts: Expected int64 key, received "x"'
+      map-key-twice:
+        input: '{ counts: { "1": 1, "01": 2 } }'
+        error: "Failed at counts[1]: ProtoJSON map key 1 is set more than once"
+      map-value-null:
+        input: '{ counts: { "1": null } }'
+        error: "Failed at counts[1]: ProtoJSON map value is null"
+      name-and-proto-name:
+        input: '{ userName: "a", user_name: "b" }'
+        error: 'Failed at userName: ProtoJSON field "userName" is set more than once'
+      not-an-object:
+        input: "[]"
+        error: Expected object, received []
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.ids,v2=i.counts;let v4;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=i.id;if(v){J.id=e[0](v,-2147483648,2147483647)}f=1;v=i.userName;if(v){J.userName=e[1](v)}f=2;v=i.big;if(v){J.big=""+e[0](v,-9223372036854775808n,9223372036854775807n)}f=3;v=i.ratio;if(v||v!==v||Object.is(v,-0)){J.ratio=e[2](v,1)}f=4;v=i.data;if(v.length){J.data=e[3](v)}f=5;v=i.on;if(v){J.on=!!v}f=6;v=i.kind;if((v=Number(v))){J.kind=(s=e[0](Number(v),-2147483648,2147483647),e[4][s]??s)}f=7;v=v0;n=v.length;if(n){q=[];j=0;while(j<n)q.push(""+e[0](v[j++],0n,18446744073709551615n));J.ids=q}f=8;v=v2;a=Object.keys(v);n=a.length;if(n){q={};j=0;while(j<n){k=a[j++];c=v[k];q[""+e[5](k,-9223372036854775808n,9223372036854775807n)]=e[0](Number(c),-2147483648,2147483647)}J.counts=q}f=9;v=i.limit;if(v!=null){J.limit=e[0](Number(v),-2147483648,2147483647)};v4=J}catch(x){x=e[6](x,e[7],f,j,a);e[8](x)}}return v4}catch(v5){e[9](v5)}}
+    examples:
+      defaults-omitted:
+        input: '{ id: 0, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+        output: "{}"
+      values:
+        input: '{ id: 150, userName: "Ada", big: -1n, ratio: 0.1, data: new Uint8Array([1, 2, 3]), on: true, kind: 1, ids: [18446744073709551615n], counts: { "07": 3 }, limit: 0 }'
+        output: '{ id: 150, userName: "Ada", big: "-1", ratio: 0.10000000149011612, data: "AQID", on: true, kind: "KIND_USER", ids: ["18446744073709551615"], counts: { "7": 3 }, limit: 0 }'
+      unknown-enum-number:
+        input: '{ id: 0, userName: "", big: 0n, ratio: NaN, data: new Uint8Array([]), on: false, kind: 5, ids: [], counts: {} }'
+        output: '{ ratio: "NaN", kind: 5 }'
+      negative-zero:
+        input: '{ id: 0, userName: "", big: 0n, ratio: -0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+        output: "{ ratio: -0 }"
+      int32-out-of-range:
+        input: '{ id: 2147483648, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: {} }'
+        error: "Failed at id: Expected int32, received 2147483648"
+      map-key-not-int64:
+        input: '{ id: 0, userName: "", big: 0n, ratio: 0, data: new Uint8Array([]), on: false, kind: 0, ids: [], counts: { x: 1 } }'
+        error: 'Failed at counts.x: Expected int64 key, received "x"'

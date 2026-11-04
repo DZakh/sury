@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.protobufEnum({ COLOR_UNSPECIFIED: 0, COLOR_RED: 1, COLOR_CRIMSON: 1 })"
+  input: 0 | 1
+  output: 0 | 1
+  instantiations: 306
+jsonSchema:
+  input: "{ enum: [0, 1] }"
+  output: "{ enum: [0, 1] }"
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod: z.union([z.literal(0), z.literal(1)])
+operations:
+  parse:
+    expression: i=>{try{typeof i==="number"&&i==i&&(i===0||i===1)||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      zero:
+        input: "0"
+        output: "0"
+      one:
+        input: "1"
+        output: "1"
+      unlisted:
+        input: "2"
+        error: Expected 0 | 1, received 2
+      name:
+        input: '"COLOR_RED"'
+        error: Expected 0 | 1, received "COLOR_RED"
+  decode: identity
+  encode: identity

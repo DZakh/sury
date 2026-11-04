@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufJson.with(S.to, S.schema({ contact: S.optional(S.union([S.schema({ case: "email", value: S.string.with(S.protobufField, 1) }), S.schema({ case: "phoneNumber", value: S.bigint.with(S.protobufField, { number: 2, type: "int64" }) })])), text: S.optional(S.string).with(S.protobufField, { number: 3, oneof: "body" }), count: S.optional(S.int32).with(S.protobufField, { number: 4, oneof: "body" }) }))'
+  input: "{ [key: string]: JSON; }"
+  output: '{ contact?: { case: "email"; value: string; } | { case: "phoneNumber"; value: bigint; } | undefined; text?: string | undefined; count?: number | undefined; }'
+  instantiations: 13573
+jsonSchema:
+  input: '{ type: "object" }'
+  output: "Failed at contact.value: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||(a.contact?.case==="email"?b.contact?.case==="email"&&a.contact.value===b.contact.value:a.contact?.case==="phoneNumber"?b.contact?.case==="phoneNumber"&&a.contact.value===b.contact.value:b.contact===void 0)&&a.text===b.text&&a.count===b.count
+compare:
+  input: "throws: [Sury] Can't compare ProtoJSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { contact: { case: \"email\"; value: string; } | { case: \"phoneNumber\"; value: bigint; } | undefined; text: string | undefined; count: int32 | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v1=0,v0=void 0,v2=void 0,v3=void 0,v4=void 0;{let j=i,t=-1,k,v,c,n,p,y,x,s1=0,o2=0,d=0,fail=e[0],$t=e[1],$s=e[2],$l=e[3],$i=e[4],$j=e[6];try{$j(j);for(k in j){switch(k){case "email":t=10;v=j[k];if(v!==null){v=$s(v);if(v1)$t("oneof \"contact\"");v1=1;v0=v;}continue;case "phoneNumber":case "phone_number":t=16;v=j[k];if(s1)$t("field \"phoneNumber\"");s1=1;if(v!==null){v=$l(v,-9223372036854775808n,9223372036854775807n,"int64");if(v1)$t("oneof \"contact\"");v1=2;v2=v;}continue;case "text":t=26;v=j[k];if(v!==null){v=$s(v);if(o2)$t("oneof \"body\"");o2=1;v3=v;}continue;case "count":t=32;v=j[k];if(v!==null){v=$i(v,-2147483648,2147483647,"int32");if(o2)$t("oneof \"body\"");o2=1;v4=v;}continue;}}}catch(x){x=e[7](x,e[5],t);e[8](x)}}let v5;if(v1===1){v5={case:"email",value:v0}}else if(v1===2){v5={case:"phoneNumber",value:v2}}let v6={contact:v5};if(v3!==void 0){v6.text=v3}if(v4!==void 0){v6.count=v4}return v6}catch(v7){e[9](v7)}}
+    examples:
+      none:
+        input: "{}"
+        output: "{ contact: undefined }"
+      email:
+        input: '{ email: "a@b" }'
+        output: '{ contact: { case: "email", value: "a@b" } }'
+      phone-proto-name:
+        input: "{ phone_number: 5 }"
+        output: '{ contact: { case: "phoneNumber", value: 5n } }'
+      default-member:
+        input: '{ email: "" }'
+        output: '{ contact: { case: "email", value: "" } }'
+      null-member-skipped:
+        input: '{ email: null, phoneNumber: "1" }'
+        output: '{ contact: { case: "phoneNumber", value: 1n } }'
+      two-members:
+        input: '{ email: "a", phoneNumber: "1" }'
+        error: 'Failed at contact.value: ProtoJSON oneof "contact" is set more than once'
+      flat:
+        input: "{ count: 0 }"
+        output: "{ contact: undefined, count: 0 }"
+      flat-two-members:
+        input: '{ text: "a", count: 1 }'
+        error: 'Failed at count: ProtoJSON oneof "body" is set more than once'
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v2=i.contact;let v0;let v1;for(;;){if(typeof v2==="object"&&v2&&!Array.isArray(v2)){for(;;){if(v2.case==="email"){v0=v2.value;break}if(v2.case==="phoneNumber"){v1=v2.value;break}throw e[0](v2)}break}if(v2===void 0)break;throw e[0](v2)}let v3;{let v,j,n,s,a,k,c,o,q,J={},f;try{o=0;f=0;v=v0;if(v!=null){J.email=e[1](v)}f=1;v=v1;if(v!=null){J.phoneNumber=""+e[2](v,-9223372036854775808n,9223372036854775807n)}f=2;v=i.text;if(v!=null){o|=1;J.text=e[1](v)}f=3;v=i.count;if(v!=null){o&&e[3]();J.count=e[2](Number(v),-2147483648,2147483647)};v3=J}catch(x){x=e[4](x,e[5],f,j,a);e[6](x)}}return v3}catch(v4){e[7](v4)}}
+    examples:
+      email:
+        input: '{ contact: { case: "email", value: "" }, text: undefined, count: 0 }'
+        output: '{ email: "", count: 0 }'
+      phone:
+        input: '{ contact: { case: "phoneNumber", value: 5n } }'
+        output: '{ phoneNumber: "5" }'
+      flat-two-members:
+        input: '{ contact: undefined, text: "a", count: 1 }'
+        error: 'Failed at count: Protobuf oneof "body" has more than one member set'

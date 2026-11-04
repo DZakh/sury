@@ -448,7 +448,8 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
         : `if(Object.hasOwn(${value},y))${h("$t")}("map key "+y);${value}[y]=c`;
       cases.push(`${head}if(v!==null){${h("$j")}(v);for(p in v){y=void 0;c=v[p];y=${field.map === "string" ? "p" : `${h("$k")}(p,"${field.map}")`};${item("c", () => store, "map value")}}}continue;`);
     } else if (field.repeated) {
-      cases.push(`${head}if(v!==null){${h("$a")}(v);for(n=0;n<v.length;n++){c=v[n];${item("c", (c) => `${value}.push(${c})`, "list item")}}}continue;`);
+      // Under a tag of no wire type the frame names the list, not an element.
+      cases.push(`${head}if(v!==null){t=${field.number * 8 + 7};${h("$a")}(v);t=${field.number * 8 + field.wire};for(n=0;n<v.length;n++){c=v[n];${item("c", (c) => `${value}.push(${c})`, "list item")}}}continue;`);
     } else {
       cases.push(`${head}${unlessNull(present("v", `${value}=v`))}continue;`);
       // A required message read from nothing is its default instance.
@@ -521,9 +522,11 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
     }
     const slot = messages.push(msg) - 1;
     if (msg.unwrap) {
+      // A FieldMask fails as the one string it is, a wrapper as its value.
       const field = msg.fields[0]!;
-      const read = msg.wellKnown === "google.protobuf.FieldMask" ? "$m(j)" : `j===void 0?${emitDefault({ ...field, optional: false })}:${readScalar(field, field.type, "j", (helper) => helper, !(flag & 2), 1, embed)}`;
-      src += `function ${name}(j,d){try{return ${read}}catch(x){throw at(x,M[${slot}],${field.number * 8 + field.wire})}}`;
+      src += msg.wellKnown === "google.protobuf.FieldMask"
+        ? `function ${name}(j){return $m(j)}`
+        : `function ${name}(j){return j===void 0?${emitDefault({ ...field, optional: false })}:${readScalar(field, field.type, "j", (helper) => helper, !(flag & 2), 1, embed)}}`;
       return;
     }
     const parts = msg.any !== U ? anyParts(msg, fns) : readParts(msg, local, (m) => fns.get(m)!, !(flag & 2), (helper) => helper, embed);
@@ -624,8 +627,9 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
     const slot = messages.push(msg) - 1;
     if (msg.unwrap) {
       const field = msg.fields[0]!;
-      const write = msg.wellKnown === "google.protobuf.FieldMask" ? "mask(value)" : scalarJson(field, field.type, "value", (helper) => helper, embed);
-      src += `function ${name}(value){var s;try{return ${write}}catch(x){throw at(x,M[${slot}],0,0)}}`;
+      src += msg.wellKnown === "google.protobuf.FieldMask"
+        ? `function ${name}(value){return mask(value)}`
+        : `function ${name}(value){var s;try{return ${scalarJson(field, field.type, "value", (helper) => helper, embed)}}catch(x){throw at(x,M[${slot}],0,0)}}`;
       return;
     }
     const value = B_operationArg(msg.object, msg.object, flag);
@@ -635,7 +639,8 @@ const compileEncoders = (root: Message, fns: Map<Message, string>, flag: number)
     const read: Read = (field) => ({ expr: reads.get(field)!, numeric: false });
     const body = msg.any !== U ? anyEncodeBody(msg, fns, read) : encodeBody(msg, fns, read, (helper) => helper, embed);
     const form = formOf(msg);
-    src += `function ${name}(value){${head}${encodeLocals};try{${body}${form !== U ? `;J=${embed(form[1])}(J)` : ""}}catch(x){throw at(x,M[${slot}],f,j,a)}return J}`;
+    // The form is the whole message's, which no field's frame names.
+    src += `function ${name}(value){${head}${encodeLocals};try{${body}}catch(x){throw at(x,M[${slot}],f,j,a)}return ${form !== U ? `${embed(form[1])}(J)` : "J"}}`;
   });
   return new Function(...params, `${src}return {${names.join(",")}}`)(...args);
 };

@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufJson.with(S.to, S.schema({ at: S.date.with(S.protobufField, 1), took: S.schema({ seconds: S.bigint, nanos: S.int32 }).with(S.protobufField, { number: 2, type: "google.protobuf.Duration" }), payload: S.json.with(S.protobufField, 3), meta: S.record(S.json).with(S.protobufField, { number: 4, type: "google.protobuf.Struct" }), mask: S.array(S.string).with(S.protobufField, { number: 5, type: "google.protobuf.FieldMask" }), retries: S.optional(S.bigint).with(S.protobufField, { number: 6, type: "google.protobuf.Int64Value" }), empty: S.optional(S.schema({})).with(S.protobufField, { number: 7, type: "google.protobuf.Empty" }) }))'
+  input: "{ [key: string]: JSON; }"
+  output: "{ at: Date; took: { seconds: bigint; nanos: number; }; payload: JSON; meta: Record<string, JSON>; mask: string[]; retries?: bigint | undefined; empty?: {} | undefined; }"
+  instantiations: 14210
+jsonSchema:
+  input: '{ type: "object" }'
+  output: "Failed at at: Expected JSON, received Date"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||+a.at===+b.at&&a.took.seconds===b.took.seconds&&a.took.nanos===b.took.nanos&&e[0](a.payload,b.payload)&&e[1](a.meta,b.meta)&&e[2](a.mask,b.mask)&&a.retries===b.retries&&(a.empty===void 0?b.empty===void 0:b.empty!==void 0)
+compare:
+  input: "throws: [Sury] Can't compare ProtoJSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { at: Date; took: { seconds: bigint; nanos: int32; }; payload: JSON; meta: { [key: string]: JSON; }; mask: string[]; retries: bigint | undefined; empty: {} | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{let v0=void 0,v1=void 0,v2=void 0,v3=void 0,v4=void 0,v5=void 0,v6=void 0;{let j=i,t=-1,k,v,c,n,p,y,x,d=0,fail=e[0],m1=e[1],m2=e[2],m3=e[3],m4=e[4],m5=e[5],m6=e[6],m7=e[7],$j=e[9];try{$j(j);for(k in j){switch(k){case "at":t=10;v=j[k];if(v!==null){v=m1(v,d+1);v0=v;}continue;case "took":t=18;v=j[k];if(v!==null){v=m2(v,d+1);v1=v;}continue;case "payload":t=26;v=j[k];v=m3(v,d+1);v2=v;continue;case "meta":t=34;v=j[k];if(v!==null){v=m4(v,d+1);v3=v;}continue;case "mask":t=42;v=j[k];if(v!==null){v=m5(v,d+1);v4=v;}continue;case "retries":t=50;v=j[k];if(v!==null){v=m6(v,d+1);v5=v;}continue;case "empty":t=58;v=j[k];if(v!==null){v=m7(v,d+1);v6=v;}continue;}}if(v0===void 0){t=10;v0=m1(void 0,d+1)}if(v1===void 0){t=18;v1=m2(void 0,d+1)}if(v2===void 0){t=26;v2=m3(void 0,d+1)}if(v3===void 0){t=34;v3=m4(void 0,d+1)}if(v4===void 0){t=42;v4=m5(void 0,d+1)}}catch(x){x=e[10](x,e[8],t);e[11](x)}}let v8={at:v0,took:v1,payload:v2,meta:v3,mask:v4};if(v5!==void 0){v8.retries=v5}if(v6!==void 0){v8.empty=v6}return v8}catch(v9){e[12](v9)}}
+    examples:
+      empty:
+        input: "{}"
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+      forms:
+        input: '{ at: "1970-01-01T00:00:01.500Z", took: "-1.5s", payload: { a: [1, null] }, meta: { k: "v" }, mask: "user.firstName,id", retries: "0", empty: {} }'
+        output: '{ at: new Date("1970-01-01T00:00:01.500Z"), took: { seconds: -1n, nanos: -500000000 }, payload: { a: [1, null] }, meta: { k: "v" }, mask: ["user.first_name", "id"], retries: 0n, empty: {} }'
+      offset-and-nanos:
+        input: '{ at: "1970-01-01T01:00:00.123456789+01:00" }'
+        output: '{ at: new Date("1970-01-01T00:00:00.123Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+      negative-sub-second:
+        input: '{ took: "-0.25s" }'
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: -250000000 }, payload: null, meta: {}, mask: [] }'
+      payload-null:
+        input: "{ payload: null }"
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+      wrapper-null:
+        input: "{ retries: null }"
+        output: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+      timestamp-lowercase-z:
+        input: '{ at: "1970-01-01T00:00:00z" }'
+        error: 'Failed at at: Expected Timestamp, received "1970-01-01T00:00:00z"'
+      timestamp-year-out-of-range:
+        input: '{ at: "0000-12-31T23:59:59Z" }'
+        error: 'Failed at at: Expected Timestamp, received "0000-12-31T23:59:59Z"'
+      timestamp-not-string:
+        input: "{ at: 0 }"
+        error: "Failed at at: Expected Timestamp, received 0"
+      duration-no-unit:
+        input: '{ took: "1.5" }'
+        error: 'Failed at took: Expected Duration, received "1.5"'
+      duration-too-long:
+        input: '{ took: "315576000001s" }'
+        error: 'Failed at took: Expected Duration, received "315576000001s"'
+      struct-not-object:
+        input: "{ meta: [] }"
+        error: "Failed at meta: Expected object, received []"
+      mask-snake-case:
+        input: '{ mask: "first_name" }'
+        error: 'Failed at mask: Expected FieldMask path, received "first_name"'
+      value-undefined-inside:
+        input: "{ payload: { a: undefined } }"
+        error: "Failed at payload: Expected JSON, received undefined"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v0=i.took,v1=i.meta,v3=i.mask;let v5;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=i.at;if(v!==void 0){J.at=e[0](v)}f=1;v=v0;if(v!=null){J.took=e[1](v)}f=2;v=i.payload;if(v!==void 0){J.payload=e[2](v)}f=3;v=v1;if(v!==void 0){J.meta=e[3](v)}f=4;v=v3;if(v!=null){J.mask=e[4](v)}f=5;v=i.retries;if(v!=null){J.retries=e[5](v)}f=6;v=i.empty;if(v!=null){J.empty=e[6](v)};v5=J}catch(x){x=e[7](x,e[8],f,j,a);e[9](x)}}return v5}catch(v6){e[10](v6)}}
+    examples:
+      values:
+        input: '{ at: new Date("1970-01-01T00:00:01.500Z"), took: { seconds: -1n, nanos: -500000000 }, payload: { a: [1, null] }, meta: { k: "v" }, mask: ["user.first_name", "id"], retries: 0n, empty: {} }'
+        output: '{ at: "1970-01-01T00:00:01.500Z", took: "-1.500s", payload: { a: [1, null] }, meta: { k: "v" }, mask: "user.firstName,id", retries: "0", empty: {} }'
+      defaults:
+        input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+        output: '{ at: "1970-01-01T00:00:00Z", took: "0s", payload: null, meta: {}, mask: "" }'
+      duration-sign-mismatch:
+        input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 1n, nanos: -1 }, payload: null, meta: {}, mask: [] }'
+        error: "Failed at took: Expected Duration, received 1s -1ns"
+      timestamp-past-9999:
+        input: '{ at: new Date("+010000-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+        error: "Failed at at: Expected Timestamp, received +010000-01-01T00:00:00.000Z"
+      mask-path-irreversible:
+        input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: ["foo__bar"] }'
+        error: 'Failed at mask: Expected FieldMask path, received "foo__bar"'
