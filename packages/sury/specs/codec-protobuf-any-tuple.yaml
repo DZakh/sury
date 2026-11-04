@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ payload: S.protobufField(S.optional(S.union([S.tuple(["user", S.protobufTypeName(S.schema({ id: S.protobufField(S.int32, 1) }), "acme.v1.User")]), S.tuple(["order", S.protobufTypeName(S.schema({ total: S.protobufField(S.bigint, { number: 1, type: "int64" }) }), "acme.v1.Order")]), S.tuple(["other", S.protobufAny])])), 1) }).with(S.to, S.protobuf)'
+  input: '{ payload?: ["user", { id: number; }] | ["order", { total: bigint; }] | ["other", { typeUrl: string; value: Uint8Array<ArrayBufferLike>; }] | undefined; }'
+  output: Uint8Array<ArrayBufferLike>
+  instantiations: 15383
+jsonSchema:
+  input: "Failed at payload[1].total: Expected JSON, received bigint"
+  output: Expected JSON, received Uint8Array
+isEqual:
+  input: (a,b)=>a===b||e[0](a.payload,b.payload)
+  output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
+compare:
+  input: "throws: [Sury] Can't compare { payload: [\"user\", { id: int32; }] | [\"order\", { total: bigint; }] | [\"other\", Any] | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[17](i);let v0=i.payload;for(;;){if(Array.isArray(v0)){for(;;){if(v0.length===2&&v0[0]==="user"){let v1=v0[1];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v2=v1.id;typeof v2==="number"&&v2<=2147483647&&v2>=-2147483648&&v2%1==0||e[0](v2);v0=[v0[0],{id:v2}];break}if(v0.length===2&&v0[0]==="order"){let v3=v0[1];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[3](v3);let v4=v3.total;typeof v4==="bigint"||e[2](v4);v0=[v0[0],{total:v4}];break}if(v0.length===2&&v0[0]==="other"){let v5=v0[1];typeof v5==="object"&&v5&&!Array.isArray(v5)||e[7](v5);let v6=v5.typeUrl,v7=v5.value;typeof v6==="string"||e[4](v6);v7 instanceof e[5]||e[6](v7);v0=[v0[0],{typeUrl:v6,value:v7}];break}throw e[8](v0)}break}if(v0===void 0)break;throw e[8](v0)}let v8;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[15].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[9](w,v);w.end(h)};v8=w.finish()}catch(x){w&&(w.busy=false);x=e[13](x,e[14],f,j,a);e[16](x)}}return v8}catch(v9){e[18](v9)}}
+    examples:
+      user:
+        input: '{ payload: ["user", { id: 1 }] }'
+        output: new Uint8Array([10, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+      order:
+        input: '{ payload: ["order", { total: 2n }] }'
+        output: new Uint8Array([10, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 2])
+      other:
+        input: '{ payload: ["other", { typeUrl: "x/acme.v1.Thing", value: new Uint8Array([8, 1]) }] }'
+        output: new Uint8Array([10, 21, 10, 15, 120, 47, 97, 99, 109, 101, 46, 118, 49, 46, 84, 104, 105, 110, 103, 18, 2, 8, 1])
+      other-holding-a-listed-type:
+        input: '{ payload: ["other", { typeUrl: "x/acme.v1.User", value: new Uint8Array([8, 1]) }] }'
+        error: 'Failed at payload[1]: Protobuf Any holds acme.v1.User, which [0]: "user" is for'
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+  decode:
+    expression: i=>{try{let v0;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[6].acquire();f=0;v=i.payload;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[0](w,v);w.end(h)};v0=w.finish()}catch(x){w&&(w.busy=false);x=e[4](x,e[5],f,j,a);e[7](x)}}return v0}catch(v1){e[8](v1)}}
+    examples:
+      user:
+        input: '{ payload: ["user", { id: 1 }] }'
+        output: new Uint8Array([10, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+      order:
+        input: '{ payload: ["order", { total: 2n }] }'
+        output: new Uint8Array([10, 39, 10, 33, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 79, 114, 100, 101, 114, 18, 2, 8, 2])
+      other:
+        input: '{ payload: ["other", { typeUrl: "x/acme.v1.Thing", value: new Uint8Array([8, 1]) }] }'
+        output: new Uint8Array([10, 21, 10, 15, 120, 47, 97, 99, 109, 101, 46, 118, 49, 46, 84, 104, 105, 110, 103, 18, 2, 8, 1])
+      absent:
+        input: "{}"
+        output: new Uint8Array([])
+  encode:
+    expression: i=>{try{let v0=void 0;{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a0>=0){t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v1={};if(v0!==void 0){v1.payload=v0}return v1}catch(v2){e[7](v2)}}
+    examples:
+      user:
+        input: new Uint8Array([10, 38, 10, 32, 116, 121, 112, 101, 46, 103, 111, 111, 103, 108, 101, 97, 112, 105, 115, 46, 99, 111, 109, 47, 97, 99, 109, 101, 46, 118, 49, 46, 85, 115, 101, 114, 18, 2, 8, 1])
+        output: '{ payload: ["user", { id: 1 }] }'
+      other:
+        input: new Uint8Array([10, 21, 10, 15, 120, 47, 97, 99, 109, 101, 46, 118, 49, 46, 84, 104, 105, 110, 103, 18, 2, 8, 1])
+        output: '{ payload: ["other", { typeUrl: "x/acme.v1.Thing", value: new Uint8Array([8, 1]) }] }'
+      absent:
+        input: new Uint8Array([])
+        output: "{}"
+      type-url-not-utf8:
+        input: new Uint8Array([10, 5, 10, 3, 10, 1, 255])
+        error: "Failed at payload: Protobuf string is not valid UTF-8"
+      value-truncated:
+        input: new Uint8Array([10, 2, 18, 5])
+        error: "Failed at payload: Truncated protobuf message"

@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.string, S.object((s) => ({ b: s.field("b", S.object((t) => ({ a: t.field("a", S.never) }))) }))])'
+  input: string | Record<string, unknown>
+  output: "string | { b: { a: never; }; }"
+  instantiations: 1614
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "object", properties: { b: { type: "object", properties: { a: { not: {} } }, required: ["a"] } }, required: ["b"] }] }'
+  fromInputType: "string | { b: { a: never; }; }"
+  output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { b: { type: "object", properties: { a: { not: {} } }, required: ["a"] } }, required: ["b"] }] }'
+isEqual: (a,b)=>a===b||!!(typeof a==="string"?typeof b==="string"&&a===b:typeof b==="object"&&b&&!Array.isArray(b)&&e[0](a.b.a,b.b.a))
+compare: "throws: [Sury] Can't compare string | { b: { a: never; }; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="string"||e[0](i);return i}catch(v0){e[1](v0)}}
+    examples:
+      string:
+        input: '"x"'
+        output: '"x"'
+      object:
+        input: "{ b: { a: 1 } }"
+        error: "Expected string | { b: { a: never; }; }, received { b: object; }"
+  decode: eq-to-parse
+  encode: eq-to-parse

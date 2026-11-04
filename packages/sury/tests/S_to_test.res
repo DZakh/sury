@@ -879,12 +879,11 @@ test("Fails to transform union to union to string", t => {
     ->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]))
     ->S.to(S.string)
 
-  // Each member converts to the chained target on its own, so the string member
-  // meets `string | number | boolean` - where it matches one member and not the
-  // others, which is the ambiguity rule 2 rejects.
+  // The union carrying `.to(S.string)` is still matched member to member, and
+  // nothing in the source decodes to its boolean member.
   t->U.assertThrowsMessage(
     () => true->S.parseOrThrow(~to=schema),
-    `Ambiguous string -> string | number | boolean. Should number be decoded or ignored? Choose with S.to for string -> number, or S.never -> number`,
+    `Ambiguous string | number -> string | number | boolean. Should boolean be decoded or ignored? Choose with S.to for string -> boolean, or S.never -> boolean`,
   )
 })
 

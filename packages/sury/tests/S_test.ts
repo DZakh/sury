@@ -577,12 +577,10 @@ test("Custom codecs type their coders against the junction, and stay assignable"
 test("An output-seam codec rejects a target that already converts", (t) => {
   const target = S.string.with(S.to, S.number);
 
-  // Only the ReScript adapter can reach this seam, and only it is restricted:
-  // the JS pair feeds the target's chain instead of replacing it.
   t.expect(() =>
-    (S.to as any)(S.string, target, {
-      decodeToOutput: (value: string) => value.length,
-      encodeFromOutput: (value: number) => String(value),
+    (S as any).$to(S.string, target, {
+      decode: (value: string) => value.length,
+      encode: (value: number) => String(value),
     }),
   ).toThrow("[Sury] The target already converts. Chain S.to instead of passing a custom codec");
 
@@ -2310,10 +2308,10 @@ test("fromJSONSchemaOrThrow: composition keywords constrain in addition to the b
   const parse = S.parseOrThrow(schema) as (d: unknown) => unknown;
 
   const input = { bar: 2, foo: "x" };
-  t.expect(parse(input)).toEqual({ bar: 2 });
+  t.expect(parse(input)).toEqual({ bar: 2, foo: "x" });
   // Fails the base shape.
   t.expect(caught(() => parse({ bar: "no", foo: "x" }))).toBeDefined();
-  // Fails only the allOf branch - the base shape alone used to win.
+  // Fails only the allOf branch.
   t.expect(caught(() => parse({ bar: 2 }))).toBeDefined();
 });
 
@@ -3282,27 +3280,3 @@ test("isEqual walks a recursive schema, including mutual recursion, and compare 
   t.expect(() => S.compareInput(branch, b(1), b(2))).toThrow("Can't compare Branch");
 });
 
-// `Internal.definition` is the rule every site resolving a `$ref` keeps:
-// the definition a ref carries wins over the record the operation holds. The
-// equality compiler is one of those sites. Nothing public builds such a ref -
-// the protobuf compiler does, for standins that never leave the operation it
-// compiles - so the field is set here directly, which is what a compiler does.
-test("the equality compiler follows the definition a ref carries, not the name", (t) => {
-  const carried = S.recursive("Node", (self) =>
-    S.schema({ v: S.string, kids: S.array(self) }),
-  );
-  // The record says compare `v` and `kids`; the definition carried says `v`.
-  (carried as unknown as { definition: unknown }).definition = S.schema({ v: S.string });
-
-  const a = { v: "a", kids: ["x"] };
-  const b = { v: "a", kids: ["y"] };
-  t.expect(S.isEqualInput(carried, a, b)).toBe(true);
-
-  // The same schema with nothing carried resolves by name and sees `kids`.
-  const named = S.recursive("Node", (self) => S.schema({ v: S.string, kids: S.array(self) }));
-  t.expect(S.isEqualInput(named, a, b)).toBe(false);
-
-  // Either way a ref is a call, which `compare` has no order for.
-  t.expect(() => S.compareInput(carried, a, b)).toThrow("Can't compare Node");
-  t.expect(() => S.compareInput(named, a, b)).toThrow("Can't compare Node");
-});

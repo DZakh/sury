@@ -114,12 +114,193 @@ test("a check that names its own message says it without rendering one", () => {
   expect(S.parseAsResult(named, 1).error!.reason).toBe("Give me a string");
 });
 
+test("an error thrown under a field is the cause, untouched", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  let thrown: Error | undefined;
+  function thrower(): never {
+    thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
+    throw thrown;
+  }
+  const refined = S.schema({ a: S.string.with(S.refine, () => thrower()) });
+  try {
+    S.parseOrThrow(refined, { a: "x" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect(error).toBeInstanceOf(S.Error);
+    expect((error as { cause?: unknown }).cause).toBe(thrown);
+    expect((thrown as unknown as { path: unknown[] }).path).toEqual([]);
+    expect(thrown!.stack!.split("\n")[1]).toContain("thrower");
+    expect(typeof (error as Error).stack).toBe("string");
+  }
+});
+
+test("a subclass thrown under a field keeps its class on both sides", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  class Named extends SuryError {
+    override name = "MyError";
+    extra = 7;
+  }
+  const thrown = new Named({ code: "invalid_operation", path: [], reason: "nope" });
+  Object.defineProperty(thrown, "meta", { value: 1 });
+  const refined = S.schema({
+    a: S.string.with(S.refine, () => {
+      throw thrown;
+    }),
+  });
+  try {
+    S.parseOrThrow(refined, { a: "x" });
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).message).toBe("Failed at a: nope");
+    expect(error).toBeInstanceOf(Named);
+    expect((error as Error).name).toBe("MyError");
+    expect((error as { extra?: number }).extra).toBe(7);
+    expect((error as { cause?: unknown }).cause).toBe(thrown);
+  }
+});
+
+test("a frozen error thrown deep in a recursive schema is the cause at every depth", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
+  const node = S.recursive("Node", (n) =>
+    S.schema({
+      v: S.string.with(S.refine, (value: string) => {
+        if (value === "bad") throw thrown;
+        return true;
+      }),
+      kid: S.optional(n),
+    }),
+  );
+  const { error } = S.parseAsResult(node, { v: "a", kid: { v: "a", kid: { v: "bad" } } });
+  expect(error!.message).toBe("Failed at kid.kid.v: nope");
+  expect((error as { cause?: unknown }).cause).toBe(thrown);
+});
+
+test("a failure that left an inner coder is the cause, and the coder's throw is its own", () => {
+  const boom = new TypeError("boom");
+  const inner = S.decodeOrThrow(
+    S.string.with(S.to, S.number, {
+      decode: () => {
+        throw boom;
+      },
+      encode: String,
+    }),
+  );
+  const outer = S.schema({ a: S.unknown.with(S.refine, (value: unknown) => (inner(value as string), true)) });
+  const { error } = S.parseAsResult(outer, { a: "x" });
+  expect(error!.message).toBe("Failed at a: TypeError: boom");
+  expect(error!.code).toBe("invalid_conversion");
+  const cause = (error as { cause?: S.Error & { cause?: unknown } }).cause!;
+  expect(cause).toBeInstanceOf(S.Error);
+  expect(cause.cause).toBe(boom);
+});
+
+test("an engine whose stack is an accessor on Error.prototype wraps the same way", () => {
+  // SpiderMonkey: no instance owns a `stack`, the prototype answers for all.
+  const stacks = new WeakMap<object, string>();
+  const original = Object.getOwnPropertyDescriptor(Error.prototype, "stack");
+  Object.defineProperty(Error.prototype, "stack", {
+    configurable: true,
+    get(this: object) {
+      return stacks.get(this) ?? "";
+    },
+    set(this: object, value: string) {
+      stacks.set(this, value);
+    },
+  });
+  try {
+    const inner = S.parseOrThrow(S.number);
+    const outer = S.schema({ a: S.unknown.with(S.refine, (value: unknown) => (inner(value), true)) });
+    try {
+      S.parseOrThrow(outer, { a: "x" });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as Error).message).toBe(`Failed at a: Expected number, received "x"`);
+      expect((error as { cause?: unknown }).cause).toBeInstanceOf(S.Error);
+      expect(Object.hasOwn(error as object, "stack")).toBe(true);
+    }
+  } finally {
+    if (original) Object.defineProperty(Error.prototype, "stack", original);
+    else delete (Error.prototype as { stack?: string }).stack;
+  }
+});
+
+test("a failure that left an inner operation is the cause, with that operation's stack", () => {
+  const inner = S.parseOrThrow(S.number);
+  function innerCaller(value: unknown) {
+    inner(value);
+  }
+  const outer = S.schema({
+    a: S.unknown.with(S.refine, (value: unknown) => {
+      innerCaller(value);
+      return true;
+    }),
+  });
+  try {
+    S.parseOrThrow(outer, { a: "not a number" });
+    expect.unreachable();
+  } catch (error) {
+    const cause = (error as { cause?: Error }).cause!;
+    const keys = Object.keys(cause);
+    expect((error as Error).message).toBe(`Failed at a: Expected number, received "not a number"`);
+    expect(invalidInput(error as S.Error).expected).toBe(S.number);
+    expect(cause.stack!.split("\n")[1]).toContain("innerCaller");
+    expect(Object.keys(cause)).toEqual(keys);
+  }
+});
+
+test("a failure that left an inner operation at the root keeps that operation's stack", () => {
+  const inner = S.parseOrThrow(S.number);
+  function innerCaller(value: unknown) {
+    inner(value);
+  }
+  const outer = S.unknown.with(S.refine, (value: unknown) => {
+    innerCaller(value);
+    return true;
+  });
+  try {
+    S.parseOrThrow(outer, "x");
+    expect.unreachable();
+  } catch (error) {
+    expect((error as Error).stack!.split("\n")[1]).toContain("innerCaller");
+  }
+});
+
+test("an error built by hand and frozen without a stack comes out as itself at the root", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const thrown = new SuryError({ code: "invalid_operation", path: [], reason: "nope" });
+  delete (thrown as { stack?: string }).stack;
+  Object.freeze(thrown);
+  const refined = S.string.with(S.refine, () => {
+    throw thrown;
+  });
+  expect(() => S.parseOrThrow(refined, "x")).toThrow(thrown);
+});
+
+test("a frozen failure from a Result operation thrown at the root comes out as itself", () => {
+  const thrown = Object.freeze(S.parseAsResult(S.number, "x").error!);
+  const refined = S.string.with(S.refine, () => {
+    throw thrown;
+  });
+  expect(() => S.parseOrThrow(refined, "x")).toThrow(thrown);
+});
+
+test("an error a recursive node's own refine throws is the cause at every depth", () => {
+  const SuryError = S.Error as unknown as new (details: unknown) => Error;
+  const thrown = Object.freeze(new SuryError({ code: "invalid_operation", path: [], reason: "nope" }));
+  const node = S.recursive("N", (n) =>
+    S.schema({ kid: S.optional(n) }).with(S.refine, (x: unknown) => {
+      if (!(x as { kid?: unknown }).kid) throw thrown;
+      return true;
+    }),
+  );
+  const { error } = S.parseAsResult(node, { kid: { kid: {} } });
+  expect(error!.message).toBe("Failed at kid.kid: nope");
+  expect((error as { cause?: unknown }).cause).toBe(thrown);
+});
+
 test("prepending a path keeps what the failing check knew", () => {
-  // The inner parse throws a compiled failure; the refiner's wrapper catches it
-  // and rebuilds it with the outer path prepended. That copy used to be a
-  // spread, which takes own properties only - so everything the site prototype
-  // holds would have been dropped and the reason would read `Expected
-  // undefined`.
   const inner = S.parseOrThrow(S.number);
   const outer = S.schema({
     a: S.unknown.with(S.refine, (value: unknown) => {

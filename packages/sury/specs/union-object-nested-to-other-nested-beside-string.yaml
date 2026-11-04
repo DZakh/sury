@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ o: { t: "a" } }).with(S.to, S.union([S.schema({ o: { t: "b" } }), S.schema({ o: { t: "c" } })])), S.string])'
+  input: 'string | { o: { t: "a"; }; }'
+  output: 'string | { o: { t: "b"; }; } | { o: { t: "c"; }; }'
+  instantiations: 10069
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "a" } }, required: ["t"] } }, required: ["o"] }, { type: "string" }] }'
+  output: '{ anyOf: [{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "b" } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", const: "c" } }, required: ["t"] } }, required: ["o"] }] }, { type: "string" }] }'
+  openapi-3.0:
+    input: '{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["a"] } }, required: ["t"] } }, required: ["o"] }, { type: "string" }] }'
+    output: '{ anyOf: [{ anyOf: [{ type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["b"] } }, required: ["t"] } }, required: ["o"] }, { type: "object", properties: { o: { type: "object", properties: { t: { type: "string", enum: ["c"] } }, required: ["t"] } }, required: ["o"] }] }, { type: "string" }] }'
+isEqual:
+  input: (a,b)=>a===b||!!(typeof a==="object"&&a&&!Array.isArray(a)?typeof b==="object"&&b&&!Array.isArray(b):typeof b==="string"&&a===b)
+  output: (a,b)=>a===b||e[0](a,b)
+compare:
+  input: "throws: [Sury] Can't compare { o: { t: \"a\"; }; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o: { t: \"b\"; }; } | { o: { t: \"c\"; }; } | string. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Can't decode { o: { t: \"a\"; }; } -> { o: { t: \"b\"; }; } | { o: { t: \"c\"; }; }: it holds a value none of them does. Choose one with S.to, such as { o: { t: \"a\"; }; } -> { o: { t: \"b\"; }; }"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{let v6;for(;;){if(typeof i==="string")break;l7:{let v1;for(;;){l5:{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){l2:{let v0=i.o;if(!(typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0.t==="b")){v1=[v1,e[0],v0];break l2}i={o:{t:"a"}};break}l4:{let v3=i.o;if(!(typeof v3==="object"&&v3&&!Array.isArray(v3)&&v3.t==="c")){v1=[v1,e[1],v3];break l4}i={o:{t:"a"}};break}break l5}break}}v6=[v6,e[2](i,v1)];break l7}break}throw e[3](i,v6)}return i}catch(v8){e[4](v8)}}
+    examples:
+      b:
+        input: '{ o: { t: "b" } }'
+        output: '{ o: { t: "a" } }'
+      string:
+        input: '"s"'
+        output: '"s"'

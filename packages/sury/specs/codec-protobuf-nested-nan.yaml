@@ -19,13 +19,13 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[11](i);let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v6=v0.next;Array.isArray(v1)||e[1](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3==v3||e[0](v3,["inner","xs",v2]);}for(;;){if(typeof v6==="object"&&v6&&!Array.isArray(v6)){let v4;try{v4=e[2](v0.next);}catch(v5){v5.path=["inner","next",...v5.path];throw v5}v6=v4;break}if(v6===void 0)break;throw e[3](v6)}v0={xs:v1,next:v6};break}if(v0===void 0)break;throw e[4](v0)}let v7;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[9].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[5](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);x=e[7](x,e[8],f,j,a);e[10](x)}}return v7}catch(v8){e[12](v8)}}
+    expression: i=>{try{typeof i==="object"&&i&&!Array.isArray(i)||e[12](i);let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v6=v0.next;Array.isArray(v1)||e[1](v1);for(let v2=0;v2<v1.length;++v2){let v3=v1[v2];typeof v3==="number"&&v3==v3||e[0](v3,["inner","xs",v2]);}for(;;){if(typeof v6==="object"&&v6&&!Array.isArray(v6)){let v4;try{v4=e[2](v0.next);}catch(v5){e[3](v5,["inner","next"])}v6=v4;break}if(v6===void 0)break;throw e[4](v6)}v0={xs:v1,next:v6};break}if(v0===void 0)break;throw e[5](v0)}let v7;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[10].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[6](w,v);w.end(h)};v7=w.finish()}catch(x){w&&(w.busy=false);x=e[8](x,e[9],f,j,a);e[11](x)}}return v7}catch(v8){e[13](v8)}}
     examples:
       nan-is-not-a-number:
         input: "{ inner: { xs: [1, NaN] } }"
         error: "Failed at inner.xs[1]: Expected number, received NaN"
   decode:
-    expression: i=>{try{let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v4=v0.next;for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)){try{e[0](v0.next);}catch(v3){v3.path=["inner","next",...v3.path];throw v3}break}if(v4===void 0)break;throw e[1](v4)}break}if(v0===void 0)break;throw e[2](v0)}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[7].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[3](w,v);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[5](x,e[6],f,j,a);e[8](x)}}return v5}catch(v6){e[9](v6)}}
+    expression: i=>{try{let v0=i.inner;for(;;){if(typeof v0==="object"&&v0&&!Array.isArray(v0)){let v1=v0.xs,v4=v0.next;for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)){try{e[0](v0.next);}catch(v3){e[1](v3,["inner","next"])}break}if(v4===void 0)break;throw e[2](v4)}break}if(v0===void 0)break;throw e[3](v0)}let v5;{let w,v,j,n,s,h,a,k,g,c,o,f;try{w=e[8].acquire();f=0;v=v0;if(v!=null){w.pos<w.buf.length?w.buf[w.pos++]=10:w.varint32(10);h=w.begin();e[4](w,v);w.end(h)};v5=w.finish()}catch(x){w&&(w.busy=false);x=e[6](x,e[7],f,j,a);e[9](x)}}return v5}catch(v6){e[10](v6)}}
     examples:
       nan-is-trusted:
         input: "{ inner: { xs: [1, NaN], next: { n: 1, next: undefined } } }"
@@ -34,8 +34,8 @@ operations:
         input: "{}"
         output: new Uint8Array([])
   encode:
-    expression: i=>{try{let v0;{let r;try{r=e[1].acquire(i);v0=e[0](r,0);r.busy=false}catch(x){r&&(r.busy=false);e[2](x)}}let v1=v0.inner;if(v1!==void 0){let v11=v1.xs,v13=v1.next;if(v13!==void 0){let v18=v13.next;if(v18!==void 0){try{e[10](v18);}catch(v19){v19.path=["inner","next","next",...v19.path];throw v19}}}}return v0}catch(v20){e[11](v20)}}
+    expression: i=>{try{let v0=void 0;{let r,a0=-1,b0=0,x0,t=-1,p,k,c,g,q,y,d=0,fail=e[0],skip=e[1],m1=e[2];try{r=e[4].acquire(i);while(r.pos<r.limit){t=r.buf[r.pos];if(t<128)r.pos++;else{t=-1;t=r.tag()}switch(t){case 10:p=r.sub();if(a0<0){a0=r.pos;b0=r.limit}else x0=r.more(x0);r.pos=r.limit;r.limit=p;continue;}if(t<8)fail("Invalid protobuf field number 0");skip(r,t&7,t>>>3,0)}if(a0>=0){t=10;g=r.limit;a0<0?r.pos=g:(r.pos=a0,r.limit=b0);v0=m1(r,d+1,x0);r.pos=r.limit=g}r.busy=false}catch(x){r&&(r.busy=false);x=e[5](x,e[3],t);e[6](x)}}let v1={};if(v0!==void 0){v1.inner=v0}return v1}catch(v2){e[7](v2)}}
     examples:
       nan-from-the-wire:
         input: new Uint8Array([10, 18, 10, 16, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 248, 127])
-        output: "{ inner: { xs: [1, NaN] } }"
+        error: "Failed at inner.xs[1]: Expected number, received NaN"

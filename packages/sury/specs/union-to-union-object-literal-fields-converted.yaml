@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ o: S.number.with(S.to, S.string).with(S.to, S.union([S.literal("1").with(S.to, S.literal(1)), S.literal("2").with(S.to, S.literal(2))])) }).with(S.to, S.union([S.schema({ o: S.literal(1), a: S.optional(S.string) }), S.schema({ o: S.literal(2), a: S.optional(S.string) })]))'
+  input: "{ o: number; }"
+  output: "{ o: 1; a?: string | undefined; } | { o: 2; a?: string | undefined; }"
+  instantiations: 14015
+jsonSchema:
+  input: '{ type: "object", properties: { o: { type: "number" } }, required: ["o"] }'
+  output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", const: 1 }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", const: 2 }, a: { type: "string" } }, required: ["o"] }] }'
+  openapi-3.0:
+    output: '{ anyOf: [{ type: "object", properties: { o: { type: "number", enum: [1] }, a: { type: "string" } }, required: ["o"] }, { type: "object", properties: { o: { type: "number", enum: [2] }, a: { type: "string" } }, required: ["o"] }] }'
+isEqual:
+  input: (a,b)=>a===b||a.o===b.o
+  output: (a,b)=>a===b||(a.o===1?b.o===1&&a.a===b.a:b.o===2&&a.a===b.a)
+compare:
+  input: "throws: [Sury] Can't compare { o: number; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { o: 1; a: string | undefined; } | { o: 2; a: string | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "SuryError: Failed at o: Ambiguous 1 | 2 -> 1. 2 isn't 1. Choose with S.to for 2 -> 1, or S.never -> 2, or split what holds it into a union with a member per value"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{try{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){if(i.o===1){let v2=1;let v1="1";let v0=+v1;v0==v0&&(v0||v1.trim())||e[0](v1);v2=v0;i={o:v2};break}if(i.o===2){let v5=2;let v4="2";let v3=+v4;v3==v3&&(v3||v4.trim())||e[1](v4);v5=v3;i={o:v5};break}throw e[2](i)}}else{throw e[2](i)}return i}catch(v6){e[3](v6)}}
+    examples:
+      two:
+        input: "{ o: 2 }"
+        output: "{ o: 2 }"

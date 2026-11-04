@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: '(() => { const refused = (build: () => unknown) => { try { build(); return "built" } catch (e) { return (e as Error).message } }; return S.tuple([S.literal(refused(() => S.union([S.string, (S as any).recursive("A", (self: unknown) => self)]))), S.literal(refused(() => (S as any).recursive("B", (self: unknown) => (S as any).recursive("C", () => self))))]) })()'
+  input: "[string, string]"
+  output: "[string, string]"
+  instantiations: 1740
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" }, { type: "string", const: "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)" }] }'
+  fromInputType: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"]'
+  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" }, { type: "string", const: "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)" }] }'
+  fromOutputType: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"]'
+  draft-2020-12:
+    input: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" }, { type: "string", const: "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+    output: '{ type: "array", minItems: 2, maxItems: 2, prefixItems: [{ type: "string", const: "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" }, { type: "string", const: "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)" }], $schema: "https://json-schema.org/draft/2020-12/schema" }'
+  openapi-3.0:
+    input: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)"] }, { type: "string", enum: ["[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"] }] } }'
+    fromInputType: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" | "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" | "[Sury] B is defined as itself. Bui...'
+    output: '{ type: "array", minItems: 2, maxItems: 2, items: { anyOf: [{ type: "string", enum: ["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)"] }, { type: "string", enum: ["[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"] }] } }'
+    fromOutputType: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" | "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)" | "[Sury] B is defined as itself. Bui...'
+isEqual: alwaysEqual
+compare: alwaysCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{Array.isArray(i)&&i.length===2||e[2](i);let v0=i[0],v1=i[1];v0==="[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)"||e[0](v0);v1==="[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"||e[1](v1);return i}catch(v2){e[3](v2)}}
+    examples:
+      messages:
+        input: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"]'
+        output: '["[Sury] A is defined as itself. Build a schema around the reference, such as S.array(self)", "[Sury] B is defined as itself. Build a schema around the reference, such as S.array(self)"]'
+  decode: identity
+  encode: identity
