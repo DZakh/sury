@@ -18,7 +18,7 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0=0;{let j=i,t=-1,k,v,c,n,p,y,x,d=0,fail=e[0],$e=e[1],$u=e[3],$j=e[5];try{$j(j);for(k in j){switch(k){case "kind":t=8;v=j[k];if(v!==null){v=$e(v,e[2],1);v0=v;}continue;}t=-1;x&&k==="@type"||$u(k)}}catch(x){x=e[6](x,e[4],t);e[7](x)}}return {kind:v0}}catch(v1){e[8](v1)}}
+    expression: i=>{try{let v0=0;{let j=i,t=-1,k,v,c,n,p,y,x,d=0,fail=e[0],$e=e[1],$u=e[3],$j=e[5];try{$j(j);for(k in j){switch(k){case "kind":t=8;v=j[k];if(v!==null){v0=$e(v,e[2],1);}continue;}t=-1;x&&k==="@type"||$u(k)}}catch(x){x=e[6](x,e[4],t);e[7](x)}}return {kind:v0}}catch(v1){e[8](v1)}}
     examples:
       name:
         input: '{ kind: "KIND_B" }'

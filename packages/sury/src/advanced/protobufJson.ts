@@ -422,7 +422,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       }
       locals.push([value, field.name !== U ? "void 0" : emitDefault(field)]);
       const oneof = JSON.stringify(`oneof "${field.oneof ?? field.key}"`);
-      cases.push(`${head}${unlessNull(present("v", `if(${set})${h("$t")}(${oneof});${mark};${value}=v`))}continue;`);
+      cases.push(`${head}${unlessNull(skips ? present("v", `if(${set})${h("$t")}(${oneof});${mark};${value}=v`) : `${value}=${read("v")};if(${set})${h("$t")}(${oneof});${mark};`)}continue;`);
       continue;
     }
     locals.push([value, emitDefault(field)]);
@@ -438,7 +438,7 @@ const readParts = (msg: Message, local: (kind: string, idx: number) => string, f
       // it does for bytes no element of the list was read from.
       cases.push(`${head}if(v!==null){t=${field.number * 8 + 7};${h("$a")}(v);t=${field.number * 8 + field.wire};for(n=0;n<v.length;n++){c=v[n];${item("c", (c) => `${value}.push(${c})`, "list item")}}}continue;`);
     } else {
-      cases.push(`${head}${unlessNull(present("v", `${value}=v`))}continue;`);
+      cases.push(`${head}${unlessNull(skips ? present("v", `${value}=v`) : `${value}=${read("v")};`)}continue;`);
       if (field.type === "message" && !field.optional) after += `if(${value}===void 0){t=${field.number * 8 + 2};${value}=${fn(field.message!)}(void 0,d+1)}`;
     }
   }
