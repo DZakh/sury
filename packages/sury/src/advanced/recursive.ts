@@ -14,6 +14,7 @@ import {
   B_let,
   B_embed,
   B_invalidOperation,
+  B_markOutput,
   B_mergeWithPathPrepend,
   B_nextVar,
   B_refine,
@@ -133,7 +134,7 @@ export const recursiveDecoder: Builder = (input) => {
       // has nothing to add.
       if (input.path.length) {
         B_asyncTry(output, call, B_embed(output, rethrowWithPath), `,${pathExpr(input.path)}`);
-        return output;
+        return B_markOutput(output, output);
       }
     }
     outputDecl = B_let(input.g, output.i);
@@ -151,7 +152,9 @@ export const recursiveDecoder: Builder = (input) => {
   output.fz = U;
   output.prev = input;
 
-  return output;
+  // Input checks go on `output`, not `input`: B_markOutput emits them against
+  // `valInput.prev`, and that is `input` here.
+  return B_markOutput(output, output);
 };
 
 // @__NO_SIDE_EFFECTS__

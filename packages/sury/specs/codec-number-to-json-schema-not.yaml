@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.number.with(S.to, S.fromJSONSchemaOrThrow({ type: "string", not: { const: "5" } }))'
+  input: number
+  output: string
+  instantiations: 22247
+jsonSchema:
+  input: '{ type: "number" }'
+  output: '{ type: "string", not: { const: "5" } }'
+isEqual: strictEqual
+compare: strictCompare
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{try{typeof i==="number"&&i==i||e[2](i);let v0=""+i;e[0](v0)||e[1](v0);return v0}catch(v1){e[3](v1)}}
+    examples:
+      excluded:
+        input: "5"
+        error: Should NOT be valid against schema in the not property.
+      other:
+        input: "6"
+        output: '"6"'
+  decode:
+    expression: i=>{try{let v0=""+i;e[0](v0)||e[1](v0);return v0}catch(v1){e[2](v1)}}
+    examples:
+      excluded:
+        input: "5"
+        error: Should NOT be valid against schema in the not property.
+      other:
+        input: "6"
+        output: '"6"'
+  encode:
+    expression: i=>{try{e[0](i)||e[2](i);let v0=+i;v0==v0&&(v0||i.trim())||e[1](i);return v0}catch(v1){e[3](v1)}}
+    examples:
+      excluded:
+        input: '"5"'
+        error: Should NOT be valid against schema in the not property.
+      other:
+        input: '"6"'
+        output: "6"
