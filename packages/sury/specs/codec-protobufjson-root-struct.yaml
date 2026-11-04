@@ -18,18 +18,18 @@ vs:
     _skip: not-applicable
 operations:
   parse:
-    expression: i=>{try{let v0={};{let j=i,t=-1,k,v,c,n,p,y,x,d=0,fail=e[0],$j=e[1],m1=e[2];try{$j(j);for(k in j){switch(k){case "fields":t=10;v=j[k];if(v!==null){$j(v);for(p in v){y=void 0;c=v[p];y=p;c=m1(c,d+1);y==="__proto__"?Object.defineProperty(v0,y,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[y]=c;}}continue;}}}catch(x){x=e[4](x,e[3],t,y);e[5](x)}}return {fields:v0}}catch(v1){e[6](v1)}}
+    expression: i=>{try{let v0={};{let j=i,t=-1,k,v,c,n,p,y,x,d=0,fail=e[0],$j=e[1],m1=e[2];try{j=e[4](j);$j(j);for(k in j){switch(k){case "fields":t=10;v=j[k];if(v!==null){$j(v);for(p in v){y=void 0;c=v[p];y=p;c=m1(c,d+1);y==="__proto__"?Object.defineProperty(v0,y,{value:c,enumerable:!0,writable:!0,configurable:!0}):v0[y]=c;}}continue;}}}catch(x){x=e[5](x,e[3],t,y);e[6](x)}}return {fields:v0}}catch(v1){e[7](v1)}}
     examples:
       object:
         input: "{ a: 1, b: { c: [null, true] } }"
-        output: "{ fields: {} }"
+        output: "{ fields: { a: 1, b: { c: [null, true] } } }"
       empty:
         input: "{}"
         output: "{ fields: {} }"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v0=i.fields;let v2;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=v0;a=Object.keys(v);n=a.length;if(n){q={};j=0;while(j<n){k=a[j++];c=v[k];k==="__proto__"?Object.defineProperty(q,k,{value:e[0](c),enumerable:!0,writable:!0,configurable:!0}):q[k]=e[0](c)}J.fields=q};v2=J}catch(x){x=e[1](x,e[2],f,j,a);e[3](x)}}return v2}catch(v3){e[4](v3)}}
+    expression: i=>{try{let v0=i.fields;let v2;{let v,j,n,s,a,k,c,o,q,J={},f;try{f=0;v=v0;a=Object.keys(v);n=a.length;if(n){q={};j=0;while(j<n){k=a[j++];c=v[k];k==="__proto__"?Object.defineProperty(q,k,{value:e[0](c),enumerable:!0,writable:!0,configurable:!0}):q[k]=e[0](c)}J.fields=q};v2=e[3](J)}catch(x){x=e[1](x,e[2],f,j,a);e[4](x)}}return v2}catch(v3){e[5](v3)}}
     examples:
       object:
         input: "{ fields: { a: 1 } }"
-        output: "{ fields: { a: 1 } }"
+        output: "{ a: 1 }"

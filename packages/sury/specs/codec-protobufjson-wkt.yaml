@@ -46,10 +46,10 @@ operations:
         error: 'Failed at at: Expected Timestamp, received "0000-12-31T23:59:59Z"'
       timestamp-day-rolls-over:
         input: '{ at: "2020-02-30T00:00:00Z" }'
-        output: '{ at: new Date("2020-03-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+        error: 'Failed at at: Expected Timestamp, received "2020-02-30T00:00:00Z"'
       timestamp-hour-24:
         input: '{ at: "2020-01-01T24:00:00Z" }'
-        output: '{ at: new Date("2020-01-02T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [] }'
+        error: 'Failed at at: Expected Timestamp, received "2020-01-01T24:00:00Z"'
       timestamp-not-string:
         input: "{ at: 0 }"
         error: "Failed at at: Expected Timestamp, received 0"
@@ -86,7 +86,7 @@ operations:
         error: "Failed at at: Expected Timestamp, received +010000-01-01T00:00:00.000Z"
       mask-empty-path:
         input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: [""] }'
-        output: '{ at: "1970-01-01T00:00:00Z", took: "0s", payload: null, meta: {}, mask: "" }'
+        error: 'Failed at mask: Expected FieldMask path, received ""'
       mask-path-irreversible:
         input: '{ at: new Date("1970-01-01T00:00:00.000Z"), took: { seconds: 0n, nanos: 0 }, payload: null, meta: {}, mask: ["foo__bar"] }'
         error: 'Failed at mask: Expected FieldMask path, received "foo__bar"'

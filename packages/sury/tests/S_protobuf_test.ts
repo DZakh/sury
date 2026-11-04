@@ -993,3 +993,9 @@ test("an Any holding its own message counts toward the nesting limit", (t) => {
   }
   t.expect(() => S.decodeOrThrow(S.protobuf, Node)(bytes)).toThrow("Protobuf message nesting limit exceeded");
 });
+
+test("S.toProtoOrThrow names the message, not the S.protobufJson link before it", (t) => {
+  const user = S.meta(S.schema({ a: S.int32.with(S.protobufField, 1) }), { name: "User" });
+  t.expect(S.toProtoOrThrow(S.protobufJson.with(S.to, user))).toBe(S.toProtoOrThrow(S.protobuf.with(S.to, user)));
+  t.expect(S.toProtoOrThrow(S.protobufJson.with(S.to, user))).toContain("message User {");
+});

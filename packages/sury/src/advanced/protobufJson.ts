@@ -1,4 +1,4 @@
-import { type Internal, numberTag, objectTag, stringify, U, unknown, unknownTag, type Val } from "../base";
+import { type Internal, numberTag, objectTag, panic, stringify, U, unknown, unknownTag, type Val } from "../base";
 import {
   _var,
   B_embed,
@@ -133,7 +133,8 @@ const durationMax = 315576000000;
 
 const timestampOf = (value: unknown): [seconds: number, nanos: number] => {
   const match = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(value) : null;
-  const ms = match === null ? NaN : Date.parse(match[1]! + match[3]);
+  // `Date.parse` rolls February 30th over into March, which no RFC 3339 reader does.
+  const ms = match === null || new Date(Date.parse(match[1] + "Z")).toISOString().slice(0, 19) !== match[1] ? NaN : Date.parse(match[1]! + match[3]);
   const seconds = ms / 1000;
   if (!(seconds >= timestampMin && seconds <= timestampMax)) return bad("Timestamp", value);
   return [seconds, match![2] === U ? 0 : +match![2].padEnd(9, "0")];
@@ -193,7 +194,7 @@ const maskText = (paths: unknown): string =>
   (paths as unknown[])
     .map((path) => {
       const camel = typeof path === "string" ? jsonFieldName(path) : U;
-      return camel !== U && snake(camel) === path ? camel : fail(`Expected FieldMask path, received ${stringify(path)}`);
+      return camel && snake(camel) === path ? camel : fail(`Expected FieldMask path, received ${stringify(path)}`);
     })
     .join(",");
 
@@ -279,6 +280,15 @@ const forms: Record<string, Form> = /* @__PURE__ */ (() => {
 
 const formOf = (msg: Message): Form | undefined =>
   msg.codec !== U || msg.unwrap ? U : forms[(msg.wellKnown ?? msg.typeName)!];
+
+// The root is the JSON object `S.protobufJson` is, which of the forms only a
+// Struct prints as.
+const rootForm = (msg: Message): Form | undefined => {
+  const type = msg.wellKnown ?? msg.typeName;
+  const form = formOf(msg);
+  return form === U || type === "google.protobuf.Struct" ? form
+    : panic(`S.protobufJson: ${type} is no JSON object in ProtoJSON, so it can't be the message itself. Hold it in a field`);
+};
 
 const anyTypeName = "google.protobuf.Any";
 
@@ -620,6 +630,7 @@ const protobufJsonDecoder = (input: Val): Val => {
   const source = objectSchemaOf(input);
   if (!leadsToMessage(source)) return objectDecoder(input);
   const message = compileMessage(source, newCtx(false, true))!;
+  const form = rootForm(message);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const encoders = compileEncoders(message, fns, input.g.o);
@@ -644,7 +655,7 @@ const protobufJsonDecoder = (input: Val): Val => {
   const output = B_next(input, outVar, input.e, input.e);
   output.v = _var;
   const frame = fails ? `x=${B_embedPure(input, encodeFrame)}(x,${B_embedPure(input, message)},f,j,a);` : "";
-  output.cp = `${head}${B_let(input.g, outVar)}{let v,j,n,s,a,k,c,o,q,J={}${fails ? ",f" : ""};${guarded(input, output, input.e, `${body};${outVar}=J`, frame)}}`;
+  output.cp = `${head}${B_let(input.g, outVar)}{let v,j,n,s,a,k,c,o,q,J={}${fails ? ",f" : ""};${guarded(input, output, input.e, `${body};${outVar}=${form !== U ? `${B_embedPure(input, form[1])}(J)` : "J"}`, frame)}}`;
   output.io = true;
   return output;
 };
@@ -654,6 +665,7 @@ const protobufJsonDecoder = (input: Val): Val => {
 const protobufJsonEncoder = (input: Val, target: Internal): Val => {
   if (!leadsToMessage(target)) return input;
   const message = compileMessage(target, newCtx(true))!;
+  const form = rootForm(message);
   const fns = new Map<Message, string>();
   nameMessages(message, fns);
   const readers = compileDecoder(message, fns, input.g.o);
@@ -679,7 +691,7 @@ const protobufJsonEncoder = (input: Val, target: Internal): Val => {
   for (const [name, init] of inits) B_hoistDecl(input, name, init);
   const at = B_embedPure(input, message);
   const read = B_next(input, "", target, target);
-  const code = guarded(input, read, target, `${h("$j")}(j);${loop}`, `x=${B_embedPure(input, wireFrame)}(x,${at},t${frame});`);
+  const code = guarded(input, read, target, `${form !== U ? `j=${B_embedPure(input, form[0])}(j);` : ""}${h("$j")}(j);${loop}`, `x=${B_embedPure(input, wireFrame)}(x,${at},t${frame});`);
   read.cp = `{let j=${input.v()},t=-1,k,v,c,n,p,y,x${temps.map((temp) => `,${temp}`).join("")}${declared};${code}}`;
   return valueOf(read, message, local);
 };

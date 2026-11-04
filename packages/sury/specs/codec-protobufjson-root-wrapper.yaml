@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.protobufJson.with(S.to, S.schema({ value: S.bigint.with(S.protobufField, 1) }).with(S.protobufTypeName, "google.protobuf.Int64Value"))'
+  input: "{ [key: string]: JSON; }"
+  output: "{ value: bigint; }"
+  instantiations: 6248
+jsonSchema:
+  input: '{ type: "object" }'
+  output: "Failed at value: Expected JSON, received bigint"
+isEqual:
+  input: (a,b)=>{if(a===b)return true;let n=0;for(const k in a){if(!(k in b)||!(e[0](a[k],b[k])))return false;n++}for(const k in b)n--;return !n}
+  output: (a,b)=>a===b||a.value===b.value
+compare:
+  input: "throws: [Sury] Can't compare ProtoJSON. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+  output: "throws: [Sury] Can't compare { value: bigint; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
+vs:
+  zod:
+    _skip: not-applicable
+operations:
+  parse:
+    creationError: "Error: [Sury] S.protobufJson: google.protobuf.Int64Value is no JSON object in ProtoJSON, so it can't be the message itself. Hold it in a field"
+  decode: eq-to-parse
+  encode: eq-to-parse

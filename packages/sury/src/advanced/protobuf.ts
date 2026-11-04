@@ -3286,7 +3286,8 @@ const typeKey = (proto: Proto, use: Use): unknown => {
 const chainMeta = (schema: Internal, shape: Internal): Meta & { name?: string; protobufTypeName?: string } => {
   const meta: Meta & { name?: string; protobufTypeName?: string } = {};
   for (let current: Internal | undefined = schema; current !== U; current = current.to) {
-    if (meta.name === U) meta.name = current.name;
+    // A wire's own name (`S.protobufJson`'s) names no message.
+    if (meta.name === U && !(current.flags & 256)) meta.name = current.name;
     if (meta.protobufTypeName === U) meta.protobufTypeName = current.protobufTypeName;
     if (meta.description === U) meta.description = current.description;
     if (meta.deprecated === U) meta.deprecated = current.deprecated;
