@@ -667,6 +667,7 @@ type rkyvType = [
   | #i64
   | #u128
   | #i128
+  | #U256
   | #f32
   | #f64
   | #char

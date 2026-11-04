@@ -60,6 +60,7 @@ export type RkyvType =
   | "i64"
   | "u128"
   | "i128"
+  | "U256"
   | "f32"
   | "f64"
   | "char"
@@ -109,6 +110,8 @@ const numbers: Record<string, [size: number, big: boolean, min?: number, max?: n
   i64: [8, true],
   u128: [16, true],
   i128: [16, true],
+  // alloy's and ruint's U256, archived as four little-endian u64 limbs.
+  U256: [32, true],
 };
 
 const alignUp = (n: number, a: number): number => (n + a - 1) & -a;
@@ -208,7 +211,9 @@ const layoutOf = (schema: Internal, ctx: Ctx): Layout => {
     case bigintTag: {
       const t = type ?? "i64";
       if (numbers[t]?.[1] !== true) return panic(`S.rkyvType ${t} can't store a bigint`);
-      return leaf(1, t, numbers[t]![0], bigint);
+      const layout = leaf(1, t, numbers[t]![0], bigint);
+      if (t === "U256") layout.a = 8;
+      return layout;
     }
     case booleanTag:
       return leaf(2, "bool", 1, bool);
@@ -428,8 +433,11 @@ const reads: Record<string, (p: string) => string> = {
   f64: (p) => `d.getFloat64(${p},true)`,
   u64: (p) => `d.getBigUint64(${p},true)`,
   i64: (p) => `d.getBigInt64(${p},true)`,
-  u128: (p) => `(d.getBigUint64(${p}+8,true)<<64n|d.getBigUint64(${p},true))`,
+  // A value that fits 64 bits, as most do, costs one BigInt rather than three.
+  u128: (p) => `(d.getUint32(${p}+8,true)|d.getUint32(${p}+12,true)?d.getBigUint64(${p}+8,true)<<64n|d.getBigUint64(${p},true):d.getBigUint64(${p},true))`,
   i128: (p) => `(d.getBigInt64(${p}+8,true)<<64n|d.getBigUint64(${p},true))`,
+  U256: (p) =>
+    `(d.getUint32(${p}+8,true)|d.getUint32(${p}+12,true)|d.getUint32(${p}+16,true)|d.getUint32(${p}+20,true)|d.getUint32(${p}+24,true)|d.getUint32(${p}+28,true)?((d.getBigUint64(${p}+24,true)<<64n|d.getBigUint64(${p}+16,true))<<64n|d.getBigUint64(${p}+8,true))<<64n|d.getBigUint64(${p},true):d.getBigUint64(${p},true))`,
 };
 
 const at = (p: string, off: number): string => (off === 0 ? p : `${p}+${off}`);
@@ -577,7 +585,7 @@ const compileReader = (root: Layout, fns: Layout[]): ((bytes: Uint8Array) => unk
   const gen = freshGen(tables);
   const scope = newScope(gen);
   const [code, value] = emitRead(gen, scope, root, "p", "p", []);
-  src += `return function(i){b=i;d=new DataView(i.buffer,i.byteOffset,i.byteLength);let p=i.length-${root.s};if(p<0)F("rkyv ${root.t} needs ${root.s} bytes, received "+i.length);if(p&${root.a - 1})F("Unaligned rkyv root");lo=0;${fnBody(gen, scope, code, value)}}`;
+  src += `return function(i){b=i.constructor===Uint8Array?i:new Uint8Array(i.buffer,i.byteOffset,i.byteLength);d=new DataView(i.buffer,i.byteOffset,i.byteLength);let p=i.length-${root.s};if(p<0)F("rkyv ${root.t} needs ${root.s} bytes, received "+i.length);if(p&${root.a - 1})F("Unaligned rkyv root");lo=0;${fnBody(gen, scope, code, value)}}`;
   const factory = new Function(
     "F",
     "P",
@@ -615,6 +623,8 @@ const writes: Record<string, (p: string, v: string) => string> = {
   i64: (p, v) => `wd.setBigInt64(${p},${v},true)`,
   u128: (p, v) => `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigUint64(${p}+8,BigInt.asUintN(64,${v}>>64n),true)`,
   i128: (p, v) => `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigInt64(${p}+8,BigInt.asIntN(64,${v}>>64n),true)`,
+  U256: (p, v) =>
+    `wd.setBigUint64(${p},BigInt.asUintN(64,${v}),true),wd.setBigUint64(${p}+8,BigInt.asUintN(64,${v}>>64n),true),wd.setBigUint64(${p}+16,BigInt.asUintN(64,${v}>>128n),true),wd.setBigUint64(${p}+24,${v}>>192n,true)`,
 };
 
 const ranges: Record<string, (v: string) => string> = {
@@ -628,6 +638,7 @@ const ranges: Record<string, (v: string) => string> = {
   i64: (v) => `BigInt.asIntN(64,${v})===${v}`,
   u128: (v) => `BigInt.asUintN(128,${v})===${v}`,
   i128: (v) => `BigInt.asIntN(128,${v})===${v}`,
+  U256: (v) => `BigInt.asUintN(256,${v})===${v}`,
 };
 
 const rangeCheck = (scope: Scope, layout: Layout, v: string, path: Path): string => {
@@ -923,7 +934,10 @@ const rkyvDecoder: Builder = (input) => {
     return input.s.class === Uint8Array || (input.s.class as Function).prototype instanceof Uint8Array
       ? B_refine(input, input.e)
       : B_unsupportedDecode(input, input.s, input.e);
-  const entry = compiledOf(input.s);
+  // A union holding a recursive member reaches here rebuilt, without the
+  // S.rkyvType the schema it was decoded against carries.
+  const declared = input.prev?.e;
+  const entry = compiledOf(input.s.rkyvType === U && declared?.rkyvType !== U && declared!.type === input.s.type ? declared! : input.s);
   const write = (entry.write ??= compileWriter(entry.layout, entry.fns));
   const output = B_next(input, B_varWithoutAllocation(input.g), input.e, input.e);
   output.v = _var;

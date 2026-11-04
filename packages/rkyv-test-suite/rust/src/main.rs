@@ -16,6 +16,9 @@ macro_rules! dump_int {
 }
 dump_int!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128);
 
+impl Dump for ruint::aliases::U256 {
+    fn dump(&self, o: &mut String) { write!(o, "{}", self).unwrap() }
+}
 impl Dump for f32 {
     fn dump(&self, o: &mut String) {
         if self.is_nan() { o.push_str("nan") } else { write!(o, "{:08x}", self.to_bits()).unwrap() }

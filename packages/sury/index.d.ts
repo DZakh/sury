@@ -754,6 +754,7 @@ export type RkyvType =
   | "i64"
   | "u128"
   | "i128"
+  | "U256"
   | "f32"
   | "f64"
   | "char"
@@ -762,8 +763,9 @@ export type RkyvType =
 
 /**
  * The Rust type `S.rkyv` stores the schema as, where the schema implies
- * another: an integer width, `f32`, `char` for a one-character string, or
- * `Box` to put a value behind a pointer, as a recursive type needs.
+ * another: an integer width, `U256` (alloy's and ruint's) for a bigint, `f32`,
+ * `char` for a one-character string, or `Box` to put a value behind a pointer,
+ * as a recursive type needs.
  */
 export function rkyvType<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,

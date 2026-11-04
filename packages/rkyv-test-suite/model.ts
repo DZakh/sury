@@ -5,7 +5,7 @@
 
 import * as S from "sury";
 
-export type Num = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "f32" | "f64";
+export type Num = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" | "u128" | "i128" | "U256" | "f32" | "f64";
 
 export type T =
   | { k: "num"; r: Num; as: "int32" | "number" | "bigint" | "integer"; nan?: boolean }
@@ -59,6 +59,7 @@ const numberTypes: [Num, "int32" | "number" | "bigint" | "integer"][] = [
   ["i64", "bigint"],
   ["u128", "bigint"],
   ["i128", "bigint"],
+  ["U256", "bigint"],
 ];
 
 const key = (r: Rng, idx: number) => `${r.pick(["a", "id", "name", "x", "value", "items", "next"])}${idx}`;
@@ -227,7 +228,7 @@ const mentions = (t: T, self: string): boolean => {
 export const toRust = (t: T, defs: string[], self?: string): string => {
   switch (t.k) {
     case "num":
-      return t.r;
+      return t.r === "U256" ? "ruint::aliases::U256" : t.r;
     case "bool":
       return "bool";
     case "char":
@@ -298,6 +299,7 @@ const intRanges: Record<string, [bigint, bigint]> = {
   i64: [-(2n ** 63n), 2n ** 63n - 1n],
   u128: [0n, 2n ** 128n - 1n],
   i128: [-(2n ** 127n), 2n ** 127n - 1n],
+  U256: [0n, 2n ** 256n - 1n],
 };
 
 const randomBig = (r: Rng, lo: bigint, hi: bigint): bigint => {
@@ -307,7 +309,7 @@ const randomBig = (r: Rng, lo: bigint, hi: bigint): bigint => {
   if (roll === 2) return lo < 0n ? -1n : 1n;
   if (roll === 3) return 0n;
   let x = 0n;
-  for (let idx = 0; idx < 5; idx++) x = (x << 32n) | BigInt(r.int(0, 4294967295));
+  for (let idx = 0; idx < 9; idx++) x = (x << 32n) | BigInt(r.int(0, 4294967295));
   return lo + (x % (hi - lo + 1n));
 };
 
