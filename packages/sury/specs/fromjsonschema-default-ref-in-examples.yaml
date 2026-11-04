@@ -2,13 +2,11 @@
 ts:
   schema: 'S.fromJSONSchemaOrThrow({ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { type: "number", default: 5 } }, default: { v: 1 }, examples: [{ v: 2, w: 3, $ref: "#/x" }] } } })'
   input: "{ next?: { v?: number | undefined; w?: number | undefined; } | undefined; }"
-  # FIXME: a $ref inside examples selects the Input check, so next reads as required though the runtime drops its default
-  output: "{ next: { w: number; v?: number | undefined; }; }"
-  instantiations: 3972
+  output: "{ next?: { w: number; v?: number | undefined; } | undefined; }"
+  instantiations: 3903
 jsonSchema:
   input: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { default: 5, type: "number" } }, examples: [{ v: 2, w: 3 }], default: { v: 1 } } } }'
   output: '{ type: "object", properties: { next: { type: "object", properties: { v: { type: "number" }, w: { type: "number", default: 5 } }, required: ["w"], examples: [{ v: 2, w: 3 }], default: { v: 1 } } } }'
-  fromOutputType: "{ next?: { w: number; v?: number | undefined; } | undefined; }"
 isEqual: (a,b)=>a===b||(a.next===void 0?b.next===void 0:b.next!==void 0&&a.next.v===b.next.v&&a.next.w===b.next.w)
 compare:
   input: "throws: [Sury] Can't compare { next: { v: number | undefined; w: number | undefined; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

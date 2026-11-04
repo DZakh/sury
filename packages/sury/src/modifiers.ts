@@ -511,21 +511,36 @@ const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Inte
     const originalItems: Internal[] = [];
     let unbuilt: Internal | undefined;
 
+    let opaque = false;
+
     // The definition being built is left out of the check: a default read as
     // it would find the same absent field in it, and read its default, without
-    // end. The arms already built answer instead. S.option keeps a union item
-    // whole as one arm, so the ref can sit a level down; only then is that
-    // arm opened, so a union's own refinement still checks the default.
-    const isUnbuilt = (outputSchema: Internal): boolean =>
-      outputSchema.type === refTag && !outputSchema.definition!();
-    const check = (variant: Internal): void => {
+    // end. The arms already built answer instead. A union kept whole as one
+    // arm (S.option's item, a described union) can hold the ref at any depth,
+    // so each is opened down to it; one with its own refinement can't be split
+    // without dropping that check, so the default is refused there.
+    const unbuiltIn = (variant: Internal): Internal | undefined => {
       const outputSchema = getOutputSchema(variant);
-      if (isUnbuilt(outputSchema)) {
-        unbuilt = outputSchema;
-      } else if (outputSchema === variant && variant.anyOf?.some((arm) => isUnbuilt(getOutputSchema(arm)))) {
-        variant.anyOf.forEach(check);
-      } else if (outputSchema.type !== undefinedTag) {
-        originalItems.push(variant);
+      if (outputSchema.type === refTag && !outputSchema.definition!()) return outputSchema;
+      if (outputSchema === variant && variant.anyOf) {
+        for (const arm of variant.anyOf) {
+          const found = unbuiltIn(arm);
+          if (found) return found;
+        }
+      }
+      return U;
+    };
+    const check = (variant: Internal): void => {
+      const found = unbuiltIn(variant);
+      if (found === U) {
+        if (getOutputSchema(variant).type !== undefinedTag) originalItems.push(variant);
+      } else if (found === variant || getOutputSchema(variant) === found) {
+        unbuilt = found;
+      } else if (variant.refiner || variant.inputRefiner) {
+        unbuilt = found;
+        opaque = true;
+      } else {
+        variant.anyOf!.forEach(check);
       }
     };
 
@@ -549,7 +564,7 @@ const getOrArms = (schema: Internal, default_: OptionDefault, peel?: Peel): Inte
           ? outputItems[0]!
           : unionFactory(outputItems);
 
-    if (default_.type === "value" && originalItems.length) {
+    if (default_.type === "value" && originalItems.length && !opaque) {
       try {
         setDefault(
           mut,

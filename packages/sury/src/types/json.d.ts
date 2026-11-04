@@ -543,10 +543,14 @@ type JSONSchemaOutputRequiredKeys<S, P, D, M extends boolean> = Extract<
     }[keyof P]
 >;
 
+// Only schema-valued keywords: a `$ref` key inside a value (`examples`, `const`,
+// `default`, `enum`) is data, not a reference.
 type JSONSchemaHasRef<S> = S extends { $ref: unknown }
   ? true
   : S extends object
-    ? true extends { [K in keyof S]: JSONSchemaHasRef<S[K]> }[keyof S]
+    ? true extends {
+        [K in keyof S]: K extends "examples" | "const" | "default" | "enum" ? false : JSONSchemaHasRef<S[K]>;
+      }[keyof S]
       ? true
       : false
     : false;
