@@ -18,6 +18,7 @@ const FILES = [
   "README.md",
   "bin/protoc-gen-sury/index.mjs",
   "docs/js-protobuf.md",
+  "docs/js-rkyv.md",
   "docs/js-usage.md",
   "docs/rescript-protobuf.md",
   "docs/rescript-usage.md",
@@ -240,7 +241,7 @@ describeArtifact("artifact", () => {
       api.add(name);
     }
     const unknown = new Set<string>();
-    for (const file of ["README.md", "docs/js-usage.md", "docs/js-protobuf.md"]) {
+    for (const file of ["README.md", "docs/js-usage.md", "docs/js-protobuf.md", "docs/js-rkyv.md"]) {
       // The README's "Coming next:" sentence names API that doesn't exist yet
       // on purpose; nothing else in the docs may.
       const text = read(file).replace(/Coming next:[^\n]*/, "");

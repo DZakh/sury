@@ -1537,6 +1537,27 @@ let userSchema = S.schema(s => {
 Oneofs as variants, well-known types, `toProtoOrThrow` and generating modules
 from `.proto`: [Protocol Buffers](./rescript-protobuf.md).
 
+### **rkyv**
+
+`S.rkyv` reads and writes [rkyv](https://rkyv.org) archives, the zero-copy
+format of Rust's `rkyv` crate. The schema describes the Rust type, fields in
+declaration order, and `S.rkyvType` picks a width the schema doesn't imply:
+
+```rescript
+// #[derive(Archive)] struct User { id: i32, name: String, flags: u8 }
+type user = {id: int, name: string, flags: int}
+
+let userSchema = S.schema(s => {
+  id: s.matches(S.int),
+  name: s.matches(S.string),
+  flags: s.matches(S.int->S.rkyvType(#u8)),
+})
+
+{id: 150, name: "Ada", flags: 1}->S.convertOrThrow(~from=userSchema, ~to=S.rkyv)
+```
+
+Enums, `Box` and recursive types: [rkyv](./js-rkyv.md).
+
 ### **`meta`**
 
 `(S.t<'value>, S.meta) => S.t<'value>`

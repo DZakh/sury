@@ -1617,7 +1617,6 @@ export const unionDecoder: Builder = (input: Val) => {
   // custom parser owns the conversion, or when the target is the `noValidation`
   // sentinel `S.assertInputOrThrow` appends: fusing that into every case replaces each
   // member's own check with the sentinel's, which silently breaks dispatch.
-  // None either for a target that takes the union whole (flag 65536).
   // Left alone, it converts the union's assembled output once instead.
   const toPerCase =
     self.parser === U && self.to !== U && self.to.noValidation !== true && !(self.to.flags & 65536) ? self.to : U;

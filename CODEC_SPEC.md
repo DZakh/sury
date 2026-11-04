@@ -305,7 +305,7 @@ S.union(["a", "b", S.literal("c").with(S.to, S.never)]).with(S.to, S.union(["a",
 ```
 
 A target union described with `S.meta`, numbered with `S.protobufField`,
-named with `S.protobufTypeName`, reshaped with `S.shape` or carried on with
+named with `S.protobufTypeName`, typed with `S.rkyvType`, reshaped with `S.shape` or carried on with
 `S.to` is still a union here, and what it does after its member runs after
 whichever member takes the value:
 
@@ -433,6 +433,35 @@ S.arrayBuffer.with(S.to, S.protobuf);                                    // S.ar
 The specs, in order: `codec-uint8array-protobuf-chain`,
 `codec-buffer-protobuf-chain`, `codec-protobuf-uint8array-protobuf-chain`,
 `codec-arraybuffer-protobuf-chain`.
+
+## rkyv
+
+A schema converts to and from `S.rkyv` as the Rust type it describes. The
+archive holds that type, so a target's own refinements and transforms run on
+what the archive holds, as they would on any typed source:
+
+```ts
+S.rkyv.with(S.to, S.schema({ id: S.string.with(S.to, S.bigint) })); // a String in Rust, a bigint here
+```
+
+A union converts whole: an enum or an `Option` is one value in the archive, so
+a union reaching `S.rkyv` is not split into one conversion per member.
+
+```ts
+S.union(["a", "b"]).with(S.to, S.rkyv);   // "b" is [1], one enum
+S.nullable(S.string).with(S.to, S.rkyv);  // null is Option::None
+```
+
+Bytes on either side of `S.rkyv` are an archive already and pass as they are,
+as with `S.protobuf`, unless `S.rkyvType` names the Rust type they hold:
+
+```ts
+S.uint8Array.with(S.to, S.rkyv);                               // passes as it is
+S.uint8Array.with(S.rkyvType, "Box").with(S.to, S.rkyv);       // a Box<Vec<u8>>
+```
+
+The specs: `codec-rkyv-refined`, `codec-rkyv-enum-root`,
+`codec-rkyv-option-root`, `rkyv`, `codec-rkyv-boxed-bytes-root`.
 
 ## Protobuf oneof
 

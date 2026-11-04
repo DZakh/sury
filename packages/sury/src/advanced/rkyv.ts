@@ -173,6 +173,9 @@ const layoutOf = (schema: Internal, ctx: Ctx): Layout => {
     // a union around it than the schema the value is decoded to.
     return { k: 10, t: "Box", s: 4, a: 4, w: held.w === inner ? schema : held.w, i: held };
   }
+  if (type !== U && ("const" in schema || !(tagFlags[schema.type]! & (2 | 4 | 1024)))) {
+    return panic(`S.rkyvType ${type} can't store ${inputExpression(schema)}`);
+  }
   if ("const" in schema) return literal(schema.const, schema);
   switch (schema.type) {
     case refTag: {
@@ -242,9 +245,14 @@ const layoutOf = (schema: Internal, ctx: Ctx): Layout => {
   return unrepresentable(schema);
 };
 
+// Defined rather than assigned, so a `__proto__` field stays a field.
+const own = (definition: Record<string, unknown>, key: string, value: unknown): void => {
+  Object.defineProperty(definition, key, { value, enumerable: true, writable: true, configurable: true });
+};
+
 const objectWire = (keys: string[], fields: Layout[]): Internal => {
   const definition: Record<string, Internal> = {};
-  for (let idx = 0; idx < keys.length; idx++) definition[keys[idx]!] = fields[idx]!.w;
+  for (let idx = 0; idx < keys.length; idx++) own(definition, keys[idx]!, fields[idx]!.w);
   return definitionToSchema(definition);
 };
 
@@ -279,7 +287,7 @@ const unionLayout = (schema: Internal, ctx: Ctx): Layout => {
   const tk = tagKeyOf(members);
   if (tk === U) {
     return panic(
-      `S.rkyv can't tell the variants of ${inputExpression(schema)} apart. Give each object a literal under the same key, such as type: "circle"`,
+      `S.rkyv stores ${inputExpression(schema)} as an enum, whose variants are literals or objects with a literal under the same key, such as type: "circle"`,
     );
   }
   let size = 1,
@@ -302,7 +310,7 @@ const unionLayout = (schema: Internal, ctx: Ctx): Layout => {
     const body = struct("struct", keys, fields, U as unknown as Internal, 1);
     const definition: Record<string, unknown> = {};
     for (const key in member.properties!) {
-      definition[key] = key === tk ? member.properties[key] : fields[keys.indexOf(key)]!.w;
+      own(definition, key, key === tk ? member.properties[key] : fields[keys.indexOf(key)]!.w);
     }
     wires.push(definitionToSchema(definition));
     variants.push([member.properties![tk]!.const, body]);
@@ -342,7 +350,6 @@ const option = (inner: Layout, none: unknown, noneWire: Internal): Layout => {
   };
 };
 
-// ── failures ────────────────────────────────────────────────────────────────
 
 const unsited = /* @__PURE__ */ conversionSite(U as never, U as never);
 
@@ -366,7 +373,6 @@ const prefix = (x: unknown, at: Path): unknown => {
 const textDecoder = /* @__PURE__ */ new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const textEncoder = /* @__PURE__ */ new TextEncoder();
 
-// ── code generation ─────────────────────────────────────────────────────────
 
 const literalSource = (value: unknown): string =>
   value === U
@@ -378,6 +384,9 @@ const literalSource = (value: unknown): string =>
           ? "-0"
           : `${value}`
         : JSON.stringify(value);
+
+// Computed, so `__proto__` in a literal is a key and not the prototype.
+const objectKey = (key: string): string => `[${JSON.stringify(key)}]`;
 
 const literalCheck = (value: unknown, v: string): string =>
   typeof value === "number" && value !== value ? `${v}!==${v}` : `${v}===${literalSource(value)}`;
@@ -505,7 +514,7 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
       for (const [key, field, off] of layout.f!) {
         const [c, value] = emitRead(gen, scope, field, at(p, off), hi, [...path, key]);
         code += c;
-        fields += tuple ? `${value},` : `${JSON.stringify(key)}:${value},`;
+        fields += tuple ? `${value},` : `${objectKey(key as string)}:${value},`;
       }
       if (layout.f!.length === 0) return [code, tuple ? "[]" : "{}"];
       const x = newVar(gen);
@@ -521,11 +530,11 @@ const emitRead = (gen: Gen, scope: Scope, layout: Layout, p: string, hi: string,
           return;
         }
         let code = "",
-          fields = `${JSON.stringify(layout.tk)}:${literalSource(lit)},`;
+          fields = `${objectKey(layout.tk!)}:${literalSource(lit)},`;
         for (const [key, field, off] of body.f!) {
           const [c, value] = emitRead(gen, scope, field, at(p, off), hi, [...path, key]);
           code += c;
-          fields += `${JSON.stringify(key)}:${value},`;
+          fields += `${objectKey(key as string)}:${value},`;
         }
         cases += `case ${idx}:${code}${x}={${fields}};break;`;
       });
@@ -592,7 +601,6 @@ const utf8 = (bytes: Uint8Array, p: number, n: number): string => {
   }
 };
 
-// ── writer ──────────────────────────────────────────────────────────────────
 
 const writes: Record<string, (p: string, v: string) => string> = {
   u8: (p, v) => `w[${p}]=${v}`,
@@ -863,7 +871,6 @@ const encodeInto = (s: string, w: Uint8Array, p: number): number =>
 
 const invalid = (value: unknown, type: string): never => fail(`Expected ${type}, received ${stringify(value)}`);
 
-// ── schema glue ─────────────────────────────────────────────────────────────
 
 type Compiled = { layout: Layout; fns: Layout[]; read?: (bytes: Uint8Array) => unknown; write?: (value: unknown) => Uint8Array };
 
