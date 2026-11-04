@@ -8,7 +8,7 @@ jsonSchema:
   input: "Failed at u: Expected JSON, received number | NaN | null"
   output: Expected JSON, received Uint8Array
 isEqual:
-  input: (a,b)=>a===b||a.n===b.n&&(typeof a.u==="number"&&a.u==a.u?typeof b.u==="number"&&b.u==b.u&&a.u===b.u:a.u!=a.u?b.u!=b.u:b.u===null)
+  input: (a,b)=>a===b||a.n===b.n&&(a.u===null?b.u===null:b.u!==null&&(typeof a.u==="number"&&a.u==a.u?typeof b.u==="number"&&b.u==b.u&&a.u===b.u:b.u!=b.u))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { n: number | null; u: number | NaN | null; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

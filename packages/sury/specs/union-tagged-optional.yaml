@@ -7,7 +7,7 @@ ts:
 jsonSchema:
   input: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'
   output: 'Expected JSON, received { kind: "a"; value: string; } | { kind: "b"; value: int32; } | undefined'
-isEqual: (a,b)=>a===b||(a?.kind==="a"?b?.kind==="a"&&a.value===b.value:a?.kind==="b"?b?.kind==="b"&&a.value===b.value:b===void 0)
+isEqual: (a,b)=>a===b||(a===void 0?b===void 0:b!==void 0&&(a.kind==="a"?b.kind==="a"&&a.value===b.value:b.kind==="b"&&a.value===b.value))
 compare: "throws: [Sury] Can't compare { kind: \"a\"; value: string; } | { kind: \"b\"; value: int32; } | undefined. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
 vs:
   zod: 'z.optional(z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), value: z.string() }), z.object({ kind: z.literal("b"), value: z.number().int() })]))'

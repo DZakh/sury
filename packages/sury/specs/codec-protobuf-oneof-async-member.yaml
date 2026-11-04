@@ -11,7 +11,7 @@ jsonSchema:
     output: '{ type: "object", properties: { pick: { anyOf: [{ type: "object", properties: { case: { type: "string", enum: ["m"] }, value: { type: "object", properties: { a: { type: "string" } }, required: ["a"] } }, required: ["case", "value"] }, { type: "object", properties: { case: { type: "string", enum: ["n"] }, value: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["case", "value"] }] } } }'
 isEqual:
   input: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
-  output: (a,b)=>a===b||(a.pick?.case==="m"?b.pick?.case==="m"&&a.pick.value.a===b.pick.value.a:a.pick?.case==="n"?b.pick?.case==="n"&&a.pick.value===b.pick.value:b.pick===void 0)
+  output: (a,b)=>a===b||(a.pick===void 0?b.pick===void 0:b.pick!==void 0&&(a.pick.case==="m"?b.pick.case==="m"&&a.pick.value.a===b.pick.value.a:b.pick.case==="n"&&a.pick.value===b.pick.value))
 compare:
   input: "throws: [Sury] Can't compare Uint8Array. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
   output: "throws: [Sury] Can't compare { pick: { case: \"m\"; value: { a: string; }; } | { case: \"n\"; value: int32; } | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"

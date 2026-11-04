@@ -10,7 +10,7 @@ jsonSchema:
   openapi-3.0:
     input: '{ type: "object", properties: { c: { anyOf: [{ type: "object", properties: { kind: { type: "string", enum: ["email"] }, email: { type: "string" } }, required: ["kind", "email"] }, { type: "string", enum: ["none"] }] } } }'
 isEqual:
-  input: (a,b)=>a===b||!!(typeof a.c==="object"&&a.c&&!Array.isArray(a.c)?typeof b.c==="object"&&b.c&&!Array.isArray(b.c)&&a.c.email===b.c.email:a.c==="none"?b.c==="none":b.c===void 0)
+  input: (a,b)=>a===b||(a.c===void 0?b.c===void 0:b.c!==void 0&&!!(typeof a.c==="object"&&a.c&&!Array.isArray(a.c)?typeof b.c==="object"&&b.c&&!Array.isArray(b.c)&&a.c.email===b.c.email:b.c==="none"))
   output: (a,b)=>{if(a===b)return true;let n=a.length;if(n!==b.length)return false;for(let i=0;i<n;i++)if(!(a[i]===b[i]))return false;return true}
 compare:
   input: "throws: [Sury] Can't compare { c: { kind: \"email\"; email: string; } | \"none\" | undefined; }. Only primitives, Date, URL and tuples of them are orderable. Use isEqual for equality"
