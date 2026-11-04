@@ -1,0 +1,26 @@
+# Conformance cases protoc-gen-sury's schema fails on top of failing_tests.txt,
+# with the reason. Read by `pnpm conformance generated` only.
+
+# --- a generated Any is its type URL and bytes -----------------------------
+# protoc-gen-sury types an Any field as AnySchema, which is S.protobufAny: the
+# message it holds stays bytes until the caller converts it with S.to to the
+# messages it may hold. ProtoJSON prints and reads that message, so it needs
+# the schema; protobuf-es looks it up in a registry passed at the call.
+Required.Proto3.JsonInput.Any.JsonOutput
+Required.Proto3.JsonInput.Any.ProtobufOutput
+Required.Proto3.JsonInput.AnyUnorderedTypeTag.JsonOutput
+Required.Proto3.JsonInput.AnyUnorderedTypeTag.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithDuration.JsonOutput
+Required.Proto3.JsonInput.AnyWithDuration.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithFieldMask.JsonOutput
+Required.Proto3.JsonInput.AnyWithFieldMask.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithInt32ValueWrapper.JsonOutput
+Required.Proto3.JsonInput.AnyWithInt32ValueWrapper.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithStruct.JsonOutput
+Required.Proto3.JsonInput.AnyWithStruct.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithTimestamp.JsonOutput
+Required.Proto3.JsonInput.AnyWithTimestamp.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithValueForInteger.JsonOutput
+Required.Proto3.JsonInput.AnyWithValueForInteger.ProtobufOutput
+Required.Proto3.JsonInput.AnyWithValueForJsonObject.JsonOutput
+Required.Proto3.JsonInput.AnyWithValueForJsonObject.ProtobufOutput

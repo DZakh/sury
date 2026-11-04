@@ -16,6 +16,8 @@ if (fileURLToPath(import.meta.url) !== process.argv[1]) {
 
 const GOLDEN_PATH = join(PKG_DIR, "goldens", "conformance.json");
 const FAILURE_LIST = join(PKG_DIR, "failing_tests.txt");
+// What protoc-gen-sury's schema fails beyond the hand-written one.
+const GENERATED_FAILURE_LIST = join(PKG_DIR, "failing_tests_generated.txt");
 
 const red = (s: string): string => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);
 const green = (s: string): string => (process.stdout.isTTY ? `\x1b[32m${s}\x1b[0m` : s);
@@ -42,8 +44,9 @@ protobuf-conformance npm package that bufbuild/protobuf-conformance also uses.
 The cases live inside that binary rather than in any file, so its version is
 pinned as tightly as the corpus commit.
 
-S.protobuf speaks the binary format only, so ProtoJSON, text format and the
-proto2 message types are answered "skipped" and are not counted in the rate.
+S.protobuf and S.protobufJson speak the binary format and ProtoJSON. Text format
+and the proto2 message types are answered "skipped" and are not counted in the
+rate.
 `;
 
 type Score = {
@@ -55,7 +58,7 @@ type Score = {
   passed: number;
   /** Named in failing_tests.txt with a reason. Expected, not a regression. */
   expectedFailures: number;
-  /** ProtoJSON, text format, and the message types S.protobuf does not model. */
+  /** Text format, and the message types S.protobuf does not model. */
   skipped: number;
   skippedBy: Record<string, number>;
   rate: string;
@@ -146,11 +149,12 @@ const checkSchema = (): string[] => {
     .map((d) => `  ${d.name} = ${d.number}: ${d.detail}`);
 };
 
-const run = (): Run => {
+const run = (lists: string[] = [FAILURE_LIST]): Run => {
   upstream();
   const outputDir = join(PKG_DIR, "output_dir");
   mkdirSync(outputDir, { recursive: true });
-  if (!existsSync(FAILURE_LIST)) writeFileSync(FAILURE_LIST, "");
+  const failureList = join(outputDir, "failure_list.txt");
+  writeFileSync(failureList, lists.map((list) => readFileSync(list, "utf8")).join("\n"));
   // spawnSync, not execFileSync: the runner reports unexpected failures by
   // exiting non-zero, and everything it writes is on stderr, so both streams
   // are wanted whichever way it ends.
@@ -159,7 +163,7 @@ const run = (): Run => {
     [
       "--enforce_recommended",
       "--failure_list",
-      FAILURE_LIST,
+      failureList,
       "--output_dir",
       outputDir,
       testProgram(outputDir),
@@ -250,7 +254,7 @@ if (cmd === "generated" || cmd === "update-generated") {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, response.file[0]!.content);
   process.env.SURY_CONFORMANCE_GENERATED = out;
-  const result = run();
+  const result = run([FAILURE_LIST, GENERATED_FAILURE_LIST]);
   const score = toScore(result);
   const golden = join(PKG_DIR, "goldens", "generated.json");
   if (cmd === "update-generated") {

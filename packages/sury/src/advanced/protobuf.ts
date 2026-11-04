@@ -70,7 +70,7 @@ import { uint8Array } from "../refinements";
 import type { FieldType, ProtobufType, StoredField, WellKnownType } from "./protobufField";
 import { fieldMetadata, isContainer, protobufField, wellKnownTakes, wrappers } from "./protobufField";
 
-type Field = {
+export type Field = {
   number: number;
   type: ProtobufType;
   packed: boolean;
@@ -81,6 +81,8 @@ type Field = {
   message?: Message;
   // Key type of a map field; unset for anything else.
   map?: ProtobufType;
+  // Its name in the .proto, when `S.protobufField` was given one.
+  proto?: string;
   oneof?: string;
   // A member of a union oneof or of a typed Any, sharing the property `key`
   // with the others: the name it prints as, and the value it declares.
@@ -103,7 +105,7 @@ type Field = {
 // field it holds, none for the member that stands for no field set.
 type Members = { union: Internal; members: [member: Internal, field: Field | undefined][] };
 
-type Message = {
+export type Message = {
   fields: Field[];
   // The object the message was compiled from, which every reader of a message
   // needs beside it: the printer names its fields from it, and a chain past it
@@ -142,7 +144,7 @@ type Message = {
 };
 
 // One compile of a message tree.
-type Ctx = {
+export type Ctx = {
   // Per object, not the last name a walk passed: `toProtoOrThrow` resolves the
   // wire object in one walk and compiles it in another.
   names: Map<Internal, string | undefined>;
@@ -158,7 +160,7 @@ type Ctx = {
   writes?: boolean;
 };
 
-const newCtx = (reads?: boolean, writes?: boolean): Ctx => ({
+export const newCtx = (reads?: boolean, writes?: boolean): Ctx => ({
   names: new Map(),
   messages: new Map(),
   stack: [],
@@ -175,13 +177,13 @@ const deref = (ref: Internal, ctx: Ctx): Internal | undefined => {
 // The object a schema's chain starts with: what the wire speaks, the rest of
 // the chain running on the value after. A `$ref` stands for its definition,
 // `S.recursive` being the only way a message contains itself.
-const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
+export const firstObject = (schema: Internal, ctx: Ctx): Internal | undefined => {
   let current: Internal | undefined = schema;
   // Only the refs are counted: a `.to` chain is finite by construction, where a
   // definition converting back into its own ref -
   // `S.recursive("a", (a) => S.string.with(S.to, a))` - never reaches an object.
   // `S.recursive` refuses only a definition made of refs alone.
-  for (let refs = 0; current !== U && current.type !== objectTag; ) {
+  for (let refs = 0; current !== U && (current.type !== objectTag || current.flags & 256); ) {
     if (current.type !== refTag) current = current.to;
     else if (++refs > 50) return panic("S.protobuf: a $ref resolves to itself, so it names no message");
     else current = deref(current, ctx);
@@ -650,7 +652,7 @@ const wellKnownOf = (type: FieldType): WellKnownType | undefined => (type.starts
 
 // `wellKnown` is set for a Timestamp or Duration written as its own message,
 // whose fields `seconds` and `nanos` are numbered by name, and for Empty.
-const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): Message | undefined => {
+export const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): Message | undefined => {
   const output = firstObject(schema, ctx);
   if (output === U || output.properties === U) return U;
   if (typeof output.additionalItems === objectTag) return U;
@@ -750,6 +752,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
           oneof: key,
           wire: wireType(type),
           name: arm.name,
+          proto: m.name,
           armValue: arm.value,
           int64String: armShape.type === stringTag && type.includes("64"),
           fromWire: raw,
@@ -826,6 +829,7 @@ const compileMessage = (schema: Internal, ctx: Ctx, wellKnown?: WellKnownType): 
       optional,
       message,
       map,
+      proto: metadata.name,
       oneof: metadata.oneof,
       wire: wireType(type),
       int64String: shape.type === stringTag && type.includes("64"),
@@ -866,9 +870,9 @@ const unsited = /* @__PURE__ */ conversionSite(U as never, U as never);
 
 type Failure = SuryErrorRecord & { value?: unknown; index?: number; kind?: number };
 
-const isFailure = (x: unknown): x is Failure => x != null && Object.getPrototypeOf(x) === unsited;
+export const isFailure = (x: unknown): x is Failure => x != null && Object.getPrototypeOf(x) === unsited;
 
-const failure = (reason?: string): Failure => {
+export const failure = (reason?: string): Failure => {
   const record = Object.create(unsited) as Failure;
   record.code = "invalid_conversion";
   record.path = [];
@@ -876,7 +880,7 @@ const failure = (reason?: string): Failure => {
   return record;
 };
 
-const fail = (reason: string): never => {
+export const fail = (reason: string): never => {
   throw failure(reason);
 };
 
@@ -1709,7 +1713,7 @@ const writeDate = (w: Writer, value: unknown): void => {
   }
 };
 
-const isStruct = (value: unknown): value is Record<string, unknown> =>
+export const isStruct = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
 // A Struct's fields are a `map<string, Value>`: a key repeated later replaces
@@ -1833,7 +1837,7 @@ const writeValue = (w: Writer, value: unknown): void => {
 // Each called the way a compiled message is: the caller frames the length, and
 // reading nothing is the default instance. Reached only from an operation, so
 // `toProtoOrThrow` never carries them.
-const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?: unknown) => unknown, write: (w: Writer, value: unknown) => void]>> = {
+export const codecs: Partial<Record<WellKnownType, [read: (r: Reader, d: number, prev?: unknown) => unknown, write: (w: Writer, value: unknown) => void]>> = {
   "google.protobuf.Timestamp": [readDate, writeDate],
   "google.protobuf.Value": [readValue, writeValue],
   "google.protobuf.Struct": [readStruct, writeStruct],
@@ -1899,7 +1903,7 @@ const wellKnownMessage = (type: WellKnownType, shape: Internal, ctx: Ctx, where:
 // A number the message does not declare adds nothing: an unknown field under
 // `S.strict` and a field number of zero name the number themselves, and there
 // is no property to put in a path.
-const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): unknown => {
+export const wireFrame = (failure: unknown, msg: Message, tag: number, key?: unknown, ...lists: unknown[][]): unknown => {
   const number = tag >>> 3;
   const field = tag < 0 ? U : msg.fields.find((f) => f.number === number);
   if (field === U) return failure;
@@ -1941,7 +1945,7 @@ const unknownField = (msg: Message, tag: number): never => {
 
 // A packed writer's throw carries its element `index`: its field's frame has
 // no loop counter of its own to read.
-const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
+export const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
   const record = failure();
   record.value = value;
   record.index = index;
@@ -1949,11 +1953,11 @@ const fieldFailure = (value: unknown, index?: number, kind?: number): never => {
   throw record;
 };
 
-const oneofConflict = (): never => fieldFailure(U, U, 2);
+export const oneofConflict = (): never => fieldFailure(U, U, 2);
 
 // The bounds' own type is the one the value must have: a 64-bit field holds a
 // bigint, the rest an integer number.
-const checked = <T>(value: T, min: number | bigint, max: number | bigint, index?: number): T => {
+export const checked = <T>(value: T, min: number | bigint, max: number | bigint, index?: number): T => {
   if (typeof value !== typeof min || (typeof value === "number" && !Number.isInteger(value)) || (value as number) < min || (value as number) > max) {
     fieldFailure(value, index);
   }
@@ -1962,14 +1966,14 @@ const checked = <T>(value: T, min: number | bigint, max: number | bigint, index?
 
 // A 64-bit field held as a string (`jstype = JS_STRING`) is written from its
 // decimal digits.
-const digits = (value: unknown, min: bigint, max: bigint): bigint => {
+export const digits = (value: unknown, min: bigint, max: bigint): bigint => {
   const n = typeof value === "string" && /^-?\d+$/.test(value) ? BigInt(value) : U;
   return n !== U && n >= min && n <= max ? n : fieldFailure(value);
 };
 
 // The key a failure names is the property name, not what `+` or `BigInt` made
 // of it.
-const mapKey = (key: string, min: number | bigint, max: number | bigint): number | bigint => {
+export const mapKey = (key: string, min: number | bigint, max: number | bigint): number | bigint => {
   try {
     return checked(typeof min === "number" ? +key : BigInt(key), min, max);
   } catch {
@@ -1982,7 +1986,7 @@ const mapKey = (key: string, min: number | bigint, max: number | bigint): number
 // gets its reason here; one a nested encoder already settled only gets the
 // field and element in front. `encodeBody` sets `f` before any write that can
 // throw.
-const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
+export const encodeFrame = (x: unknown, msg: Message, f: number, j: number, a?: string[]): unknown => {
   const field = msg.fields[f]!;
   let item: string | number | undefined = field.map !== U ? a![j - 1] : field.repeated ? j - 1 : U;
   if (isFailure(x) && x.reason === U) {
@@ -2037,11 +2041,11 @@ const anyEncodeBody = (msg: Message, fns: Map<Message, string>, read: Read, embe
   return `var q;${body}`;
 };
 
-const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict };
-type Helper = keyof typeof encodeHelpers;
-type Encoding = (helper: Helper) => string;
+export const encodeHelpers = { check: checked, digits, key: mapKey, oneof: oneofConflict };
+export type Helper = keyof typeof encodeHelpers;
+export type Encoding = (helper: Helper) => string;
 
-const bounds = (type: ProtobufType): [string, string] => {
+export const bounds = (type: ProtobufType): [string, string] => {
   const unsigned = type[0] === "u" || type[0] === "f";
   return type.includes("64")
     ? unsigned ? ["0n", "18446744073709551615n"] : ["-9223372036854775808n", "9223372036854775807n"]
@@ -2132,14 +2136,14 @@ const refusesNaN = (schema: Internal): boolean =>
 
 const anyNumber = (schema: Internal): boolean => schema.type === numberTag && schema.format === U && schema.const === U;
 
-const scalarDefault = (type: ProtobufType): string =>
+export const scalarDefault = (type: ProtobufType): string =>
   type === "string" ? '""'
   : type === "bytes" ? "new Uint8Array"
   : type === "bool" ? "!1"
   : type.includes("64") ? "0n"
   : "0";
 
-const emitDefault = (field: Field): string => {
+export const emitDefault = (field: Field): string => {
   if (field.repeated) return "[]";
   if (field.map !== U) return "{}";
   if (field.optional || field.type === "message") return "void 0";
@@ -2157,7 +2161,7 @@ const keyToWire = (type: ProtobufType, enc: Encoding): string =>
 // val), so the write skips the coercion a nested encoder's untyped read needs.
 // `Number` rather than `+`, which throws on a bigint: that coerces as a string
 // does, and a value out of range still fails at the field.
-const fieldLive = (field: Field, numeric: boolean): string =>
+export const fieldLive = (field: Field, numeric: boolean): string =>
   field.optional ? "v!=null"
   : field.int64String ? "v&&v!=0"
   : field.type === "bytes" ? "v.length"
@@ -2165,13 +2169,11 @@ const fieldLive = (field: Field, numeric: boolean): string =>
   : field.type === "string" || field.type === "bool" || field.type.includes("64") || numeric ? "v"
   : "(v=Number(v))";
 
-type Read = (field: Field) => { expr: string; numeric: boolean };
+export type Read = (field: Field) => { expr: string; numeric: boolean };
 
 // `f=` before a field's writes is what the message's frame (`encodeFrame`)
 // reads to name the field a failure hit.
-const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
-  const body: string[] = [];
-  const writer = (field: Field): string => fns.get(field.message!)!;
+export const oneofGuards = (msg: Message, enc: Encoding): [init: string, guard: (field: Field) => string] => {
   // proto3 lets at most one member of a oneof be set, and decode enforces it
   // by clearing the siblings. Encode is handed a value the schema cannot
   // constrain - every member is an independent optional property - so it
@@ -2199,6 +2201,13 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
     return (first.get(name!) === field ? "" : `${test}&&${enc("oneof")}();`) +
       (last.get(name!) === field ? "" : `o|=${bit};`);
   };
+  return [bits.size ? "o=0;" : "", guard];
+};
+
+const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: Encoding): string => {
+  const body: string[] = [];
+  const writer = (field: Field): string => fns.get(field.message!)!;
+  const [init, guard] = oneofGuards(msg, enc);
   for (let idx = 0; idx < msg.fields.length; idx++) {
     const field = msg.fields[idx]!;
     const tag = field.number * 8 + field.wire;
@@ -2235,10 +2244,10 @@ const encodeBody = (msg: Message, fns: Map<Message, string>, read: Read, enc: En
       body.push(`${at}v=${src};if(${fieldLive(field, numeric)}){${oneof}${writeTag(tag)};${writeCall(field.type, "v", enc, field.int64String ? 3 : numeric ? 0 : 1)}}`);
     }
   }
-  return (bits.size ? "o=0;" : "") + body.join(";");
+  return init + body.join(";");
 };
 
-const nameMessages = (message: Message, fns: Map<Message, string>): void => {
+export const nameMessages = (message: Message, fns: Map<Message, string>): void => {
   if (fns.has(message)) return;
   fns.set(message, `m${fns.size}`);
   for (let idx = 0; idx < message.fields.length; idx++) {
@@ -2511,7 +2520,7 @@ const armsValue = (at: Val, msg: Message, union: Internal, arms: [member: Intern
   return B_markOutput(value);
 };
 
-const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => string): Val => {
+export const valueOf = (base: Val, msg: Message, local: (kind: string, idx: number) => string): Val => {
   const at = B_next(base, "", msg.object, msg.object);
   let output: Val;
   if (msg.any !== U) {
@@ -2602,9 +2611,9 @@ const compileDecoder = (root: Message, fns: Map<Message, string>, flag: number):
 // A ref counts: a recursive message speaks its definition, and a chain through
 // one puts the ref where the object would otherwise sit.
 const isMessageShape = (schema: Internal | undefined): schema is Internal =>
-  schema !== U && (schema.type === refTag || (schema.type === objectTag && schema.properties !== U));
+  schema !== U && (schema.type === refTag || (schema.type === objectTag && schema.properties !== U && !(schema.flags & 256)));
 
-const objectSchemaOf = (input: Val, shape: (schema: Internal | undefined) => boolean = isMessageShape): Internal => {
+export const objectSchemaOf = (input: Val, shape: (schema: Internal | undefined) => boolean = isMessageShape): Internal => {
   let current: Val | undefined = input.prev;
   while (current !== U) {
     if (shape(current.e)) return current.e;
@@ -2618,7 +2627,7 @@ const objectSchemaOf = (input: Val, shape: (schema: Internal | undefined) => boo
   return input.s;
 };
 
-const fieldValsOf = (input: Val): Record<string, Val> | undefined => {
+export const fieldValsOf = (input: Val): Record<string, Val> | undefined => {
   let current: Val | undefined = input;
   while (current !== U) {
     if (current.d !== U) return current.d;
@@ -2677,7 +2686,7 @@ const protobufDecoder = (input: Val): Val => {
 // A wire or value failure has no `cause`: nothing the user wrote threw. Anything else - a getter's throw - is reported the way
 // B_conversion reports a coder's. In a union either one is what hands the value
 // to the next case.
-const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
+export const guarded = (input: Val, output: Val, target: Internal, code: string, release: string): string => {
   const foreign = B_conversionFail(input, target);
   let site: object | undefined;
   const failure = B_fail(
@@ -2744,7 +2753,7 @@ const armHeld = (field: Field, at: string | undefined): Internal => {
 // The arm a union holds is the union's own to tell, each arm continuing into
 // the local of its member, so the writer writes every member as an optional
 // field of which only the one set holds a value.
-const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
+export const writesOf = (value: Val, msg: Message): [code: string, reads: Map<Field, string>] => {
   const g = value.g;
   const reads = new Map<Field, string>();
   let code = "";
@@ -2888,7 +2897,7 @@ const anyArm = (member: Internal, ctx: Ctx): AnyArm | undefined => {
   return [typeNameOf(properties[key]!, ctx, true)!, properties[key]!, key, member];
 };
 
-const literalOf = (schema: Internal | undefined): unknown =>
+export const literalOf = (schema: Internal | undefined): unknown =>
   schema === U ? U : getOutputSchema(schema).const;
 
 // The members a conversion to `target` unpacks into: `undefined` where one
@@ -3148,6 +3157,13 @@ const snakeCase = (name: string): string =>
 const protoFieldName = (key: string): string =>
   /^[a-z][a-zA-Z0-9]*$/.test(key) ? snakeCase(key) : key.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=[0-9])/, "_") || "_";
 
+// The field's name in the .proto, and the JSON name protoc derives from it: an
+// underscore dropped and what follows it capitalized.
+export const printedName = (field: Field): string => field.proto ?? protoFieldName(field.name ?? field.key);
+
+export const jsonFieldName = (printed: string): string =>
+  printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : ""));
+
 const protoTypeName = (name: string): string =>
   (
     protoFieldName(name)
@@ -3240,13 +3256,30 @@ const googleType = (use: Use): string | undefined => {
   return name?.startsWith("google.protobuf.") ? name : U;
 };
 
+// `S.protobufEnum`'s names, wherever the field's schema holds them: past
+// `S.optional`, `S.array` or `S.record`, the members it was flattened into.
+export const protobufEnumOf = (schema: Internal): Record<string, number> | undefined => {
+  for (let current: Internal | undefined = schema; current !== U; current = current.to) {
+    const output = getOutputSchema(current);
+    const names = current.protobufEnum ?? output.protobufEnum;
+    if (names !== U) return names;
+    for (const member of output.anyOf ?? []) {
+      const found = protobufEnumOf(member);
+      if (found !== U) return found;
+    }
+    if (typeof output.additionalItems === objectTag) return protobufEnumOf(output.additionalItems as Internal);
+  }
+  return U;
+};
+
 const typeKey = (proto: Proto, use: Use): unknown => {
   const { field, shape } = use;
   const name = nameOf(use);
   if (googleType(use) !== U) return U;
   if (field.message !== U) return messageKey(proto, shape.properties!, name);
   if (!isEnumShape(use)) return U;
-  return name ? `${name}:${enumValues(shape).join(",")}` : field;
+  // One `S.protobufEnum` is one enum, however its fields hold it.
+  return protobufEnumOf(use.schema) ?? (name ? `${name}:${enumValues(shape).join(",")}` : field);
 };
 
 // The meta a schema carries down its `.to` chain to the object it produces:
@@ -3381,11 +3414,28 @@ const declareType = (
 const enumBody = (
   decl: TypeDecl,
   shape: Internal,
+  named: Record<string, number> | undefined,
   name: string,
   indent: string,
   members: Set<string>,
   taken: (name: string) => boolean
 ): Line[] => {
+  if (named !== U) {
+    // proto3 requires the first value to be zero.
+    const entries = Object.entries(named).sort(([, a], [, b]) => +(b === 0) - +(a === 0));
+    const lines: Line[] = [
+      () => commentLines(typeMeta(decl, "description"), indent),
+      `${indent}enum ${name} {`,
+      () => deprecatedLine(decl, indent),
+    ];
+    if (new Set(entries.map(([, value]) => value)).size < entries.length) lines.push(`${indent}  option allow_alias = true;`);
+    for (const [member, value] of entries) {
+      members.add(member);
+      lines.push(`${indent}  ${member} = ${value};`);
+    }
+    lines.push(`${indent}}`);
+    return lines;
+  }
   const values = enumValues(shape);
   // proto3 requires the first member to be zero, and buf lint the suffix.
   const entries: [string, number][] = [["UNSPECIFIED", 0]];
@@ -3437,10 +3487,9 @@ const messageBody = (
   const printedNames = new Map<Field, string>();
   const oneofNames = new Map<string, string>();
   for (const field of message.fields) {
-    const own = field.name ?? field.key;
-    const printed = protoFieldName(own);
+    const printed = printedName(field);
     printedNames.set(field, printed);
-    claim(printed, own, printed.replace(/_+(.)?/g, (_, next: string | undefined) => (next ? next.toUpperCase() : "")));
+    claim(printed, field.name ?? field.key, jsonFieldName(printed));
   }
   for (const field of message.fields) {
     if (field.oneof !== U && !oneofs.has(field.oneof)) {
@@ -3467,7 +3516,7 @@ const messageBody = (
       );
     } else if (key !== U) {
       type = declareType(proto, key, use, qualified, indent, nested, scope, fieldNames, members, (fieldDecl, typeName, inner, values) =>
-        enumBody(fieldDecl, use.shape, typeName, inner, values, values === members ? (n) => fieldNames.has(n) : (n) => proto.used.has(n))
+        enumBody(fieldDecl, use.shape, protobufEnumOf(use.schema), typeName, inner, values, values === members ? (n) => fieldNames.has(n) : (n) => proto.used.has(n))
       );
     } else type = field.type === "enum" ? "int32" : field.type;
     // A type nested in this message is referred to by its local name.

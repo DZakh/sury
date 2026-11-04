@@ -4,7 +4,7 @@
 
 module Currency = {
   type t = | @as(0) Unspecified | @as(1) Usd | @as(2) Eur
-  let schema: S.t<t> = S.enum([Unspecified, Usd, Eur])->S.protobufTypeName("example.common.Currency")
+  let schema: S.t<t> = S.protobufEnum(dict{"CURRENCY_UNSPECIFIED": Unspecified, "CURRENCY_USD": Usd, "CURRENCY_EUR": Eur})->S.protobufTypeName("example.common.Currency")
 }
 
 /**

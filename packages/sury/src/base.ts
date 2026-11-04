@@ -524,6 +524,8 @@ export type Internal = {
   // CODEC_SPEC.md, "Protobuf enum".
   openLiteral?: true;
   protobufTypeName?: string;
+  // `S.protobufEnum`'s names for its numbers.
+  protobufEnum?: Record<string, number>;
   // On a target that builds its document piecewise (`S.jsonString`): asked by
   // a container decoder (`B_fused` in composites.ts) whose `.to` it is, with
   // the dynamic item for an array or dict, and answers the container's schema

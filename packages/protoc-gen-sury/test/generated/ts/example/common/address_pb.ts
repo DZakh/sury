@@ -29,7 +29,7 @@ export const Currency = {
  */
 export type Currency = (typeof Currency)[keyof typeof Currency];
 
-export const CurrencySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1, 2]), "example.common.Currency");
+export const CurrencySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ CURRENCY_UNSPECIFIED: 0, CURRENCY_USD: 1, CURRENCY_EUR: 2 }), "example.common.Currency");
 
 /**
  * A postal address.

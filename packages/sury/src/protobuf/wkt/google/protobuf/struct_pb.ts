@@ -43,7 +43,7 @@ export const NullValue = {
  */
 export type NullValue = (typeof NullValue)[keyof typeof NullValue];
 
-export const NullValueSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0]), "google.protobuf.NullValue");
+export const NullValueSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ NULL_VALUE: 0 }), "google.protobuf.NullValue");
 
 /**
  * Represents a JSON object.

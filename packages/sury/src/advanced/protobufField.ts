@@ -1,4 +1,5 @@
 import { getOutputSchema, optionalMembers } from "../parse";
+import { enum as enumOf } from "../factory";
 import {
   anyOfTag,
   arrayTag,
@@ -48,6 +49,7 @@ export type ProtobufField = {
   packed?: boolean;
   key?: ProtobufType;
   oneof?: string;
+  name?: string;
 };
 
 // What `S.protobufField` stores: the field, plus the schema as it was when
@@ -60,6 +62,7 @@ export type StoredField = {
   packed: boolean;
   key: ProtobufType;
   oneof?: string;
+  name?: string;
   /** The schema as it was when numbered. */
   numberedAs: Internal;
 };
@@ -256,6 +259,25 @@ export const protobufTypeName = (schema: Internal, typeName: string): Internal =
   return mut;
 };
 
+// A protobuf enum by the names of its values: the union of the numbers, which
+// ProtoJSON reads and prints by name and `toProtoOrThrow` declares. A name
+// after the first for a number is an alias.
+// @__NO_SIDE_EFFECTS__
+export const protobufEnum = (values: Record<string, number>): Internal => {
+  const numbers: number[] = [];
+  for (const name in values) {
+    const value = values[name]!;
+    if (!/^[A-Za-z_]\w*$/.test(name) || !Number.isInteger(value) || value < -2147483648 || value > 2147483647) {
+      return panic(`S.protobufEnum requires identifiers mapped to int32 numbers, not ${JSON.stringify(name)}: ${String(value)}`);
+    }
+    if (!numbers.includes(value)) numbers.push(value);
+  }
+  if (!numbers.includes(0)) return panic(`S.protobufEnum requires a value numbered 0, which proto3 reads an unset field as`);
+  const mut = copySchema(enumOf(numbers));
+  mut.protobufEnum = values;
+  return mut;
+};
+
 // @__NO_SIDE_EFFECTS__
 export const protobufField = (schema: Internal, field: number | ProtobufField): Internal => {
   const number = typeof field === "number" ? field : field?.number;
@@ -334,9 +356,13 @@ export const protobufField = (schema: Internal, field: number | ProtobufField): 
     }
     current = current.to;
   }
+  const name = typeof field === "number" ? U : field.name;
+  if (name !== U && !/^[A-Za-z_]\w*$/.test(name)) {
+    return panic(`S.protobufField requires a name to be an identifier, not ${JSON.stringify(name)}`);
+  }
   const packed = typeof field === "number" || field.packed !== false;
   const numbered: Internal = updateOutput(schema, (mut) => {
-    mut.protobufField = { number, type, packed, key, oneof, numberedAs: schema } satisfies StoredField;
+    mut.protobufField = { number, type, packed, key, oneof, name, numberedAs: schema } satisfies StoredField;
   });
   // updateOutput copied every link, so marking them touches nothing shared.
   if (type === "enum") {

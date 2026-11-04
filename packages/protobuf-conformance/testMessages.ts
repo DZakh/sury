@@ -8,6 +8,7 @@
 // ever compares bytes, and keeping the wire names makes a failure readable
 // against the `.proto` without a translation step.
 import * as S from "sury";
+import * as wkt from "sury/protobuf/wkt";
 
 const f = <TIn, TOut>(schema: S.Schema<TIn, TOut>, number: number, type?: S.ProtobufType) =>
   schema.with(S.protobufField, type === undefined ? number : { number, type });
@@ -20,7 +21,9 @@ const i32 = (n: number, t: S.ProtobufType = "int32") => f(S.int32, n, t);
 // 0..4294967295 range check.
 const u32 = (n: number, t: S.ProtobufType) => f(S.integer, n, t);
 const i64 = (n: number, t: S.ProtobufType = "int64") => f(S.bigint, n, t);
-const dbl = (n: number, t: S.ProtobufType = "double") => f(S.number, n, t);
+// A double holds NaN like any other value, which `S.number` alone refuses.
+const number = S.union([S.number, S.schema(NaN)]);
+const dbl = (n: number, t: S.ProtobufType = "double") => f(number, n, t);
 const str = (n: number) => f(S.string, n);
 const byt = (n: number) => f(S.uint8Array, n);
 const bol = (n: number) => f(S.boolean, n);
@@ -43,11 +46,19 @@ const map = <TIn, TOut>(
   type?: S.ProtobufType,
 ) => S.record(value).with(S.protobufField, { number, key, ...(type ? { type } : {}) });
 
-// Enums are open in proto3: a number the schema does not list decodes as that
-// number, so an `int32` with an `enum` wire type is the whole of it.
-const enm = (n: number) => f(S.int32, n, "enum");
+// Named, as ProtoJSON reads and prints them. Open in proto3: a number the
+// schema does not list still decodes as that number.
+const nestedEnum = S.protobufEnum({ FOO: 0, BAR: 1, BAZ: 2, NEG: -1 });
+const aliasedEnum = S.protobufEnum({ ALIAS_FOO: 0, ALIAS_BAR: 1, ALIAS_BAZ: 2, MOO: 2, moo: 2, bAz: 2 });
+const foreignEnum = S.protobufEnum({ FOREIGN_FOO: 0, FOREIGN_BAR: 1, FOREIGN_BAZ: 2 });
+const enm = (schema: S.Schema<number, number>, n: number) => schema.with(S.protobufField, n);
 
-export const foreignMessage = S.schema({ c: i32(1) });
+// ProtoJSON refuses a key the message doesn't declare unless asked to ignore it,
+// which is S.strict's answer and the default's. Built twice for that.
+type Shape = Record<string, S.Schema<unknown, unknown>>;
+type Message = (shape: Shape) => S.Schema<unknown, unknown>;
+const lenient: Message = (shape) => S.schema(shape);
+const strict: Message = (shape) => S.strict(S.schema(shape));
 
 // The well-known types, each through the `type` that names it: a wrapper is
 // an optional scalar, a Duration or Timestamp the `{ seconds, nanos }` message
@@ -56,20 +67,47 @@ type WellKnown = S.ProtobufWellKnownType;
 const wk = <TIn, TOut>(schema: S.Schema<TIn, TOut>, number: number, type: WellKnown) =>
   schema.with(S.protobufField, { number, type });
 const secondsNanos = S.schema({ seconds: S.bigint, nanos: S.int32 });
-// Any is two scalars on the wire; its payload stays opaque bytes, which is all
-// the binary suite needs.
-const any = S.schema({ type_url: str(1), value: byt(2) });
+// An Any holds the types the suite packs in one, each by name, which is what
+// lets ProtoJSON print it. Anything else stays its type URL and bytes.
+const anyOf = (self: S.Schema<unknown, unknown>) =>
+  S.union(
+    [
+      S.schema({ type: "self", value: self }),
+      ...Object.entries({
+        duration: wkt.DurationSchema,
+        timestamp: wkt.TimestampSchema,
+        fieldMask: wkt.FieldMaskSchema,
+        struct: wkt.StructSchema,
+        value: wkt.ValueSchema,
+        listValue: wkt.ListValueSchema,
+        empty: wkt.EmptySchema,
+        int32: wkt.Int32ValueSchema,
+        int64: wkt.Int64ValueSchema,
+        uint32: wkt.UInt32ValueSchema,
+        uint64: wkt.UInt64ValueSchema,
+        float: wkt.FloatValueSchema,
+        double: wkt.DoubleValueSchema,
+        bool: wkt.BoolValueSchema,
+        string: wkt.StringValueSchema,
+        bytes: wkt.BytesValueSchema,
+      }).map(([type, value]) => S.schema({ type, value: value as S.Schema<unknown, unknown> })),
+      S.schema({ type: "other", value: S.protobufAny }),
+    ],
+  );
 
 // `corecursive` and `recursive_message` are TestAllTypesProto3 itself, so the
 // message is its own definition and `NestedMessage` is declared inside it,
 // where the self-reference is in scope.
-export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
+const build = (message: Message): S.Schema<unknown, unknown> => S.recursive(
   "TestAllTypesProto3",
-  (self) => {
+  (selfRef) => {
+    const foreignMessage = message({ c: i32(1) });
+    const self = selfRef.with(S.protobufTypeName, "protobuf_test_messages.proto3.TestAllTypesProto3");
+    const any = anyOf(self);
     const nestedMessage = S.recursive("NestedMessage", () =>
-      S.schema({ a: i32(1), corecursive: S.optional(self).with(S.protobufField, 2) }),
+      message({ a: i32(1), corecursive: S.optional(self).with(S.protobufField, 2) }),
     );
-    return S.schema({
+    return message({
       optional_int32: i32(1),
       optional_int64: i64(2),
       optional_uint32: u32(3, "uint32"),
@@ -89,9 +127,9 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       optional_nested_message: S.optional(nestedMessage).with(S.protobufField, 18),
       optional_foreign_message: S.optional(foreignMessage).with(S.protobufField, 19),
 
-      optional_nested_enum: enm(21),
-      optional_foreign_enum: enm(22),
-      optional_aliased_enum: enm(23),
+      optional_nested_enum: enm(nestedEnum, 21),
+      optional_foreign_enum: enm(foreignEnum, 22),
+      optional_aliased_enum: enm(aliasedEnum, 23),
 
       optional_string_piece: str(24),
       optional_cord: str(25),
@@ -108,8 +146,8 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       repeated_fixed64: rep(S.bigint, 38, "fixed64"),
       repeated_sfixed32: rep(S.int32, 39, "sfixed32"),
       repeated_sfixed64: rep(S.bigint, 40, "sfixed64"),
-      repeated_float: rep(S.number, 41, "float"),
-      repeated_double: rep(S.number, 42),
+      repeated_float: rep(number, 41, "float"),
+      repeated_double: rep(number, 42, "double"),
       repeated_bool: rep(S.boolean, 43),
       repeated_string: rep(S.string, 44),
       repeated_bytes: rep(S.uint8Array, 45),
@@ -117,8 +155,8 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       repeated_nested_message: rep(nestedMessage, 48),
       repeated_foreign_message: rep(foreignMessage, 49),
 
-      repeated_nested_enum: rep(S.int32, 51, "enum"),
-      repeated_foreign_enum: rep(S.int32, 52, "enum"),
+      repeated_nested_enum: rep(nestedEnum, 51),
+      repeated_foreign_enum: rep(foreignEnum, 52),
 
       repeated_string_piece: rep(S.string, 54),
       repeated_cord: rep(S.string, 55),
@@ -133,15 +171,15 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       map_fixed64_fixed64: map(S.bigint, 63, "fixed64", "fixed64"),
       map_sfixed32_sfixed32: map(S.int32, 64, "sfixed32", "sfixed32"),
       map_sfixed64_sfixed64: map(S.bigint, 65, "sfixed64", "sfixed64"),
-      map_int32_float: map(S.number, 66, "int32", "float"),
-      map_int32_double: map(S.number, 67, "int32"),
+      map_int32_float: map(number, 66, "int32", "float"),
+      map_int32_double: map(number, 67, "int32", "double"),
       map_bool_bool: map(S.boolean, 68, "bool"),
       map_string_string: map(S.string, 69, "string"),
       map_string_bytes: map(S.uint8Array, 70, "string"),
       map_string_nested_message: map(nestedMessage, 71, "string"),
       map_string_foreign_message: map(foreignMessage, 72, "string"),
-      map_string_nested_enum: map(S.int32, 73, "string", "enum"),
-      map_string_foreign_enum: map(S.int32, 74, "string", "enum"),
+      map_string_nested_enum: map(nestedEnum, 73, "string"),
+      map_string_foreign_enum: map(foreignEnum, 74, "string"),
 
       packed_int32: rep(S.int32, 75),
       packed_int64: rep(S.bigint, 76),
@@ -153,10 +191,10 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       packed_fixed64: rep(S.bigint, 82, "fixed64"),
       packed_sfixed32: rep(S.int32, 83, "sfixed32"),
       packed_sfixed64: rep(S.bigint, 84, "sfixed64"),
-      packed_float: rep(S.number, 85, "float"),
-      packed_double: rep(S.number, 86),
+      packed_float: rep(number, 85, "float"),
+      packed_double: rep(number, 86, "double"),
       packed_bool: rep(S.boolean, 87),
-      packed_nested_enum: rep(S.int32, 88, "enum"),
+      packed_nested_enum: rep(nestedEnum, 88),
 
       unpacked_int32: unpacked(S.int32, 89),
       unpacked_int64: unpacked(S.bigint, 90),
@@ -168,10 +206,10 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       unpacked_fixed64: unpacked(S.bigint, 96, "fixed64"),
       unpacked_sfixed32: unpacked(S.int32, 97, "sfixed32"),
       unpacked_sfixed64: unpacked(S.bigint, 98, "sfixed64"),
-      unpacked_float: unpacked(S.number, 99, "float"),
-      unpacked_double: unpacked(S.number, 100),
+      unpacked_float: unpacked(number, 99, "float"),
+      unpacked_double: unpacked(number, 100, "double"),
       unpacked_bool: unpacked(S.boolean, 101),
-      unpacked_nested_enum: unpacked(S.int32, 102, "enum"),
+      unpacked_nested_enum: unpacked(nestedEnum, 102),
 
       oneof_uint32: S.optional(S.integer).with(S.protobufField, { number: 111, type: "uint32", oneof: "oneof_field" }),
       oneof_nested_message: S.optional(nestedMessage).with(S.protobufField, { number: 112, oneof: "oneof_field" }),
@@ -179,10 +217,10 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       oneof_bytes: S.optional(S.uint8Array).with(S.protobufField, { number: 114, oneof: "oneof_field" }),
       oneof_bool: S.optional(S.boolean).with(S.protobufField, { number: 115, oneof: "oneof_field" }),
       oneof_uint64: S.optional(S.bigint).with(S.protobufField, { number: 116, type: "uint64", oneof: "oneof_field" }),
-      oneof_float: S.optional(S.number).with(S.protobufField, { number: 117, type: "float", oneof: "oneof_field" }),
-      oneof_double: S.optional(S.number).with(S.protobufField, { number: 118, oneof: "oneof_field" }),
-      oneof_enum: S.optional(S.int32).with(S.protobufField, { number: 119, type: "enum", oneof: "oneof_field" }),
-      oneof_null_value: S.optional(S.int32).with(S.protobufField, { number: 120, type: "enum", oneof: "oneof_field" }),
+      oneof_float: S.optional(number).with(S.protobufField, { number: 117, type: "float", oneof: "oneof_field" }),
+      oneof_double: S.optional(number).with(S.protobufField, { number: 118, type: "double", oneof: "oneof_field" }),
+      oneof_enum: S.optional(nestedEnum).with(S.protobufField, { number: 119, oneof: "oneof_field" }),
+      oneof_null_value: S.optional(wkt.NullValueSchema).with(S.protobufField, { number: 120, type: "enum", oneof: "oneof_field" }),
 
       optional_bool_wrapper: wk(S.optional(S.boolean), 201, "google.protobuf.BoolValue"),
       optional_int32_wrapper: wk(S.optional(S.int32), 202, "google.protobuf.Int32Value"),
@@ -210,7 +248,7 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
       optional_struct: wk(S.optional(S.record(S.json)), 304, "google.protobuf.Struct"),
       optional_value: S.optional(S.json).with(S.protobufField, 306),
       optional_any: S.optional(any).with(S.protobufField, 305),
-      optional_null_value: enm(307),
+      optional_null_value: wkt.NullValueSchema.with(S.protobufField, { number: 307, type: "enum" }),
 
       repeated_duration: wk(S.array(secondsNanos), 311, "google.protobuf.Duration"),
       repeated_timestamp: wk(S.array(secondsNanos), 312, "google.protobuf.Timestamp"),
@@ -241,3 +279,6 @@ export const testAllTypesProto3: S.Schema<unknown, unknown> = S.recursive(
     });
   },
 );
+
+export const testAllTypesProto3 = build(lenient);
+export const testAllTypesProto3Strict = build(strict);

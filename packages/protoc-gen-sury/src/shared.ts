@@ -178,3 +178,14 @@ export const commentLines = (text: string | undefined): string[] | undefined =>
   text === undefined || text.trim() === ""
     ? undefined
     : text.replace(/\n$/, "").split("\n").map((line) => (line.startsWith(" ") ? line.slice(1) : line).trimEnd().replace(/\*\//g, "*\\/"));
+
+// The name `S.toProtoOrThrow` and ProtoJSON give a field held under `key`
+// (`protoFieldName` in sury's advanced/protobuf.ts, which this must match): a
+// field whose proto name differs says it with `name`.
+const suryProtoName = (key: string): string =>
+  /^[a-z][a-zA-Z0-9]*$/.test(key)
+    ? key.replace(/([A-Z])([A-Z][a-z])/g, "$1_$2").replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase()
+    : key.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(?=[0-9])/, "_") || "_";
+
+export const statedName = (field: Field): string | undefined =>
+  suryProtoName(field.localName) === field.name ? undefined : field.name;

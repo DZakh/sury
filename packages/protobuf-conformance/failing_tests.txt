@@ -13,3 +13,23 @@
 # listed as not covered in the compliance golden.
 Required.Proto3.ProtobufInput.UnknownOrdering.ProtobufOutput
 Required.Proto3.ProtobufInput.UnknownVarint.ProtobufOutput
+
+# --- ProtoJSON: a duplicate key never reaches the reader -------------------
+# S.protobufJson reads a JSON value, and JSON.parse keeps the last of two
+# equal keys before Sury sees the object. The same field spelled by its JSON
+# name and its proto name is two keys, and is refused.
+Recommended.Proto3.JsonInput.FieldNameDuplicate
+
+# --- a Value holding NaN or Infinity is refused when it is read ------------
+# S.json can't hold a non-finite number, so the binary reader refuses the Value
+# as it decodes it, a parse error where these cases want the serialize error
+# ProtoJSON's printer would raise.
+Recommended.Proto3.ValueRejectInfNumberValue.JsonOutput
+Recommended.Proto3.ValueRejectNanNumberValue.JsonOutput
+
+# --- an Any holding an Any -------------------------------------------------
+# An Any member typed google.protobuf.Any is the catch-all, which keeps the type
+# URL and bytes of what it holds; ProtoJSON needs that message's schema to read
+# or print it. Sury can't type the inner Any's members.
+Required.Proto3.JsonInput.AnyNested.JsonOutput
+Required.Proto3.JsonInput.AnyNested.ProtobufOutput

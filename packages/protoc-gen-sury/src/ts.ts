@@ -1,6 +1,6 @@
 import { type Element, type Enum, type Field, type File, type Message, type Oneof, nestedTypes, type Scalar } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wrapperScalar, wktImport } from "./shared";
+import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedName, statedType, wrapperScalar, wktImport } from "./shared";
 
 const scalarType = (scalar: Scalar, asString: boolean): string =>
   is64(scalar) ? (asString ? "string" : "bigint")
@@ -167,6 +167,8 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     if (type !== undefined) opts.push(`type: ${JSON.stringify(type)}`);
     if (statedKey(field) !== undefined) opts.push(`key: ${JSON.stringify(field.mapKey)}`);
     if (field.list && !field.packed && packable(field.element)) opts.push("packed: false");
+    const name = statedName(field);
+    if (name !== undefined) opts.push(`name: ${JSON.stringify(name)}`);
     return call(scope, "protobufField", `${schema}, ${opts.length === 1 ? field.number : `{ ${opts.join(", ")} }`}`);
   };
 
@@ -245,12 +247,11 @@ export const emitTs = (file: File, options: Options, generating: Set<string>, ve
     const members = desc.values.map((value) =>
       `${comment(value.path, `@generated from enum value: ${value.name} = ${value.number};`, value.deprecated, "  ")}  ${property(value.localName)}: ${value.number},`,
     );
-    const numbers = [...new Set(desc.values.map((value) => value.number))];
     const doc = comment(desc.path, `@generated from enum ${desc.typeName}`, desc.deprecated);
     out.push(
       `${doc}export const ${name} = {\n${members.join("\n\n")}\n} as const;\n\n` +
         `${doc}export type ${name} = (typeof ${name})[keyof typeof ${name}];\n\n` +
-        `export const ${names.schema.get(desc)} = ${typed(call(undefined, "union", `[${numbers.join(", ")}]`), desc)};\n`,
+        `export const ${names.schema.get(desc)} = ${typed(call(undefined, "protobufEnum", `{ ${desc.values.map((value) => `${property(value.name)}: ${value.number}`).join(", ")} }`), desc)};\n`,
     );
   }
 

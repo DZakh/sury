@@ -9,12 +9,12 @@ let number = S.union([S.float, S.literal(Float.Constants.nan)])
  */
 module User_Kind = {
   type t = | @as(0) Unspecified | @as(1) Person | @as(2) Robot
-  let schema: S.t<t> = S.enum([Unspecified, Person, Robot])->S.protobufTypeName("example.v1.User.Kind")
+  let schema: S.t<t> = S.protobufEnum(dict{"KIND_UNSPECIFIED": Unspecified, "KIND_PERSON": Person, "KIND_ROBOT": Robot})->S.protobufTypeName("example.v1.User.Kind")
 }
 
 module Reserved_Enum = {
   type t = | @as(0) Unspecified
-  let schema: S.t<t> = S.enum([Unspecified])->S.protobufTypeName("example.v1.Reserved.Enum")
+  let schema: S.t<t> = S.protobufEnum(dict{"ENUM_UNSPECIFIED": Unspecified})->S.protobufTypeName("example.v1.Reserved.Enum")
 }
 
 /**
@@ -22,12 +22,12 @@ module Reserved_Enum = {
  */
 module Mixed = {
   type t = | @as(0) MixedUnspecified | @as(1) Other
-  let schema: S.t<t> = S.enum([MixedUnspecified, Other])->S.protobufTypeName("example.v1.Mixed")
+  let schema: S.t<t> = S.protobufEnum(dict{"MIXED_UNSPECIFIED": MixedUnspecified, "OTHER": Other})->S.protobufTypeName("example.v1.Mixed")
 }
 
 module Aliased = {
   type t = | @as(0) Unspecified | @as(1) One
-  let schema: S.t<t> = S.enum([Unspecified, One])->S.protobufTypeName("example.v1.Aliased")
+  let schema: S.t<t> = S.protobufEnum(dict{"ALIASED_UNSPECIFIED": Unspecified, "ALIASED_ONE": One, "ALIASED_UNO": One})->S.protobufTypeName("example.v1.Aliased")
 }
 
 /**
@@ -35,7 +35,7 @@ module Aliased = {
  */
 module Lonely = {
   type t = | @as(0) Unspecified
-  let schema: S.t<t> = S.enum([Unspecified])->S.protobufTypeName("example.v1.Lonely")
+  let schema: S.t<t> = S.protobufEnum(dict{"LONELY_UNSPECIFIED": Unspecified})->S.protobufTypeName("example.v1.Lonely")
 }
 
 /**
@@ -43,7 +43,7 @@ module Lonely = {
  */
 module Status = {
   type t = | @as(0) Unknown | @as(1) Ok
-  let schema: S.t<t> = S.enum([Unknown, Ok])->S.protobufTypeName("example.v1.Status")
+  let schema: S.t<t> = S.protobufEnum(dict{"STATUS_UNKNOWN": Unknown, "STATUS_OK": Ok})->S.protobufTypeName("example.v1.Status")
 }
 
 /**
@@ -369,9 +369,9 @@ module Reserved = {
     enum: Reserved_Enum.t,
   }
   let schema: S.t<t> = S.schema(s => {
-    constructor_: s.matches(S.string->S.protobufField(1)),
-    toString_: s.matches(S.string->S.protobufField(2)),
-    valueOf_: s.matches(S.int->S.protobufField(3)),
+    constructor_: s.matches(S.string->S.protobufField(1, ~name="constructor")),
+    toString_: s.matches(S.string->S.protobufField(2, ~name="to_string")),
+    valueOf_: s.matches(S.int->S.protobufField(3, ~name="value_of")),
     enum: s.matches(Reserved_Enum.schema->S.protobufField(4, ~type_=#enum)),
   })->S.protobufTypeName("example.v1.Reserved")
 }

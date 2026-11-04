@@ -1,7 +1,7 @@
 import type { Element, Enum, Field, File, Message, Oneof, Scalar } from "./model";
 import { nestedTypes } from "./model";
 import { namesOf } from "./names";
-import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedType, wktImport, wrapperScalar } from "./shared";
+import { type Group, type Options, commentLines, componentsOf, groupOf, groupRef, header, inCallback, is64, isRecursive, messageOf, isStruct, packable, statedKey, statedName, statedType, wktImport, wrapperScalar } from "./shared";
 
 const keywords = new Set([
   "and", "as", "assert", "async", "await", "catch", "constraint", "downto", "else", "exception", "external",
@@ -170,6 +170,8 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     if (type !== undefined) args += `, ~type_=${variant(type)}`;
     if (statedKey(field) !== undefined) args += `, ~key=#${field.mapKey}`;
     if (field.list && !field.packed && packable(field.element)) args += ", ~packed=false";
+    const name = statedName(field);
+    if (name !== undefined) args += `, ~name=${JSON.stringify(name)}`;
     return `${schema}->${S}protobufField(${args})`;
   };
 
@@ -303,7 +305,7 @@ export const resModules = (file: File, ctx: ResContext): { body: string; usesNum
     out.push(
       `${docstring(desc.path, "")}module ${moduleOf(desc)} = {\n` +
         `  type t =${values.map((value, idx) => ` | @as(${value.number}) ${constructors[idx]}`).join("")}\n` +
-        `${schemaDecl(desc, () => named(`${S}enum([${constructors.join(", ")}])`, desc))}}\n`,
+        `${schemaDecl(desc, () => named(`${S}protobufEnum(dict{${desc.values.map((value) => `${JSON.stringify(value.name)}: ${constructors[values.findIndex((first) => first.number === value.number)]}`).join(", ")}})`, desc))}}\n`,
     );
   }
 

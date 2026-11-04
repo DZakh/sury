@@ -605,6 +605,16 @@ export const arrayBuffer: Schema<ArrayBuffer, ArrayBuffer>;
 export const protobuf: Schema<Uint8Array, Uint8Array>;
 
 /**
+ * ProtoJSON, the JSON mapping of the message `S.protobuf` speaks: a field by
+ * its lowerCamelCase JSON name (its proto name reads too), a 64-bit integer as
+ * a decimal string, bytes as base64, an enum by name where `S.protobufEnum`
+ * names it, and the well-known types in their own forms (`"1.5s"`, an RFC 3339
+ * timestamp, a bare wrapper value). Convert a message schema to or from it with
+ * `S.to`, and through `S.jsonString` for the text.
+ */
+export const protobufJson: Schema<{ [key: string]: JSON }, { [key: string]: JSON }>;
+
+/**
  * A `google.protobuf.Any`: a message of any type, as its type URL and its bytes.
  * Convert it with `S.to` to a message `S.protobufTypeName` names, or to an
  * `S.union` of them, each one such message or an object or tuple holding one
@@ -710,6 +720,11 @@ export type ProtobufField = {
   key?: ProtobufType;
   /** Name of the `oneof` this field belongs to. Decoding a member clears the others. */
   oneof?: string;
+  /**
+   * The field's name in the `.proto`, when it isn't the property's snake_case.
+   * ProtoJSON reads it, beside the JSON name derived from it.
+   */
+  name?: string;
 };
 
 /**
@@ -727,6 +742,18 @@ export function protobufField<TInput, TOutput>(
  * instead of declaring it, and a `google.protobuf.Any` field holds the messages
  * named this way: see `S.protobuf`.
  */
+/**
+ * A protobuf enum by the names of its values: the union of their numbers, read
+ * and printed by name in ProtoJSON and declared with them by
+ * `S.toProtoOrThrow`. A second name for a number is an alias, read but not
+ * printed.
+ *
+ * ```ts
+ * const Kind = S.protobufEnum({ KIND_UNSPECIFIED: 0, KIND_USER: 1 });
+ * ```
+ */
+export function protobufEnum<const T extends Record<string, number>>(values: T): Schema<T[keyof T], T[keyof T]>;
+
 export function protobufTypeName<TInput, TOutput>(
   schema: SchemaLike<TInput, TOutput>,
   typeName: string

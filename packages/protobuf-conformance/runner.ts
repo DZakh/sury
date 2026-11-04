@@ -7,6 +7,7 @@
 // implementation (impl/*/runner.ts, Apache-2.0); the protocol is the same for
 // every testee, the codec under test is not.
 import { readSync, writeSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import * as S from "sury";
 import {
   type ConformanceResponse,
@@ -16,7 +17,7 @@ import {
   conformanceRequest,
   conformanceResponse,
 } from "./protocol";
-import { testAllTypesProto3 } from "./testMessages";
+import { testAllTypesProto3, testAllTypesProto3Strict } from "./testMessages";
 
 const decodeRequest = S.decodeOrThrow(S.protobuf, conformanceRequest);
 const encodeResponse = S.decodeOrThrow(conformanceResponse, S.protobuf);
@@ -25,8 +26,23 @@ const encodeResponse = S.decodeOrThrow(conformanceResponse, S.protobuf);
 const generated = process.env.SURY_CONFORMANCE_GENERATED;
 const message: S.Schema<unknown, unknown> =
   generated === undefined ? testAllTypesProto3 : (await import(generated)).TestAllTypesProto3Schema;
+// The generated module built again with every object strict: S.deepStrict
+// stops at the S.recursive a message that holds itself is.
+const strictGenerated = async (path: string): Promise<S.Schema<unknown, unknown>> => {
+  S.global({ defaultAdditionalItems: "strict" });
+  const module = await import(`${pathToFileURL(path).href}?strict`);
+  S.global({});
+  return module.TestAllTypesProto3Schema;
+};
+const strictMessage = generated === undefined ? testAllTypesProto3Strict : await strictGenerated(generated);
 const decodeMessage = S.decodeOrThrow(S.protobuf, message);
 const encodeMessage = S.decodeOrThrow(message, S.protobuf);
+// ProtoJSON rejects a key the message doesn't declare unless the request asks
+// to ignore it, which is S.strict's answer and the default's.
+const fromJson = S.decodeOrThrow(S.jsonString.with(S.to, S.protobufJson), message);
+const fromJsonStrict = S.decodeOrThrow(S.jsonString.with(S.to, S.protobufJson), strictMessage);
+const toJson = S.decodeOrThrow(message, S.protobufJson.with(S.to, S.jsonString));
+const JSON_IGNORE_UNKNOWN_PARSING_TEST = 3;
 
 // The one message type S.protobuf speaks. proto2 and the editions variants are
 // answered `skipped`, which the runner counts as neither pass nor fail.
@@ -52,30 +68,32 @@ const skip = (why: string): ConformanceResponse => {
 };
 
 const test = (request: S.Output<typeof conformanceRequest>): ConformanceResponse => {
-  // ProtoJSON and text format are separate wire formats Sury does not speak.
-  if (request.jsonPayload !== undefined) return skip("ProtoJSON input is not supported");
+  // Text format is a wire format Sury does not speak.
   if (request.textPayload !== undefined) return skip("text format input is not supported");
   if (request.jspbPayload !== undefined) return skip("JSPB is Google-internal");
-  if (request.requestedOutputFormat === JSON_FORMAT) return skip("ProtoJSON output is not supported");
   if (request.requestedOutputFormat === TEXT_FORMAT) return skip("text format output is not supported");
-  if (request.requestedOutputFormat !== PROTOBUF) return skip("unknown output format");
+  if (request.requestedOutputFormat !== PROTOBUF && request.requestedOutputFormat !== JSON_FORMAT) return skip("unknown output format");
   if (request.messageType !== PROTO3) {
     // proto2 and the editions variants, named by their short form so the skip
     // breakdown reads as a list of message types rather than of full paths.
     return skip(`${request.messageType.replace(/^.*\./, "")} messages are not supported`);
   }
-  if (request.protobufPayload === undefined) return skip("no payload");
+  if (request.protobufPayload === undefined && request.jsonPayload === undefined) return skip("no payload");
 
   let value;
   try {
-    value = decodeMessage(request.protobufPayload);
+    value = request.jsonPayload !== undefined
+      ? (request.testCategory === JSON_IGNORE_UNKNOWN_PARSING_TEST ? fromJson : fromJsonStrict)(request.jsonPayload)
+      : decodeMessage(request.protobufPayload!);
   } catch (error) {
     // A parse error is the right answer for the suite's intentionally invalid
     // inputs, so this is not a failure by itself.
     return { ...empty, parseError: String((error as Error).message) };
   }
   try {
-    return { ...empty, protobufPayload: encodeMessage(value) };
+    return request.requestedOutputFormat === JSON_FORMAT
+      ? { ...empty, jsonPayload: toJson(value) }
+      : { ...empty, protobufPayload: encodeMessage(value) };
   } catch (error) {
     return { ...empty, serializeError: String((error as Error).message) };
   }

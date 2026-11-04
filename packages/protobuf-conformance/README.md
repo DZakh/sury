@@ -57,12 +57,17 @@ for.
 
 ## What is counted
 
-`S.protobuf` speaks the protobuf binary format. ProtoJSON, text format and the
-proto2 message types are answered `skipped`, which the runner counts as neither
-pass nor fail, and the rate is over what is left - every binary proto3 case,
-none of them skipped.
+`S.protobuf` speaks the protobuf binary format and `S.protobufJson` ProtoJSON.
+Text format and the proto2 message types are answered `skipped`, which the
+runner counts as neither pass nor fail, and the rate is over what is left -
+every binary and ProtoJSON proto3 case, none of them skipped. ProtoJSON input is
+read through `S.jsonString`, and a case that asks to ignore unknown fields reads
+into the schema as written, the rest into one built with every object
+`S.strict`.
 
 `failing_tests.txt` names the cases expected to fail, each with its reason. A
 case that starts failing without a line there fails the job; so does a case
 that starts passing, because the golden moves. Both want the same one-line fix
 and a re-baseline in the same commit.
+`failing_tests_generated.txt` adds what protoc-gen-sury's schema fails beyond
+that, for `generated` alone.

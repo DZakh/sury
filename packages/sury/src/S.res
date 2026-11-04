@@ -648,12 +648,15 @@ type protobufFieldOptions = {
   packed?: bool,
   key?: protobufType,
   oneof?: string,
+  name?: string,
 }
 @module("sury")
 external protobufField_: (t<'value>, protobufFieldOptions) => t<'value> = "protobufField"
-let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?) =>
-  protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof})
+let protobufField = (schema, number, ~type_=?, ~packed=?, ~key=?, ~oneof=?, ~name=?) =>
+  protobufField_(schema, {number, ?type_, ?packed, ?key, ?oneof, ?name})
 @module("sury") external protobufTypeName: (t<'value>, string) => t<'value> = "protobufTypeName"
+@module("sury") external protobufEnum: dict<'value> => t<'value> = "protobufEnum"
+@module("sury") external protobufJson: t<dict<JSON.t>> = "protobufJson"
 
 // The public JS `refine` takes an options object; build it here from the
 // ReScript labeled args.

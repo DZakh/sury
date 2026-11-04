@@ -37,7 +37,7 @@ export const User_Kind = {
  */
 export type User_Kind = (typeof User_Kind)[keyof typeof User_Kind];
 
-export const User_KindSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1, 2]), "example.v1.User.Kind");
+export const User_KindSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ KIND_UNSPECIFIED: 0, KIND_PERSON: 1, KIND_ROBOT: 2 }), "example.v1.User.Kind");
 
 /**
  * @generated from enum example.v1.Reserved.Enum
@@ -54,7 +54,7 @@ export const Reserved_Enum = {
  */
 export type Reserved_Enum = (typeof Reserved_Enum)[keyof typeof Reserved_Enum];
 
-export const Reserved_EnumSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0]), "example.v1.Reserved.Enum");
+export const Reserved_EnumSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ ENUM_UNSPECIFIED: 0 }), "example.v1.Reserved.Enum");
 
 /**
  * An enum whose values keep their prefix: not every value shares it.
@@ -80,7 +80,7 @@ export const Mixed = {
  */
 export type Mixed = (typeof Mixed)[keyof typeof Mixed];
 
-export const MixedSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1]), "example.v1.Mixed");
+export const MixedSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ MIXED_UNSPECIFIED: 0, OTHER: 1 }), "example.v1.Mixed");
 
 /**
  * @generated from enum example.v1.Aliased
@@ -107,7 +107,7 @@ export const Aliased = {
  */
 export type Aliased = (typeof Aliased)[keyof typeof Aliased];
 
-export const AliasedSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1]), "example.v1.Aliased");
+export const AliasedSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ ALIASED_UNSPECIFIED: 0, ALIASED_ONE: 1, ALIASED_UNO: 1 }), "example.v1.Aliased");
 
 /**
  * Only one value.
@@ -128,7 +128,7 @@ export const Lonely = {
  */
 export type Lonely = (typeof Lonely)[keyof typeof Lonely];
 
-export const LonelySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0]), "example.v1.Lonely");
+export const LonelySchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ LONELY_UNSPECIFIED: 0 }), "example.v1.Lonely");
 
 /**
  * Its zero strips to UNKNOWN, a constructor ReScript's own types have too.
@@ -154,7 +154,7 @@ export const Status = {
  */
 export type Status = (typeof Status)[keyof typeof Status];
 
-export const StatusSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.union([0, 1]), "example.v1.Status");
+export const StatusSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.protobufEnum({ STATUS_UNKNOWN: 0, STATUS_OK: 1 }), "example.v1.Status");
 
 /**
  * Every scalar protobuf has, once each.
@@ -742,9 +742,9 @@ export type Reserved = {
 };
 
 export const ReservedSchema = /* @__PURE__ */ S.protobufTypeName(/* @__PURE__ */ S.meta(/* @__PURE__ */ S.schemaOf<Reserved>()({
-  constructor$: /* @__PURE__ */ S.protobufField(S.string, 1),
-  toString$: /* @__PURE__ */ S.protobufField(S.string, 2),
-  valueOf$: /* @__PURE__ */ S.protobufField(S.int32, 3),
+  constructor$: /* @__PURE__ */ S.protobufField(S.string, { number: 1, name: "constructor" }),
+  toString$: /* @__PURE__ */ S.protobufField(S.string, { number: 2, name: "to_string" }),
+  valueOf$: /* @__PURE__ */ S.protobufField(S.int32, { number: 3, name: "value_of" }),
   enum: /* @__PURE__ */ S.protobufField(Reserved_EnumSchema, { number: 4, type: "enum" }),
 }), { name: "Reserved" }), "example.v1.Reserved");
 

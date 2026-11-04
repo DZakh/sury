@@ -1063,7 +1063,7 @@ const atobToBytes = (text: string): Uint8Array => {
 // pattern first, which is the whole reason the format carries one. `noValidation`
 // voids that the way it voids the escape-free proof - a caller who asserts a
 // value is base64 and is wrong gets the platform's own exception.
-const stdCodec = /* @__PURE__ */ (() => {
+export const stdCodec = /* @__PURE__ */ (() => {
   const n = Uint8Array as unknown as NativeBase64;
   if (n.fromBase64 !== U && n.prototype.toBase64 !== U) {
     return {
