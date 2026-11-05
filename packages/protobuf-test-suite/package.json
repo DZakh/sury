@@ -12,7 +12,9 @@
     "sury": "file:../sury"
   },
   "devDependencies": {
+    "@bufbuild/buf": "1.73.0",
     "@bufbuild/protobuf": "^2.14.1",
+    "@bufbuild/protoc-gen-es": "2.14.1",
     "@protobuf-ts/runtime": "^2.11.1",
     "@types/node": "20.19.41",
     "esbuild": "0.28.1",

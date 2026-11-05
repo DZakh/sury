@@ -3,27 +3,17 @@
 // codegen, protobuf-es (@bufbuild/protobuf) and pbf (Mapbox). Each one is
 // driven the way its README shows, with a copying finish where the library
 // offers a choice, so nothing here is a benchmark-only fast path.
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { create, createFileRegistry, fromBinary, toBinary, type DescMessage } from "@bufbuild/protobuf";
-import {
-  anyPack,
-  anyUnpack,
-  FieldDescriptorProto_Label,
-  FieldDescriptorProto_Type,
-  FileDescriptorProtoSchema,
-  FileDescriptorSetSchema,
-  file_google_protobuf_any,
-  file_google_protobuf_timestamp,
-  timestampFromDate,
-} from "@bufbuild/protobuf/wkt";
+import { create, createRegistry, fromBinary, toBinary, type DescMessage } from "@bufbuild/protobuf";
+import { anyPack, anyUnpack, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { PbfReader, PbfWriter } from "pbf";
 import { compile as compilePbf } from "pbf/compile";
 import schemaParse from "protocol-buffers-schema";
 import protobuf from "protobufjs";
-import descriptor from "protobufjs/ext/descriptor/index.js";
 import { main as pbjsMain } from "protobufjs-cli/pbjs";
 import * as S from "sury";
 import { type FieldDef, suryMessage } from "./cases";
@@ -178,6 +168,23 @@ type Library = { id: string; codec: (work: Workload, bytes: Uint8Array) => Promi
 const bigintsToLong = (fields: FieldDef[], value: Record<string, unknown>): Record<string, unknown> =>
   toPbjsValue(fields, value);
 
+// protobuf-es has one serializer, which walks a descriptor, so a descriptor
+// built at runtime looks like it should time the same as a generated one. It
+// doesn't: protoc-gen-es output decodes `tiny` 24% faster, and running it is
+// the only thing protobuf-es documents. Generating here keeps this column the
+// configuration a project actually ships, as the protobufjs static one is.
+const esGenerated = async <T>(id: string, source: string): Promise<T> => {
+  const dir = fileURLToPath(new URL(`./.generated/es-${id}/`, import.meta.url));
+  const bin = (name: string) => fileURLToPath(new URL(`./node_modules/.bin/${name}`, import.meta.url));
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}m.proto`, source);
+  writeFileSync(`${dir}buf.yaml`, "version: v2\n");
+  writeFileSync(`${dir}buf.gen.yaml`, `version: v2\nplugins:\n  - local: ${bin("protoc-gen-es")}\n    out: ${dir}out\n    opt: [target=ts]\n`);
+  execFileSync(bin("buf"), ["generate", dir, "--template", `${dir}buf.gen.yaml`], { stdio: "pipe" });
+  return (await import(`${dir}out/m_pb.ts`)) as T;
+};
+
 export const libraries: Library[] = [
   {
     id: "sury",
@@ -218,15 +225,10 @@ export const libraries: Library[] = [
   },
   {
     id: "protobuf-es",
-    codec: (work, bytes) => {
-      const root = protobuf.parse(protoSource(work.fields)).root;
-      const set = (root as unknown as { toDescriptor: (syntax: string) => unknown }).toDescriptor("proto3");
-      const setBytes = (descriptor as unknown as { FileDescriptorSet: { encode: (v: unknown) => { finish: () => Uint8Array } } })
-        .FileDescriptorSet.encode(set).finish();
-      const registry = createFileRegistry(fromBinary(FileDescriptorSetSchema, setBytes));
-      const schema = registry.getMessage("M") as DescMessage;
-      const value = fromBinary(schema, bytes);
-      return { encode: () => toBinary(schema, value), decode: () => fromBinary(schema, bytes) };
+    codec: async (work, bytes) => {
+      const { MSchema } = await esGenerated<{ MSchema: DescMessage }>(work.id, protoSource(work.fields));
+      const value = fromBinary(MSchema, bytes);
+      return { encode: () => toBinary(MSchema, value), decode: () => fromBinary(MSchema, bytes) };
     },
   },
   {
@@ -342,52 +344,6 @@ const pbjsRichCodec = (types: { M: PbjsType; User: PbjsType; Point: PbjsType }, 
   };
 };
 
-const esRichRegistry = () => {
-  const { MESSAGE, INT32, UINT32, INT64, STRING } = FieldDescriptorProto_Type;
-  const { OPTIONAL, REPEATED } = FieldDescriptorProto_Label;
-  const f = (name: string, number: number, type: FieldDescriptorProto_Type, typeName?: string, extra: object = {}) => ({
-    name,
-    number,
-    type,
-    typeName,
-    label: OPTIONAL,
-    jsonName: name,
-    ...extra,
-  });
-  const file = create(FileDescriptorProtoSchema, {
-    name: "rich.proto",
-    syntax: "proto3",
-    dependency: ["google/protobuf/any.proto", "google/protobuf/timestamp.proto"],
-    messageType: [
-      { name: "User", field: [f("id", 1, INT32), f("name", 2, STRING)] },
-      { name: "Point", field: [f("x", 1, INT32), f("y", 2, INT32)] },
-      {
-        name: "Item",
-        oneofDecl: [{ name: "kind" }],
-        field: [
-          f("text", 1, STRING, undefined, { oneofIndex: 0 }),
-          f("point", 2, MESSAGE, ".Point", { oneofIndex: 0 }),
-          f("count", 3, INT64, undefined, { oneofIndex: 0 }),
-        ],
-      },
-      {
-        name: "M",
-        field: [
-          f("id", 1, UINT32),
-          f("at", 2, MESSAGE, ".google.protobuf.Timestamp"),
-          f("detail", 3, MESSAGE, ".google.protobuf.Any"),
-          f("items", 4, MESSAGE, ".Item", { label: REPEATED }),
-        ],
-      },
-    ],
-  } as never);
-  return createFileRegistry(file, (name) =>
-    name === "google/protobuf/any.proto" ? file_google_protobuf_any.proto
-    : name === "google/protobuf/timestamp.proto" ? file_google_protobuf_timestamp.proto
-    : undefined,
-  );
-};
-
 export const CUSTOM: Custom[] = [
   {
     id: "oneof-any",
@@ -413,11 +369,10 @@ export const CUSTOM: Custom[] = [
         );
         return pbjsRichCodec((await import(out)) as { M: PbjsType; User: PbjsType; Point: PbjsType }, bytes);
       },
-      "protobuf-es": (bytes) => {
-        const registry = esRichRegistry();
-        const M = registry.getMessage("M")!;
-        const User = registry.getMessage("User")!;
-        const Point = registry.getMessage("Point")!;
+      "protobuf-es": async (bytes) => {
+        const gen = await esGenerated<Record<string, DescMessage>>("oneof-any", richProto);
+        const [M, User, Point] = [gen.MSchema!, gen.UserSchema!, gen.PointSchema!];
+        const registry = createRegistry(M, User, Point);
         const user = create(User, richUser as never);
         const value = create(M, {
           id: 7,
@@ -456,11 +411,34 @@ const timeNs = (fn: () => unknown, n: number): number => {
   return Number(process.hrtime.bigint() - start) / n;
 };
 
+// A codec that quietly encodes less than the others reads as the fastest one
+// here, and nothing about a timing says which happened. So every cell has to
+// earn its place: what the library encodes goes back through S.protobuf and
+// must equal what the reference bytes decode to, and its own decode must
+// return something. Both run before the timing loop, outside it.
+// Field order and packing are a writer's choice, so the bytes themselves may
+// differ between two correct libraries. The value they read back as may not.
+const sameThroughSury = (schema: S.Schema<unknown, unknown>, bytes: Uint8Array) => {
+  const decode = S.decodeOrThrow(S.protobuf, schema);
+  const isEqual = S.isEqualOutput(schema);
+  const reference = decode(bytes);
+  return (encoded: Uint8Array) => isEqual(decode(encoded), reference);
+};
+
+const holdCodec = (id: string, library: string, codec: Codec, agrees: (encoded: Uint8Array) => boolean) => {
+  const encoded = codec.encode();
+  if (!agrees(encoded)) {
+    throw new Error(`${library} encodes ${id} as something S.protobuf reads back as a different value (${encoded.length} bytes)`);
+  }
+  if (codec.decode() === undefined) throw new Error(`${library} decodes ${id} as undefined`);
+};
+
 const benchRow = async (
   id: string,
   bytes: Uint8Array,
   samples: number,
   codecOf: (library: Library) => Promise<Codec> | Codec | undefined,
+  agrees: (encoded: Uint8Array) => boolean,
 ): Promise<BenchRow> => {
   // Bigger messages get fewer iterations so every workload takes roughly
   // the same wall time per sample.
@@ -469,6 +447,7 @@ const benchRow = async (
   for (const library of libraries) {
     const codec = await codecOf(library);
     if (codec === undefined) continue;
+    holdCodec(id, library.id, codec, agrees);
     const encodeNs: number[] = [];
     const decodeNs: number[] = [];
     for (let i = 0; i < samples; i++) {
@@ -484,8 +463,10 @@ export const runBench = async (samples = 7, only?: string[]): Promise<BenchRow[]
   const rows: BenchRow[] = [];
   for (const work of WORKLOADS) {
     if (only?.length && !only.includes(work.id)) continue;
-    const bytes = S.decodeOrThrow(suryMessage(work.fields), S.protobuf)(work.value);
-    rows.push(await benchRow(work.id, bytes, samples, (library) => library.codec(work, bytes)));
+    const schema = suryMessage(work.fields);
+    const bytes = S.decodeOrThrow(schema, S.protobuf)(work.value);
+    const agrees = sameThroughSury(schema, bytes);
+    rows.push(await benchRow(work.id, bytes, samples, (library) => library.codec(work, bytes), agrees));
   }
   for (const work of CUSTOM) {
     if (only?.length && !only.includes(work.id)) continue;
@@ -493,9 +474,15 @@ export const runBench = async (samples = 7, only?: string[]): Promise<BenchRow[]
     const encode = S.decodeOrThrow(schema, S.protobuf);
     const decode = S.decodeOrThrow(S.protobuf, schema);
     const bytes = encode(work.value);
+    const agrees = sameThroughSury(schema, bytes);
     rows.push(
-      await benchRow(work.id, bytes, samples, (library) =>
-        library.id === "sury" ? { encode: () => encode(work.value), decode: () => decode(bytes) } : work.codecs[library.id]?.(bytes),
+      await benchRow(
+        work.id,
+        bytes,
+        samples,
+        (library) =>
+          library.id === "sury" ? { encode: () => encode(work.value), decode: () => decode(bytes) } : work.codecs[library.id]?.(bytes),
+        agrees,
       ),
     );
   }
